@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -17,15 +18,19 @@ import {
   DollarSign,
   Edit,
   Mail,
-  Share2
+  Share2,
+  Loader2, // Added Loader2 import
+  Home // Assuming Home is used for the project gallery placeholder
 } from "lucide-react";
 import { format } from "date-fns";
 import MeasurementSummaryCard from "./MeasurementSummaryCard";
 import ResultsMapView from "./ResultsMapView";
+import { generateHomeownerPDFContent, downloadPDF } from "./PDFGenerator"; // Added PDF utility imports
 
 export default function HomeownerResults({ measurement, user, setMeasurement }) {
   const [materialType, setMaterialType] = useState("asphalt_shingles");
   const [savingInteraction, setSavingInteraction] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false); // New state for PDF download
 
   // Calculate pricing
   const totalArea = measurement?.total_sqft || 0;
@@ -80,6 +85,52 @@ export default function HomeownerResults({ measurement, user, setMeasurement }) 
       console.error("Failed to track quote request:", err);
     } finally {
       setSavingInteraction(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!measurement) return;
+
+    setDownloadingPdf(true);
+    
+    try {
+      // Track download
+      const currentCount = measurement.pdf_download_count || 0;
+      await base44.entities.Measurement.update(measurement.id, {
+        pdf_download_count: currentCount + 1,
+        pdf_generated_date: new Date().toISOString()
+      });
+      // Update local measurement state for immediate feedback if needed, though not strictly necessary here.
+      setMeasurement({ ...measurement, pdf_download_count: currentCount + 1, pdf_generated_date: new Date().toISOString() });
+
+
+      // Generate PDF content
+      const estimate = {
+        materialType: materialNames[materialType],
+        materialCost,
+        laborCost,
+        wasteCost,
+        subtotal,
+        low: lowEstimate,
+        high: highEstimate
+      };
+
+      const pdfContent = generateHomeownerPDFContent(
+        measurement,
+        sections,
+        totalArea,
+        estimate
+      );
+
+      // Download as HTML file (can be opened in browser and printed as PDF)
+      const filename = `Aroof_Measurement_${measurement.property_address.replace(/[^a-z0-9]/gi, '_')}_${format(new Date(), 'yyyy-MM-dd')}.html`;
+      downloadPDF(pdfContent, filename);
+
+    } catch (err) {
+      console.error("Failed to generate PDF:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -366,9 +417,23 @@ export default function HomeownerResults({ measurement, user, setMeasurement }) 
 
         {/* Additional Options */}
         <div className="mt-8 flex flex-wrap justify-center gap-4">
-          <Button variant="outline" size="lg">
-            <Download className="w-4 h-4 mr-2" />
-            Download PDF Report
+          <Button 
+            variant="outline" 
+            size="lg"
+            onClick={handleDownloadPDF}
+            disabled={downloadingPdf}
+          >
+            {downloadingPdf ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating PDF...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 mr-2" />
+                Download PDF Report
+              </>
+            )}
           </Button>
           <Button variant="outline" size="lg">
             <Mail className="w-4 h-4 mr-2" />
