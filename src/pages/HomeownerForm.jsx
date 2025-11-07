@@ -36,28 +36,21 @@ export default function HomeownerForm() {
     setLoading(true);
     
     try {
-      console.log("Creating user...");
+      console.log("Creating measurement record...");
       
-      // Create user
-      const userData = await base44.entities.User.create({
-        user_type: "homeowner",
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        agrees_to_quotes: formData.agrees_to_quotes
-      });
-
-      console.log("User created:", userData);
-
-      // Create measurement record (skip payment for now)
+      // Create measurement record with homeowner info embedded
+      // Skip user creation since users must be invited manually in Base44
       const measurement = await base44.entities.Measurement.create({
-        user_id: userData.id,
         property_address: formData.property_address,
         user_type: "homeowner",
         payment_amount: 3,
         payment_status: "completed",
         stripe_payment_id: "demo_" + Date.now(),
-        lead_status: "new"
+        lead_status: "new",
+        customer_name: formData.name,
+        customer_email: formData.email,
+        customer_phone: formData.phone,
+        agrees_to_quotes: formData.agrees_to_quotes
       });
 
       console.log("Measurement created:", measurement);
@@ -288,15 +281,6 @@ export default function HomeownerForm() {
                 <p className="text-slate-700">Schedule free consultation and book your project</p>
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Debug Info (remove in production) */}
-        <Card className="mt-6 bg-yellow-50 border-yellow-200">
-          <CardContent className="p-4">
-            <p className="text-sm text-yellow-800">
-              <strong>Debug Info:</strong> Check your browser console (F12) for detailed logs if the form doesn't submit.
-            </p>
           </CardContent>
         </Card>
       </div>
