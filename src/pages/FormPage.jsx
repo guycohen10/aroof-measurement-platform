@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -107,7 +108,8 @@ export default function FormPage() {
         console.log("Place data:", placeData);
 
         setSelectedPlace(placeData);
-        setFormData({ ...formData, address: place.formatted_address });
+        // Use functional update to avoid stale closure
+        setFormData(prev => ({ ...prev, address: place.formatted_address }));
         setError(""); // Clear any previous errors
       });
 
@@ -120,9 +122,9 @@ export default function FormPage() {
 
   const handleAddressChange = (e) => {
     const value = e.target.value;
-    setFormData({ ...formData, address: value });
+    setFormData(prev => ({ ...prev, address: value }));
     
-    // Clear selected place if user types manually
+    // Clear selected place if user manually changes the input after selecting
     if (selectedPlace && value !== selectedPlace.formatted_address) {
       setSelectedPlace(null);
     }
@@ -216,7 +218,7 @@ export default function FormPage() {
                   required
                   placeholder="John Smith"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   className="mt-2 h-12 text-lg"
                   disabled={loading}
                 />
@@ -233,7 +235,7 @@ export default function FormPage() {
                   required
                   placeholder="john@example.com"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   className="mt-2 h-12 text-lg"
                   disabled={loading}
                 />
@@ -250,7 +252,7 @@ export default function FormPage() {
                   required
                   placeholder="(555) 123-4567"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                   className="mt-2 h-12 text-lg"
                   disabled={loading}
                 />
@@ -262,7 +264,7 @@ export default function FormPage() {
                   Property Address <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative mt-2">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 z-10" />
                   <Input
                     ref={addressInputRef}
                     id="address"
@@ -332,7 +334,7 @@ export default function FormPage() {
           box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
           margin-top: 4px;
           font-family: inherit;
-          z-index: 9999;
+          z-index: 9999 !important;
         }
         .pac-item {
           padding: 12px 16px;
