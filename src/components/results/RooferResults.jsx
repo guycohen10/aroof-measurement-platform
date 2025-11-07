@@ -1,17 +1,71 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, Mail, CheckCircle, Layers, Building2 } from "lucide-react";
-import { format } from "date-fns";
-import ResultsMapView from "./ResultsMapView";
-
-const SECTION_COLORS = ["#4A90E2", "#50C878", "#FF8C42", "#9B59B6", "#E74C3C"];
+import React, { useEffect, useState } from "react";
+import { base44 } from "@/api/base44Client";
+import { CheckCircle, Loader2 } from "lucide-react";
+import ReportHeader from "./roofer/ReportHeader";
+import DetailedMeasurements from "./roofer/DetailedMeasurements";
+import WatermarkedMapView from "./roofer/WatermarkedMapView";
+import MaterialEstimator from "./roofer/MaterialEstimator";
+import ReportActions from "./roofer/ReportActions";
+import MeasurementHistory from "./roofer/MeasurementHistory";
 
 export default function RooferResults({ measurement, user }) {
+  const [measurements, setMeasurements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [reportId, setReportId] = useState("");
+
+  useEffect(() => {
+    loadData();
+  }, [measurement, user]);
+
+  const loadData = async () => {
+    try {
+      // Update last accessed date
+      if (measurement?.id) {
+        await base44.entities.Measurement.update(measurement.id, {
+          last_accessed_date: new Date().toISOString()
+        });
+
+        // Generate or load report ID
+        if (!measurement.report_id) {
+          const newReportId = `ARM-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+          await base44.entities.Measurement.update(measurement.id, {
+            report_id: newReportId
+          });
+          setReportId(newReportId);
+        } else {
+          setReportId(measurement.report_id);
+        }
+      }
+
+      // Load roofer's measurement history
+      if (user?.email) {
+        const allMeasurements = await base44.entities.Measurement.filter(
+          { created_by: user.email, user_type: "roofer" },
+          "-created_date",
+          10
+        );
+        setMeasurements(allMeasurements.filter(m => m.id !== measurement?.id));
+      }
+    } catch (err) {
+      console.error("Failed to load data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sections = measurement?.measurement_data?.sections || [];
   const totalArea = measurement?.total_sqft || 0;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-orange-500 mx-auto mb-4" />
+          <p className="text-slate-600">Loading report...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -21,9 +75,9 @@ export default function RooferResults({ measurement, user }) {
           <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-center md:text-left">
             <CheckCircle className="w-12 h-12 flex-shrink-0" />
             <div>
-              <h2 className="text-3xl font-bold mb-1">Measurement Complete!</h2>
+              <h2 className="text-3xl font-bold mb-1">Professional Measurement Report</h2>
               <p className="text-orange-100 text-lg">
-                Your professional measurement report is ready
+                Your measurement data is ready for download
               </p>
             </div>
           </div>
@@ -32,178 +86,66 @@ export default function RooferResults({ measurement, user }) {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Report Actions - Top */}
+        <div className="mb-8">
+          <ReportActions
+            measurement={measurement}
+            user={user}
+            reportId={reportId}
+          />
+        </div>
+
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Results */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Map View */}
-            <ResultsMapView
+          {/* Main Report Content */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Report Header */}
+            <ReportHeader
+              measurement={measurement}
+              user={user}
+              reportId={reportId}
+            />
+
+            {/* Detailed Measurements */}
+            <DetailedMeasurements
+              sections={sections}
+              totalArea={totalArea}
+            />
+
+            {/* Watermarked Map */}
+            <WatermarkedMapView
               propertyAddress={measurement?.property_address}
               sections={sections}
               measurementId={measurement?.id}
             />
 
-            {/* Measurement Details */}
-            <Card className="border-none shadow-xl">
-              <CardHeader className="border-b bg-slate-50">
-                <CardTitle className="text-2xl">Measurement Details</CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-6">
-                  <div>
-                    <p className="text-sm text-slate-500 mb-1">Property Address</p>
-                    <p className="font-medium text-slate-900 text-lg">{measurement?.property_address}</p>
-                  </div>
-                  
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-6">
-                    <p className="text-sm text-slate-600 mb-2">Total Roof Area</p>
-                    <p className="text-5xl font-bold text-orange-600">
-                      {totalArea.toLocaleString()} sq ft
-                    </p>
-                  </div>
-
-                  {sections.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-4">
-                        <Layers className="w-5 h-5 text-slate-600" />
-                        <h3 className="font-bold text-slate-900 text-lg">Section Breakdown</h3>
-                      </div>
-                      <div className="space-y-3">
-                        {sections.map((section, index) => (
-                          <div
-                            key={section.id}
-                            className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-5 h-5 rounded"
-                                style={{ backgroundColor: SECTION_COLORS[index % SECTION_COLORS.length] }}
-                              />
-                              <span className="font-medium text-slate-900 text-lg">{section.name}</span>
-                            </div>
-                            <span className="font-bold text-slate-900 text-xl">
-                              {section.area_sqft.toLocaleString()} sq ft
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="pt-4 border-t">
-                    <p className="text-sm text-slate-500 mb-1">Measurement Date</p>
-                    <p className="font-medium text-slate-900">
-                      {format(new Date(measurement?.created_date), 'MMMM d, yyyy h:mm a')}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Download Report */}
-            <Card className="border-none shadow-xl bg-gradient-to-br from-slate-800 to-slate-900 text-white">
-              <CardContent className="p-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div>
-                    <h3 className="font-bold text-xl mb-2">Professional Report</h3>
-                    <p className="text-slate-300">
-                      Download your complete measurement report with all section details
-                    </p>
-                  </div>
-                  <Button size="lg" className="bg-orange-500 hover:bg-orange-600 whitespace-nowrap">
-                    <Download className="w-5 h-5 mr-2" />
-                    Download PDF
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Material Estimator */}
+            <MaterialEstimator
+              totalArea={totalArea}
+              sections={sections}
+            />
           </div>
 
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Business Info */}
-            <Card className="border-none shadow-xl">
-              <CardHeader className="border-b bg-slate-50">
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5" />
-                  Business Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  {user?.business_name && (
-                    <div>
-                      <p className="text-sm text-slate-500 mb-1">Business Name</p>
-                      <p className="font-medium text-slate-900">{user.business_name}</p>
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-sm text-slate-500 mb-1">Contact Name</p>
-                    <p className="font-medium text-slate-900">{user?.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500 mb-1">Email</p>
-                    <p className="font-medium text-slate-900 text-sm break-all">{user?.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500 mb-1">Phone</p>
-                    <p className="font-medium text-slate-900">{user?.phone}</p>
-                  </div>
-                  {user?.license_number && (
-                    <div>
-                      <p className="text-sm text-slate-500 mb-1">License Number</p>
-                      <p className="font-medium text-slate-900">{user.license_number}</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Actions */}
-            <Card className="border-none shadow-xl">
-              <CardContent className="p-6 space-y-3">
-                <Button variant="outline" className="w-full justify-start" size="lg">
-                  <Mail className="w-4 h-4 mr-2" />
-                  Email Report
-                </Button>
-                <Button variant="outline" className="w-full justify-start" size="lg">
-                  <Download className="w-4 h-4 mr-2" />
-                  Print Report
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* New Measurement */}
-            <Card className="border-none shadow-xl bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-              <CardContent className="p-6">
-                <h3 className="font-bold text-xl mb-3">Need Another Measurement?</h3>
-                <p className="text-orange-100 mb-4">
-                  Get professional measurements for additional properties
-                </p>
-                <Link to={createPageUrl("RooferForm")}>
-                  <Button className="w-full bg-white text-orange-600 hover:bg-orange-50" size="lg">
-                    New Measurement
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+            {/* Quick Actions - Duplicate for visibility */}
+            <ReportActions
+              measurement={measurement}
+              user={user}
+              reportId={reportId}
+              compact={true}
+            />
           </div>
         </div>
 
-        {/* Email Confirmation */}
-        <Card className="mt-8 bg-blue-50 border-blue-200">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-3">
-              <Mail className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-bold text-slate-900 mb-1">Report Sent</h3>
-                <p className="text-slate-700">
-                  A copy of your measurement report has been sent to <strong>{user?.email}</strong>. 
-                  Check your inbox for the detailed PDF.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Measurement History */}
+        {measurements.length > 0 && (
+          <div className="mt-12">
+            <MeasurementHistory
+              measurements={measurements}
+              user={user}
+            />
+          </div>
+        )}
       </div>
     </>
   );
