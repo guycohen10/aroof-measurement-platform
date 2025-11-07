@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -7,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Home, ArrowLeft, Loader2, MapPin } from "lucide-react";
+import { Home, ArrowLeft, Loader2, MapPin, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function FormPage() {
@@ -17,6 +16,7 @@ export default function FormPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [placesLoaded, setPlacesLoaded] = useState(false);
+  const [placesError, setPlacesError] = useState("");
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -27,53 +27,86 @@ export default function FormPage() {
 
   // Load Google Places API
   useEffect(() => {
+    console.log("FormPage: Starting Google Places load...");
+    
     // Check if already loaded
     if (window.google && window.google.maps && window.google.maps.places) {
-      console.log("Google Places already loaded");
+      console.log("FormPage: Google Places already loaded");
       setPlacesLoaded(true);
       return;
     }
 
     // Check if script is already in DOM
-    if (document.querySelector('script[src*="maps.googleapis.com"]')) {
-      console.log("Google Maps script already in DOM, waiting...");
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+    if (existingScript) {
+      console.log("FormPage: Google Maps script already in DOM, waiting...");
       const checkGoogle = setInterval(() => {
         if (window.google && window.google.maps && window.google.maps.places) {
           clearInterval(checkGoogle);
-          console.log("Google Places now available");
+          console.log("FormPage: Google Places now available");
           setPlacesLoaded(true);
         }
       }, 100);
+      
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        clearInterval(checkGoogle);
+        if (!window.google || !window.google.maps || !window.google.maps.places) {
+          console.error("FormPage: Timeout waiting for Google Places");
+          setPlacesError("Google Maps is taking too long to load. Please refresh the page.");
+        }
+      }, 10000);
+      
       return;
     }
 
     // Load script
     const apiKey = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
-    console.log("Loading Google Maps with Places library...");
+    
+    console.log("FormPage: Loading Google Maps script with Places library...");
+    console.log("FormPage: API Key:", apiKey.substring(0, 10) + "...");
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`;
     script.async = true;
     script.defer = true;
     
-    script.onload = () => {
-      console.log("✅ Google Places loaded successfully");
-      setPlacesLoaded(true);
+    // Add callback to window
+    window.initGoogleMaps = () => {
+      console.log("FormPage: ✅ Google Maps callback fired");
+      console.log("FormPage: window.google exists:", !!window.google);
+      console.log("FormPage: window.google.maps exists:", !!(window.google && window.google.maps));
+      console.log("FormPage: window.google.maps.places exists:", !!(window.google && window.google.maps && window.google.maps.places));
+      
+      if (window.google && window.google.maps && window.google.maps.places) {
+        setPlacesLoaded(true);
+      } else {
+        console.error("FormPage: Google Maps loaded but Places not available");
+        setPlacesError("Google Maps loaded but Places library is not available.");
+      }
     };
     
-    script.onerror = () => {
-      console.error("❌ Failed to load Google Places");
-      setError("Failed to load address autocomplete. You can still enter address manually.");
+    script.onerror = (e) => {
+      console.error("FormPage: ❌ Failed to load Google Maps script", e);
+      setPlacesError("Failed to load Google Maps. Please check your internet connection and refresh the page.");
     };
 
     document.head.appendChild(script);
+
+    // Cleanup
+    return () => {
+      delete window.initGoogleMaps;
+    };
   }, []);
 
   // Initialize autocomplete when Places API is loaded
   useEffect(() => {
-    if (!placesLoaded || !addressInputRef.current) return;
+    if (!placesLoaded || !addressInputRef.current) {
+      console.log("FormPage: Waiting for Places API or input ref...", { placesLoaded, hasInputRef: !!addressInputRef.current });
+      return;
+    }
 
-    console.log("Initializing Google Places Autocomplete...");
+    console.log("FormPage: Initializing Google Places Autocomplete...");
 
     try {
       const autocomplete = new window.google.maps.places.Autocomplete(
@@ -86,16 +119,19 @@ export default function FormPage() {
       );
 
       autocompleteRef.current = autocomplete;
+      console.log("FormPage: Autocomplete object created successfully");
 
       // Listen for place selection
       autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace();
         
-        console.log("Place selected:", place);
+        console.log("FormPage: Place changed event fired");
+        console.log("FormPage: Place object:", place);
 
         if (!place.geometry) {
-          console.warn("No geometry found for selected place");
+          console.warn("FormPage: No geometry found for selected place");
           setSelectedPlace(null);
+          setError("Please select a valid address from the dropdown");
           return;
         }
 
@@ -105,18 +141,17 @@ export default function FormPage() {
           lng: place.geometry.location.lng()
         };
 
-        console.log("Place data:", placeData);
+        console.log("FormPage: ✅ Valid place selected:", placeData);
 
         setSelectedPlace(placeData);
-        // Use functional update to avoid stale closure
         setFormData(prev => ({ ...prev, address: place.formatted_address }));
-        setError(""); // Clear any previous errors
+        setError("");
       });
 
-      console.log("✅ Autocomplete initialized successfully");
+      console.log("FormPage: ✅ Autocomplete initialized and listener added");
     } catch (err) {
-      console.error("Error initializing autocomplete:", err);
-      setError("Failed to initialize address autocomplete");
+      console.error("FormPage: ❌ Error initializing autocomplete:", err);
+      setPlacesError(`Failed to initialize address autocomplete: ${err.message}`);
     }
   }, [placesLoaded]);
 
@@ -126,6 +161,7 @@ export default function FormPage() {
     
     // Clear selected place if user manually changes the input after selecting
     if (selectedPlace && value !== selectedPlace.formatted_address) {
+      console.log("FormPage: User modified address, clearing selected place");
       setSelectedPlace(null);
     }
   };
@@ -133,6 +169,10 @@ export default function FormPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    console.log("FormPage: Form submitted");
+    console.log("FormPage: Selected place:", selectedPlace);
+    console.log("FormPage: Form data:", formData);
 
     // Validate that address was selected from autocomplete
     if (!selectedPlace) {
@@ -151,7 +191,7 @@ export default function FormPage() {
         address: selectedPlace.formatted_address
       });
 
-      console.log("Lead saved, redirecting with coordinates:", selectedPlace);
+      console.log("FormPage: Lead saved, redirecting with coordinates:", selectedPlace);
 
       // Redirect to measurement page with address AND coordinates
       const params = new URLSearchParams({
@@ -162,8 +202,8 @@ export default function FormPage() {
 
       navigate(createPageUrl(`MeasurementPage?${params.toString()}`));
     } catch (err) {
-      console.error("Error saving lead:", err);
-      setError("Failed to save information. Please try again.");
+      console.error("FormPage: Error saving lead:", err);
+      setError(`Failed to save information: ${err.message}. Please try again.`);
       setLoading(false);
     }
   };
@@ -200,7 +240,36 @@ export default function FormPage() {
             </p>
           </CardHeader>
           <CardContent className="p-6">
-            {error && (
+            {/* Google Maps Error */}
+            {placesError && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <p className="font-semibold mb-2">{placesError}</p>
+                  <div className="text-sm mt-2 space-y-1">
+                    <p><strong>Possible issues:</strong></p>
+                    <ul className="list-disc ml-4">
+                      <li>Billing not enabled on Google Cloud project</li>
+                      <li>Places API not enabled</li>
+                      <li>API key restrictions blocking the domain</li>
+                      <li>Daily quota exceeded</li>
+                    </ul>
+                    <p className="mt-2">
+                      <a 
+                        href="https://console.cloud.google.com/apis/credentials" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="underline"
+                      >
+                        Check your Google Cloud Console →
+                      </a>
+                    </p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {error && !placesError && (
               <Alert variant="destructive" className="mb-6">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
@@ -264,7 +333,7 @@ export default function FormPage() {
                   Property Address <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative mt-2">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 z-10" />
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 z-10 pointer-events-none" />
                   <Input
                     ref={addressInputRef}
                     id="address"
@@ -274,17 +343,17 @@ export default function FormPage() {
                     value={formData.address}
                     onChange={handleAddressChange}
                     className="h-12 text-lg pl-10"
-                    disabled={loading}
+                    disabled={loading || !!placesError}
                     autoComplete="off"
                   />
                 </div>
-                {!placesLoaded && (
+                {!placesLoaded && !placesError && (
                   <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
                     <Loader2 className="w-3 h-3 animate-spin" />
                     Loading address autocomplete...
                   </p>
                 )}
-                {placesLoaded && !selectedPlace && formData.address && (
+                {placesLoaded && !selectedPlace && formData.address && !placesError && (
                   <p className="text-xs text-amber-600 mt-2">
                     ⚠️ Please select your address from the dropdown suggestions
                   </p>
@@ -294,12 +363,17 @@ export default function FormPage() {
                     ✓ Address verified: {selectedPlace.formatted_address}
                   </p>
                 )}
+                {placesError && (
+                  <p className="text-xs text-slate-500 mt-2">
+                    You can still type your address manually and continue
+                  </p>
+                )}
               </div>
 
               {/* Submit Button */}
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (!selectedPlace && !placesError)}
                 className="w-full h-14 text-lg bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {loading ? (
@@ -311,6 +385,12 @@ export default function FormPage() {
                   "Measure My Roof"
                 )}
               </Button>
+
+              {placesError && (
+                <p className="text-center text-xs text-slate-500">
+                  Note: Address autocomplete is unavailable, but you can still continue
+                </p>
+              )}
             </form>
           </CardContent>
         </Card>
@@ -319,7 +399,10 @@ export default function FormPage() {
         <Card className="mt-6 bg-blue-50 border-blue-200">
           <CardContent className="p-4">
             <p className="text-sm text-blue-900">
-              <strong>💡 Tip:</strong> Start typing your address and select it from the dropdown for the most accurate measurements
+              <strong>💡 Tip:</strong> {placesLoaded ? 
+                "Start typing your address and select it from the dropdown for the most accurate measurements" :
+                "Once autocomplete loads, you'll be able to search for your address easily"
+              }
             </p>
           </CardContent>
         </Card>
