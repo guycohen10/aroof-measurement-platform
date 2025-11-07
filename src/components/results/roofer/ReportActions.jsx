@@ -15,18 +15,24 @@ import {
   Plus,
   FileText,
   Copy,
-  Check
+  Check,
+  Loader2
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { generateRooferPDF, downloadPDF } from "../PDFGenerator";
+import { format } from "date-fns";
 
 export default function ReportActions({ measurement, user, reportId, compact = false }) {
   const [notes, setNotes] = useState(measurement?.roofer_notes || "");
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [clientEmail, setClientEmail] = useState("");
+  const [clientName, setClientName] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [error, setError] = useState("");
 
   const handleSaveNotes = async () => {
     setSaving(true);
@@ -39,43 +45,97 @@ export default function ReportActions({ measurement, user, reportId, compact = f
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error("Failed to save notes:", err);
+      setError("Failed to save notes");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDownloadPDF = async () => {
+    setGenerating(true);
+    setError("");
+
     try {
+      // Generate PDF
+      const doc = await generateRooferPDF(measurement, user);
+      
+      // Create filename
+      const addressSlug = measurement.property_address
+        .replace(/[^a-zA-Z0-9]/g, '_')
+        .substring(0, 40);
+      const filename = `Roof_Measurement_${addressSlug}_${reportId}.pdf`;
+      
+      // Download
+      downloadPDF(doc, filename);
+      
+      // Update download count
       const currentCount = measurement.pdf_download_count || 0;
       await base44.entities.Measurement.update(measurement.id, {
-        pdf_download_count: currentCount + 1
+        pdf_download_count: currentCount + 1,
+        pdf_generated_date: new Date().toISOString()
       });
-      alert("PDF download will be generated with all measurements and watermarked images");
+      
+      setSuccessMessage("PDF downloaded successfully");
+      setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
-      console.error("Failed to update download count:", err);
+      console.error("Failed to generate PDF:", err);
+      setError("Failed to generate PDF. Please try again or contact support.");
+    } finally {
+      setGenerating(false);
     }
   };
 
   const handleEmailReport = async () => {
     if (!clientEmail) {
-      alert("Please enter client email address");
+      setError("Please enter client email address");
       return;
     }
 
+    setError("");
+    
     try {
+      // In production, this would generate PDF and send email via backend
       await base44.entities.Measurement.update(measurement.id, {
         email_sent: true,
-        email_sent_date: new Date().toISOString()
+        email_sent_date: new Date().toISOString(),
+        email_sent_to: clientEmail
       });
 
-      // In production, this would trigger email sending
+      // Simulate email sending (in production, use backend email service)
+      const emailBody = `
+Hello ${clientName || 'there'},
+
+Please find attached your professional roof measurement report prepared by ${user?.business_name || user?.name}.
+
+Property: ${measurement.property_address}
+Total Roof Area: ${measurement.total_sqft?.toLocaleString() || 0} sq ft
+Report ID: ${reportId}
+
+${emailMessage}
+
+This measurement was prepared using Aroof.build professional measurement technology.
+
+If you have any questions, please contact:
+${user?.business_name || user?.name}
+${user?.phone || ''}
+${user?.email || ''}
+
+Best regards,
+${user?.business_name || user?.name}
+      `;
+
+      console.log("Email would be sent to:", clientEmail);
+      console.log("Email body:", emailBody);
+
       setSuccessMessage(`Report sent to ${clientEmail}`);
       setShowEmailForm(false);
       setClientEmail("");
+      setClientName("");
       setEmailMessage("");
       setTimeout(() => setSuccessMessage(""), 5000);
     } catch (err) {
       console.error("Failed to send email:", err);
+      setError("Failed to send email. Please try again.");
     }
   };
 
@@ -87,6 +147,7 @@ export default function ReportActions({ measurement, user, reportId, compact = f
       setTimeout(() => setLinkCopied(false), 3000);
     } catch (err) {
       console.error("Failed to copy link:", err);
+      setError("Failed to copy link");
     }
   };
 
@@ -98,11 +159,21 @@ export default function ReportActions({ measurement, user, reportId, compact = f
           <div className="space-y-2">
             <Button 
               onClick={handleDownloadPDF}
+              disabled={generating}
               className="w-full bg-orange-500 hover:bg-orange-600 text-white" 
               size="lg"
             >
-              <Download className="w-5 h-5 mr-2" />
-              Download PDF Report
+              {generating ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Download className="w-5 h-5 mr-2" />
+                  Download PDF Report
+                </>
+              )}
             </Button>
 
             <Button 
@@ -180,6 +251,12 @@ export default function ReportActions({ measurement, user, reportId, compact = f
         </Alert>
       )}
 
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <Card className="border-none shadow-xl bg-gradient-to-br from-orange-500 to-orange-600 text-white">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -191,11 +268,21 @@ export default function ReportActions({ measurement, user, reportId, compact = f
             </div>
             <Button 
               onClick={handleDownloadPDF}
+              disabled={generating}
               size="lg" 
               className="bg-white text-orange-600 hover:bg-orange-50 h-14 px-8 text-lg font-bold whitespace-nowrap"
             >
-              <Download className="w-6 h-6 mr-2" />
-              Download PDF
+              {generating ? (
+                <>
+                  <Loader2 className="w-6 h-6 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Download className="w-6 h-6 mr-2" />
+                  Download PDF
+                </>
+              )}
             </Button>
           </div>
         </CardContent>
@@ -254,14 +341,27 @@ export default function ReportActions({ measurement, user, reportId, compact = f
                 />
               </div>
               <div>
-                <Label htmlFor="emailMessage">Optional Message</Label>
+                <Label htmlFor="clientName">Client Name (Optional)</Label>
+                <Input
+                  id="clientName"
+                  type="text"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  placeholder="John Smith"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="emailMessage">Custom Message (Optional)</Label>
                 <Textarea
                   id="emailMessage"
                   value={emailMessage}
                   onChange={(e) => setEmailMessage(e.target.value)}
-                  placeholder="Add a message for your client..."
+                  placeholder="Add a personal message for your client..."
                   className="mt-1 min-h-20"
+                  maxLength={500}
                 />
+                <p className="text-xs text-slate-500 mt-1">{emailMessage.length}/500</p>
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleEmailReport} className="bg-orange-500 hover:bg-orange-600">
@@ -272,9 +372,11 @@ export default function ReportActions({ measurement, user, reportId, compact = f
                   Cancel
                 </Button>
               </div>
-              <p className="text-xs text-slate-600">
-                Email will include: "This measurement report was prepared by {user?.business_name || user?.name} using Aroof.build measurement technology"
-              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                <p className="text-xs text-blue-900">
+                  <strong>Email will include:</strong> "This measurement report was prepared by {user?.business_name || user?.name} using Aroof.build measurement technology"
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

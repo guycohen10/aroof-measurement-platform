@@ -103,6 +103,8 @@ export default function HomeownerResults({ measurement, user, setMeasurement }) 
               measurement={measurement}
               sections={sections}
               totalArea={totalArea}
+              user={user}
+              estimate={estimate}
             />
           </div>
 
