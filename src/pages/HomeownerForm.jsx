@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Home, ArrowLeft, ArrowRight, Shield, CheckCircle } from "lucide-react";
+import { Home, ArrowLeft, ArrowRight, Shield, CheckCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function HomeownerForm() {
@@ -33,6 +33,7 @@ export default function HomeownerForm() {
 
     setLoading(true);
     try {
+      // Create user
       const userData = await base44.entities.User.create({
         user_type: "homeowner",
         name: formData.name,
@@ -41,9 +42,21 @@ export default function HomeownerForm() {
         agrees_to_quotes: formData.agrees_to_quotes
       });
 
-      // Navigate to payment page with user data
-      navigate(createPageUrl(`Payment?userId=${userData.id}&address=${encodeURIComponent(formData.property_address)}&type=homeowner`));
+      // Create measurement record (skip payment for now)
+      const measurement = await base44.entities.Measurement.create({
+        user_id: userData.id,
+        property_address: formData.property_address,
+        user_type: "homeowner",
+        payment_amount: 3,
+        payment_status: "completed",
+        stripe_payment_id: "demo_" + Date.now(),
+        lead_status: "new"
+      });
+
+      // Navigate directly to measurement tool
+      navigate(createPageUrl(`MeasurementTool?measurementId=${measurement.id}`));
     } catch (err) {
+      console.error("Error:", err);
       setError("Something went wrong. Please try again.");
       setLoading(false);
     }
@@ -77,11 +90,11 @@ export default function HomeownerForm() {
       {/* Progress Indicator */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-blue-900">Step 1 of 3</span>
+          <span className="text-sm font-medium text-blue-900">Step 1 of 2</span>
           <span className="text-sm text-slate-500">Contact Information</span>
         </div>
         <div className="w-full bg-slate-200 rounded-full h-2">
-          <div className="bg-blue-900 h-2 rounded-full" style={{ width: '33%' }}></div>
+          <div className="bg-blue-900 h-2 rounded-full" style={{ width: '50%' }}></div>
         </div>
       </div>
 
@@ -216,12 +229,21 @@ export default function HomeownerForm() {
                 disabled={loading}
                 className="w-full h-14 text-lg bg-blue-900 hover:bg-blue-800"
               >
-                {loading ? "Processing..." : "Continue to Payment"}
-                <ArrowRight className="w-5 h-5 ml-2" />
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Creating your measurement...
+                  </>
+                ) : (
+                  <>
+                    Continue to Measurement Tool
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </>
+                )}
               </Button>
 
               <p className="text-center text-sm text-slate-500">
-                Your information is secure and will only be used to provide your estimate
+                Payment temporarily disabled for testing. You'll proceed directly to the measurement tool.
               </p>
             </form>
           </CardContent>
@@ -236,19 +258,19 @@ export default function HomeownerForm() {
                 <div className="w-6 h-6 bg-blue-900 text-white rounded-full flex items-center justify-center text-sm flex-shrink-0">
                   1
                 </div>
-                <p className="text-slate-700">Complete secure payment ($3)</p>
+                <p className="text-slate-700">Measure your roof using our satellite tool</p>
               </div>
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 bg-blue-900 text-white rounded-full flex items-center justify-center text-sm flex-shrink-0">
                   2
                 </div>
-                <p className="text-slate-700">Measure your roof using our satellite tool</p>
+                <p className="text-slate-700">Get instant Aroof cost estimate</p>
               </div>
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 bg-blue-900 text-white rounded-full flex items-center justify-center text-sm flex-shrink-0">
                   3
                 </div>
-                <p className="text-slate-700">Get instant Aroof cost estimate and book consultation</p>
+                <p className="text-slate-700">Schedule free consultation and book your project</p>
               </div>
             </div>
           </CardContent>
