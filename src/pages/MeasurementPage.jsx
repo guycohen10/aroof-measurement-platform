@@ -16,6 +16,7 @@ export default function MeasurementPage() {
   const drawingManagerRef = useRef(null);
   
   const [address, setAddress] = useState("");
+  const [measurementId, setMeasurementId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mapLoading, setMapLoading] = useState(true);
   const [geocodingStatus, setGeocodingStatus] = useState("Initializing map...");
@@ -36,8 +37,9 @@ export default function MeasurementPage() {
     const addressParam = urlParams.get('address');
     const latParam = urlParams.get('lat');
     const lngParam = urlParams.get('lng');
+    const measurementIdParam = urlParams.get('measurementId');
     
-    console.log("MeasurementPage: URL params:", { addressParam, latParam, lngParam });
+    console.log("MeasurementPage: URL params:", { addressParam, latParam, lngParam, measurementIdParam });
     
     if (!addressParam) {
       console.error("MeasurementPage: No address in URL, redirecting to form");
@@ -47,6 +49,12 @@ export default function MeasurementPage() {
     
     const decodedAddress = decodeURIComponent(addressParam);
     setAddress(decodedAddress);
+
+    // Store measurementId if provided
+    if (measurementIdParam) {
+      setMeasurementId(measurementIdParam);
+      console.log("MeasurementPage: Using existing measurement ID:", measurementIdParam);
+    }
 
     // PRIORITY: Use coordinates from URL if available
     if (latParam && lngParam) {
@@ -429,26 +437,69 @@ export default function MeasurementPage() {
 
       console.log("Saving measurement with area:", area, "and", polygonData.length, "points");
 
-      // Save measurement to database
-      const measurement = await base44.entities.RoofMeasurement.create({
-        address: address,
-        area_sqft: area,
-        polygon_data: polygonData,
-        measurement_date: new Date().toISOString()
-      });
+      let savedMeasurementId = measurementId;
 
-      console.log("Measurement saved:", measurement);
+      if (measurementId) {
+        // Update existing measurement
+        console.log("Updating existing measurement:", measurementId);
+        await base44.entities.Measurement.update(measurementId, {
+          measurement_data: {
+            total_sqft: area,
+            sections: [{
+              id: "main",
+              name: "Main Roof",
+              area_sqft: area,
+              coordinates: polygonData
+            }]
+          },
+          total_sqft: area,
+          status: "completed",
+          completed_at: new Date().toISOString()
+        });
+      } else {
+        // Create new measurement (fallback for old flow)
+        console.log("Creating new measurement");
+        const measurement = await base44.entities.Measurement.create({
+          property_address: address,
+          user_type: "homeowner",
+          payment_amount: 3,
+          payment_status: "completed",
+          stripe_payment_id: "demo_" + Date.now(),
+          measurement_data: {
+            total_sqft: area,
+            sections: [{
+              id: "main",
+              name: "Main Roof",
+              area_sqft: area,
+              coordinates: polygonData
+            }]
+          },
+          total_sqft: area,
+          status: "completed",
+          completed_at: new Date().toISOString()
+        });
+        
+        savedMeasurementId = measurement.id;
+        console.log("Measurement created:", measurement);
+      }
 
-      // Show success message
-      alert(`✅ Measurement saved successfully!\n\nAddress: ${address}\nArea: ${area.toLocaleString()} sq ft`);
+      if (!savedMeasurementId) {
+        throw new Error("Failed to get measurement ID");
+      }
+
+      console.log("✅ Measurement saved successfully, redirecting to results...");
+
+      // Redirect to Results page with measurement data
+      const resultsUrl = createPageUrl(`Results?measurementId=${savedMeasurementId}`);
+      console.log("Navigating to:", resultsUrl);
+      navigate(resultsUrl);
       
-      navigate(createPageUrl("Homepage"));
     } catch (err) {
-      console.error("Error saving measurement:", err);
-      setError(`Failed to save measurement: ${err.message}`);
+      console.error("❌ Error saving measurement:", err);
+      setError(`Failed to save measurement: ${err.message}. Please try again.`);
       setSaving(false);
     }
-  }, [polygonClosed, area, polygonPoints, address, setSaving, setError, navigate]); // Dependencies for useCallback
+  }, [polygonClosed, area, polygonPoints, address, measurementId, navigate, setSaving, setError]);
 
   // Keyboard shortcuts
   useEffect(() => {
