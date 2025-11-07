@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -12,13 +13,15 @@ import {
   History,
   FileText,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Loader2 // New import
 } from "lucide-react";
 import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ResultsMapView from "./ResultsMapView";
+import { generateRooferPDFContent, downloadPDF } from "./PDFGenerator"; // New import
 
-export default function RooferResults({ measurement, user }) {
+export default function RooferResults({ measurement, user, setMeasurement }) { // Added setMeasurement to props
   const [savingPdfDownload, setSavingPdfDownload] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -43,6 +46,17 @@ export default function RooferResults({ measurement, user }) {
   const ridgeCap = Math.round(totalPerimeter * 0.3); // Approximate
   const starterStrips = Math.round(totalPerimeter);
 
+  // New: Consolidate calculations for PDF generation
+  const calculations = {
+    wasteArea,
+    shingles3Tab,
+    shinglesArch,
+    underlayment,
+    totalPerimeter,
+    ridgeCap,
+    starterStrips
+  };
+
   const handleDownloadPdf = async () => {
     setSavingPdfDownload(true);
     
@@ -51,13 +65,34 @@ export default function RooferResults({ measurement, user }) {
       const currentCount = measurement.pdf_download_count || 0;
       await base44.entities.Measurement.update(measurement.id, {
         pdf_download_count: currentCount + 1,
-        last_accessed_date: new Date().toISOString()
+        last_accessed_date: new Date().toISOString(),
+        pdf_generated_date: new Date().toISOString() // New field
       });
 
-      // In production, this would generate and download the PDF
-      alert("PDF download functionality will be available soon. Your download has been tracked.");
+      // Generate PDF content with watermark
+      const pdfContent = generateRooferPDFContent(
+        measurement,
+        sections,
+        totalArea,
+        reportId,
+        user,
+        calculations // Pass the new calculations object
+      );
+
+      // Download as HTML file
+      const filename = `Roof_Measurement_Report_${reportId}_${format(new Date(), 'yyyy-MM-dd')}.html`;
+      downloadPDF(pdfContent, filename); // Use the new downloadPDF function
+
+      // Update measurement locally if setMeasurement is available
+      setMeasurement && setMeasurement({
+        ...measurement,
+        pdf_download_count: currentCount + 1
+      });
+
     } catch (err) {
       console.error("Failed to track PDF download:", err);
+      // Updated alert message to reflect that PDF is generated client-side
+      alert("PDF generated but failed to track download. Please try again if needed.");
     } finally {
       setSavingPdfDownload(false);
     }
@@ -298,7 +333,10 @@ export default function RooferResults({ measurement, user }) {
                 disabled={savingPdfDownload}
               >
                 {savingPdfDownload ? (
-                  <>Tracking...</>
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" /> {/* Updated icon and text */}
+                    Generating PDF...
+                  </>
                 ) : (
                   <>
                     <Download className="w-5 h-5 mr-2" />
@@ -378,6 +416,10 @@ export default function RooferResults({ measurement, user }) {
                 <p className="text-sm text-slate-700">
                   This measurement report is designed for roofing professionals and contractors. 
                   No Aroof pricing or marketing is included - this is your professional tool for accurate measurements and client proposals.
+                </p>
+                <p className="text-sm text-slate-700 mt-2">
+                  <strong>PDF Download:</strong> The downloaded report includes a watermark and can be opened in any browser. 
+                  Use your browser's print function (Ctrl+P or Cmd+P) to save as PDF for professional distribution.
                 </p>
               </div>
             </div>
