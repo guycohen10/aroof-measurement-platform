@@ -14,6 +14,7 @@ export default function MeasurementPage() {
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(true);
   const [mapLoading, setMapLoading] = useState(true);
+  const [geocodingStatus, setGeocodingStatus] = useState("Finding address...");
   const [error, setError] = useState("");
   const [mapError, setMapError] = useState("");
   const [area, setArea] = useState(0);
@@ -61,7 +62,7 @@ export default function MeasurementPage() {
         return;
       }
 
-      // Use the API key from environment variables
+      // Use the API key
       const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
       
       console.log("Loading Google Maps script with API key...");
@@ -96,74 +97,103 @@ export default function MeasurementPage() {
         throw new Error("Google Maps not available");
       }
 
-      // Default to Dallas coordinates
-      let center = { lat: 32.7767, lng: -96.7970 };
+      // Start with a default center (will be updated after geocoding)
+      const defaultCenter = { lat: 32.7767, lng: -96.7970 };
+
+      console.log("Creating map instance...");
+      
+      // Create map first with default center
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: defaultCenter,
+        zoom: 20,
+        mapTypeId: "satellite",
+        tilt: 0,
+        mapTypeControl: true,
+        mapTypeControlOptions: {
+          position: window.google.maps.ControlPosition.TOP_RIGHT,
+          mapTypeIds: ["satellite", "hybrid", "roadmap"]
+        },
+        streetViewControl: false,
+        fullscreenControl: true,
+        fullscreenControlOptions: {
+          position: window.google.maps.ControlPosition.RIGHT_TOP
+        },
+        zoomControl: true,
+        zoomControlOptions: {
+          position: window.google.maps.ControlPosition.RIGHT_CENTER
+        },
+        rotateControl: true,
+        scaleControl: true
+      });
+
+      mapInstanceRef.current = map;
 
       console.log("Starting geocoding for:", address);
+      setGeocodingStatus("Finding address...");
 
-      // Geocode the address
+      // Now geocode the address
       const geocoder = new window.google.maps.Geocoder();
       
       geocoder.geocode({ address: address }, (results, status) => {
         console.log("Geocoding status:", status);
         
         if (status === "OK" && results[0]) {
-          center = {
-            lat: results[0].geometry.location.lat(),
-            lng: results[0].geometry.location.lng()
+          const location = results[0].geometry.location;
+          const center = {
+            lat: location.lat(),
+            lng: location.lng()
           };
+          
           console.log("✅ Address geocoded successfully:", center);
-          console.log("Full location:", results[0].formatted_address);
+          console.log("Full address found:", results[0].formatted_address);
+          
+          // Update map to center on the found location
+          map.setCenter(center);
+          map.setZoom(20);
+          
+          // Store coordinates
           setCoordinates(center);
-          setMapError(""); // Clear any previous errors
+          setMapError("");
+          setGeocodingStatus("Address found!");
+          
+          // Add red marker at the location
+          new window.google.maps.Marker({
+            position: center,
+            map: map,
+            title: address,
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              fillColor: "#FF0000",
+              fillOpacity: 1,
+              strokeColor: "#FFFFFF",
+              strokeWeight: 3,
+              scale: 10,
+            }
+          });
+
+          console.log("✅ Map centered on address and marker added");
+          
         } else {
           console.warn("⚠️ Geocoding failed:", status);
-          setMapError(`Could not find address: "${address}". Showing Dallas, TX instead. Please check the address and try again.`);
+          setMapError(`Could not find address: "${address}". Please check the address and try again. (Status: ${status})`);
+          setGeocodingStatus("Address not found");
+          
+          // Keep map at default location with a marker showing it's not the right place
+          new window.google.maps.Marker({
+            position: defaultCenter,
+            map: map,
+            title: "Default location - Address not found",
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              fillColor: "#FF9800",
+              fillOpacity: 0.8,
+              strokeColor: "#FFFFFF",
+              strokeWeight: 3,
+              scale: 10,
+            }
+          });
         }
 
-        // Create map with satellite view
-        console.log("Creating Google Map instance...");
-        const map = new window.google.maps.Map(mapRef.current, {
-          center: center,
-          zoom: 20,
-          mapTypeId: "satellite",
-          tilt: 0,
-          mapTypeControl: true,
-          mapTypeControlOptions: {
-            position: window.google.maps.ControlPosition.TOP_RIGHT,
-            mapTypeIds: ["satellite", "hybrid", "roadmap"]
-          },
-          streetViewControl: false,
-          fullscreenControl: true,
-          fullscreenControlOptions: {
-            position: window.google.maps.ControlPosition.RIGHT_TOP
-          },
-          zoomControl: true,
-          zoomControlOptions: {
-            position: window.google.maps.ControlPosition.RIGHT_CENTER
-          },
-          rotateControl: true,
-          scaleControl: true
-        });
-
-        mapInstanceRef.current = map;
-
-        // Add marker at the center
-        new window.google.maps.Marker({
-          position: center,
-          map: map,
-          title: address,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            fillColor: "#FF0000",
-            fillOpacity: 1,
-            strokeColor: "#FFFFFF",
-            strokeWeight: 3,
-            scale: 10,
-          }
-        });
-
-        console.log("✅ Map initialized successfully");
         setMapLoading(false);
       });
 
@@ -172,14 +202,6 @@ export default function MeasurementPage() {
       setMapError(`Failed to initialize map: ${err.message}`);
       setMapLoading(false);
     }
-  };
-
-  const handleStartDrawing = () => {
-    alert("Drawing polygon functionality will be added next! For now, you can manually enter the area below.");
-  };
-
-  const handleClear = () => {
-    setArea(0);
   };
 
   const handleSave = async () => {
@@ -252,11 +274,18 @@ export default function MeasurementPage() {
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
               <MapPin className="w-6 h-6 text-blue-600" />
               <div className="flex-1">
-                <p className="text-sm text-blue-600 font-medium">Property Address:</p>
+                <p className="text-sm text-blue-600 font-medium">Measuring roof at:</p>
                 <p className="text-lg font-bold text-blue-900">{address}</p>
                 {coordinates && (
-                  <p className="text-xs text-slate-500 mt-1">
-                    📍 Location found: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Location found: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                  </p>
+                )}
+                {mapLoading && (
+                  <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    {geocodingStatus}
                   </p>
                 )}
               </div>
@@ -276,8 +305,8 @@ export default function MeasurementPage() {
                 <div className="absolute inset-0 bg-slate-900 rounded-lg flex items-center justify-center z-10">
                   <div className="text-center">
                     <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-                    <p className="text-white text-lg">Loading satellite map...</p>
-                    <p className="text-slate-400 text-sm mt-2">Locating: {address}</p>
+                    <p className="text-white text-lg">{geocodingStatus}</p>
+                    <p className="text-slate-400 text-sm mt-2">Address: {address}</p>
                   </div>
                 </div>
               )}
@@ -287,10 +316,10 @@ export default function MeasurementPage() {
                 className="w-full rounded-lg overflow-hidden border-2 border-slate-300"
                 style={{ height: '600px', minHeight: '600px' }}
               />
-              {!mapError && !mapLoading && (
+              {!mapError && !mapLoading && coordinates && (
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-green-600/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg text-sm">
                   <CheckCircle className="w-4 h-4 inline mr-2" />
-                  Map loaded successfully!
+                  Map loaded and centered on property!
                 </div>
               )}
             </div>
@@ -305,29 +334,21 @@ export default function MeasurementPage() {
 
             {/* Control Buttons */}
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button
-                  onClick={handleStartDrawing}
-                  variant="outline"
-                  className="h-12 text-base"
-                  disabled={!!mapError || mapLoading}
-                >
-                  Start Drawing
-                </Button>
-                <Button
-                  onClick={handleClear}
-                  variant="outline"
-                  className="h-12 text-base"
-                  disabled={area === 0}
-                >
-                  Clear
-                </Button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Button
                   onClick={handleSave}
                   className="h-12 text-base bg-blue-600 hover:bg-blue-700 text-white"
                   disabled={area === 0}
                 >
                   Save Measurement
+                </Button>
+                <Button
+                  onClick={() => setArea(0)}
+                  variant="outline"
+                  className="h-12 text-base"
+                  disabled={area === 0}
+                >
+                  Clear
                 </Button>
               </div>
 
@@ -358,58 +379,32 @@ export default function MeasurementPage() {
           </CardContent>
         </Card>
 
-        {/* Instructions */}
-        <Card className="mt-6 bg-slate-50">
-          <CardContent className="p-6">
-            <h4 className="font-bold text-slate-900 mb-3">How it works:</h4>
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
-                <div>
-                  <p className="font-medium text-slate-900">Map displays your property</p>
-                  <p className="text-sm text-slate-600">Satellite view shows your roof from above</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
-                  2
-                </div>
-                <div>
-                  <p className="font-medium text-slate-900">Draw polygon around roof (coming soon)</p>
-                  <p className="text-sm text-slate-600">Click points around the roof perimeter</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
-                  3
-                </div>
-                <div>
-                  <p className="font-medium text-slate-900">Auto-calculated area</p>
-                  <p className="text-sm text-slate-600">System calculates square footage automatically</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
-                  4
-                </div>
-                <div>
-                  <p className="font-medium text-slate-900">Save measurement</p>
-                  <p className="text-sm text-slate-600">Saved to database for your records</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Test Instructions */}
+        {/* Test Addresses */}
         <Card className="mt-6 bg-blue-50 border-blue-200">
           <CardContent className="p-6">
-            <h4 className="font-bold text-blue-900 mb-3">Testing:</h4>
-            <p className="text-blue-800 text-sm">
-              Test URL: <code className="bg-blue-100 px-2 py-1 rounded">/MeasurementPage?address=5103+lincolnshire+ct+dallas+tx</code>
-            </p>
-            <p className="text-blue-700 text-sm mt-2">
-              The map should automatically locate and center on this address in Dallas, TX
+            <h4 className="font-bold text-blue-900 mb-3">Test with these addresses:</h4>
+            <div className="space-y-2 text-sm">
+              <Link 
+                to={createPageUrl("MeasurementPage?address=5103+lincolnshire+ct+dallas+tx+75287")}
+                className="block text-blue-700 hover:underline"
+              >
+                • 5103 lincolnshire ct dallas tx 75287 (Dallas residential)
+              </Link>
+              <Link 
+                to={createPageUrl("MeasurementPage?address=1600+pennsylvania+ave+washington+dc")}
+                className="block text-blue-700 hover:underline"
+              >
+                • 1600 pennsylvania ave washington dc (White House)
+              </Link>
+              <Link 
+                to={createPageUrl("MeasurementPage?address=1+infinite+loop+cupertino+ca")}
+                className="block text-blue-700 hover:underline"
+              >
+                • 1 infinite loop cupertino ca (Apple HQ)
+              </Link>
+            </div>
+            <p className="text-xs text-blue-600 mt-3">
+              Each address should center the map on a different location
             </p>
           </CardContent>
         </Card>
