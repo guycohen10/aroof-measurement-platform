@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Layers, MapPin, Calendar, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { base44 } from "@/api/base44Client";
-import { generateHomeownerPDF, downloadPDF } from "../PDFGenerator";
+import { generateHomeownerPDF, downloadPDF } from "./PDFGenerator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SECTION_COLORS = ["#4A90E2", "#50C878", "#FF8C42", "#9B59B6", "#E74C3C"];
