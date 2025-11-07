@@ -6,6 +6,10 @@ import Payment from './pages/Payment';
 import MeasurementTool from './pages/MeasurementTool';
 import Results from './pages/Results';
 import AdminDashboard from './pages/AdminDashboard';
+import HomeownerStart from './pages/HomeownerStart';
+import RooferStart from './pages/RooferStart';
+import Measure from './pages/Measure';
+import SimpleResults from './pages/SimpleResults';
 
 
 export const PAGES = {
@@ -17,6 +21,10 @@ export const PAGES = {
     "MeasurementTool": MeasurementTool,
     "Results": Results,
     "AdminDashboard": AdminDashboard,
+    "HomeownerStart": HomeownerStart,
+    "RooferStart": RooferStart,
+    "Measure": Measure,
+    "SimpleResults": SimpleResults,
 }
 
 export const pagesConfig = {
