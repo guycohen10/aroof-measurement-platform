@@ -27,18 +27,54 @@ export default function MapView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Initialize Google Maps
+  // Load Google Maps Script
   useEffect(() => {
     const loadGoogleMaps = () => {
+      // Check if already loaded
       if (window.google && window.google.maps) {
         initializeMap();
         return;
       }
 
-      setError(
-        "Google Maps API is not configured. To enable the measurement tool, add your Google Maps API key in the app settings."
-      );
-      setLoading(false);
+      // Check if script is already being loaded
+      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+        // Wait for it to load
+        const checkGoogle = setInterval(() => {
+          if (window.google && window.google.maps) {
+            clearInterval(checkGoogle);
+            initializeMap();
+          }
+        }, 100);
+        return;
+      }
+
+      // Load the script
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+      
+      if (!apiKey) {
+        setError(
+          "Google Maps API key not configured. Please add GOOGLE_MAPS_API_KEY to your app secrets."
+        );
+        setLoading(false);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,drawing,places`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        console.log("Google Maps loaded successfully");
+        initializeMap();
+      };
+      
+      script.onerror = () => {
+        setError("Failed to load Google Maps. Please check your API key and internet connection.");
+        setLoading(false);
+      };
+
+      document.head.appendChild(script);
     };
 
     loadGoogleMaps();
@@ -46,14 +82,24 @@ export default function MapView({
 
   const initializeMap = async () => {
     try {
+      if (!window.google || !window.google.maps) {
+        setError("Google Maps not available");
+        setLoading(false);
+        return;
+      }
+
       const geocoder = new window.google.maps.Geocoder();
+      
+      console.log("Geocoding address:", propertyAddress);
       
       // Geocode the address
       geocoder.geocode({ address: propertyAddress }, (results, status) => {
         if (status === "OK" && results[0]) {
           const location = results[0].geometry.location;
           
-          // Create map
+          console.log("Location found:", location.toString());
+          
+          // Create map with satellite view
           const map = new window.google.maps.Map(mapRef.current, {
             center: location,
             zoom: 20,
@@ -62,14 +108,41 @@ export default function MapView({
             mapTypeControl: true,
             mapTypeControlOptions: {
               position: window.google.maps.ControlPosition.TOP_RIGHT,
+              style: window.google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+              mapTypeIds: ["satellite", "hybrid", "roadmap"]
             },
             streetViewControl: false,
             fullscreenControl: true,
+            fullscreenControlOptions: {
+              position: window.google.maps.ControlPosition.RIGHT_TOP
+            },
             zoomControl: true,
+            zoomControlOptions: {
+              position: window.google.maps.ControlPosition.RIGHT_CENTER
+            },
             rotateControl: true,
+            rotateControlOptions: {
+              position: window.google.maps.ControlPosition.RIGHT_CENTER
+            },
+            scaleControl: true
           });
 
           mapInstanceRef.current = map;
+
+          // Add marker at property location
+          new window.google.maps.Marker({
+            position: location,
+            map: map,
+            title: propertyAddress,
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              fillColor: "#FF0000",
+              fillOpacity: 0.8,
+              strokeColor: "#FFFFFF",
+              strokeWeight: 2,
+              scale: 8,
+            }
+          });
 
           // Add click listener for drawing
           map.addListener("click", (e) => {
@@ -80,18 +153,19 @@ export default function MapView({
 
           setLoading(false);
         } else {
-          setError("Could not locate property address on map");
+          console.error("Geocoding failed:", status);
+          setError(`Could not locate address: ${propertyAddress}. Status: ${status}`);
           setLoading(false);
         }
       });
     } catch (err) {
       console.error("Map initialization error:", err);
-      setError("Failed to initialize map");
+      setError(`Failed to initialize map: ${err.message}`);
       setLoading(false);
     }
   };
 
-  // Draw sections on map
+  // Draw existing sections on map
   useEffect(() => {
     if (!mapInstanceRef.current || !window.google) return;
 
@@ -113,7 +187,7 @@ export default function MapView({
         })),
         strokeColor: isSelected ? "#FFD700" : color.stroke,
         strokeOpacity: 1,
-        strokeWeight: isSelected ? 3 : 2,
+        strokeWeight: isSelected ? 4 : 3,
         fillColor: color.fill,
         fillOpacity: 0.4,
         editable: isSelected,
@@ -124,6 +198,7 @@ export default function MapView({
       // Click to select
       polygon.addListener("click", () => {
         setSelectedSectionId(section.id);
+        setDrawingMode(false);
       });
 
       // Update coordinates when edited
@@ -154,20 +229,20 @@ export default function MapView({
         polygon.getPath().addListener("remove_at", updatePath);
       }
 
-      // Add label
+      // Add label at center
       const bounds = new window.google.maps.LatLngBounds();
       section.coordinates.forEach(coord => {
         bounds.extend({ lat: coord[0], lng: coord[1] });
       });
       
       const center = bounds.getCenter();
-      const label = new window.google.maps.Marker({
+      new window.google.maps.Marker({
         position: center,
         map: mapInstanceRef.current,
         label: {
-          text: section.name,
+          text: `${section.name}\n${section.area_sqft.toLocaleString()} sq ft`,
           color: "white",
-          fontSize: "14px",
+          fontSize: "12px",
           fontWeight: "bold"
         },
         icon: {
@@ -191,13 +266,13 @@ export default function MapView({
       const firstPoint = currentDrawingRef.current.coordinates[0];
       const lastPoint = [latLng.lat(), latLng.lng()];
       
-      // Check if clicking near first point to close polygon
+      // Check if clicking near first point to close polygon (within 10 meters)
       const distance = window.google.maps.geometry.spherical.computeDistanceBetween(
         new window.google.maps.LatLng(firstPoint[0], firstPoint[1]),
         latLng
       );
 
-      if (distance < 5 && currentDrawingRef.current.coordinates.length >= 3) {
+      if (distance < 10 && currentDrawingRef.current.coordinates.length >= 3) {
         // Close polygon
         completePolygon();
         return;
@@ -217,14 +292,14 @@ export default function MapView({
         fillOpacity: 1,
         strokeColor: "white",
         strokeWeight: 2,
-        scale: 6,
+        scale: 7,
       }
     });
 
     tempMarkersRef.current.push(marker);
     currentDrawingRef.current.markers.push(marker);
 
-    // Draw lines
+    // Draw lines between points
     if (currentDrawingRef.current.coordinates.length > 1) {
       const polyline = new window.google.maps.Polyline({
         path: currentDrawingRef.current.coordinates.map(coord => ({
@@ -233,7 +308,7 @@ export default function MapView({
         })),
         strokeColor: "#4A90E2",
         strokeOpacity: 1,
-        strokeWeight: 2,
+        strokeWeight: 3,
         map: mapInstanceRef.current
       });
       
@@ -254,7 +329,7 @@ export default function MapView({
     const area = window.google.maps.geometry.spherical.computeArea(path);
     const sqft = area * 10.7639; // Convert to square feet
 
-    if (sqft < 100) {
+    if (sqft < 10) {
       alert("Area is too small. Please draw a larger polygon.");
       cancelDrawing();
       return;
@@ -285,7 +360,7 @@ export default function MapView({
     setDrawingMode(false);
   };
 
-  // Handle escape key
+  // Handle escape key to cancel drawing
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape" && drawingMode) {
@@ -301,8 +376,9 @@ export default function MapView({
     return (
       <div className="flex-1 bg-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-white">Loading map...</p>
+          <Loader2 className="w-16 h-16 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-white text-lg">Loading satellite map...</p>
+          <p className="text-slate-400 text-sm mt-2">Locating {propertyAddress}</p>
         </div>
       </div>
     );
@@ -312,20 +388,24 @@ export default function MapView({
     return (
       <div className="flex-1 bg-slate-900 flex items-center justify-center p-8">
         <Alert variant="destructive" className="max-w-2xl">
-          <AlertCircle className="h-4 w-4" />
+          <AlertCircle className="h-5 w-5" />
           <AlertDescription className="mt-2">
-            <p className="font-semibold mb-2">{error}</p>
-            <p className="text-sm">
-              To enable the measurement tool:
-            </p>
-            <ol className="text-sm mt-2 ml-4 list-decimal space-y-1">
-              <li>Get a Google Maps API key from Google Cloud Console</li>
-              <li>Enable Maps JavaScript API and Geocoding API</li>
-              <li>Add the API key to your app configuration</li>
-            </ol>
-            <p className="text-sm mt-3">
-              For now, you can continue to see the results page with sample data.
-            </p>
+            <p className="font-semibold text-lg mb-3">{error}</p>
+            <div className="bg-red-950 border border-red-800 rounded-lg p-4 mt-4">
+              <p className="font-semibold mb-2">To enable Google Maps:</p>
+              <ol className="text-sm space-y-2 ml-4 list-decimal">
+                <li>Go to <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="underline">Google Cloud Console</a></li>
+                <li>Create a project and enable these APIs:
+                  <ul className="ml-4 mt-1 list-disc">
+                    <li>Maps JavaScript API</li>
+                    <li>Geocoding API</li>
+                    <li>Geometry Library</li>
+                  </ul>
+                </li>
+                <li>Create an API key in Credentials</li>
+                <li>Add the API key to your app settings as GOOGLE_MAPS_API_KEY</li>
+              </ol>
+            </div>
           </AlertDescription>
         </Alert>
       </div>
@@ -338,12 +418,21 @@ export default function MapView({
       
       {/* Drawing Instructions Overlay */}
       {drawingMode && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg z-10">
-          <p className="font-medium">
-            Click to add points around the roof perimeter. Click near the first point to close.
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-8 py-4 rounded-lg shadow-2xl z-10 max-w-md">
+          <p className="font-bold text-lg mb-1">
+            🖱️ Click to Add Points
           </p>
-          <p className="text-sm mt-1 text-blue-100">
-            Press ESC to cancel
+          <p className="text-sm text-blue-100">
+            Click around the roof perimeter. Click near the first point when done, or press ESC to cancel.
+          </p>
+        </div>
+      )}
+
+      {/* Map Controls Help */}
+      {!drawingMode && sections.length === 0 && (
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-800/90 text-white px-6 py-3 rounded-lg shadow-lg z-10">
+          <p className="text-sm">
+            <strong>💡 Tip:</strong> Zoom in closer to the roof for more accurate measurements
           </p>
         </div>
       )}

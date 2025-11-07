@@ -1,19 +1,7 @@
-import React, { useState } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Plus, 
-  Trash2, 
-  Edit2, 
-  Info, 
-  ChevronDown, 
-  ChevronUp,
-  Square,
-  Check
-} from "lucide-react";
-import InstructionsPanel from "./InstructionsPanel";
-import MeasurementSummary from "./MeasurementSummary";
+import { Plus, Trash2, Info, Undo2, Square } from "lucide-react";
 
 export default function Sidebar({
   sections,
@@ -21,15 +9,18 @@ export default function Sidebar({
   selectedSectionId,
   setSelectedSectionId,
   drawingMode,
-  setDrawingMode,
-  userType
+  setDrawingMode
 }) {
-  const [showInstructions, setShowInstructions] = useState(true);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
-  const handleAddSection = () => {
+  const handleStartDrawing = () => {
     setDrawingMode(true);
     setSelectedSectionId(null);
+  };
+
+  const handleClearAll = () => {
+    if (window.confirm("Are you sure you want to clear all measurements? This cannot be undone.")) {
+      setSections([]);
+      setSelectedSectionId(null);
+    }
   };
 
   const handleDeleteSection = (sectionId) => {
@@ -41,172 +32,182 @@ export default function Sidebar({
     }
   };
 
-  const handleClearAll = () => {
-    if (window.confirm("Are you sure you want to clear all measurements? This cannot be undone.")) {
-      setSections([]);
-      setSelectedSectionId(null);
-    }
-  };
-
   const totalArea = sections.reduce((sum, section) => sum + section.area_sqft, 0);
 
-  if (isCollapsed) {
-    return (
-      <div className="bg-slate-800 border-r border-slate-700 p-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsCollapsed(false)}
-          className="text-white hover:bg-slate-700"
-        >
-          <ChevronDown className="w-4 h-4" />
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="w-80 lg:w-96 bg-slate-800 border-r border-slate-700 flex flex-col">
+    <div className="w-80 lg:w-96 bg-slate-800 border-r border-slate-700 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-slate-700 flex items-center justify-between">
-        <h2 className="text-lg font-bold text-white">Measurement Tools</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsCollapsed(true)}
-          className="text-slate-400 hover:text-white hover:bg-slate-700"
-        >
-          <ChevronUp className="w-4 h-4" />
-        </Button>
+      <div className="p-6 border-b border-slate-700">
+        <h2 className="text-2xl font-bold text-white mb-2">Draw Your Roof</h2>
+        <p className="text-slate-300 text-sm">Click points around your roof perimeter to measure</p>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-4">
-          {/* Instructions */}
-          <Card className="bg-slate-700 border-slate-600">
-            <CardHeader 
-              className="cursor-pointer flex flex-row items-center justify-between p-4"
-              onClick={() => setShowInstructions(!showInstructions)}
-            >
-              <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-blue-400" />
-                <CardTitle className="text-sm text-white">Instructions</CardTitle>
-              </div>
-              {showInstructions ? (
-                <ChevronUp className="w-4 h-4 text-slate-400" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-slate-400" />
-              )}
-            </CardHeader>
-            {showInstructions && (
-              <CardContent className="p-4 pt-0">
-                <InstructionsPanel />
-              </CardContent>
-            )}
-          </Card>
+      {/* Instructions */}
+      <Card className="m-4 bg-blue-900/30 border-blue-500">
+        <CardHeader className="p-4 pb-2">
+          <CardTitle className="text-sm text-blue-200 flex items-center gap-2">
+            <Info className="w-4 h-4" />
+            How to Measure
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 pt-2">
+          <ol className="space-y-2 text-sm text-blue-100">
+            <li className="flex gap-2">
+              <span className="font-bold">1.</span>
+              <span>Click "Start Drawing" button</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-bold">2.</span>
+              <span>Click points around your roof edge</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-bold">3.</span>
+              <span>Click near first point to close shape</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-bold">4.</span>
+              <span>Add more sections if needed</span>
+            </li>
+          </ol>
+        </CardContent>
+      </Card>
 
-          {/* Drawing Tools */}
-          <Card className="bg-slate-700 border-slate-600">
-            <CardHeader className="p-4">
-              <CardTitle className="text-sm text-white">Drawing Tools</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 space-y-2">
-              <Button
-                onClick={handleAddSection}
-                disabled={drawingMode}
-                className={`w-full justify-start ${
-                  drawingMode 
-                    ? "bg-blue-600 text-white" 
-                    : "bg-slate-600 hover:bg-slate-500 text-white"
-                }`}
-              >
-                {drawingMode ? (
-                  <>
-                    <Square className="w-4 h-4 mr-2 animate-pulse" />
-                    Drawing Mode Active...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Roof Section
-                  </>
-                )}
-              </Button>
+      {/* Drawing Controls */}
+      <div className="px-4 space-y-3">
+        {!drawingMode ? (
+          <Button
+            onClick={handleStartDrawing}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-base"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Start Drawing
+          </Button>
+        ) : (
+          <div className="bg-blue-900/50 border-2 border-blue-500 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Square className="w-5 h-5 text-blue-300 animate-pulse" />
+              <span className="text-white font-medium">Drawing Mode Active</span>
+            </div>
+            <p className="text-sm text-blue-200">
+              Click on the map to add points. Click near the first point to complete.
+            </p>
+            <p className="text-xs text-blue-300 mt-2">
+              Press ESC to cancel
+            </p>
+          </div>
+        )}
 
-              {drawingMode && (
-                <div className="bg-blue-900/30 border border-blue-500 rounded p-3 text-sm text-blue-200">
-                  <p className="font-medium mb-1">Drawing in progress</p>
-                  <p className="text-xs">Click on the map to add points around your roof</p>
-                </div>
-              )}
+        {sections.length > 0 && (
+          <Button
+            onClick={handleClearAll}
+            variant="outline"
+            className="w-full border-red-500 text-red-400 hover:bg-red-500/10 h-10"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Clear All
+          </Button>
+        )}
+      </div>
 
-              {sections.length > 0 && (
-                <Button
-                  onClick={handleClearAll}
-                  variant="outline"
-                  className="w-full justify-start border-red-500 text-red-400 hover:bg-red-500/10"
+      {/* Area Display */}
+      <Card className="m-4 bg-gradient-to-br from-green-600 to-green-700 border-green-500">
+        <CardContent className="p-6">
+          <p className="text-green-100 text-sm mb-2">Total Roof Area</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-5xl font-bold text-white">
+              {totalArea.toLocaleString()}
+            </span>
+            <span className="text-xl text-green-100">sq ft</span>
+          </div>
+          {sections.length > 0 && (
+            <p className="text-xs text-green-100 mt-2">
+              {sections.length} section{sections.length !== 1 ? 's' : ''} measured
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Sections List */}
+      {sections.length > 0 && (
+        <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <h3 className="text-sm font-bold text-white mb-3">Measured Sections</h3>
+          <div className="space-y-2">
+            {sections.map((section, index) => {
+              const isSelected = section.id === selectedSectionId;
+              const colors = [
+                { bg: 'bg-blue-600', text: 'text-blue-100' },
+                { bg: 'bg-green-600', text: 'text-green-100' },
+                { bg: 'bg-orange-600', text: 'text-orange-100' },
+                { bg: 'bg-purple-600', text: 'text-purple-100' },
+                { bg: 'bg-red-600', text: 'text-red-100' },
+              ];
+              const color = colors[index % colors.length];
+
+              return (
+                <div
+                  key={section.id}
+                  onClick={() => setSelectedSectionId(section.id)}
+                  className={`
+                    p-3 rounded-lg cursor-pointer transition-all
+                    ${isSelected 
+                      ? 'bg-slate-600 ring-2 ring-yellow-400' 
+                      : 'bg-slate-700 hover:bg-slate-600'
+                    }
+                  `}
                 >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Clear All Sections
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Measurement Summary */}
-          <MeasurementSummary
-            sections={sections}
-            totalArea={totalArea}
-            selectedSectionId={selectedSectionId}
-            setSelectedSectionId={setSelectedSectionId}
-            onDeleteSection={handleDeleteSection}
-            userType={userType}
-          />
-
-          {/* Quick Stats */}
-          <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500">
-            <CardContent className="p-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-blue-100 text-sm">Total Sections</span>
-                  <span className="text-white font-bold text-lg">{sections.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-blue-100 text-sm">Total Area</span>
-                  <span className="text-white font-bold text-2xl">
-                    {totalArea.toLocaleString()} sq ft
-                  </span>
-                </div>
-                {userType === "homeowner" && totalArea > 0 && (
-                  <div className="pt-3 border-t border-blue-400">
-                    <div className="flex items-center justify-between">
-                      <span className="text-blue-100 text-sm">Est. Cost</span>
-                      <span className="text-white font-bold text-lg">
-                        ${((totalArea * 5) + 450).toLocaleString()}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${color.bg}`} />
+                      <span className="text-white font-medium text-sm">
+                        {section.name}
                       </span>
                     </div>
-                    <p className="text-xs text-blue-200 mt-1">Preliminary estimate</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSection(section.id);
+                      }}
+                      className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-bold text-white">
+                      {section.area_sqft.toLocaleString()}
+                    </span>
+                    <span className="text-sm text-slate-300">sq ft</span>
+                  </div>
+                  {isSelected && (
+                    <p className="text-xs text-yellow-400 mt-1">
+                      ✏️ Click to edit • Drag vertices to adjust
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-          {/* Tips */}
+      {/* Tips */}
+      {sections.length === 0 && !drawingMode && (
+        <div className="m-4 mt-auto">
           <Card className="bg-slate-700/50 border-slate-600">
             <CardContent className="p-4">
               <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                <div className="space-y-2 text-sm text-slate-300">
-                  <p><strong className="text-white">Tip:</strong> Click on a section to select and edit it</p>
-                  <p><strong className="text-white">Tip:</strong> Drag vertices to adjust section boundaries</p>
-                  <p><strong className="text-white">Tip:</strong> Zoom in for more accurate measurements</p>
+                <Info className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-2 text-xs text-slate-400">
+                  <p><strong className="text-slate-300">Tip:</strong> Zoom in for more accurate measurements</p>
+                  <p><strong className="text-slate-300">Tip:</strong> Measure each roof plane separately for complex roofs</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
-      </ScrollArea>
+      )}
     </div>
   );
 }
