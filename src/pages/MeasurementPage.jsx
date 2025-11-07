@@ -29,7 +29,9 @@ export default function MeasurementPage() {
       return;
     }
     
-    setAddress(decodeURIComponent(addressParam));
+    const decodedAddress = decodeURIComponent(addressParam);
+    console.log("MeasurementPage: Address from URL:", decodedAddress);
+    setAddress(decodedAddress);
     setLoading(false);
   }, [navigate]);
 
@@ -37,58 +39,46 @@ export default function MeasurementPage() {
     if (!address) return;
 
     const loadGoogleMaps = () => {
-      console.log("Loading Google Maps...");
+      console.log("Loading Google Maps for address:", address);
 
       // Check if already loaded
       if (window.google && window.google.maps) {
-        console.log("Google Maps already loaded");
+        console.log("Google Maps already loaded, initializing map...");
         initializeMap();
         return;
       }
 
       // Check if script is being loaded
       if (document.querySelector('script[src*="maps.googleapis.com"]')) {
-        console.log("Google Maps script already in DOM, waiting...");
+        console.log("Google Maps script already in DOM, waiting for load...");
         const checkGoogle = setInterval(() => {
           if (window.google && window.google.maps) {
             clearInterval(checkGoogle);
-            console.log("Google Maps now available");
+            console.log("Google Maps loaded from existing script");
             initializeMap();
           }
         }, 100);
         return;
       }
 
-      // Load the script
-      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+      // Use the API key from environment variables
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
       
-      console.log("API Key exists:", !!apiKey);
-
-      if (!apiKey) {
-        setMapError("Google Maps API key not configured. Please add GOOGLE_MAPS_API_KEY to your app secrets.");
-        setMapLoading(false);
-        console.error("Please add your Google Maps API key:");
-        console.error("1. Go to https://developers.google.com/maps/documentation/javascript/get-api-key");
-        console.error("2. Create an API key and enable Maps JavaScript API and Geocoding API");
-        console.error("3. Add the key to Dashboard → Settings → Secrets as GOOGLE_MAPS_API_KEY");
-        return;
-      }
-
-      console.log("Loading Google Maps script...");
+      console.log("Loading Google Maps script with API key...");
 
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,drawing,places`;
       script.async = true;
       script.defer = true;
       
       script.onload = () => {
-        console.log("Google Maps script loaded successfully");
+        console.log("✅ Google Maps script loaded successfully");
         initializeMap();
       };
       
       script.onerror = () => {
-        console.error("Failed to load Google Maps script");
-        setMapError("Unable to load map. Please check API key and internet connection.");
+        console.error("❌ Failed to load Google Maps script");
+        setMapError("Failed to load Google Maps. Please check your internet connection.");
         setMapLoading(false);
       };
 
@@ -99,50 +89,59 @@ export default function MeasurementPage() {
   }, [address]);
 
   const initializeMap = async () => {
-    console.log("Initializing map...");
+    console.log("Initializing map for address:", address);
     
     try {
       if (!window.google || !window.google.maps) {
-        console.error("Google Maps not available");
-        setMapError("Google Maps not available");
-        setMapLoading(false);
-        return;
+        throw new Error("Google Maps not available");
       }
 
       // Default to Dallas coordinates
       let center = { lat: 32.7767, lng: -96.7970 };
 
-      console.log("Geocoding address:", address);
+      console.log("Starting geocoding for:", address);
 
-      // Try to geocode the address
+      // Geocode the address
       const geocoder = new window.google.maps.Geocoder();
       
       geocoder.geocode({ address: address }, (results, status) => {
+        console.log("Geocoding status:", status);
+        
         if (status === "OK" && results[0]) {
           center = {
             lat: results[0].geometry.location.lat(),
             lng: results[0].geometry.location.lng()
           };
-          console.log("Address geocoded successfully:", center);
+          console.log("✅ Address geocoded successfully:", center);
+          console.log("Full location:", results[0].formatted_address);
           setCoordinates(center);
+          setMapError(""); // Clear any previous errors
         } else {
-          console.warn("Geocoding failed:", status, "Using default Dallas location");
-          setMapError(`Address not found. Showing Dallas, TX instead. Status: ${status}`);
+          console.warn("⚠️ Geocoding failed:", status);
+          setMapError(`Could not find address: "${address}". Showing Dallas, TX instead. Please check the address and try again.`);
         }
 
-        // Create map
+        // Create map with satellite view
+        console.log("Creating Google Map instance...");
         const map = new window.google.maps.Map(mapRef.current, {
           center: center,
-          zoom: 18,
+          zoom: 20,
           mapTypeId: "satellite",
           tilt: 0,
           mapTypeControl: true,
           mapTypeControlOptions: {
             position: window.google.maps.ControlPosition.TOP_RIGHT,
+            mapTypeIds: ["satellite", "hybrid", "roadmap"]
           },
           streetViewControl: false,
           fullscreenControl: true,
+          fullscreenControlOptions: {
+            position: window.google.maps.ControlPosition.RIGHT_TOP
+          },
           zoomControl: true,
+          zoomControlOptions: {
+            position: window.google.maps.ControlPosition.RIGHT_CENTER
+          },
           rotateControl: true,
           scaleControl: true
         });
@@ -164,28 +163,28 @@ export default function MeasurementPage() {
           }
         });
 
-        console.log("Map initialized successfully");
+        console.log("✅ Map initialized successfully");
         setMapLoading(false);
       });
 
     } catch (err) {
-      console.error("Error initializing map:", err);
+      console.error("❌ Error initializing map:", err);
       setMapError(`Failed to initialize map: ${err.message}`);
       setMapLoading(false);
     }
   };
 
   const handleStartDrawing = () => {
-    alert("Drawing tools will be added in the next step!");
+    alert("Drawing polygon functionality will be added next! For now, you can manually enter the area below.");
   };
 
-  const handleCalculateArea = () => {
-    alert("Area calculation will be added in the next step!");
+  const handleClear = () => {
+    setArea(0);
   };
 
   const handleSave = async () => {
     if (area <= 0) {
-      setError("Please enter a valid roof area or draw on the map");
+      setError("Please enter a valid roof area");
       return;
     }
 
@@ -196,8 +195,9 @@ export default function MeasurementPage() {
         area_sqft: area
       });
 
-      // Show success and navigate back to homepage
-      alert(`Measurement saved! Area: ${area.toLocaleString()} sq ft`);
+      alert(`✅ Measurement saved successfully!\n\nAddress: ${address}\nArea: ${area.toLocaleString()} sq ft`);
+      
+      // Redirect to homepage
       navigate(createPageUrl("Homepage"));
     } catch (err) {
       console.error("Error saving measurement:", err);
@@ -244,19 +244,19 @@ export default function MeasurementPage() {
           <CardHeader>
             <CardTitle className="text-3xl text-center">Roof Measurement Tool</CardTitle>
             <p className="text-center text-slate-600 mt-2">
-              Use the satellite map to measure your roof
+              Measure your roof using satellite imagery
             </p>
           </CardHeader>
           <CardContent className="p-6">
             {/* Display Address */}
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
               <MapPin className="w-6 h-6 text-blue-600" />
-              <div>
+              <div className="flex-1">
                 <p className="text-sm text-blue-600 font-medium">Property Address:</p>
                 <p className="text-lg font-bold text-blue-900">{address}</p>
                 {coordinates && (
                   <p className="text-xs text-slate-500 mt-1">
-                    Coordinates: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                    📍 Location found: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
                   </p>
                 )}
               </div>
@@ -266,17 +266,7 @@ export default function MeasurementPage() {
             {mapError && (
               <Alert variant="destructive" className="mb-6">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  {mapError}
-                  <div className="mt-2 text-sm">
-                    <strong>Setup Instructions:</strong>
-                    <ol className="list-decimal ml-4 mt-1">
-                      <li>Get API key from <a href="https://developers.google.com/maps/documentation/javascript/get-api-key" target="_blank" rel="noopener noreferrer" className="underline">Google Maps Platform</a></li>
-                      <li>Enable "Maps JavaScript API" and "Geocoding API"</li>
-                      <li>Add key to Dashboard → Settings → Secrets as GOOGLE_MAPS_API_KEY</li>
-                    </ol>
-                  </div>
-                </AlertDescription>
+                <AlertDescription>{mapError}</AlertDescription>
               </Alert>
             )}
 
@@ -287,67 +277,75 @@ export default function MeasurementPage() {
                   <div className="text-center">
                     <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
                     <p className="text-white text-lg">Loading satellite map...</p>
-                    <p className="text-slate-400 text-sm mt-2">Please wait...</p>
+                    <p className="text-slate-400 text-sm mt-2">Locating: {address}</p>
                   </div>
                 </div>
               )}
               <div 
                 ref={mapRef} 
+                id="map"
                 className="w-full rounded-lg overflow-hidden border-2 border-slate-300"
-                style={{ height: '600px' }}
+                style={{ height: '600px', minHeight: '600px' }}
               />
               {!mapError && !mapLoading && (
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-600/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg text-sm">
-                  ✅ Map loaded successfully! Drawing tools coming next.
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-green-600/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg text-sm">
+                  <CheckCircle className="w-4 h-4 inline mr-2" />
+                  Map loaded successfully!
                 </div>
               )}
             </div>
 
-            {/* Controls */}
+            {/* Area Display */}
+            <div className="mb-6 p-6 bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-lg">
+              <p className="text-sm text-green-700 font-medium mb-2">Total Roof Area:</p>
+              <p className="text-5xl font-bold text-green-900">
+                {area.toLocaleString()} <span className="text-2xl">sq ft</span>
+              </p>
+            </div>
+
+            {/* Control Buttons */}
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Button
                   onClick={handleStartDrawing}
                   variant="outline"
-                  className="h-12"
-                  disabled={!!mapError}
+                  className="h-12 text-base"
+                  disabled={!!mapError || mapLoading}
                 >
                   Start Drawing
                 </Button>
                 <Button
-                  onClick={handleCalculateArea}
+                  onClick={handleClear}
                   variant="outline"
-                  className="h-12"
-                  disabled={!!mapError}
+                  className="h-12 text-base"
+                  disabled={area === 0}
                 >
-                  Calculate Area
+                  Clear
                 </Button>
-                <div className="flex items-center justify-center bg-green-50 border-2 border-green-200 rounded-lg px-4">
-                  <span className="text-lg font-bold text-green-900">
-                    Area: {area.toLocaleString()} sq ft
-                  </span>
-                </div>
+                <Button
+                  onClick={handleSave}
+                  className="h-12 text-base bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={area === 0}
+                >
+                  Save Measurement
+                </Button>
               </div>
 
               {/* Temporary Manual Entry */}
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-sm text-yellow-800 mb-3">
-                  <strong>Temporary:</strong> Enter area manually while drawing tools are being added:
+                <p className="text-sm text-yellow-800 mb-3 font-medium">
+                  ⚠️ Drawing tool coming soon! For now, enter the roof area manually:
                 </p>
                 <div className="flex gap-3">
                   <input
                     type="number"
-                    placeholder="Enter sq ft"
+                    placeholder="Enter area in sq ft (e.g., 2500)"
                     value={area || ''}
                     onChange={(e) => setArea(parseFloat(e.target.value) || 0)}
-                    className="flex-1 px-4 py-2 border border-yellow-300 rounded-lg"
+                    className="flex-1 px-4 py-2 border border-yellow-300 rounded-lg text-lg"
+                    min="0"
+                    step="0.01"
                   />
-                  <Button
-                    onClick={handleSave}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    Save Measurement
-                  </Button>
                 </div>
               </div>
 
@@ -363,21 +361,56 @@ export default function MeasurementPage() {
         {/* Instructions */}
         <Card className="mt-6 bg-slate-50">
           <CardContent className="p-6">
-            <h4 className="font-bold text-slate-900 mb-3">Next Steps:</h4>
-            <ul className="space-y-2 text-slate-700">
-              <li className="flex items-start gap-2">
+            <h4 className="font-bold text-slate-900 mb-3">How it works:</h4>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
-                <span>✅ Map is displaying the property location</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-600 font-bold">→</span>
-                <span>Next: Add polygon drawing tools to trace roof outline</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-600 font-bold">→</span>
-                <span>Then: Automatic area calculation using Google Geometry API</span>
-              </li>
-            </ul>
+                <div>
+                  <p className="font-medium text-slate-900">Map displays your property</p>
+                  <p className="text-sm text-slate-600">Satellite view shows your roof from above</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
+                  2
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">Draw polygon around roof (coming soon)</p>
+                  <p className="text-sm text-slate-600">Click points around the roof perimeter</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
+                  3
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">Auto-calculated area</p>
+                  <p className="text-sm text-slate-600">System calculates square footage automatically</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold mt-0.5">
+                  4
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">Save measurement</p>
+                  <p className="text-sm text-slate-600">Saved to database for your records</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Test Instructions */}
+        <Card className="mt-6 bg-blue-50 border-blue-200">
+          <CardContent className="p-6">
+            <h4 className="font-bold text-blue-900 mb-3">Testing:</h4>
+            <p className="text-blue-800 text-sm">
+              Test URL: <code className="bg-blue-100 px-2 py-1 rounded">/MeasurementPage?address=5103+lincolnshire+ct+dallas+tx</code>
+            </p>
+            <p className="text-blue-700 text-sm mt-2">
+              The map should automatically locate and center on this address in Dallas, TX
+            </p>
           </CardContent>
         </Card>
       </div>
