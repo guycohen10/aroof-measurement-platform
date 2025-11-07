@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -24,29 +25,41 @@ export default function MeasurementTool() {
       const urlParams = new URLSearchParams(window.location.search);
       const measurementId = urlParams.get('measurementId');
 
+      console.log("MeasurementTool: Loading measurement with ID:", measurementId);
+      console.log("MeasurementTool: Full URL:", window.location.href);
+
       if (!measurementId) {
-        navigate(createPageUrl("Homepage"));
+        console.error("MeasurementTool: No measurement ID found in URL");
+        setError("No measurement ID provided. Redirecting to homepage...");
+        setTimeout(() => navigate(createPageUrl("Homepage")), 2000);
         return;
       }
 
       try {
+        console.log("MeasurementTool: Querying measurement from database...");
         const measurements = await base44.entities.Measurement.filter({ id: measurementId });
+        console.log("MeasurementTool: Query result:", measurements);
+        
         if (measurements.length > 0) {
           const m = measurements[0];
+          console.log("MeasurementTool: Measurement loaded successfully:", m);
           setMeasurement(m);
           
           // Load existing measurement data if available
           if (m.measurement_data?.sections) {
+            console.log("MeasurementTool: Loading existing sections:", m.measurement_data.sections);
             setSections(m.measurement_data.sections);
           }
+          setLoading(false); // Only set loading to false on successful load
         } else {
-          navigate(createPageUrl("Homepage"));
+          console.error("MeasurementTool: Measurement not found in database");
+          setError("Measurement not found. Redirecting to homepage...");
+          setTimeout(() => navigate(createPageUrl("Homepage")), 2000);
         }
       } catch (err) {
-        console.error(err);
-        setError("Failed to load measurement data");
-      } finally {
-        setLoading(false);
+        console.error("MeasurementTool: Error loading measurement:", err);
+        setError(`Failed to load measurement: ${err.message}. Redirecting to homepage...`);
+        setTimeout(() => navigate(createPageUrl("Homepage")), 3000);
       }
     };
 
@@ -145,7 +158,23 @@ export default function MeasurementTool() {
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-white">Loading measurement tool...</p>
+          <p className="text-white text-lg mb-2">Loading measurement tool...</p>
+          <p className="text-slate-400 text-sm">Please wait while we load your data</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !measurement) { // Display a more prominent error if measurement couldn't be loaded at all
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <Button onClick={() => navigate(createPageUrl("Homepage"))}>
+            Go to Homepage
+          </Button>
         </div>
       </div>
     );
@@ -201,7 +230,7 @@ export default function MeasurementTool() {
       </header>
 
       {/* Error Alert */}
-      {error && (
+      {error && measurement && ( // Only show this error if a measurement was loaded but another error occurred later
         <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md px-4">
           <Alert variant="destructive" className="shadow-lg">
             <AlertDescription>{error}</AlertDescription>

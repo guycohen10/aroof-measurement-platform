@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -39,7 +40,6 @@ export default function HomeownerForm() {
       console.log("Creating measurement record...");
       
       // Create measurement record with homeowner info embedded
-      // Skip user creation since users must be invited manually in Base44
       const measurement = await base44.entities.Measurement.create({
         property_address: formData.property_address,
         user_type: "homeowner",
@@ -53,11 +53,22 @@ export default function HomeownerForm() {
         agrees_to_quotes: formData.agrees_to_quotes
       });
 
-      console.log("Measurement created:", measurement);
-      console.log("Navigating to measurement tool...");
+      console.log("Measurement created successfully:", measurement);
+      
+      if (!measurement || !measurement.id) {
+        throw new Error("Measurement was created but ID is missing");
+      }
+
+      console.log("Navigating to measurement tool with ID:", measurement.id);
+
+      // Small delay to ensure database consistency
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Navigate directly to measurement tool
-      navigate(createPageUrl(`MeasurementTool?measurementId=${measurement.id}`));
+      const measurementUrl = createPageUrl(`MeasurementTool?measurementId=${measurement.id}`);
+      console.log("Navigation URL:", measurementUrl);
+      navigate(measurementUrl);
+      
     } catch (err) {
       console.error("Error during form submission:", err);
       setError(`Failed to submit form: ${err.message || "Please try again"}`);
