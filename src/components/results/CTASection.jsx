@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +8,7 @@ import { Calendar, FileText, Phone, Star, CheckCircle, DollarSign, Mail, Share2 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function CTASection({ measurement, user }) {
+  const navigate = useNavigate();
   const [bookingClicked, setBookingClicked] = useState(measurement?.clicked_booking || false);
   const [quoteRequested, setQuoteRequested] = useState(measurement?.requested_quote || false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -13,36 +16,34 @@ export default function CTASection({ measurement, user }) {
 
   const handleScheduleInspection = async () => {
     setBookingClicked(true);
-    setActionType("inspection");
-    setShowSuccessMessage(true);
-
+    
     try {
       await base44.entities.Measurement.update(measurement.id, {
         clicked_booking: true,
         lead_status: "contacted"
       });
+      
+      // Navigate to booking page
+      navigate(createPageUrl(`BookInspection?measurementId=${measurement.id}`));
     } catch (err) {
       console.error("Failed to update booking status:", err);
     }
-
-    setTimeout(() => setShowSuccessMessage(false), 5000);
   };
 
   const handleRequestQuote = async () => {
     setQuoteRequested(true);
-    setActionType("quote");
-    setShowSuccessMessage(true);
-
+    
     try {
       await base44.entities.Measurement.update(measurement.id, {
         requested_quote: true,
         lead_status: "quoted"
       });
+      
+      // Navigate to quote request page
+      navigate(createPageUrl(`RequestQuote?measurementId=${measurement.id}`));
     } catch (err) {
       console.error("Failed to update quote status:", err);
     }
-
-    setTimeout(() => setShowSuccessMessage(false), 5000);
   };
 
   const handleEmailResults = async () => {
@@ -74,8 +75,6 @@ export default function CTASection({ measurement, user }) {
         <Alert className="bg-green-50 border-green-200">
           <CheckCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-800">
-            {actionType === "inspection" && "Great! An Aroof specialist will contact you within 24 hours to schedule your free inspection."}
-            {actionType === "quote" && "Your quote request has been received! We'll send you a detailed proposal within 24 hours."}
             {actionType === "email" && "Results sent to your email!"}
             {actionType === "share" && "Link copied to clipboard!"}
           </AlertDescription>
@@ -135,6 +134,16 @@ export default function CTASection({ measurement, user }) {
                 </a>
               </Button>
             </div>
+
+            <p className="text-sm text-blue-100 mb-4">
+              Or{" "}
+              <button
+                onClick={handleScheduleInspection}
+                className="underline hover:text-white font-medium"
+              >
+                schedule online here
+              </button>
+            </p>
 
             {/* Additional Actions */}
             <div className="flex flex-wrap justify-center gap-3 mb-8">
