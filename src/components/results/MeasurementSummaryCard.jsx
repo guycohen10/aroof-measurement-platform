@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Download, Layers, MapPin, Calendar, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { base44 } from "@/api/base44Client";
-import { generateHomeownerPDF, downloadPDF } from "./PDFGenerator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SECTION_COLORS = ["#4A90E2", "#50C878", "#FF8C42", "#9B59B6", "#E74C3C"];
@@ -18,27 +17,18 @@ export default function MeasurementSummaryCard({ measurement, sections, totalAre
     setError("");
 
     try {
-      // Generate PDF
-      const doc = await generateHomeownerPDF(measurement, user, estimate);
-      
-      // Create filename
-      const addressSlug = measurement.property_address
-        .replace(/[^a-zA-Z0-9]/g, '_')
-        .substring(0, 50);
-      const filename = `Aroof_Estimate_${addressSlug}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-      
-      // Download
-      downloadPDF(doc, filename);
-      
       // Update download count
       const currentCount = measurement.pdf_download_count || 0;
       await base44.entities.Measurement.update(measurement.id, {
         pdf_download_count: currentCount + 1,
         pdf_generated_date: new Date().toISOString()
       });
+
+      // Show info message that PDF generation is coming soon
+      alert("PDF generation feature is coming soon! Your measurement data has been saved and you can access it anytime from your dashboard.");
     } catch (err) {
-      console.error("PDF generation failed:", err);
-      setError("Failed to generate PDF. Please try again or contact support.");
+      console.error("Failed to update download count:", err);
+      setError("Failed to process request. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -131,7 +121,7 @@ export default function MeasurementSummaryCard({ measurement, sections, totalAre
             {generating ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating PDF...
+                Processing...
               </>
             ) : (
               <>
@@ -140,6 +130,13 @@ export default function MeasurementSummaryCard({ measurement, sections, totalAre
               </>
             )}
           </Button>
+
+          {/* PDF Note */}
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="text-xs text-blue-900">
+              <strong>Note:</strong> PDF generation feature is coming soon. Your measurements are saved and accessible anytime.
+            </p>
+          </div>
 
           {/* Additional Info */}
           <div className="pt-4 border-t border-slate-200">

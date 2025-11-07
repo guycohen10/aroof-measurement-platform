@@ -19,7 +19,6 @@ import {
   Loader2
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { generateRooferPDF, downloadPDF } from "../PDFGenerator";
 import { format } from "date-fns";
 
 export default function ReportActions({ measurement, user, reportId, compact = false }) {
@@ -56,18 +55,6 @@ export default function ReportActions({ measurement, user, reportId, compact = f
     setError("");
 
     try {
-      // Generate PDF
-      const doc = await generateRooferPDF(measurement, user);
-      
-      // Create filename
-      const addressSlug = measurement.property_address
-        .replace(/[^a-zA-Z0-9]/g, '_')
-        .substring(0, 40);
-      const filename = `Roof_Measurement_${addressSlug}_${reportId}.pdf`;
-      
-      // Download
-      downloadPDF(doc, filename);
-      
       // Update download count
       const currentCount = measurement.pdf_download_count || 0;
       await base44.entities.Measurement.update(measurement.id, {
@@ -75,11 +62,14 @@ export default function ReportActions({ measurement, user, reportId, compact = f
         pdf_generated_date: new Date().toISOString()
       });
       
-      setSuccessMessage("PDF downloaded successfully");
+      // Show info message
+      alert("PDF generation feature is coming soon! Your measurement data has been saved and you can access it anytime. You can still email the report details to your client using the email feature.");
+      
+      setSuccessMessage("Download request recorded");
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
-      console.error("Failed to generate PDF:", err);
-      setError("Failed to generate PDF. Please try again or contact support.");
+      console.error("Failed to update download count:", err);
+      setError("Failed to process request. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -94,18 +84,17 @@ export default function ReportActions({ measurement, user, reportId, compact = f
     setError("");
     
     try {
-      // In production, this would generate PDF and send email via backend
       await base44.entities.Measurement.update(measurement.id, {
         email_sent: true,
         email_sent_date: new Date().toISOString(),
         email_sent_to: clientEmail
       });
 
-      // Simulate email sending (in production, use backend email service)
+      // In production, this would send actual email
       const emailBody = `
 Hello ${clientName || 'there'},
 
-Please find attached your professional roof measurement report prepared by ${user?.business_name || user?.name}.
+Please find your professional roof measurement report prepared by ${user?.business_name || user?.name}.
 
 Property: ${measurement.property_address}
 Total Roof Area: ${measurement.total_sqft?.toLocaleString() || 0} sq ft
@@ -114,6 +103,8 @@ Report ID: ${reportId}
 ${emailMessage}
 
 This measurement was prepared using Aroof.build professional measurement technology.
+
+You can view your full report at: ${window.location.href}
 
 If you have any questions, please contact:
 ${user?.business_name || user?.name}
@@ -127,7 +118,7 @@ ${user?.business_name || user?.name}
       console.log("Email would be sent to:", clientEmail);
       console.log("Email body:", emailBody);
 
-      setSuccessMessage(`Report sent to ${clientEmail}`);
+      setSuccessMessage(`Report link sent to ${clientEmail}`);
       setShowEmailForm(false);
       setClientEmail("");
       setClientName("");
@@ -166,7 +157,7 @@ ${user?.business_name || user?.name}
               {generating ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Generating...
+                  Processing...
                 </>
               ) : (
                 <>
@@ -204,7 +195,7 @@ ${user?.business_name || user?.name}
           {/* Notes Section */}
           <div className="mt-6 pt-6 border-t">
             <Label htmlFor="notes" className="font-bold">Report Notes</Label>
-            <p className="text-sm text-slate-600 mb-2">Add custom notes (saved to PDF)</p>
+            <p className="text-sm text-slate-600 mb-2">Add custom notes</p>
             <Textarea
               id="notes"
               value={notes}
@@ -263,7 +254,7 @@ ${user?.business_name || user?.name}
             <div className="flex-1 text-center sm:text-left">
               <h3 className="text-2xl font-bold mb-1">Download Your Report</h3>
               <p className="text-orange-100">
-                Professional PDF with all measurements and watermarked images
+                Professional measurement report with all data
               </p>
             </div>
             <Button 
@@ -275,7 +266,7 @@ ${user?.business_name || user?.name}
               {generating ? (
                 <>
                   <Loader2 className="w-6 h-6 mr-2 animate-spin" />
-                  Generating...
+                  Processing...
                 </>
               ) : (
                 <>
@@ -287,6 +278,13 @@ ${user?.business_name || user?.name}
           </div>
         </CardContent>
       </Card>
+
+      {/* PDF Coming Soon Note */}
+      <Alert className="bg-blue-50 border-blue-200">
+        <AlertDescription className="text-blue-900">
+          <strong>Note:</strong> PDF generation feature is coming soon. You can share the report link with clients or save the measurement data.
+        </AlertDescription>
+      </Alert>
 
       <div className="grid sm:grid-cols-3 gap-4">
         <Button 
@@ -327,7 +325,7 @@ ${user?.business_name || user?.name}
       {showEmailForm && (
         <Card className="border-2 border-orange-200">
           <CardContent className="p-6">
-            <h3 className="font-bold text-slate-900 mb-4">Email Report to Client</h3>
+            <h3 className="font-bold text-slate-900 mb-4">Email Report Link to Client</h3>
             <div className="space-y-4">
               <div>
                 <Label htmlFor="clientEmail">Client Email Address *</Label>
@@ -366,7 +364,7 @@ ${user?.business_name || user?.name}
               <div className="flex gap-2">
                 <Button onClick={handleEmailReport} className="bg-orange-500 hover:bg-orange-600">
                   <Mail className="w-4 h-4 mr-2" />
-                  Send Report
+                  Send Report Link
                 </Button>
                 <Button onClick={() => setShowEmailForm(false)} variant="outline">
                   Cancel
@@ -374,7 +372,7 @@ ${user?.business_name || user?.name}
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded p-3">
                 <p className="text-xs text-blue-900">
-                  <strong>Email will include:</strong> "This measurement report was prepared by {user?.business_name || user?.name} using Aroof.build measurement technology"
+                  <strong>Email will include:</strong> A link to view this report online, prepared by {user?.business_name || user?.name} using Aroof.build measurement technology
                 </p>
               </div>
             </div>
