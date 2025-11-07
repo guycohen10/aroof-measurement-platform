@@ -10,6 +10,8 @@ import HomeownerStart from './pages/HomeownerStart';
 import RooferStart from './pages/RooferStart';
 import Measure from './pages/Measure';
 import SimpleResults from './pages/SimpleResults';
+import FormPage from './pages/FormPage';
+import MeasurementPage from './pages/MeasurementPage';
 
 
 export const PAGES = {
@@ -25,6 +27,8 @@ export const PAGES = {
     "RooferStart": RooferStart,
     "Measure": Measure,
     "SimpleResults": SimpleResults,
+    "FormPage": FormPage,
+    "MeasurementPage": MeasurementPage,
 }
 
 export const pagesConfig = {
