@@ -26,13 +26,18 @@ export default function HomeownerForm() {
     e.preventDefault();
     setError("");
 
+    console.log("Form submitted with data:", formData);
+
     if (!formData.agrees_to_quotes) {
       setError("Please agree to receive quotes from Aroof to continue");
       return;
     }
 
     setLoading(true);
+    
     try {
+      console.log("Creating user...");
+      
       // Create user
       const userData = await base44.entities.User.create({
         user_type: "homeowner",
@@ -41,6 +46,8 @@ export default function HomeownerForm() {
         phone: formData.phone,
         agrees_to_quotes: formData.agrees_to_quotes
       });
+
+      console.log("User created:", userData);
 
       // Create measurement record (skip payment for now)
       const measurement = await base44.entities.Measurement.create({
@@ -53,11 +60,14 @@ export default function HomeownerForm() {
         lead_status: "new"
       });
 
+      console.log("Measurement created:", measurement);
+      console.log("Navigating to measurement tool...");
+
       // Navigate directly to measurement tool
       navigate(createPageUrl(`MeasurementTool?measurementId=${measurement.id}`));
     } catch (err) {
-      console.error("Error:", err);
-      setError("Something went wrong. Please try again.");
+      console.error("Error during form submission:", err);
+      setError(`Failed to submit form: ${err.message || "Please try again"}`);
       setLoading(false);
     }
   };
@@ -130,6 +140,7 @@ export default function HomeownerForm() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="h-12 text-lg"
+                  disabled={loading}
                 />
               </div>
 
@@ -146,6 +157,7 @@ export default function HomeownerForm() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="h-12 text-lg"
+                  disabled={loading}
                 />
                 <p className="text-sm text-slate-500">We'll send your estimate and receipt here</p>
               </div>
@@ -163,6 +175,7 @@ export default function HomeownerForm() {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="h-12 text-lg"
+                  disabled={loading}
                 />
                 <p className="text-sm text-slate-500">For quick follow-up and scheduling</p>
               </div>
@@ -180,6 +193,7 @@ export default function HomeownerForm() {
                   value={formData.property_address}
                   onChange={(e) => setFormData({ ...formData, property_address: e.target.value })}
                   className="h-12 text-lg"
+                  disabled={loading}
                 />
                 <p className="text-sm text-slate-500">The address of the property you want measured</p>
               </div>
@@ -194,6 +208,7 @@ export default function HomeownerForm() {
                       setFormData({ ...formData, agrees_to_quotes: checked })
                     }
                     className="mt-1"
+                    disabled={loading}
                   />
                   <div className="flex-1">
                     <Label 
@@ -273,6 +288,15 @@ export default function HomeownerForm() {
                 <p className="text-slate-700">Schedule free consultation and book your project</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Debug Info (remove in production) */}
+        <Card className="mt-6 bg-yellow-50 border-yellow-200">
+          <CardContent className="p-4">
+            <p className="text-sm text-yellow-800">
+              <strong>Debug Info:</strong> Check your browser console (F12) for detailed logs if the form doesn't submit.
+            </p>
           </CardContent>
         </Card>
       </div>
