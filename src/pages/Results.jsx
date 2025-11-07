@@ -4,7 +4,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Home, Download, Phone, Calendar, Mail, CheckCircle, DollarSign } from "lucide-react";
+import { Home, Download, Phone, Calendar, Mail, CheckCircle, DollarSign, Layers } from "lucide-react";
 
 export default function Results() {
   const navigate = useNavigate();
@@ -58,6 +58,9 @@ export default function Results() {
   }
 
   const isHomeowner = measurement?.user_type === "homeowner";
+  const sections = measurement?.measurement_data?.sections || [];
+  const totalArea = measurement?.total_sqft || 0;
+  const estimate = measurement?.aroof_estimate;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
@@ -110,20 +113,54 @@ export default function Results() {
                   
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <p className="text-sm text-slate-600 mb-2">Total Roof Area</p>
-                    <p className="text-4xl font-bold text-blue-900">1,850 sq ft</p>
-                    <p className="text-sm text-slate-500 mt-1">Sample measurement data</p>
+                    <p className="text-4xl font-bold text-blue-900">
+                      {totalArea > 0 ? totalArea.toLocaleString() : '1,850'} sq ft
+                    </p>
+                    {totalArea === 0 && (
+                      <p className="text-sm text-slate-500 mt-1">Sample measurement data</p>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50 rounded-lg p-4">
-                      <p className="text-sm text-slate-600 mb-1">Roof Pitch</p>
-                      <p className="text-2xl font-bold text-slate-900">6/12</p>
+                  {sections.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Layers className="w-5 h-5 text-slate-600" />
+                        <h3 className="font-bold text-slate-900">Section Breakdown</h3>
+                      </div>
+                      <div className="space-y-2">
+                        {sections.map((section, index) => (
+                          <div
+                            key={section.id}
+                            className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-4 h-4 rounded"
+                                style={{ backgroundColor: section.color }}
+                              />
+                              <span className="font-medium text-slate-900">{section.name}</span>
+                            </div>
+                            <span className="font-bold text-slate-900">
+                              {section.area_sqft.toLocaleString()} sq ft
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="bg-slate-50 rounded-lg p-4">
-                      <p className="text-sm text-slate-600 mb-1">Sections</p>
-                      <p className="text-2xl font-bold text-slate-900">4</p>
+                  )}
+
+                  {sections.length === 0 && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-50 rounded-lg p-4">
+                        <p className="text-sm text-slate-600 mb-1">Roof Pitch</p>
+                        <p className="text-2xl font-bold text-slate-900">6/12</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-lg p-4">
+                        <p className="text-sm text-slate-600 mb-1">Sections</p>
+                        <p className="text-2xl font-bold text-slate-900">4</p>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -141,11 +178,15 @@ export default function Results() {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center pb-3 border-b">
                       <span className="text-slate-600">Material Cost</span>
-                      <span className="font-medium text-slate-900">$5,550</span>
+                      <span className="font-medium text-slate-900">
+                        ${estimate ? estimate.material_cost.toLocaleString() : '5,550'}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center pb-3 border-b">
                       <span className="text-slate-600">Labor Cost</span>
-                      <span className="font-medium text-slate-900">$3,700</span>
+                      <span className="font-medium text-slate-900">
+                        ${estimate ? estimate.labor_cost.toLocaleString() : '3,700'}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center pb-3 border-b">
                       <span className="text-slate-600">Permits & Fees</span>
@@ -153,12 +194,15 @@ export default function Results() {
                     </div>
                     <div className="flex justify-between items-center pt-2">
                       <span className="text-xl font-bold text-slate-900">Total Estimate</span>
-                      <span className="text-3xl font-bold text-blue-900">$9,700</span>
+                      <span className="text-3xl font-bold text-blue-900">
+                        ${estimate ? estimate.total_cost.toLocaleString() : '9,700'}
+                      </span>
                     </div>
 
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
                       <p className="text-sm text-green-800">
-                        <strong>Note:</strong> This is a sample estimate. Actual pricing will be calculated based on your specific measurements, materials, and location.
+                        <strong>Note:</strong> This estimate is based on your measured roof area of {totalArea > 0 ? totalArea.toLocaleString() : '1,850'} sq ft. 
+                        Final pricing may vary based on material selection, roof complexity, and local conditions.
                       </p>
                     </div>
                   </div>
