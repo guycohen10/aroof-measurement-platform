@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -18,12 +19,14 @@ export default function MeasurementPage() {
   const [error, setError] = useState("");
   const [mapError, setMapError] = useState("");
   const [area, setArea] = useState(0);
-  const [coordinates, setCoordinates] = useState(null);
+  const [coordinates, setCoordinates] = useState(null); // Keep this state
 
   useEffect(() => {
-    // Get address from URL parameter
+    // Get address and coordinates from URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     const addressParam = urlParams.get('address');
+    const latParam = urlParams.get('lat');
+    const lngParam = urlParams.get('lng');
     
     if (!addressParam) {
       navigate(createPageUrl("FormPage"));
@@ -33,6 +36,19 @@ export default function MeasurementPage() {
     const decodedAddress = decodeURIComponent(addressParam);
     console.log("MeasurementPage: Address from URL:", decodedAddress);
     setAddress(decodedAddress);
+
+    // If coordinates are provided, use them directly
+    if (latParam && lngParam) {
+      const lat = parseFloat(latParam);
+      const lng = parseFloat(lngParam);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        console.log("MeasurementPage: Using coordinates from URL:", { lat, lng });
+        setCoordinates({ lat, lng });
+      } else {
+        console.warn("MeasurementPage: Invalid coordinates from URL, will geocode.");
+      }
+    }
+
     setLoading(false);
   }, [navigate]);
 
@@ -87,7 +103,7 @@ export default function MeasurementPage() {
     };
 
     loadGoogleMaps();
-  }, [address]);
+  }, [address, coordinates]); // Add coordinates to dependency array so map initializes if coordinates are loaded later
 
   const initializeMap = async () => {
     console.log("Initializing map for address:", address);
@@ -97,14 +113,26 @@ export default function MeasurementPage() {
         throw new Error("Google Maps not available");
       }
 
-      // Start with a default center (will be updated after geocoding)
-      const defaultCenter = { lat: 32.7767, lng: -96.7970 };
+      let center;
+      const defaultCenter = { lat: 32.7767, lng: -96.7970 }; // Default to Dallas if nothing found
+
+      // If we have coordinates from URL, use them directly (faster and more accurate)
+      if (coordinates) {
+        console.log("✅ Using coordinates from URL - no geocoding needed");
+        center = coordinates;
+        setGeocodingStatus("Address verified!");
+      } else {
+        // Fall back to geocoding if no coordinates provided
+        console.log("No coordinates in URL, will geocode address...");
+        center = defaultCenter;
+        setGeocodingStatus("Finding address...");
+      }
 
       console.log("Creating map instance...");
       
-      // Create map first with default center
+      // Create map with the center
       const map = new window.google.maps.Map(mapRef.current, {
-        center: defaultCenter,
+        center: center,
         zoom: 20,
         mapTypeId: "satellite",
         tilt: 0,
@@ -128,10 +156,34 @@ export default function MeasurementPage() {
 
       mapInstanceRef.current = map;
 
-      console.log("Starting geocoding for:", address);
-      setGeocodingStatus("Finding address...");
+      // If we already have coordinates, just add marker and we're done
+      if (coordinates) {
+        // setCoordinates(center); // Already set from URL
+        setMapError("");
+        
+        // Add red marker at the location
+        new window.google.maps.Marker({
+          position: center,
+          map: map,
+          title: address,
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            fillColor: "#FF0000",
+            fillOpacity: 1,
+            strokeColor: "#FFFFFF",
+            strokeWeight: 3,
+            scale: 10,
+          }
+        });
 
-      // Now geocode the address
+        console.log("✅ Map initialized with coordinates from URL");
+        setMapLoading(false);
+        return;
+      }
+
+      // Otherwise, geocode the address
+      console.log("Starting geocoding for:", address);
+
       const geocoder = new window.google.maps.Geocoder();
       
       geocoder.geocode({ address: address }, (results, status) => {
@@ -139,26 +191,26 @@ export default function MeasurementPage() {
         
         if (status === "OK" && results[0]) {
           const location = results[0].geometry.location;
-          const center = {
+          const geocodedCenter = {
             lat: location.lat(),
             lng: location.lng()
           };
           
-          console.log("✅ Address geocoded successfully:", center);
+          console.log("✅ Address geocoded successfully:", geocodedCenter);
           console.log("Full address found:", results[0].formatted_address);
           
           // Update map to center on the found location
-          map.setCenter(center);
+          map.setCenter(geocodedCenter);
           map.setZoom(20);
           
           // Store coordinates
-          setCoordinates(center);
+          setCoordinates(geocodedCenter);
           setMapError("");
           setGeocodingStatus("Address found!");
           
           // Add red marker at the location
           new window.google.maps.Marker({
-            position: center,
+            position: geocodedCenter,
             map: map,
             title: address,
             icon: {
