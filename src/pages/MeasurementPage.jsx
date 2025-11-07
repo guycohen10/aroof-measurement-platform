@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
@@ -18,7 +18,7 @@ export default function MeasurementPage() {
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(true);
   const [mapLoading, setMapLoading] = useState(true);
-  const [geocodingStatus, setGeocodingStatus] = useState("Finding address...");
+  const [geocodingStatus, setGeocodingStatus] = useState("Initializing map...");
   const [error, setError] = useState("");
   const [mapError, setMapError] = useState("");
   const [coordinates, setCoordinates] = useState(null);
@@ -37,22 +37,30 @@ export default function MeasurementPage() {
     const latParam = urlParams.get('lat');
     const lngParam = urlParams.get('lng');
     
+    console.log("MeasurementPage: URL params:", { addressParam, latParam, lngParam });
+    
     if (!addressParam) {
+      console.error("MeasurementPage: No address in URL, redirecting to form");
       navigate(createPageUrl("FormPage"));
       return;
     }
     
     const decodedAddress = decodeURIComponent(addressParam);
-    console.log("MeasurementPage: Address from URL:", decodedAddress);
     setAddress(decodedAddress);
 
+    // PRIORITY: Use coordinates from URL if available
     if (latParam && lngParam) {
       const lat = parseFloat(latParam);
       const lng = parseFloat(lngParam);
       if (!isNaN(lat) && !isNaN(lng)) {
-        console.log("MeasurementPage: Using coordinates from URL:", { lat, lng });
+        console.log("MeasurementPage: ✅ Using coordinates from URL:", { lat, lng });
         setCoordinates({ lat, lng });
+        setGeocodingStatus("Location verified!");
+      } else {
+        console.warn("MeasurementPage: Invalid coordinates in URL, will geocode address");
       }
+    } else {
+      console.log("MeasurementPage: No coordinates in URL, will geocode address");
     }
 
     setLoading(false);
@@ -63,16 +71,27 @@ export default function MeasurementPage() {
 
     const loadGoogleMaps = () => {
       if (window.google && window.google.maps && window.google.maps.drawing) {
-        console.log("Google Maps already loaded, initializing map...");
+        console.log("MeasurementPage: Google Maps already loaded, initializing map...");
         initializeMap();
         return;
       }
 
       if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+        console.log("MeasurementPage: Google Maps script found in DOM, waiting...");
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds max
+        
         const checkGoogle = setInterval(() => {
+          attempts++;
           if (window.google && window.google.maps && window.google.maps.drawing) {
             clearInterval(checkGoogle);
+            console.log("MeasurementPage: Google Maps now available");
             initializeMap();
+          } else if (attempts >= maxAttempts) {
+            clearInterval(checkGoogle);
+            console.error("MeasurementPage: Timeout waiting for Google Maps");
+            setMapError("Google Maps failed to load. Please refresh the page.");
+            setMapLoading(false);
           }
         }, 100);
         return;
@@ -85,12 +104,12 @@ export default function MeasurementPage() {
       script.defer = true;
       
       script.onload = () => {
-        console.log("✅ Google Maps script loaded successfully");
+        console.log("MeasurementPage: ✅ Google Maps script loaded successfully");
         initializeMap();
       };
       
       script.onerror = () => {
-        console.error("❌ Failed to load Google Maps script");
+        console.error("MeasurementPage: ❌ Failed to load Google Maps script");
         setMapError("Failed to load Google Maps. Please check your internet connection.");
         setMapLoading(false);
       };
@@ -101,24 +120,9 @@ export default function MeasurementPage() {
     loadGoogleMaps();
   }, [address, coordinates]);
 
-  const initializeMap = async () => {
+  const createMap = useCallback((center) => {
     try {
-      if (!window.google || !window.google.maps) {
-        throw new Error("Google Maps not available");
-      }
-
-      let center;
-      const defaultCenter = { lat: 32.7767, lng: -96.7970 };
-
-      if (coordinates) {
-        center = coordinates;
-        setGeocodingStatus("Address verified!");
-      } else {
-        center = defaultCenter;
-        setGeocodingStatus("Finding address...");
-      }
-
-      console.log("Creating map with center:", center);
+      console.log("MeasurementPage: Creating map with center:", center);
 
       const map = new window.google.maps.Map(mapRef.current, {
         center: center,
@@ -139,32 +143,78 @@ export default function MeasurementPage() {
 
       mapInstanceRef.current = map;
 
-      // Add a simple test click listener to verify map is interactive
+      // Add test click listener
       map.addListener('click', (event) => {
-        console.log('Map clicked at:', event.latLng.lat(), event.latLng.lng());
+        console.log('MeasurementPage: Map clicked at:', event.latLng.lat(), event.latLng.lng());
       });
 
+      // Add marker at center
+      new window.google.maps.Marker({
+        position: center,
+        map: map,
+        title: address,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          fillColor: "#FF0000",
+          fillOpacity: 1,
+          strokeColor: "#FFFFFF",
+          strokeWeight: 3,
+          scale: 10,
+        }
+      });
+
+      console.log("MeasurementPage: ✅ Map created successfully");
+      setMapError("");
+      setMapLoading(false);
+
+    } catch (err) {
+      console.error("MeasurementPage: Error creating map:", err);
+      setMapError(`Error creating map: ${err.message}`);
+      setMapLoading(false);
+    }
+  }, [address, setMapError, setMapLoading]); // Dependencies for useCallback
+
+  const initializeMap = useCallback(async () => {
+    try {
+      if (!window.google || !window.google.maps) {
+        throw new Error("Google Maps not available");
+      }
+
+      console.log("MeasurementPage: Initializing map with coordinates:", coordinates);
+
+      // DEFAULT: Dallas coordinates as fallback
+      const defaultCenter = { lat: 32.7767, lng: -96.7970 };
+
+      // PRIORITY: Use coordinates from URL if available
       if (coordinates) {
-        setMapError("");
-        new window.google.maps.Marker({
-          position: center,
-          map: map,
-          title: address,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            fillColor: "#FF0000",
-            fillOpacity: 1,
-            strokeColor: "#FFFFFF",
-            strokeWeight: 3,
-            scale: 10,
-          }
-        });
-        setMapLoading(false);
+        console.log("MeasurementPage: Using coordinates from URL, skipping geocoding");
+        createMap(coordinates);
         return;
       }
 
+      // FALLBACK: Geocode the address if no coordinates
+      console.log("MeasurementPage: No coordinates available, geocoding address...");
+      setGeocodingStatus("Finding address location...");
+      
       const geocoder = new window.google.maps.Geocoder();
+      let geocodingCompleted = false;
+      
+      // Set timeout for geocoding
+      const geocodeTimeout = setTimeout(() => {
+        if (!geocodingCompleted) {
+          console.error("MeasurementPage: Geocoding timeout after 10 seconds");
+          setMapError("Could not find address location. Using default map center.");
+          setGeocodingStatus("Using default location");
+          createMap(defaultCenter);
+        }
+      }, 10000); // 10 second timeout
+
       geocoder.geocode({ address: address }, (results, status) => {
+        geocodingCompleted = true;
+        clearTimeout(geocodeTimeout);
+        
+        console.log("MeasurementPage: Geocoding result:", { status, results });
+        
         if (status === "OK" && results[0]) {
           const location = results[0].geometry.location;
           const geocodedCenter = {
@@ -172,40 +222,76 @@ export default function MeasurementPage() {
             lng: location.lng()
           };
           
-          map.setCenter(geocodedCenter);
-          map.setZoom(20);
+          console.log("MeasurementPage: ✅ Address geocoded successfully:", geocodedCenter);
           setCoordinates(geocodedCenter);
-          setMapError("");
           setGeocodingStatus("Address found!");
-          
-          new window.google.maps.Marker({
-            position: geocodedCenter,
-            map: map,
-            title: address,
-            icon: {
-              path: window.google.maps.SymbolPath.CIRCLE,
-              fillColor: "#FF0000",
-              fillOpacity: 1,
-              strokeColor: "#FFFFFF",
-              strokeWeight: 3,
-              scale: 10,
-            }
-          });
+          createMap(geocodedCenter);
         } else {
-          setMapError(`Could not find address. Showing default location.`);
-          setGeocodingStatus("Address not found");
+          console.error("MeasurementPage: Geocoding failed with status:", status);
+          setMapError(`Could not find address (${status}). Showing default location.`);
+          setGeocodingStatus("Using default location");
+          createMap(defaultCenter);
         }
-        setMapLoading(false);
       });
 
     } catch (err) {
-      console.error("❌ Error initializing map:", err);
+      console.error("MeasurementPage: ❌ Error initializing map:", err);
       setMapError(`Failed to initialize map: ${err.message}`);
       setMapLoading(false);
     }
-  };
+  }, [address, coordinates, createMap, setCoordinates, setGeocodingStatus, setMapError, setMapLoading]); // Dependencies for useCallback
 
-  const startDrawing = () => {
+  const updatePolygonPoints = useCallback((polygon) => {
+    const path = polygon.getPath();
+    const points = [];
+    for (let i = 0; i < path.getLength(); i++) {
+      const point = path.getAt(i);
+      points.push({
+        lat: point.lat(),
+        lng: point.lng()
+      });
+    }
+    setPolygonPoints(points);
+  }, [setPolygonPoints]);
+
+  const calculateArea = useCallback((polygon) => {
+    if (!polygon || !window.google || !window.google.maps.geometry) return;
+
+    try {
+      const areaInSquareMeters = window.google.maps.geometry.spherical.computeArea(polygon.getPath());
+      const areaInSquareFeet = areaInSquareMeters * 10.764;
+      const roundedArea = Math.round(areaInSquareFeet * 100) / 100;
+      console.log("Area calculated:", roundedArea, "sq ft");
+      setArea(roundedArea);
+    } catch (err) {
+      console.error("Error calculating area:", err);
+    }
+  }, [setArea]);
+
+  const clearDrawing = useCallback(() => {
+    console.log("Clearing drawing...");
+    
+    // Remove polygon from map
+    if (polygonRef.current) {
+      polygonRef.current.setMap(null);
+      polygonRef.current = null;
+    }
+
+    // Remove drawing manager
+    if (drawingManagerRef.current) {
+      drawingManagerRef.current.setMap(null);
+      drawingManagerRef.current = null;
+    }
+
+    // Reset state
+    setPolygonPoints([]);
+    setArea(0);
+    setIsDrawing(false);
+    setPolygonClosed(false);
+    setError("");
+  }, [setPolygonPoints, setArea, setIsDrawing, setPolygonClosed, setError]);
+
+  const startDrawing = useCallback(() => {
     if (!mapInstanceRef.current) {
       console.error("Map not initialized");
       return;
@@ -302,41 +388,9 @@ export default function MeasurementPage() {
         updatePolygonPoints(polygon);
       });
     });
+  }, [calculateArea, updatePolygonPoints, setArea, setError, setIsDrawing, setPolygonClosed, setPolygonPoints]); // Dependencies for useCallback
 
-    // Listen for overlay clicks while drawing
-    window.google.maps.event.addListener(drawingManager, 'overlaycomplete', function(event) {
-      console.log("Overlay complete event:", event.type);
-    });
-  };
-
-  const updatePolygonPoints = (polygon) => {
-    const path = polygon.getPath();
-    const points = [];
-    for (let i = 0; i < path.getLength(); i++) {
-      const point = path.getAt(i);
-      points.push({
-        lat: point.lat(),
-        lng: point.lng()
-      });
-    }
-    setPolygonPoints(points);
-  };
-
-  const calculateArea = (polygon) => {
-    if (!polygon || !window.google) return;
-
-    try {
-      const areaInSquareMeters = window.google.maps.geometry.spherical.computeArea(polygon.getPath());
-      const areaInSquareFeet = areaInSquareMeters * 10.764;
-      const roundedArea = Math.round(areaInSquareFeet * 100) / 100;
-      console.log("Area calculated:", roundedArea, "sq ft");
-      setArea(roundedArea);
-    } catch (err) {
-      console.error("Error calculating area:", err);
-    }
-  };
-
-  const undoLastPoint = () => {
+  const undoLastPoint = useCallback(() => {
     if (!polygonRef.current) return;
     
     const path = polygonRef.current.getPath();
@@ -345,32 +399,9 @@ export default function MeasurementPage() {
       calculateArea(polygonRef.current);
       updatePolygonPoints(polygonRef.current);
     }
-  };
+  }, [calculateArea, updatePolygonPoints]);
 
-  const clearDrawing = () => {
-    console.log("Clearing drawing...");
-    
-    // Remove polygon from map
-    if (polygonRef.current) {
-      polygonRef.current.setMap(null);
-      polygonRef.current = null;
-    }
-
-    // Remove drawing manager
-    if (drawingManagerRef.current) {
-      drawingManagerRef.current.setMap(null);
-      drawingManagerRef.current = null;
-    }
-
-    // Reset state
-    setPolygonPoints([]);
-    setArea(0);
-    setIsDrawing(false);
-    setPolygonClosed(false);
-    setError("");
-  };
-
-  const handleCompleteMeasurement = async () => {
+  const handleCompleteMeasurement = useCallback(async () => {
     if (!polygonClosed || area === 0) {
       setError("Please complete drawing your roof outline first");
       return;
@@ -417,7 +448,7 @@ export default function MeasurementPage() {
       setError(`Failed to save measurement: ${err.message}`);
       setSaving(false);
     }
-  };
+  }, [polygonClosed, area, polygonPoints, address, setSaving, setError, navigate]); // Dependencies for useCallback
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -440,7 +471,7 @@ export default function MeasurementPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isDrawing, polygonClosed, area, handleCompleteMeasurement, undoLastPoint, clearDrawing]);
+  }, [isDrawing, polygonClosed, area, clearDrawing, handleCompleteMeasurement, undoLastPoint]);
 
   if (loading) {
     return (
@@ -642,6 +673,11 @@ export default function MeasurementPage() {
                 <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
                 <p className="text-white text-lg">{geocodingStatus}</p>
                 <p className="text-slate-400 text-sm mt-2">Address: {address}</p>
+                {coordinates && (
+                  <p className="text-slate-400 text-xs mt-1">
+                    Using coordinates: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -650,7 +686,16 @@ export default function MeasurementPage() {
             <div className="absolute inset-0 bg-slate-900 flex items-center justify-center z-10 p-8">
               <Alert variant="destructive" className="max-w-md">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{mapError}</AlertDescription>
+                <AlertDescription>
+                  <p className="font-bold mb-2">{mapError}</p>
+                  <Button 
+                    onClick={() => window.location.reload()} 
+                    variant="outline" 
+                    className="mt-2"
+                  >
+                    Refresh Page
+                  </Button>
+                </AlertDescription>
               </Alert>
             </div>
           )}
