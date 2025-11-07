@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -12,7 +13,7 @@ export default function MeasurementPage() {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const polygonRef = useRef(null);
-  const drawingListenersRef = useRef([]);
+  const drawingManagerRef = useRef(null);
   
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(true);
@@ -61,7 +62,7 @@ export default function MeasurementPage() {
     if (!address) return;
 
     const loadGoogleMaps = () => {
-      if (window.google && window.google.maps) {
+      if (window.google && window.google.maps && window.google.maps.drawing) {
         console.log("Google Maps already loaded, initializing map...");
         initializeMap();
         return;
@@ -69,7 +70,7 @@ export default function MeasurementPage() {
 
       if (document.querySelector('script[src*="maps.googleapis.com"]')) {
         const checkGoogle = setInterval(() => {
-          if (window.google && window.google.maps) {
+          if (window.google && window.google.maps && window.google.maps.drawing) {
             clearInterval(checkGoogle);
             initializeMap();
           }
@@ -117,6 +118,8 @@ export default function MeasurementPage() {
         setGeocodingStatus("Finding address...");
       }
 
+      console.log("Creating map with center:", center);
+
       const map = new window.google.maps.Map(mapRef.current, {
         center: center,
         zoom: 20,
@@ -135,6 +138,11 @@ export default function MeasurementPage() {
       });
 
       mapInstanceRef.current = map;
+
+      // Add a simple test click listener to verify map is interactive
+      map.addListener('click', (event) => {
+        console.log('Map clicked at:', event.latLng.lat(), event.latLng.lng());
+      });
 
       if (coordinates) {
         setMapError("");
@@ -198,12 +206,22 @@ export default function MeasurementPage() {
   };
 
   const startDrawing = () => {
-    if (!mapInstanceRef.current) return;
+    if (!mapInstanceRef.current) {
+      console.error("Map not initialized");
+      return;
+    }
+
+    if (!window.google || !window.google.maps || !window.google.maps.drawing) {
+      console.error("Google Maps Drawing library not loaded");
+      setError("Drawing tools not available. Please refresh the page.");
+      return;
+    }
     
+    console.log("Starting drawing mode...");
     setIsDrawing(true);
-    setPolygonPoints([]);
     setPolygonClosed(false);
     setArea(0);
+    setError("");
     
     // Clear existing polygon if any
     if (polygonRef.current) {
@@ -211,96 +229,97 @@ export default function MeasurementPage() {
       polygonRef.current = null;
     }
 
-    // Change cursor
-    mapInstanceRef.current.setOptions({ draggableCursor: 'crosshair' });
+    // Remove existing drawing manager if any
+    if (drawingManagerRef.current) {
+      drawingManagerRef.current.setMap(null);
+    }
 
-    // Add click listener for drawing
-    const clickListener = mapInstanceRef.current.addListener('click', (event) => {
-      addPoint(event.latLng);
-    });
-
-    drawingListenersRef.current.push(clickListener);
-  };
-
-  const addPoint = (latLng) => {
-    const newPoints = [...polygonPoints, { lat: latLng.lat(), lng: latLng.lng() }];
-    setPolygonPoints(newPoints);
-
-    // Check if we should close the polygon (clicked near first point)
-    if (newPoints.length >= 3) {
-      const firstPoint = newPoints[0];
-      const distance = window.google.maps.geometry.spherical.computeDistanceBetween(
-        new window.google.maps.LatLng(firstPoint.lat, firstPoint.lng),
-        latLng
-      );
-
-      // If clicked within 10 meters of first point, close polygon
-      if (distance < 10) {
-        closePolygon(newPoints);
-        return;
+    // Create Drawing Manager with Google's built-in drawing tools
+    const drawingManager = new window.google.maps.drawing.DrawingManager({
+      drawingMode: window.google.maps.drawing.OverlayType.POLYGON,
+      drawingControl: false, // We control it with our own button
+      polygonOptions: {
+        fillColor: '#4A90E2',
+        fillOpacity: 0.4,
+        strokeWeight: 3,
+        strokeColor: '#4A90E2',
+        editable: true,
+        draggable: false,
+        clickable: true
       }
-    }
-
-    // Draw the polygon with current points
-    drawPolygon(newPoints, false);
-  };
-
-  const drawPolygon = (points, closed) => {
-    // Remove existing polygon
-    if (polygonRef.current) {
-      polygonRef.current.setMap(null);
-    }
-
-    // Create new polygon
-    const polygon = new window.google.maps.Polygon({
-      paths: points,
-      strokeColor: '#4A90E2',
-      strokeOpacity: 1,
-      strokeWeight: 3,
-      fillColor: closed ? '#4A90E2' : 'transparent',
-      fillOpacity: closed ? 0.4 : 0,
-      editable: closed,
-      draggable: false,
-      map: mapInstanceRef.current
     });
 
-    polygonRef.current = polygon;
+    drawingManagerRef.current = drawingManager;
+    drawingManager.setMap(mapInstanceRef.current);
 
-    // If closed and editable, add listeners for editing
-    if (closed) {
-      const path = polygon.getPath();
+    console.log("Drawing Manager created and attached to map");
+
+    // Listen for polygon completion
+    window.google.maps.event.addListener(drawingManager, 'polygoncomplete', function(polygon) {
+      console.log("Polygon completed!");
       
+      // Store the polygon
+      polygonRef.current = polygon;
+      
+      // Get the points
+      const path = polygon.getPath();
+      const points = [];
+      for (let i = 0; i < path.getLength(); i++) {
+        const point = path.getAt(i);
+        points.push({
+          lat: point.lat(),
+          lng: point.lng()
+        });
+      }
+      
+      console.log("Polygon points:", points);
+      setPolygonPoints(points);
+      
+      // Calculate area
+      calculateArea(polygon);
+      
+      // Disable drawing mode
+      drawingManager.setDrawingMode(null);
+      setIsDrawing(false);
+      setPolygonClosed(true);
+      
+      // Add listeners for editing
       window.google.maps.event.addListener(path, 'set_at', () => {
+        console.log("Polygon edited - vertex moved");
         calculateArea(polygon);
+        updatePolygonPoints(polygon);
       });
       
       window.google.maps.event.addListener(path, 'insert_at', () => {
+        console.log("Polygon edited - vertex added");
         calculateArea(polygon);
+        updatePolygonPoints(polygon);
       });
-    }
+
+      window.google.maps.event.addListener(path, 'remove_at', () => {
+        console.log("Polygon edited - vertex removed");
+        calculateArea(polygon);
+        updatePolygonPoints(polygon);
+      });
+    });
+
+    // Listen for overlay clicks while drawing
+    window.google.maps.event.addListener(drawingManager, 'overlaycomplete', function(event) {
+      console.log("Overlay complete event:", event.type);
+    });
   };
 
-  const closePolygon = (points) => {
-    setIsDrawing(false);
-    setPolygonClosed(true);
-    setPolygonPoints(points);
-
-    // Remove drawing listeners
-    drawingListenersRef.current.forEach(listener => {
-      window.google.maps.event.removeListener(listener);
-    });
-    drawingListenersRef.current = [];
-
-    // Reset cursor
-    mapInstanceRef.current.setOptions({ draggableCursor: null });
-
-    // Draw closed polygon
-    drawPolygon(points, true);
-
-    // Calculate area
-    if (polygonRef.current) {
-      calculateArea(polygonRef.current);
+  const updatePolygonPoints = (polygon) => {
+    const path = polygon.getPath();
+    const points = [];
+    for (let i = 0; i < path.getLength(); i++) {
+      const point = path.getAt(i);
+      points.push({
+        lat: point.lat(),
+        lng: point.lng()
+      });
     }
+    setPolygonPoints(points);
   };
 
   const calculateArea = (polygon) => {
@@ -310,6 +329,7 @@ export default function MeasurementPage() {
       const areaInSquareMeters = window.google.maps.geometry.spherical.computeArea(polygon.getPath());
       const areaInSquareFeet = areaInSquareMeters * 10.764;
       const roundedArea = Math.round(areaInSquareFeet * 100) / 100;
+      console.log("Area calculated:", roundedArea, "sq ft");
       setArea(roundedArea);
     } catch (err) {
       console.error("Error calculating area:", err);
@@ -317,37 +337,29 @@ export default function MeasurementPage() {
   };
 
   const undoLastPoint = () => {
-    if (polygonPoints.length === 0) return;
+    if (!polygonRef.current) return;
     
-    const newPoints = polygonPoints.slice(0, -1);
-    setPolygonPoints(newPoints);
-    
-    if (newPoints.length > 0) {
-      drawPolygon(newPoints, false);
-    } else {
-      if (polygonRef.current) {
-        polygonRef.current.setMap(null);
-        polygonRef.current = null;
-      }
+    const path = polygonRef.current.getPath();
+    if (path.getLength() > 0) {
+      path.removeAt(path.getLength() - 1);
+      calculateArea(polygonRef.current);
+      updatePolygonPoints(polygonRef.current);
     }
   };
 
   const clearDrawing = () => {
+    console.log("Clearing drawing...");
+    
     // Remove polygon from map
     if (polygonRef.current) {
       polygonRef.current.setMap(null);
       polygonRef.current = null;
     }
 
-    // Remove drawing listeners
-    drawingListenersRef.current.forEach(listener => {
-      window.google.maps.event.removeListener(listener);
-    });
-    drawingListenersRef.current = [];
-
-    // Reset cursor
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.setOptions({ draggableCursor: null });
+    // Remove drawing manager
+    if (drawingManagerRef.current) {
+      drawingManagerRef.current.setMap(null);
+      drawingManagerRef.current = null;
     }
 
     // Reset state
@@ -384,6 +396,8 @@ export default function MeasurementPage() {
         lng: point.lng
       }));
 
+      console.log("Saving measurement with area:", area, "and", polygonData.length, "points");
+
       // Save measurement to database
       const measurement = await base44.entities.RoofMeasurement.create({
         address: address,
@@ -394,7 +408,7 @@ export default function MeasurementPage() {
 
       console.log("Measurement saved:", measurement);
 
-      // Redirect to results page (create this page next)
+      // Show success message
       alert(`✅ Measurement saved successfully!\n\nAddress: ${address}\nArea: ${area.toLocaleString()} sq ft`);
       
       navigate(createPageUrl("Homepage"));
@@ -409,15 +423,15 @@ export default function MeasurementPage() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        if (isDrawing) {
+        if (isDrawing || polygonClosed) {
           clearDrawing();
         }
       } else if (e.key === 'Enter') {
-        if (isDrawing && polygonPoints.length >= 3) {
-          closePolygon(polygonPoints);
+        if (polygonClosed && area > 0) {
+          handleCompleteMeasurement();
         }
       } else if ((e.key === 'z' && (e.ctrlKey || e.metaKey)) || e.key === 'Backspace' || e.key === 'Delete') {
-        if (isDrawing && polygonPoints.length > 0) {
+        if (polygonClosed && polygonRef.current) { // Only allow undo/delete if polygon is closed and exists
           e.preventDefault();
           undoLastPoint();
         }
@@ -426,7 +440,7 @@ export default function MeasurementPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isDrawing, polygonPoints, polygonClosed]);
+  }, [isDrawing, polygonClosed, area, handleCompleteMeasurement, undoLastPoint, clearDrawing]);
 
   if (loading) {
     return (
@@ -516,25 +530,15 @@ export default function MeasurementPage() {
               <div className="space-y-3">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-sm font-medium text-blue-900">
-                    Drawing Mode Active
+                    🖱️ Drawing Mode Active
                   </p>
                   <p className="text-xs text-blue-700 mt-1">
-                    Click on the map to add points. Double-click or click near the first point to close.
+                    Click on the map to add points around your roof. Double-click or click the first point again to close the polygon.
                   </p>
-                  <p className="text-xs text-blue-600 mt-2">
-                    Points: {polygonPoints.length}
+                  <p className="text-xs text-blue-600 mt-2 font-bold">
+                    👆 Click points on the satellite map to draw!
                   </p>
                 </div>
-
-                <Button
-                  onClick={undoLastPoint}
-                  variant="outline"
-                  className="w-full"
-                  disabled={polygonPoints.length === 0}
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Undo Last Point
-                </Button>
 
                 <Button
                   onClick={clearDrawing}
@@ -552,12 +556,25 @@ export default function MeasurementPage() {
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-sm font-medium text-green-900 flex items-center gap-2">
                     <CheckCircle className="w-4 h-4" />
-                    Polygon Complete
+                    Polygon Complete!
                   </p>
                   <p className="text-xs text-green-700 mt-1">
-                    You can drag the points to adjust the shape
+                    You can drag the corner points to adjust the shape
+                  </p>
+                  <p className="text-xs text-green-600 mt-2">
+                    Points: {polygonPoints.length}
                   </p>
                 </div>
+
+                <Button
+                  onClick={undoLastPoint}
+                  variant="outline"
+                  className="w-full"
+                  disabled={polygonPoints.length <= 3} // Disable if less than 3 points (minimum for a polygon)
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Remove Last Point
+                </Button>
 
                 <Button
                   onClick={clearDrawing}
@@ -600,12 +617,18 @@ export default function MeasurementPage() {
 
             {/* Instructions */}
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-              <p className="text-xs font-bold text-slate-900 mb-2">Keyboard Shortcuts:</p>
+              <p className="text-xs font-bold text-slate-900 mb-2">How to Draw:</p>
+              <ul className="text-xs text-slate-600 space-y-1">
+                <li>• Click points around your roof edges</li>
+                <li>• Double-click or click first point to close</li>
+                <li>• Drag corners to adjust after closing</li>
+                <li>• Press ESC to cancel and start over</li>
+              </ul>
+              <p className="text-xs font-bold text-slate-900 mt-3 mb-2">Keyboard Shortcuts:</p>
               <ul className="text-xs text-slate-600 space-y-1">
                 <li>• <kbd className="px-1 py-0.5 bg-slate-200 rounded text-xs">ESC</kbd> - Cancel drawing</li>
-                <li>• <kbd className="px-1 py-0.5 bg-slate-200 rounded text-xs">Enter</kbd> - Close polygon</li>
-                <li>• <kbd className="px-1 py-0.5 bg-slate-200 rounded text-xs">Ctrl+Z</kbd> - Undo point</li>
-                <li>• <kbd className="px-1 py-0.5 bg-slate-200 rounded text-xs">Delete</kbd> - Remove point</li>
+                <li>• <kbd className="px-1 py-0.5 bg-slate-200 rounded text-xs">Enter</kbd> - Save measurement</li>
+                <li>• <kbd className="px-1 py-0.5 bg-slate-200 rounded text-xs">Backspace</kbd> - Remove point</li>
               </ul>
             </div>
           </div>
@@ -647,9 +670,21 @@ export default function MeasurementPage() {
           )}
 
           {isDrawing && (
-            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-blue-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
-              <p className="text-sm font-medium">
-                Click points around your roof. Double-click or click near first point to close.
+            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-blue-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10 max-w-md text-center">
+              <p className="text-sm font-bold mb-1">
+                🖱️ Click on the Map to Draw
+              </p>
+              <p className="text-xs">
+                Click points around your roof. Double-click or click the first point to close the polygon.
+              </p>
+            </div>
+          )}
+
+          {polygonClosed && (
+            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-green-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                Polygon complete! Area: {area.toLocaleString()} sq ft
               </p>
             </div>
           )}
