@@ -506,7 +506,8 @@ export default function MeasurementPage() {
       console.log("🔵 Preparing redirect to Results page...");
 
       // Redirect to Results page with measurement data
-      const resultsUrl = createPageUrl(`Results?measurementId=${savedMeasurementId}`);
+      // Use lowercase 'measurementid' to match Results page parameter reading
+      const resultsUrl = createPageUrl(`Results?measurementid=${savedMeasurementId}`);
       console.log("🔵 Results URL:", resultsUrl);
       console.log("🔵 Calling navigate() now...");
       

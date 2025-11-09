@@ -19,18 +19,21 @@ export default function Results() {
     const loadData = async () => {
       console.log("🟣 RESULTS PAGE LOADING");
       const urlParams = new URLSearchParams(window.location.search);
-      const measurementId = urlParams.get('measurementId');
       
-      console.log("🟣 URL params - measurementId:", measurementId);
+      // FIX: Read 'measurementid' (lowercase) not 'measurementId' (camelCase)
+      const measurementId = urlParams.get('measurementid');
+      
+      console.log("🟣 Full URL:", window.location.href);
+      console.log("🟣 URL params - measurementid:", measurementId);
 
       if (!measurementId) {
-        console.log("❌ No measurementId in URL - redirecting to Homepage");
+        console.log("❌ No measurementid in URL - redirecting to Homepage");
         navigate(createPageUrl("Homepage"));
         return;
       }
 
       try {
-        console.log("🟣 Fetching measurement from database...");
+        console.log("🟣 Fetching measurement from database with ID:", measurementId);
         const measurements = await base44.entities.Measurement.filter({ id: measurementId });
         console.log("🟣 Database query result:", measurements);
         
