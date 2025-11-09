@@ -17,29 +17,55 @@ export default function Results() {
 
   useEffect(() => {
     const loadData = async () => {
+      console.log("🟣 RESULTS PAGE LOADING");
       const urlParams = new URLSearchParams(window.location.search);
       const measurementId = urlParams.get('measurementId');
+      
+      console.log("🟣 URL params - measurementId:", measurementId);
 
       if (!measurementId) {
+        console.log("❌ No measurementId in URL - redirecting to Homepage");
         navigate(createPageUrl("Homepage"));
         return;
       }
 
       try {
+        console.log("🟣 Fetching measurement from database...");
         const measurements = await base44.entities.Measurement.filter({ id: measurementId });
+        console.log("🟣 Database query result:", measurements);
+        
         if (measurements.length > 0) {
-          setMeasurement(measurements[0]);
+          const loadedMeasurement = measurements[0];
+          console.log("✅ Measurement found:", loadedMeasurement);
+          setMeasurement(loadedMeasurement);
           
-          // Load user data
-          const users = await base44.entities.User.filter({ id: measurements[0].user_id });
-          if (users.length > 0) {
-            setUser(users[0]);
+          // Load user data if user_id exists
+          if (loadedMeasurement.user_id) {
+            console.log("🟣 Loading user data for user_id:", loadedMeasurement.user_id);
+            try {
+              const users = await base44.entities.User.filter({ id: loadedMeasurement.user_id });
+              if (users.length > 0) {
+                console.log("✅ User found:", users[0]);
+                setUser(users[0]);
+              } else {
+                console.log("⚠️ No user found for this user_id");
+              }
+            } catch (userErr) {
+              console.error("⚠️ Error loading user (non-critical):", userErr);
+              // Don't fail if user loading fails - continue without user data
+            }
+          } else {
+            console.log("ℹ️ No user_id on measurement - skipping user load (homeowner flow)");
           }
+          
+          console.log("✅✅✅ RESULTS PAGE READY TO DISPLAY");
         } else {
+          console.log("❌ Measurement not found in database - redirecting to Homepage");
           navigate(createPageUrl("Homepage"));
         }
       } catch (err) {
-        console.error(err);
+        console.error("❌ Error loading measurement data:", err);
+        console.error("Error details:", err.message);
         setError("Failed to load measurement data");
       } finally {
         setLoading(false);
@@ -70,7 +96,25 @@ export default function Results() {
     );
   }
 
+  if (!measurement) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white flex items-center justify-center p-4">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertDescription>
+            Measurement not found. 
+            <Link to={createPageUrl("Homepage")} className="underline ml-2">
+              Return to homepage
+            </Link>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   const isHomeowner = measurement?.user_type === "homeowner";
+  
+  console.log("🟣 Rendering results - user_type:", measurement?.user_type);
+  console.log("🟣 isHomeowner:", isHomeowner);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
@@ -87,7 +131,7 @@ export default function Results() {
                 <p className="text-xs text-slate-500">Your Roof Measurement Results</p>
               </div>
             </Link>
-            <Link to={createPageUrl(`MeasurementTool?measurementId=${measurement?.id}`)}>
+            <Link to={createPageUrl(`MeasurementPage?measurementId=${measurement?.id}&address=${encodeURIComponent(measurement?.property_address || '')}`)}>
               <Button variant="outline" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Edit Measurement

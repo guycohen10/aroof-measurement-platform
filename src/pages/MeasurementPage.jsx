@@ -410,17 +410,26 @@ export default function MeasurementPage() {
   }, [calculateArea, updatePolygonPoints]);
 
   const handleCompleteMeasurement = useCallback(async () => {
+    console.log("🔵 COMPLETE MEASUREMENT CLICKED");
+    console.log("🔵 State - polygonClosed:", polygonClosed);
+    console.log("🔵 State - area:", area);
+    console.log("🔵 State - measurementId:", measurementId);
+    console.log("🔵 State - address:", address);
+    
     if (!polygonClosed || area === 0) {
+      console.log("❌ Validation failed - polygon not closed or area is 0");
       setError("Please complete drawing your roof outline first");
       return;
     }
 
     if (area < 100) {
+      console.log("❌ Validation failed - area too small");
       setError("Area seems too small. Please verify your measurement.");
       return;
     }
 
     if (area > 50000) {
+      console.log("❌ Validation failed - area too large");
       setError("Area seems unusually large. Please verify your measurement.");
       return;
     }
@@ -435,13 +444,18 @@ export default function MeasurementPage() {
         lng: point.lng
       }));
 
-      console.log("Saving measurement with area:", area, "and", polygonData.length, "points");
+      console.log("🟢 Starting save with:", {
+        area,
+        polygonDataLength: polygonData.length,
+        measurementId,
+        address
+      });
 
       let savedMeasurementId = measurementId;
 
       if (measurementId) {
         // Update existing measurement
-        console.log("Updating existing measurement:", measurementId);
+        console.log("🟢 Updating existing measurement:", measurementId);
         await base44.entities.Measurement.update(measurementId, {
           measurement_data: {
             total_sqft: area,
@@ -456,9 +470,10 @@ export default function MeasurementPage() {
           status: "completed",
           completed_at: new Date().toISOString()
         });
+        console.log("✅ Measurement updated successfully");
       } else {
         // Create new measurement (fallback for old flow)
-        console.log("Creating new measurement");
+        console.log("🟢 Creating new measurement");
         const measurement = await base44.entities.Measurement.create({
           property_address: address,
           user_type: "homeowner",
@@ -480,26 +495,33 @@ export default function MeasurementPage() {
         });
         
         savedMeasurementId = measurement.id;
-        console.log("Measurement created:", measurement);
+        console.log("✅ Measurement created:", measurement);
       }
 
       if (!savedMeasurementId) {
         throw new Error("Failed to get measurement ID");
       }
 
-      console.log("✅ Measurement saved successfully, redirecting to results...");
+      console.log("✅✅✅ MEASUREMENT SAVED SUCCESSFULLY!");
+      console.log("🔵 Preparing redirect to Results page...");
 
       // Redirect to Results page with measurement data
       const resultsUrl = createPageUrl(`Results?measurementId=${savedMeasurementId}`);
-      console.log("Navigating to:", resultsUrl);
+      console.log("🔵 Results URL:", resultsUrl);
+      console.log("🔵 Calling navigate() now...");
+      
       navigate(resultsUrl);
       
+      console.log("🔵 navigate() called - should redirect now");
+      
     } catch (err) {
-      console.error("❌ Error saving measurement:", err);
+      console.error("❌❌❌ ERROR SAVING MEASUREMENT:", err);
+      console.error("Error details:", err.message);
+      console.error("Error stack:", err.stack);
       setError(`Failed to save measurement: ${err.message}. Please try again.`);
       setSaving(false);
     }
-  }, [polygonClosed, area, polygonPoints, address, measurementId, navigate, setSaving, setError]);
+  }, [polygonClosed, area, polygonPoints, address, measurementId, navigate]);
 
   // Keyboard shortcuts
   useEffect(() => {
