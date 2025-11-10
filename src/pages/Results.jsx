@@ -277,9 +277,12 @@ export default function Results() {
             size="lg" 
             variant="outline" 
             className="w-full h-16 text-lg border-2 border-green-600 text-green-700 hover:bg-green-50"
+            asChild
           >
-            <Phone className="w-5 h-5 mr-2" />
-            Contact Aroof
+            <a href="tel:+18502389727">
+              <Phone className="w-5 h-5 mr-2" />
+              Call: (850) 238-9727
+            </a>
           </Button>
         </div>
 
@@ -291,8 +294,19 @@ export default function Results() {
               Our roofing experts are here to help with your project
             </p>
             <div className="space-y-2 text-sm text-slate-700">
-              <p><strong>Phone:</strong> (555) 555-5555</p>
-              <p><strong>Email:</strong> info@aroof.build</p>
+              <a href="tel:+18502389727" className="flex items-center justify-center gap-2 hover:text-blue-600 transition-colors">
+                <Phone className="w-4 h-4" />
+                <strong>Phone:</strong> (850) 238-9727
+              </a>
+              <a href="mailto:contact@aroof.build" className="flex items-center justify-center gap-2 hover:text-blue-600 transition-colors">
+                <strong>Email:</strong> contact@aroof.build
+              </a>
+              <div className="flex items-center justify-center gap-2 text-slate-600">
+                <MapPin className="w-4 h-4" />
+                <div>
+                  <strong>Address:</strong> 6810 Windrock Rd, Dallas, TX 75252
+                </div>
+              </div>
               <p><strong>Hours:</strong> Monday - Friday, 8:00 AM - 6:00 PM</p>
             </div>
           </CardContent>

@@ -50,9 +50,10 @@ export default function ChatWidget({ currentPage, measurement }) {
 
 Company Information:
 - Name: Aroof
+- Address: 6810 Windrock Rd, Dallas, TX 75252
 - Service Area: Dallas, Plano, Frisco, McKinney, Allen, and surrounding DFW areas
-- Phone: (214) 555-0123
-- Email: info@aroof.build
+- Phone: (850) 238-9727
+- Email: contact@aroof.build
 - Hours: Monday-Friday 8am-6pm, Saturday 9am-4pm
 - Services: Roof replacement, repair, inspection, and measurements
 - Pricing: Homeowner measurements $3, Professional roofer measurements $5
@@ -60,6 +61,7 @@ Company Information:
 - Warranty: 10-year workmanship warranty
 - Rating: 4.9/5 stars from 500+ customers
 - Licensed and insured in Texas
+- Texas Licensed Roofing Contractor
 
 Current Context:
 - User is on page: ${currentPage || "homepage"}`;
@@ -85,11 +87,12 @@ Your Guidelines:
 3. For appointment booking, collect: name, phone, email, preferred date/time
 4. For quotes, explain what affects pricing (roof size, material type, pitch, complexity)
 5. If asked about scheduling, mention our free inspection service
-6. If user wants to talk to a person, give them the phone number
+6. If user wants to talk to a person, give them the phone number: (850) 238-9727
 7. Answer questions about the measurement tool, process, pricing
 8. Help guide users through the website if they're confused
 9. For technical questions about roofing, provide helpful information
 10. Always be positive about Aroof's services
+11. If asked for address, provide: 6810 Windrock Rd, Dallas, TX 75252
 
 Quick Facts:
 - Roof measurement takes 60 seconds using satellite imagery
@@ -99,6 +102,8 @@ Quick Facts:
 - Same-day emergency service available
 - Material options: Asphalt shingles, architectural shingles, metal, tile
 - Average roof lifespan: 20-30 years
+- Located at 6810 Windrock Rd, Dallas, TX 75252
+- Call us at (850) 238-9727
 
 Be conversational and helpful!`;
 
@@ -159,7 +164,7 @@ Respond as Aroof's AI assistant:`;
       console.error("Chat error:", err);
       const errorMessage = {
         role: "assistant",
-        content: "I apologize, I'm having trouble responding right now. Please call us at (214) 555-0123 or try again in a moment.",
+        content: "I apologize, I'm having trouble responding right now. Please call us at (850) 238-9727 or try again in a moment.",
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);

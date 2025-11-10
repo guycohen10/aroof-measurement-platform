@@ -19,7 +19,8 @@ import {
   CheckCircle,
   ArrowRight,
   Phone,
-  Wrench
+  Wrench,
+  Mail
 } from "lucide-react";
 
 export default function Homepage() {
@@ -42,9 +43,9 @@ export default function Homepage() {
               <a href="#how-it-works" className="text-slate-600 hover:text-blue-900 font-medium">How It Works</a>
               <a href="#benefits" className="text-slate-600 hover:text-blue-900 font-medium">Why Aroof</a>
               <a href="#reviews" className="text-slate-600 hover:text-blue-900 font-medium">Reviews</a>
-              <a href="tel:+12145550123" className="flex items-center gap-2 text-blue-900 font-bold">
+              <a href="tel:+18502389727" className="flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-4 py-2 rounded-lg font-bold shadow-lg hover:shadow-xl transition-all">
                 <Phone className="w-4 h-4" />
-                (214) 555-0123
+                (850) 238-9727
               </a>
             </div>
           </div>
@@ -328,7 +329,7 @@ export default function Homepage() {
 
       {/* Final CTA Section */}
       <section className="py-20 bg-gradient-to-r from-blue-900 to-blue-700 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0em0tNiAwYzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMSu3OS00LTQtNC00IDEuNzktNCA0em0tNiAwYzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
         
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <h2 className="text-4xl md:text-6xl font-bold text-white mb-6">
@@ -366,9 +367,12 @@ export default function Homepage() {
                 </div>
                 <span className="text-2xl font-bold">Aroof</span>
               </div>
-              <p className="text-slate-400 text-sm">
+              <p className="text-slate-400 text-sm mb-4">
                 DFW's most trusted roofing company. Licensed, insured, and committed to excellence.
               </p>
+              <div className="space-y-2 text-sm">
+                <p className="text-slate-400">Texas Licensed Roofing Contractor</p>
+              </div>
             </div>
             
             <div>
@@ -377,18 +381,28 @@ export default function Homepage() {
                 <a href="#how-it-works" className="block hover:text-white">How It Works</a>
                 <a href="#benefits" className="block hover:text-white">Why Aroof</a>
                 <a href="#reviews" className="block hover:text-white">Reviews</a>
+                <Link to={createPageUrl("UserTypeSelection")} className="block hover:text-white">Get Started</Link>
               </div>
             </div>
             
             <div>
-              <h4 className="font-bold mb-4">Contact</h4>
-              <div className="space-y-2 text-sm text-slate-400">
-                <p className="flex items-center gap-2">
+              <h4 className="font-bold mb-4">Contact Us</h4>
+              <div className="space-y-3 text-sm">
+                <a href="tel:+18502389727" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                   <Phone className="w-4 h-4" />
-                  (214) 555-0123
-                </p>
-                <p>info@aroof.build</p>
-                <p>Dallas-Fort Worth, TX</p>
+                  (850) 238-9727
+                </a>
+                <a href="mailto:contact@aroof.build" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+                  <Mail className="w-4 h-4" />
+                  contact@aroof.build
+                </a>
+                <div className="flex items-start gap-2 text-slate-400">
+                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p>6810 Windrock Rd</p>
+                    <p>Dallas, TX 75252</p>
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -400,12 +414,18 @@ export default function Homepage() {
                 <p>Frisco, TX</p>
                 <p>McKinney, TX</p>
                 <p>Allen, TX</p>
+                <p className="pt-2 font-semibold text-slate-300">Proudly serving the entire Dallas-Fort Worth area</p>
               </div>
             </div>
           </div>
           
           <div className="border-t border-slate-800 pt-8 text-center text-sm text-slate-400">
             <p>© {new Date().getFullYear()} Aroof. All rights reserved. Licensed & Insured in Texas.</p>
+            <div className="flex justify-center gap-6 mt-4 text-xs">
+              <a href="#" className="hover:text-white">Privacy Policy</a>
+              <a href="#" className="hover:text-white">Terms of Service</a>
+              <a href="#" className="hover:text-white">Contact</a>
+            </div>
           </div>
         </div>
       </footer>
