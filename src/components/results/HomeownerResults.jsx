@@ -345,25 +345,27 @@ export default function HomeownerResults({ measurement, user, setMeasurement }) 
           </div>
         </div>
 
-        {/* CALL TO ACTION SECTION */}
-        <Card className="shadow-2xl border-none overflow-hidden">
+        {/* CALL TO ACTION SECTION - UPDATED */}
+        <Card className="shadow-2xl border-none overflow-hidden mb-8">
           <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-8 lg:p-12">
             <div className="text-center mb-8">
-              <h2 className="text-3xl lg:text-4xl font-bold mb-3">Ready to Get Started?</h2>
-              <p className="text-xl text-blue-100">Aroof - Your Trusted Roofing Partner</p>
+              <h2 className="text-3xl lg:text-4xl font-bold mb-3">Ready for Your New Roof?</h2>
+              <p className="text-xl text-blue-100">Schedule a Free Inspection</p>
             </div>
 
             {/* Action Buttons */}
             <div className="grid md:grid-cols-3 gap-4 mb-8">
-              <Button
-                size="lg"
-                className="bg-green-600 hover:bg-green-700 text-white h-16 text-lg font-bold shadow-lg"
-                onClick={handleBookingClick}
-                disabled={savingInteraction}
-              >
-                <Calendar className="w-5 h-5 mr-2" />
-                Schedule Free Inspection
-              </Button>
+              <Link to={createPageUrl(`Booking?measurementid=${measurement?.id}`)}>
+                <Button
+                  size="lg"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white h-16 text-lg font-bold shadow-lg"
+                  onClick={handleBookingClick}
+                  disabled={savingInteraction}
+                >
+                  <Calendar className="w-5 h-5 mr-2" />
+                  Book Free Inspection
+                </Button>
+              </Link>
 
               <Button
                 size="lg"
@@ -373,7 +375,7 @@ export default function HomeownerResults({ measurement, user, setMeasurement }) 
                 disabled={savingInteraction}
               >
                 <FileText className="w-5 h-5 mr-2" />
-                Request Detailed Quote
+                Request Quote
               </Button>
 
               <Button
@@ -382,9 +384,9 @@ export default function HomeownerResults({ measurement, user, setMeasurement }) 
                 className="border-2 border-white text-white hover:bg-white/10 h-16 text-lg font-bold"
                 asChild
               >
-                <a href="tel:+15555555555">
+                <a href="tel:+12145550123">
                   <Phone className="w-5 h-5 mr-2" />
-                  Call Now: (555) 555-5555
+                  Call: (214) 555-0123
                 </a>
               </Button>
             </div>
@@ -397,19 +399,19 @@ export default function HomeownerResults({ measurement, user, setMeasurement }) 
                     <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
                   ))}
                 </div>
-                <p className="text-sm text-blue-100">Rated 4.9/5 by 500+ customers</p>
+                <p className="text-sm text-blue-100">4.9/5 stars from 500+ DFW homeowners</p>
               </div>
               <div className="flex flex-col items-center">
                 <Shield className="w-10 h-10 mb-2 text-blue-200" />
-                <p className="text-sm text-blue-100">Licensed & Insured</p>
+                <p className="text-sm text-blue-100">Licensed & Insured in Texas</p>
               </div>
               <div className="flex flex-col items-center">
                 <Award className="w-10 h-10 mb-2 text-blue-200" />
-                <p className="text-sm text-blue-100">10-Year Warranty</p>
+                <p className="text-sm text-blue-100">Same-day service available</p>
               </div>
               <div className="flex flex-col items-center">
-                <DollarSign className="w-10 h-10 mb-2 text-blue-200" />
-                <p className="text-sm text-blue-100">Financing Available</p>
+                <CheckCircle className="w-10 h-10 mb-2 text-blue-200" />
+                <p className="text-sm text-blue-100">10-year workmanship warranty</p>
               </div>
             </div>
           </div>
