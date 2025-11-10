@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -151,20 +152,27 @@ ESTIMATED PROJECT COST:
 Based on your roof area of ${measurement.total_sqft.toLocaleString()} sq ft, your project is estimated at ${costRange}.
 
 NEED TO RESCHEDULE?
-Call us at (214) 555-0123 or reply to this email.
+Call us at (850) 238-9727 or reply to this email.
 
 Thank you for choosing Aroof!
 
 Best regards,
 The Aroof Team
-(214) 555-0123
-info@aroof.build
+
+Aroof
+6810 Windrock Rd
+Dallas, TX 75252
+Phone: (850) 238-9727
+Email: contact@aroof.build
+Website: Aroof.build
+
+Licensed & Insured in Texas | Texas Licensed Roofing Contractor
           `
         });
 
         // Send notification to Aroof team
         await base44.integrations.Core.SendEmail({
-          to: 'appointments@aroof.build',
+          to: 'contact@aroof.build',
           subject: `NEW APPOINTMENT: ${customerName} - ${format(selectedDate, 'MM/dd/yyyy')}`,
           body: `
 NEW ROOF INSPECTION APPOINTMENT
@@ -190,8 +198,17 @@ ${specialNotes || 'None'}
 MEASUREMENT REPORT:
 View report: ${window.location.origin}${createPageUrl(`Results?measurementid=${measurement.id}`)}
 
+CONTACT CUSTOMER:
+Phone: ${customerPhone}
+Email: ${customerEmail}
+
 ACTION REQUIRED:
-Please confirm this appointment in the admin dashboard.
+Please confirm this appointment and add to calendar.
+
+---
+Aroof
+6810 Windrock Rd, Dallas, TX 75252
+Phone: (850) 238-9727
           `
         });
       } catch (emailErr) {

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -45,9 +46,21 @@ export default function BookingConfirmation() {
   const generateICS = () => {
     if (!appointment) return;
 
+    // Use a more robust way to parse time for ICS, handling AM/PM
+    let startTimeFormatted = appointment.appointment_time;
+    if (startTimeFormatted.includes('AM') || startTimeFormatted.includes('PM')) {
+      const [time, period] = startTimeFormatted.split(' ');
+      let [hours, minutes] = time.split(':');
+      hours = parseInt(hours);
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0; // Midnight
+      startTimeFormatted = `${String(hours).padStart(2, '0')}${minutes}`;
+    } else {
+      startTimeFormatted = appointment.appointment_time.replace(/:/g, '');
+    }
+
     const date = parse(appointment.appointment_date, 'yyyy-MM-dd', new Date());
     const startDate = format(date, 'yyyyMMdd');
-    const startTime = appointment.appointment_time.replace(/[:\s]/g, '').replace('AM', '').replace('PM', '');
     
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
@@ -55,7 +68,7 @@ PRODID:-//Aroof//Roof Inspection//EN
 BEGIN:VEVENT
 UID:${appointment.id}@aroof.build
 DTSTAMP:${format(new Date(), 'yyyyMMdd')}T${format(new Date(), 'HHmmss')}Z
-DTSTART:${startDate}T${startTime}00
+DTSTART:${startDate}T${startTimeFormatted}00
 DURATION:PT${appointment.duration_minutes}M
 SUMMARY:Aroof Roof Inspection
 DESCRIPTION:Free roof inspection at ${appointment.property_address}
@@ -269,13 +282,17 @@ END:VCALENDAR`;
           <CardContent className="p-6">
             <h3 className="text-lg font-bold text-slate-900 mb-4 text-center">Need to Make Changes?</h3>
             <div className="space-y-3">
-              <div className="flex items-center justify-center gap-2 text-slate-700">
+              <a href="tel:+18502389727" className="flex items-center justify-center gap-2 text-slate-700 hover:text-blue-600 transition-colors">
                 <Phone className="w-4 h-4" />
-                <span className="font-medium">Call us: (214) 555-0123</span>
-              </div>
-              <div className="flex items-center justify-center gap-2 text-slate-700">
+                <span className="font-medium">Call us: (850) 238-9727</span>
+              </a>
+              <a href="mailto:contact@aroof.build" className="flex items-center justify-center gap-2 text-slate-700 hover:text-blue-600 transition-colors">
                 <Mail className="w-4 h-4" />
-                <span className="font-medium">Email: appointments@aroof.build</span>
+                <span className="font-medium">Email: contact@aroof.build</span>
+              </a>
+              <div className="flex items-center justify-center gap-2 text-slate-600 text-sm">
+                <MapPin className="w-4 h-4" />
+                <span>6810 Windrock Rd, Dallas, TX 75252</span>
               </div>
             </div>
             <p className="text-center text-sm text-slate-500 mt-4">

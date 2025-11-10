@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -366,6 +367,21 @@ export default function FormPage() {
             <p className="text-sm text-blue-900">
               <strong>💡 Next Step:</strong> You'll be taken to a secure payment page to complete your ${amount.toFixed(2)} payment, 
               then immediately access the measurement tool.
+            </p>
+            <p className="text-xs text-blue-800 mt-2">
+              <strong>Questions?</strong> Call us at <a href="tel:+18502389727" className="font-bold hover:underline">(850) 238-9727</a>
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Trust Badge */}
+        <Card className="mt-4 bg-green-50 border-green-200">
+          <CardContent className="p-4 text-center">
+            <p className="text-sm text-green-900 font-bold">
+              ✓ Texas Licensed Roofing Contractor
+            </p>
+            <p className="text-xs text-green-700 mt-1">
+              Licensed & Insured | Serving DFW since 2010
             </p>
           </CardContent>
         </Card>

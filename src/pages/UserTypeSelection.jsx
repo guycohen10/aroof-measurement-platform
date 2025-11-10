@@ -1,9 +1,10 @@
+
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Home, User, Briefcase, CheckCircle, ArrowRight, Sparkles } from "lucide-react";
+import { Home, User, Briefcase, CheckCircle, ArrowRight, Sparkles, Phone, MapPin } from "lucide-react";
 
 export default function UserTypeSelection() {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ export default function UserTypeSelection() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 relative overflow-hidden">
       {/* Animated background pattern */}
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0em0tNiAwYzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0em0tNiAwYzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
 
       {/* Header */}
       <header className="relative z-10 border-b border-white/10 bg-white/5 backdrop-blur-sm">
@@ -192,6 +193,21 @@ export default function UserTypeSelection() {
                 <span className="text-sm font-medium">{item.text}</span>
               </div>
             ))}
+          </div>
+          
+          {/* Contact Info */}
+          <div className="mt-8 flex flex-wrap justify-center items-center gap-6 text-blue-200 text-sm">
+            <a href="tel:+18502389727" className="flex items-center gap-2 hover:text-white transition-colors">
+              <Phone className="w-4 h-4" />
+              (850) 238-9727
+            </a>
+            <span className="text-blue-400">•</span>
+            <span className="flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Dallas-Fort Worth Area
+            </span>
+            <span className="text-blue-400">•</span>
+            <span>Texas Licensed Contractor</span>
           </div>
         </div>
       </div>
