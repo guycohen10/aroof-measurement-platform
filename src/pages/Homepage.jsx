@@ -2,45 +2,411 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
-import { Home } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { 
+  Home, 
+  MapPin, 
+  FileCheck, 
+  Zap, 
+  Shield, 
+  Award, 
+  Clock, 
+  DollarSign,
+  Star,
+  Users,
+  CheckCircle,
+  ArrowRight,
+  Phone,
+  Wrench
+} from "lucide-react";
 
 export default function Homepage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full text-center">
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl flex items-center justify-center">
-            <Home className="w-10 h-10 text-white" />
+    <div className="min-h-screen bg-white">
+      {/* Navigation Bar */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-900 to-blue-700 rounded-xl flex items-center justify-center">
+                <Home className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900">Aroof</h1>
+                <p className="text-xs text-blue-600 font-semibold">DFW's #1 Roofing Company</p>
+              </div>
+            </div>
+            <div className="hidden md:flex items-center gap-8">
+              <a href="#how-it-works" className="text-slate-600 hover:text-blue-900 font-medium">How It Works</a>
+              <a href="#benefits" className="text-slate-600 hover:text-blue-900 font-medium">Why Aroof</a>
+              <a href="#reviews" className="text-slate-600 hover:text-blue-900 font-medium">Reviews</a>
+              <a href="tel:+12145550123" className="flex items-center gap-2 text-blue-900 font-bold">
+                <Phone className="w-4 h-4" />
+                (214) 555-0123
+              </a>
+            </div>
           </div>
-          <h1 className="text-5xl font-bold text-slate-900">Aroof</h1>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
+        {/* Background with gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900">
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0em0tNiAwYzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
         </div>
 
-        {/* Heading */}
-        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-          Aroof Roof Measurement
-        </h2>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+          {/* Trust Badge */}
+          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 mb-8">
+            <Award className="w-4 h-4 text-yellow-400" />
+            <span className="text-white text-sm font-semibold">Rated #1 Roofing Service in DFW</span>
+          </div>
+
+          {/* Main Headline */}
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-6 leading-tight">
+            Get Your Roof
+            <br />
+            <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+              Measured in 60 Seconds
+            </span>
+          </h1>
+
+          <p className="text-xl md:text-2xl text-blue-100 mb-12 max-w-3xl mx-auto">
+            Instant satellite measurements • Accurate pricing • DFW's most trusted roofing company
+          </p>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <Link to={createPageUrl("UserTypeSelection")}>
+              <Button 
+                size="lg" 
+                className="h-16 px-10 text-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-2xl shadow-blue-500/50 hover:shadow-blue-500/75 transition-all duration-300 transform hover:scale-105"
+              >
+                <Zap className="w-6 h-6 mr-2" />
+                Measure My Roof - $3
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
+            <Link to={createPageUrl("UserTypeSelection")}>
+              <Button 
+                size="lg" 
+                variant="outline"
+                className="h-16 px-10 text-xl border-2 border-white text-white hover:bg-white hover:text-blue-900 transition-all duration-300"
+              >
+                <Wrench className="w-6 h-6 mr-2" />
+                I'm a Roofer - $5
+              </Button>
+            </Link>
+          </div>
+
+          {/* Trust Badges */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+            {[
+              { icon: Users, text: "5000+ Roofs Measured", color: "text-green-400" },
+              { icon: Shield, text: "Licensed in Texas", color: "text-blue-400" },
+              { icon: Award, text: "A+ BBB Rating", color: "text-yellow-400" },
+              { icon: Star, text: "4.9/5 Star Rating", color: "text-orange-400" }
+            ].map((badge, index) => (
+              <div key={index} className="flex flex-col items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 hover:bg-white/20 transition-all duration-300">
+                <badge.icon className={`w-8 h-8 ${badge.color}`} />
+                <p className="text-sm font-semibold text-white text-center">{badge.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Scroll Indicator */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
+          <div className="w-6 h-10 border-2 border-white/30 rounded-full flex items-start justify-center p-2">
+            <div className="w-1 h-3 bg-white/50 rounded-full"></div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section id="how-it-works" className="py-20 bg-gradient-to-br from-slate-50 to-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+              How It Works
+            </h2>
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+              Get professional roof measurements in three simple steps
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                step: "1",
+                icon: MapPin,
+                title: "Enter Your Address",
+                description: "Type your property address and we'll locate it instantly using satellite imagery",
+                color: "from-blue-600 to-blue-700"
+              },
+              {
+                step: "2",
+                icon: Home,
+                title: "Measure Your Roof",
+                description: "Our advanced tool lets you outline your roof precisely with just a few clicks",
+                color: "from-orange-600 to-orange-700"
+              },
+              {
+                step: "3",
+                icon: FileCheck,
+                title: "Get Instant Results",
+                description: "Receive accurate measurements, material estimates, and pricing immediately",
+                color: "from-green-600 to-green-700"
+              }
+            ].map((step, index) => (
+              <Card key={index} className="relative overflow-hidden border-none shadow-2xl hover:shadow-3xl transition-all duration-500 transform hover:-translate-y-2 group">
+                <div className={`absolute top-0 left-0 right-0 h-2 bg-gradient-to-r ${step.color}`}></div>
+                <CardContent className="p-8 relative">
+                  {/* Step Number */}
+                  <div className="absolute -top-4 -right-4 w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center opacity-50">
+                    <span className="text-6xl font-bold text-slate-300">{step.step}</span>
+                  </div>
+                  
+                  {/* Icon */}
+                  <div className={`w-16 h-16 bg-gradient-to-br ${step.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                    <step.icon className="w-8 h-8 text-white" />
+                  </div>
+                  
+                  <h3 className="text-2xl font-bold text-slate-900 mb-3">{step.title}</h3>
+                  <p className="text-slate-600 leading-relaxed">{step.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose Aroof Section */}
+      <section id="benefits" className="py-20 bg-gradient-to-br from-blue-900 to-slate-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+              Why Choose Aroof?
+            </h2>
+            <p className="text-xl text-blue-200 max-w-2xl mx-auto">
+              Texas's most trusted roofing company with unmatched quality and service
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { icon: Shield, title: "Licensed & Insured", description: "Fully licensed in Texas with comprehensive insurance coverage" },
+              { icon: Award, title: "10-Year Warranty", description: "Industry-leading workmanship warranty on all installations" },
+              { icon: Clock, title: "Same-Day Service", description: "Emergency repairs and fast scheduling for your convenience" },
+              { icon: DollarSign, title: "Financing Available", description: "Flexible payment options to fit any budget" },
+              { icon: Star, title: "5-Star Reviews", description: "Rated 4.9/5 by over 500 satisfied DFW homeowners" },
+              { icon: Users, title: "Texas Family Owned", description: "Local business serving our DFW community since 2010" }
+            ].map((benefit, index) => (
+              <div 
+                key={index}
+                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 hover:bg-white/20 transition-all duration-300 group"
+              >
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-cyan-300 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <benefit.icon className="w-6 h-6 text-blue-900" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">{benefit.title}</h3>
+                <p className="text-blue-200 leading-relaxed">{benefit.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Reviews Section */}
+      <section id="reviews" className="py-20 bg-gradient-to-br from-slate-50 to-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+              What Our Customers Say
+            </h2>
+            <div className="flex items-center justify-center gap-2 mb-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Star key={i} className="w-8 h-8 fill-yellow-400 text-yellow-400" />
+              ))}
+            </div>
+            <p className="text-xl text-slate-600">4.9/5 from 500+ verified reviews</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                name: "Sarah Johnson",
+                location: "Plano, TX",
+                rating: 5,
+                text: "Aroof made the entire process so easy! The satellite measurement was incredibly accurate, and their team was professional from start to finish. My new roof looks amazing!"
+              },
+              {
+                name: "Michael Chen",
+                location: "Frisco, TX",
+                rating: 5,
+                text: "Best roofing company in DFW! Got my measurement in under a minute, received a fair quote, and they completed the job in two days. Highly recommend!"
+              },
+              {
+                name: "Emily Rodriguez",
+                location: "Dallas, TX",
+                rating: 5,
+                text: "The measurement tool is genius! I was able to get an accurate estimate without anyone coming to my house first. The final price matched their estimate perfectly."
+              }
+            ].map((review, index) => (
+              <Card key={index} className="border-none shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+                <CardContent className="p-8">
+                  <div className="flex gap-1 mb-4">
+                    {[...Array(review.rating)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                    ))}
+                  </div>
+                  <p className="text-slate-700 mb-6 leading-relaxed italic">"{review.text}"</p>
+                  <div className="flex items-center gap-3 border-t pt-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-lg">{review.name[0]}</span>
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900">{review.name}</p>
+                      <p className="text-sm text-slate-500 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {review.location}
+                      </p>
+                    </div>
+                    <div className="ml-auto">
+                      <div className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded">
+                        Verified
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Projects Gallery Section */}
+      <section className="py-20 bg-gradient-to-br from-slate-100 to-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+              Recent Projects
+            </h2>
+            <p className="text-xl text-slate-600">
+              See the quality of our work across the DFW metroplex
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { location: "Plano, TX", sqft: "2,850 sq ft" },
+              { location: "Frisco, TX", sqft: "3,200 sq ft" },
+              { location: "Dallas, TX", sqft: "2,400 sq ft" }
+            ].map((project, index) => (
+              <div key={index} className="group relative overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500">
+                <div className="aspect-[4/3] bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center">
+                  <Home className="w-20 h-20 text-slate-500" />
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+                  <div className="flex items-center gap-2 text-white mb-1">
+                    <MapPin className="w-4 h-4" />
+                    <span className="font-bold">{project.location}</span>
+                  </div>
+                  <p className="text-blue-200 text-sm">{project.sqft}</p>
+                </div>
+                <div className="absolute top-4 right-4 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                  Completed
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA Section */}
+      <section className="py-20 bg-gradient-to-r from-blue-900 to-blue-700 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0em0tNiAwYzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
         
-        {/* Subheading */}
-        <p className="text-xl md:text-2xl text-slate-600 mb-12">
-          Get instant roof measurements
-        </p>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+          <h2 className="text-4xl md:text-6xl font-bold text-white mb-6">
+            Ready to Get Started?
+          </h2>
+          <p className="text-xl text-blue-100 mb-10">
+            Join thousands of satisfied DFW homeowners who trust Aroof
+          </p>
+          
+          <Link to={createPageUrl("UserTypeSelection")}>
+            <Button 
+              size="lg" 
+              className="h-20 px-12 text-2xl bg-white text-blue-900 hover:bg-blue-50 shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105"
+            >
+              <Zap className="w-8 h-8 mr-3" />
+              Measure My Roof Now
+              <ArrowRight className="w-6 h-6 ml-3" />
+            </Button>
+          </Link>
 
-        {/* CTA Button - Updated to go to UserTypeSelection */}
-        <Link to={createPageUrl("UserTypeSelection")}>
-          <Button 
-            size="lg" 
-            className="h-16 px-12 text-xl bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Start Measurement
-          </Button>
-        </Link>
+          <p className="text-blue-200 mt-8">
+            Quick • Accurate • Affordable • Starting at just $3
+          </p>
+        </div>
+      </section>
 
-        {/* Footer */}
-        <p className="text-slate-500 mt-12">
-          Fast • Accurate • Simple
-        </p>
-      </div>
+      {/* Footer */}
+      <footer className="bg-slate-900 text-white py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center">
+                  <Home className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-2xl font-bold">Aroof</span>
+              </div>
+              <p className="text-slate-400 text-sm">
+                DFW's most trusted roofing company. Licensed, insured, and committed to excellence.
+              </p>
+            </div>
+            
+            <div>
+              <h4 className="font-bold mb-4">Quick Links</h4>
+              <div className="space-y-2 text-sm text-slate-400">
+                <a href="#how-it-works" className="block hover:text-white">How It Works</a>
+                <a href="#benefits" className="block hover:text-white">Why Aroof</a>
+                <a href="#reviews" className="block hover:text-white">Reviews</a>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-bold mb-4">Contact</h4>
+              <div className="space-y-2 text-sm text-slate-400">
+                <p className="flex items-center gap-2">
+                  <Phone className="w-4 h-4" />
+                  (214) 555-0123
+                </p>
+                <p>info@aroof.build</p>
+                <p>Dallas-Fort Worth, TX</p>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-bold mb-4">Service Areas</h4>
+              <div className="space-y-2 text-sm text-slate-400">
+                <p>Dallas, TX</p>
+                <p>Plano, TX</p>
+                <p>Frisco, TX</p>
+                <p>McKinney, TX</p>
+                <p>Allen, TX</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="border-t border-slate-800 pt-8 text-center text-sm text-slate-400">
+            <p>© {new Date().getFullYear()} Aroof. All rights reserved. Licensed & Insured in Texas.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -58,8 +59,12 @@ export default function Results() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-xl text-slate-700">Loading your results...</p>
+          <div className="relative w-24 h-24 mx-auto mb-6">
+            <div className="absolute inset-0 border-4 border-blue-200 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+          </div>
+          <p className="text-2xl font-semibold text-slate-700 mb-2">Loading Your Results...</p>
+          <p className="text-slate-500">This will only take a moment</p>
         </div>
       </div>
     );
@@ -99,19 +104,22 @@ export default function Results() {
   const isHomeowner = measurement.user_type === "homeowner";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
-      {/* Header */}
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur-sm">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-slate-50">
+      {/* Modern Header */}
+      <header className="border-b border-slate-200 bg-white/90 backdrop-blur-lg shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <Link to={createPageUrl("Homepage")} className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
-                <Home className="w-6 h-6 text-white" />
+            <Link to={createPageUrl("Homepage")} className="flex items-center gap-3 group">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                <Home className="w-7 h-7 text-white" />
               </div>
-              <span className="text-2xl font-bold text-slate-900">Aroof</span>
+              <div>
+                <span className="text-2xl font-bold text-slate-900">Aroof</span>
+                <p className="text-xs text-blue-600 font-semibold">Your Measurement Results</p>
+              </div>
             </Link>
             <Link to={createPageUrl(`MeasurementPage?measurementId=${measurement.id}&address=${encodeURIComponent(measurement.property_address || '')}`)}>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="shadow-sm hover:shadow-md transition-shadow">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Edit Measurement
               </Button>
@@ -120,25 +128,28 @@ export default function Results() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      {/* Enhanced Success Banner with Animation */}
+      <div className="bg-gradient-to-r from-green-500 via-green-600 to-green-700 text-white py-12 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6bS02IDBjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
         
-        {/* Success Banner */}
-        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-2xl p-8 mb-8 shadow-xl">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-7 h-7" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="flex items-center justify-center gap-4 mb-6">
+            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm animate-pulse">
+              <CheckCircle className="w-10 h-10" />
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold">Measurement Complete!</h1>
+            <h1 className="text-4xl md:text-5xl font-bold">Measurement Complete!</h1>
           </div>
-          <div className="text-center">
-            <p className="text-lg opacity-90 mb-2">Property: {measurement.property_address}</p>
-            <p className="text-sm opacity-75">
+          <p className="text-center text-2xl text-green-100 mb-3">{measurement?.property_address}</p>
+          {measurement?.created_date && (
+            <p className="text-center text-green-200">
               Measured on {format(new Date(measurement.created_date), 'MMMM d, yyyy')}
             </p>
-          </div>
+          )}
         </div>
+      </div>
 
+      {/* Main Content */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         {/* Large Area Display */}
         <Card className="mb-8 border-2 border-blue-200 shadow-xl bg-gradient-to-br from-blue-50 to-white">
           <CardContent className="p-12 text-center">
