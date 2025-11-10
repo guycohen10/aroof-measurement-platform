@@ -1,8 +1,10 @@
+
 import React from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import ChatWidget from "../components/chat/ChatWidget";
 import { 
   Home, 
   MapPin, 
@@ -407,6 +409,9 @@ export default function Homepage() {
           </div>
         </div>
       </footer>
+
+      {/* Chat Widget - Added directly to homepage */}
+      <ChatWidget currentPage="homepage" measurement={null} />
     </div>
   );
 }

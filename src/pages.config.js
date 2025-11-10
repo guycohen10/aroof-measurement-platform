@@ -14,6 +14,7 @@ import FormPage from './pages/FormPage';
 import MeasurementPage from './pages/MeasurementPage';
 import Booking from './pages/Booking';
 import BookingConfirmation from './pages/BookingConfirmation';
+import Layout from './Layout.jsx';
 
 
 export const PAGES = {
@@ -38,4 +39,5 @@ export const PAGES = {
 export const pagesConfig = {
     mainPage: "Homepage",
     Pages: PAGES,
+    Layout: Layout,
 };

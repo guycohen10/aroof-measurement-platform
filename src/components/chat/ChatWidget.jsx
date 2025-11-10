@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -179,21 +180,28 @@ Respond as Aroof's AI assistant:`;
   ];
 
   return (
-    <>
-      {/* Floating Chat Button */}
+    <div className="chat-widget-container">
+      {/* Floating Chat Button - Always Visible */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 group animate-pulse hover:animate-none"
-        >
-          <MessageCircle className="w-8 h-8 text-white" />
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-        </button>
+        <div className="fixed bottom-6 right-6 z-[9999]">
+          <button
+            onClick={() => setIsOpen(true)}
+            className="w-20 h-20 bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-full shadow-2xl hover:shadow-3xl flex flex-col items-center justify-center transition-all duration-300 hover:scale-110 group"
+            style={{ 
+              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1), 0 0 0 4px rgba(59, 130, 246, 0.3)'
+            }}
+          >
+            <MessageCircle className="w-10 h-10 text-white mb-1" />
+            <span className="text-xs text-white font-bold">Chat</span>
+            <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full border-4 border-white animate-bounce"></div>
+          </button>
+        </div>
       )}
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-96 max-w-[calc(100vw-3rem)] h-[600px] max-h-[calc(100vh-3rem)] flex flex-col shadow-2xl rounded-2xl overflow-hidden border border-slate-200">
+        <div className="fixed bottom-6 right-6 z-[9999] w-[400px] max-w-[calc(100vw-3rem)] h-[650px] max-h-[calc(100vh-3rem)] flex flex-col bg-white shadow-2xl rounded-2xl overflow-hidden border-2 border-slate-200">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -289,7 +297,7 @@ Respond as Aroof's AI assistant:`;
                 type="text"
                 placeholder="Type your message..."
                 value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
+                onChange={(e) => e.target && setInputMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 className="flex-1"
                 disabled={isLoading}
@@ -309,6 +317,18 @@ Respond as Aroof's AI assistant:`;
           </div>
         </div>
       )}
-    </>
+
+      {/* CSS Keyframes */}
+      <style>{`
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.8;
+          }
+        }
+      `}</style>
+    </div>
   );
 }
