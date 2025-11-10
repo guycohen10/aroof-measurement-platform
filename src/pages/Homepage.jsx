@@ -26,8 +26,8 @@ export default function Homepage() {
           Get instant roof measurements
         </p>
 
-        {/* CTA Button */}
-        <Link to={createPageUrl("FormPage")}>
+        {/* CTA Button - Updated to go to UserTypeSelection */}
+        <Link to={createPageUrl("UserTypeSelection")}>
           <Button 
             size="lg" 
             className="h-16 px-12 text-xl bg-blue-600 hover:bg-blue-700 text-white"
