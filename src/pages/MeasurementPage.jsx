@@ -1,19 +1,49 @@
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, RotateCcw } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+// Section colors for visual differentiation
+const SECTION_COLORS = [
+  { stroke: '#4A90E2', fill: '#4A90E2', name: 'Blue' },
+  { stroke: '#10b981', fill: '#10b981', name: 'Green' },
+  { stroke: '#f97316', fill: '#f97316', name: 'Orange' },
+  { stroke: '#a855f7', fill: '#a855f7', name: 'Purple' },
+  { stroke: '#ef4444', fill: '#ef4444', name: 'Red' },
+  { stroke: '#06b6d4', fill: '#06b6d4', name: 'Cyan' },
+  { stroke: '#f59e0b', fill: '#f59e0b', name: 'Amber' },
+  { stroke: '#ec4899', fill: '#ec4899', name: 'Pink' },
+];
+
+// Pitch multipliers for accurate 3D roof surface area calculation
+const PITCH_OPTIONS = [
+  { value: 'flat', label: 'Flat (0/12)', multiplier: 1.00 },
+  { value: '2/12', label: '2/12 pitch', multiplier: 1.02 },
+  { value: '3/12', label: '3/12 pitch', multiplier: 1.03 },
+  { value: '4/12', label: '4/12 pitch', multiplier: 1.05 },
+  { value: '5/12', label: '5/12 pitch', multiplier: 1.08 },
+  { value: '6/12', label: '6/12 pitch', multiplier: 1.12 },
+  { value: '7/12', label: '7/12 pitch', multiplier: 1.16 },
+  { value: '8/12', label: '8/12 pitch', multiplier: 1.20 },
+  { value: '9/12', label: '9/12 pitch', multiplier: 1.25 },
+  { value: '10/12', label: '10/12 pitch', multiplier: 1.30 },
+  { value: '11/12', label: '11/12 pitch', multiplier: 1.36 },
+  { value: '12/12', label: '12/12 pitch', multiplier: 1.41 },
+  { value: 'steep', label: 'Steep (over 12/12)', multiplier: 1.50 },
+];
 
 export default function MeasurementPage() {
   const navigate = useNavigate();
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const polygonRef = useRef(null);
   const drawingManagerRef = useRef(null);
+  const polygonsRef = useRef([]); // Store all section polygons
   
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
@@ -24,25 +54,21 @@ export default function MeasurementPage() {
   const [mapError, setMapError] = useState("");
   const [coordinates, setCoordinates] = useState(null);
   
-  // Drawing state
+  // Multi-section state
+  const [sections, setSections] = useState([]);
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [polygonPoints, setPolygonPoints] = useState([]);
-  const [area, setArea] = useState(0);
-  const [polygonClosed, setPolygonClosed] = useState(false);
+  const [editingSectionId, setEditingSectionId] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // Get address and coordinates from URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     const addressParam = urlParams.get('address');
     const latParam = urlParams.get('lat');
     const lngParam = urlParams.get('lng');
     const measurementIdParam = urlParams.get('measurementId');
     
-    console.log("MeasurementPage: URL params:", { addressParam, latParam, lngParam, measurementIdParam });
-    
     if (!addressParam) {
-      console.error("MeasurementPage: No address in URL, redirecting to form");
       navigate(createPageUrl("FormPage"));
       return;
     }
@@ -50,25 +76,17 @@ export default function MeasurementPage() {
     const decodedAddress = decodeURIComponent(addressParam);
     setAddress(decodedAddress);
 
-    // Store measurementId if provided
     if (measurementIdParam) {
       setMeasurementId(measurementIdParam);
-      console.log("MeasurementPage: Using existing measurement ID:", measurementIdParam);
     }
 
-    // PRIORITY: Use coordinates from URL if available
     if (latParam && lngParam) {
       const lat = parseFloat(latParam);
       const lng = parseFloat(lngParam);
       if (!isNaN(lat) && !isNaN(lng)) {
-        console.log("MeasurementPage: ✅ Using coordinates from URL:", { lat, lng });
         setCoordinates({ lat, lng });
         setGeocodingStatus("Location verified!");
-      } else {
-        console.warn("MeasurementPage: Invalid coordinates in URL, will geocode address");
       }
-    } else {
-      console.log("MeasurementPage: No coordinates in URL, will geocode address");
     }
 
     setLoading(false);
@@ -79,25 +97,21 @@ export default function MeasurementPage() {
 
     const loadGoogleMaps = () => {
       if (window.google && window.google.maps && window.google.maps.drawing) {
-        console.log("MeasurementPage: Google Maps already loaded, initializing map...");
         initializeMap();
         return;
       }
 
       if (document.querySelector('script[src*="maps.googleapis.com"]')) {
-        console.log("MeasurementPage: Google Maps script found in DOM, waiting...");
         let attempts = 0;
-        const maxAttempts = 50; // 5 seconds max
+        const maxAttempts = 50;
         
         const checkGoogle = setInterval(() => {
           attempts++;
           if (window.google && window.google.maps && window.google.maps.drawing) {
             clearInterval(checkGoogle);
-            console.log("MeasurementPage: Google Maps now available");
             initializeMap();
           } else if (attempts >= maxAttempts) {
             clearInterval(checkGoogle);
-            console.error("MeasurementPage: Timeout waiting for Google Maps");
             setMapError("Google Maps failed to load. Please refresh the page.");
             setMapLoading(false);
           }
@@ -111,13 +125,8 @@ export default function MeasurementPage() {
       script.async = true;
       script.defer = true;
       
-      script.onload = () => {
-        console.log("MeasurementPage: ✅ Google Maps script loaded successfully");
-        initializeMap();
-      };
-      
+      script.onload = () => initializeMap();
       script.onerror = () => {
-        console.error("MeasurementPage: ❌ Failed to load Google Maps script");
         setMapError("Failed to load Google Maps. Please check your internet connection.");
         setMapLoading(false);
       };
@@ -130,8 +139,6 @@ export default function MeasurementPage() {
 
   const createMap = useCallback((center) => {
     try {
-      console.log("MeasurementPage: Creating map with center:", center);
-
       const map = new window.google.maps.Map(mapRef.current, {
         center: center,
         zoom: 20,
@@ -151,11 +158,6 @@ export default function MeasurementPage() {
 
       mapInstanceRef.current = map;
 
-      // Add test click listener
-      map.addListener('click', (event) => {
-        console.log('MeasurementPage: Map clicked at:', event.latLng.lat(), event.latLng.lng());
-      });
-
       // Add marker at center
       new window.google.maps.Marker({
         position: center,
@@ -171,16 +173,14 @@ export default function MeasurementPage() {
         }
       });
 
-      console.log("MeasurementPage: ✅ Map created successfully");
       setMapError("");
       setMapLoading(false);
 
     } catch (err) {
-      console.error("MeasurementPage: Error creating map:", err);
       setMapError(`Error creating map: ${err.message}`);
       setMapLoading(false);
     }
-  }, [address, setMapError, setMapLoading]); // Dependencies for useCallback
+  }, [address]);
 
   const initializeMap = useCallback(async () => {
     try {
@@ -188,40 +188,29 @@ export default function MeasurementPage() {
         throw new Error("Google Maps not available");
       }
 
-      console.log("MeasurementPage: Initializing map with coordinates:", coordinates);
-
-      // DEFAULT: Dallas coordinates as fallback
       const defaultCenter = { lat: 32.7767, lng: -96.7970 };
 
-      // PRIORITY: Use coordinates from URL if available
       if (coordinates) {
-        console.log("MeasurementPage: Using coordinates from URL, skipping geocoding");
         createMap(coordinates);
         return;
       }
 
-      // FALLBACK: Geocode the address if no coordinates
-      console.log("MeasurementPage: No coordinates available, geocoding address...");
       setGeocodingStatus("Finding address location...");
       
       const geocoder = new window.google.maps.Geocoder();
       let geocodingCompleted = false;
       
-      // Set timeout for geocoding
       const geocodeTimeout = setTimeout(() => {
         if (!geocodingCompleted) {
-          console.error("MeasurementPage: Geocoding timeout after 10 seconds");
           setMapError("Could not find address location. Using default map center.");
           setGeocodingStatus("Using default location");
           createMap(defaultCenter);
         }
-      }, 10000); // 10 second timeout
+      }, 10000);
 
       geocoder.geocode({ address: address }, (results, status) => {
         geocodingCompleted = true;
         clearTimeout(geocodeTimeout);
-        
-        console.log("MeasurementPage: Geocoding result:", { status, results });
         
         if (status === "OK" && results[0]) {
           const location = results[0].geometry.location;
@@ -230,12 +219,10 @@ export default function MeasurementPage() {
             lng: location.lng()
           };
           
-          console.log("MeasurementPage: ✅ Address geocoded successfully:", geocodedCenter);
           setCoordinates(geocodedCenter);
           setGeocodingStatus("Address found!");
           createMap(geocodedCenter);
         } else {
-          console.error("MeasurementPage: Geocoding failed with status:", status);
           setMapError(`Could not find address (${status}). Showing default location.`);
           setGeocodingStatus("Using default location");
           createMap(defaultCenter);
@@ -243,100 +230,56 @@ export default function MeasurementPage() {
       });
 
     } catch (err) {
-      console.error("MeasurementPage: ❌ Error initializing map:", err);
       setMapError(`Failed to initialize map: ${err.message}`);
       setMapLoading(false);
     }
-  }, [address, coordinates, createMap, setCoordinates, setGeocodingStatus, setMapError, setMapLoading]); // Dependencies for useCallback
-
-  const updatePolygonPoints = useCallback((polygon) => {
-    const path = polygon.getPath();
-    const points = [];
-    for (let i = 0; i < path.getLength(); i++) {
-      const point = path.getAt(i);
-      points.push({
-        lat: point.lat(),
-        lng: point.lng()
-      });
-    }
-    setPolygonPoints(points);
-  }, [setPolygonPoints]);
+  }, [address, coordinates, createMap]);
 
   const calculateArea = useCallback((polygon) => {
-    if (!polygon || !window.google || !window.google.maps.geometry) return;
+    if (!polygon || !window.google || !window.google.maps.geometry) return 0;
 
     try {
       const areaInSquareMeters = window.google.maps.geometry.spherical.computeArea(polygon.getPath());
       const areaInSquareFeet = areaInSquareMeters * 10.764;
-      const roundedArea = Math.round(areaInSquareFeet * 100) / 100;
-      console.log("Area calculated:", roundedArea, "sq ft");
-      setArea(roundedArea);
+      return Math.round(areaInSquareFeet * 100) / 100;
     } catch (err) {
       console.error("Error calculating area:", err);
+      return 0;
     }
-  }, [setArea]);
+  }, []);
 
-  const clearDrawing = useCallback(() => {
-    console.log("Clearing drawing...");
-    
-    // Remove polygon from map
-    if (polygonRef.current) {
-      polygonRef.current.setMap(null);
-      polygonRef.current = null;
-    }
-
-    // Remove drawing manager
-    if (drawingManagerRef.current) {
-      drawingManagerRef.current.setMap(null);
-      drawingManagerRef.current = null;
-    }
-
-    // Reset state
-    setPolygonPoints([]);
-    setArea(0);
-    setIsDrawing(false);
-    setPolygonClosed(false);
-    setError("");
-  }, [setPolygonPoints, setArea, setIsDrawing, setPolygonClosed, setError]);
-
-  const startDrawing = useCallback(() => {
+  const startDrawingSection = useCallback(() => {
     if (!mapInstanceRef.current) {
-      console.error("Map not initialized");
+      setError("Map not initialized");
       return;
     }
 
     if (!window.google || !window.google.maps || !window.google.maps.drawing) {
-      console.error("Google Maps Drawing library not loaded");
       setError("Drawing tools not available. Please refresh the page.");
       return;
     }
     
-    console.log("Starting drawing mode...");
     setIsDrawing(true);
-    setPolygonClosed(false);
-    setArea(0);
     setError("");
     
-    // Clear existing polygon if any
-    if (polygonRef.current) {
-      polygonRef.current.setMap(null);
-      polygonRef.current = null;
-    }
-
     // Remove existing drawing manager if any
     if (drawingManagerRef.current) {
       drawingManagerRef.current.setMap(null);
     }
 
-    // Create Drawing Manager with Google's built-in drawing tools
+    // Get color for this section
+    const colorIndex = sections.length % SECTION_COLORS.length;
+    const sectionColor = SECTION_COLORS[colorIndex];
+
+    // Create Drawing Manager
     const drawingManager = new window.google.maps.drawing.DrawingManager({
       drawingMode: window.google.maps.drawing.OverlayType.POLYGON,
-      drawingControl: false, // We control it with our own button
+      drawingControl: false,
       polygonOptions: {
-        fillColor: '#4A90E2',
-        fillOpacity: 0.4,
+        fillColor: sectionColor.fill,
+        fillOpacity: 0.35,
         strokeWeight: 3,
-        strokeColor: '#4A90E2',
+        strokeColor: sectionColor.stroke,
         editable: true,
         draggable: false,
         clickable: true
@@ -346,91 +289,126 @@ export default function MeasurementPage() {
     drawingManagerRef.current = drawingManager;
     drawingManager.setMap(mapInstanceRef.current);
 
-    console.log("Drawing Manager created and attached to map");
-
     // Listen for polygon completion
     window.google.maps.event.addListener(drawingManager, 'polygoncomplete', function(polygon) {
-      console.log("Polygon completed!");
-      
       // Store the polygon
-      polygonRef.current = polygon;
+      polygonsRef.current.push(polygon);
       
       // Get the points
       const path = polygon.getPath();
-      const points = [];
+      const coordinates = [];
       for (let i = 0; i < path.getLength(); i++) {
         const point = path.getAt(i);
-        points.push({
+        coordinates.push({
           lat: point.lat(),
           lng: point.lng()
         });
       }
       
-      console.log("Polygon points:", points);
-      setPolygonPoints(points);
-      
       // Calculate area
-      calculateArea(polygon);
+      const flatArea = calculateArea(polygon);
+      
+      // Create new section
+      const newSection = {
+        id: `section-${Date.now()}`,
+        name: `Section ${sections.length + 1}`,
+        flat_area_sqft: flatArea,
+        pitch: 'flat',
+        pitch_multiplier: 1.00,
+        adjusted_area_sqft: flatArea,
+        color: sectionColor.stroke,
+        coordinates: coordinates,
+        polygon: polygon
+      };
+
+      setSections(prev => [...prev, newSection]);
       
       // Disable drawing mode
       drawingManager.setDrawingMode(null);
       setIsDrawing(false);
-      setPolygonClosed(true);
       
       // Add listeners for editing
-      window.google.maps.event.addListener(path, 'set_at', () => {
-        console.log("Polygon edited - vertex moved");
-        calculateArea(polygon);
-        updatePolygonPoints(polygon);
-      });
-      
-      window.google.maps.event.addListener(path, 'insert_at', () => {
-        console.log("Polygon edited - vertex added");
-        calculateArea(polygon);
-        updatePolygonPoints(polygon);
-      });
+      const updateSection = () => {
+        const newArea = calculateArea(polygon);
+        const newCoords = [];
+        const path = polygon.getPath();
+        for (let i = 0; i < path.getLength(); i++) {
+          const point = path.getAt(i);
+          newCoords.push({ lat: point.lat(), lng: point.lng() });
+        }
+        
+        setSections(prev => prev.map(s => 
+          s.id === newSection.id
+            ? {
+                ...s,
+                flat_area_sqft: newArea,
+                adjusted_area_sqft: newArea * s.pitch_multiplier,
+                coordinates: newCoords
+              }
+            : s
+        ));
+      };
 
-      window.google.maps.event.addListener(path, 'remove_at', () => {
-        console.log("Polygon edited - vertex removed");
-        calculateArea(polygon);
-        updatePolygonPoints(polygon);
-      });
+      window.google.maps.event.addListener(path, 'set_at', updateSection);
+      window.google.maps.event.addListener(path, 'insert_at', updateSection);
+      window.google.maps.event.addListener(path, 'remove_at', updateSection);
     });
-  }, [calculateArea, updatePolygonPoints, setArea, setError, setIsDrawing, setPolygonClosed, setPolygonPoints]); // Dependencies for useCallback
+  }, [sections, calculateArea]);
 
-  const undoLastPoint = useCallback(() => {
-    if (!polygonRef.current) return;
-    
-    const path = polygonRef.current.getPath();
-    if (path.getLength() > 0) {
-      path.removeAt(path.getLength() - 1);
-      calculateArea(polygonRef.current);
-      updatePolygonPoints(polygonRef.current);
+  const deleteSection = useCallback((sectionId) => {
+    const section = sections.find(s => s.id === sectionId);
+    if (section && section.polygon) {
+      section.polygon.setMap(null);
+      polygonsRef.current = polygonsRef.current.filter(p => p !== section.polygon);
     }
-  }, [calculateArea, updatePolygonPoints]);
+    setSections(prev => prev.filter(s => s.id !== sectionId));
+  }, [sections]);
+
+  const updateSectionPitch = useCallback((sectionId, pitchValue) => {
+    const pitchOption = PITCH_OPTIONS.find(p => p.value === pitchValue);
+    if (!pitchOption) return;
+
+    setSections(prev => prev.map(section => 
+      section.id === sectionId
+        ? {
+            ...section,
+            pitch: pitchValue,
+            pitch_multiplier: pitchOption.multiplier,
+            adjusted_area_sqft: Math.round(section.flat_area_sqft * pitchOption.multiplier * 100) / 100
+          }
+        : section
+    ));
+  }, []);
+
+  const updateSectionName = useCallback((sectionId, name) => {
+    setSections(prev => prev.map(section => 
+      section.id === sectionId ? { ...section, name } : section
+    ));
+  }, []);
+
+  const getTotalFlatArea = () => {
+    return sections.reduce((sum, section) => sum + section.flat_area_sqft, 0);
+  };
+
+  const getTotalAdjustedArea = () => {
+    return sections.reduce((sum, section) => sum + section.adjusted_area_sqft, 0);
+  };
 
   const handleCompleteMeasurement = useCallback(async () => {
-    console.log("🔵 COMPLETE MEASUREMENT CLICKED");
-    console.log("🔵 State - polygonClosed:", polygonClosed);
-    console.log("🔵 State - area:", area);
-    console.log("🔵 State - measurementId:", measurementId);
-    console.log("🔵 State - address:", address);
+    if (sections.length === 0) {
+      setError("Please draw at least one section");
+      return;
+    }
+
+    const totalAdjusted = getTotalAdjustedArea();
     
-    if (!polygonClosed || area === 0) {
-      console.log("❌ Validation failed - polygon not closed or area is 0");
-      setError("Please complete drawing your roof outline first");
+    if (totalAdjusted < 100) {
+      setError("Total area seems too small. Please verify your measurement.");
       return;
     }
 
-    if (area < 100) {
-      console.log("❌ Validation failed - area too small");
-      setError("Area seems too small. Please verify your measurement.");
-      return;
-    }
-
-    if (area > 50000) {
-      console.log("❌ Validation failed - area too large");
-      setError("Area seems unusually large. Please verify your measurement.");
+    if (totalAdjusted > 50000) {
+      setError("Total area seems unusually large. Please verify your measurement.");
       return;
     }
 
@@ -438,114 +416,54 @@ export default function MeasurementPage() {
     setError("");
 
     try {
-      // Get polygon coordinates
-      const polygonData = polygonPoints.map(point => ({
-        lat: point.lat,
-        lng: point.lng
-      }));
+      const totalFlat = getTotalFlatArea();
+      const totalAdjusted = getTotalAdjustedArea();
 
-      console.log("🟢 Starting save with:", {
-        area,
-        polygonDataLength: polygonData.length,
-        measurementId,
-        address
-      });
+      // Prepare sections data (remove polygon reference)
+      const sectionsData = sections.map(({ polygon, ...section }) => section);
+
+      const measurementData = {
+        measurement_data: {
+          total_flat_sqft: totalFlat,
+          total_adjusted_sqft: totalAdjusted,
+          sections: sectionsData
+        },
+        total_sqft: totalFlat, // Backwards compatibility
+        total_adjusted_sqft: totalAdjusted,
+        status: "completed",
+        completed_at: new Date().toISOString()
+      };
 
       let savedMeasurementId = measurementId;
 
       if (measurementId) {
-        // Update existing measurement
-        console.log("🟢 Updating existing measurement:", measurementId);
-        await base44.entities.Measurement.update(measurementId, {
-          measurement_data: {
-            total_sqft: area,
-            sections: [{
-              id: "main",
-              name: "Main Roof",
-              area_sqft: area,
-              coordinates: polygonData
-            }]
-          },
-          total_sqft: area,
-          status: "completed",
-          completed_at: new Date().toISOString()
-        });
-        console.log("✅ Measurement updated successfully");
+        await base44.entities.Measurement.update(measurementId, measurementData);
       } else {
-        // Create new measurement (fallback for old flow)
-        console.log("🟢 Creating new measurement");
         const measurement = await base44.entities.Measurement.create({
           property_address: address,
           user_type: "homeowner",
           payment_amount: 3,
           payment_status: "completed",
           stripe_payment_id: "demo_" + Date.now(),
-          measurement_data: {
-            total_sqft: area,
-            sections: [{
-              id: "main",
-              name: "Main Roof",
-              area_sqft: area,
-              coordinates: polygonData
-            }]
-          },
-          total_sqft: area,
-          status: "completed",
-          completed_at: new Date().toISOString()
+          ...measurementData
         });
         
         savedMeasurementId = measurement.id;
-        console.log("✅ Measurement created:", measurement);
       }
 
       if (!savedMeasurementId) {
         throw new Error("Failed to get measurement ID");
       }
 
-      console.log("✅✅✅ MEASUREMENT SAVED SUCCESSFULLY!");
-      console.log("🔵 Preparing redirect to Results page...");
-
-      // Redirect to Results page with measurement data
-      // Use lowercase 'measurementid' to match Results page parameter reading
       const resultsUrl = createPageUrl(`Results?measurementid=${savedMeasurementId}`);
-      console.log("🔵 Results URL:", resultsUrl);
-      console.log("🔵 Calling navigate() now...");
-      
       navigate(resultsUrl);
       
-      console.log("🔵 navigate() called - should redirect now");
-      
     } catch (err) {
-      console.error("❌❌❌ ERROR SAVING MEASUREMENT:", err);
-      console.error("Error details:", err.message);
-      console.error("Error stack:", err.stack);
+      console.error("ERROR SAVING MEASUREMENT:", err);
       setError(`Failed to save measurement: ${err.message}. Please try again.`);
       setSaving(false);
     }
-  }, [polygonClosed, area, polygonPoints, address, measurementId, navigate]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (isDrawing || polygonClosed) {
-          clearDrawing();
-        }
-      } else if (e.key === 'Enter') {
-        if (polygonClosed && area > 0) {
-          handleCompleteMeasurement();
-        }
-      } else if ((e.key === 'z' && (e.ctrlKey || e.metaKey)) || e.key === 'Backspace' || e.key === 'Delete') {
-        if (polygonClosed && polygonRef.current) { // Only allow undo/delete if polygon is closed and exists
-          e.preventDefault();
-          undoLastPoint();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isDrawing, polygonClosed, area, clearDrawing, handleCompleteMeasurement, undoLastPoint]);
+  }, [sections, address, measurementId, navigate]);
 
   if (loading) {
     return (
@@ -557,6 +475,9 @@ export default function MeasurementPage() {
       </div>
     );
   }
+
+  const totalFlat = getTotalFlatArea();
+  const totalAdjusted = getTotalAdjustedArea();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
@@ -583,11 +504,11 @@ export default function MeasurementPage() {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Drawing Controls */}
-        <div className="w-80 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
+        <div className="w-96 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
           <div className="p-6 border-b border-slate-200">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
             <p className="text-sm text-slate-600">
-              Click points around your roof perimeter to create a polygon
+              Draw each roof section separately, then adjust pitch for accurate measurements
             </p>
           </div>
 
@@ -618,125 +539,178 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {/* Drawing Controls */}
-          <div className="p-6 space-y-4">
-            {!isDrawing && !polygonClosed && (
-              <Button
-                onClick={startDrawing}
-                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={mapLoading || !!mapError}
-              >
-                <Edit3 className="w-4 h-4 mr-2" />
-                Start Drawing
-              </Button>
-            )}
-
-            {isDrawing && (
-              <div className="space-y-3">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-sm font-medium text-blue-900">
-                    🖱️ Drawing Mode Active
-                  </p>
-                  <p className="text-xs text-blue-700 mt-1">
-                    Click on the map to add points around your roof. Double-click or click the first point again to close the polygon.
-                  </p>
-                  <p className="text-xs text-blue-600 mt-2 font-bold">
-                    👆 Click points on the satellite map to draw!
-                  </p>
-                </div>
-
-                <Button
-                  onClick={clearDrawing}
-                  variant="outline"
-                  className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Cancel Drawing
-                </Button>
-              </div>
-            )}
-
-            {polygonClosed && (
-              <div className="space-y-3">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <p className="text-sm font-medium text-green-900 flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4" />
-                    Polygon Complete!
-                  </p>
-                  <p className="text-xs text-green-700 mt-1">
-                    You can drag the corner points to adjust the shape
-                  </p>
-                  <p className="text-xs text-green-600 mt-2">
-                    Points: {polygonPoints.length}
-                  </p>
-                </div>
-
-                <Button
-                  onClick={undoLastPoint}
-                  variant="outline"
-                  className="w-full"
-                  disabled={polygonPoints.length <= 3} // Disable if less than 3 points (minimum for a polygon)
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Remove Last Point
-                </Button>
-
-                <Button
-                  onClick={clearDrawing}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <Edit3 className="w-4 h-4 mr-2" />
-                  Redraw
-                </Button>
-              </div>
-            )}
-
-            {/* Area Display */}
-            <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-lg p-6">
-              <p className="text-sm text-green-700 font-medium mb-2">Total Roof Area:</p>
-              <p className="text-5xl font-bold text-green-900">
-                {area.toLocaleString()}
-              </p>
-              <p className="text-xl font-medium text-green-800 mt-1">square feet</p>
-            </div>
-
-            {/* Complete Button */}
+          {/* Drawing Button */}
+          <div className="p-6 border-b border-slate-200">
             <Button
-              onClick={handleCompleteMeasurement}
-              disabled={!polygonClosed || area === 0 || saving}
-              className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white"
+              onClick={startDrawingSection}
+              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={isDrawing || mapLoading || !!mapError}
             >
-              {saving ? (
+              {isDrawing ? (
                 <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Saving...
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Drawing...
+                </>
+              ) : sections.length === 0 ? (
+                <>
+                  <Edit3 className="w-4 h-4 mr-2" />
+                  Start Drawing Section 1
                 </>
               ) : (
                 <>
-                  <CheckCircle className="w-5 h-5 mr-2" />
-                  Complete Measurement
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Another Section
                 </>
               )}
             </Button>
-
-            {/* Instructions */}
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-              <p className="text-xs font-bold text-slate-900 mb-2">How to Draw:</p>
-              <ul className="text-xs text-slate-600 space-y-1">
-                <li>• Click points around your roof edges</li>
-                <li>• Double-click or click first point to close</li>
-                <li>• Drag corners to adjust after closing</li>
-                <li>• Press ESC to cancel and start over</li>
-              </ul>
-              <p className="text-xs font-bold text-slate-900 mt-3 mb-2">Keyboard Shortcuts:</p>
-              <ul className="text-xs text-slate-600 space-y-1">
-                <li>• <kbd className="px-1 py-0.5 bg-slate-200 rounded text-xs">ESC</kbd> - Cancel drawing</li>
-                <li>• <kbd className="px-1 py-0.5 bg-slate-200 rounded text-xs">Enter</kbd> - Save measurement</li>
-                <li>• <kbd className="px-1 py-0.5 bg-slate-200 rounded text-xs">Backspace</kbd> - Remove point</li>
-              </ul>
-            </div>
           </div>
+
+          {/* Sections List */}
+          {sections.length > 0 && (
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6 space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Layers className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Roof Sections ({sections.length})
+                  </h3>
+                </div>
+
+                {sections.map((section, index) => (
+                  <Card key={section.id} className="p-4 border-2" style={{ borderColor: section.color }}>
+                    <div className="space-y-3">
+                      {/* Section Name */}
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-4 h-4 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: section.color }}
+                        />
+                        <Input
+                          value={section.name}
+                          onChange={(e) => updateSectionName(section.id, e.target.value)}
+                          className="flex-1 font-semibold"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteSection(section.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      {/* Flat Area */}
+                      <div className="bg-slate-50 rounded p-3">
+                        <p className="text-xs text-slate-600">Flat Area (Satellite View)</p>
+                        <p className="text-2xl font-bold text-slate-900">
+                          {section.flat_area_sqft.toLocaleString()} sq ft
+                        </p>
+                      </div>
+
+                      {/* Pitch Selector */}
+                      <div>
+                        <label className="text-xs font-medium text-slate-700 mb-1 block">
+                          Roof Pitch:
+                        </label>
+                        <Select
+                          value={section.pitch}
+                          onValueChange={(value) => updateSectionPitch(section.id, value)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PITCH_OPTIONS.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Adjusted Area */}
+                      {section.pitch !== 'flat' && (
+                        <div className="bg-green-50 border border-green-200 rounded p-3">
+                          <p className="text-xs text-green-700 flex items-center gap-1">
+                            <TrendingUp className="w-3 h-3" />
+                            Actual Surface Area
+                          </p>
+                          <p className="text-xl font-bold text-green-900">
+                            {section.adjusted_area_sqft.toLocaleString()} sq ft
+                          </p>
+                          <p className="text-xs text-green-600 mt-1">
+                            × {section.pitch_multiplier.toFixed(2)} multiplier
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Total Area Summary */}
+          {sections.length > 0 && (
+            <div className="p-6 border-t border-slate-200 bg-gradient-to-br from-green-50 to-blue-50">
+              <h3 className="text-sm font-bold text-slate-700 mb-3">Total Roof Area</h3>
+              
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Flat Area:</span>
+                  <span className="text-lg font-bold text-slate-900">
+                    {totalFlat.toLocaleString()} sq ft
+                  </span>
+                </div>
+                
+                {totalAdjusted !== totalFlat && (
+                  <div className="flex justify-between items-center pt-2 border-t border-green-200">
+                    <span className="text-sm font-semibold text-green-700">
+                      Adjusted for Pitch:
+                    </span>
+                    <span className="text-2xl font-bold text-green-900">
+                      {totalAdjusted.toLocaleString()} sq ft
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                onClick={handleCompleteMeasurement}
+                disabled={sections.length === 0 || saving}
+                className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    Complete Measurement
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* Instructions */}
+          {sections.length === 0 && (
+            <div className="p-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm font-bold text-blue-900 mb-2">📐 How to Measure Complex Roofs:</p>
+                <ul className="text-xs text-blue-800 space-y-2">
+                  <li>1. Draw each roof plane separately (front, back, sides)</li>
+                  <li>2. Include garage, additions, and all roof sections</li>
+                  <li>3. After drawing, select pitch for each section</li>
+                  <li>4. Tool calculates actual 3D surface area</li>
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Map Container */}
@@ -747,11 +721,6 @@ export default function MeasurementPage() {
                 <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
                 <p className="text-white text-lg">{geocodingStatus}</p>
                 <p className="text-slate-400 text-sm mt-2">Address: {address}</p>
-                {coordinates && (
-                  <p className="text-slate-400 text-xs mt-1">
-                    Using coordinates: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
-                  </p>
-                )}
               </div>
             </div>
           )}
@@ -774,36 +743,26 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          <div 
-            ref={mapRef} 
-            id="map"
-            className="w-full h-full"
-          />
+          <div ref={mapRef} className="w-full h-full" />
 
-          {!mapError && !mapLoading && coordinates && !isDrawing && !polygonClosed && (
-            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-blue-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
-              <p className="text-sm font-medium">
-                ✅ Map ready! Click "Start Drawing" to begin measuring your roof
-              </p>
-            </div>
-          )}
-
+          {/* Drawing Indicator */}
           {isDrawing && (
             <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-blue-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10 max-w-md text-center">
               <p className="text-sm font-bold mb-1">
-                🖱️ Click on the Map to Draw
+                🖱️ Click on Map to Draw Section {sections.length + 1}
               </p>
               <p className="text-xs">
-                Click points around your roof. Double-click or click the first point to close the polygon.
+                Click points around the roof section. Double-click to close the polygon.
               </p>
             </div>
           )}
 
-          {polygonClosed && (
+          {/* Section Count Indicator */}
+          {sections.length > 0 && !isDrawing && (
             <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-green-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
               <p className="text-sm font-medium flex items-center gap-2">
                 <CheckCircle className="w-4 h-4" />
-                Polygon complete! Area: {area.toLocaleString()} sq ft
+                {sections.length} section{sections.length !== 1 ? 's' : ''} drawn | {totalAdjusted.toLocaleString()} sq ft total
               </p>
             </div>
           )}
