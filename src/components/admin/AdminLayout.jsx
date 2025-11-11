@@ -1,10 +1,11 @@
+
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { 
   Home, Users, Ruler, Calendar, DollarSign, Settings, LogOut, 
-  Bell, Menu, X, Search
+  Bell, Menu, X, Search, Mail // Added Mail icon
 } from "lucide-react";
 
 export default function AdminLayout({ children, title }) {
@@ -18,6 +19,7 @@ export default function AdminLayout({ children, title }) {
     { name: "Measurements", icon: Ruler, path: "/admin/Measurements" },
     { name: "Appointments", icon: Calendar, path: "/admin/Appointments" },
     { name: "Revenue", icon: DollarSign, path: "/admin/Revenue" },
+    { name: "Emails", icon: Mail, path: "/admin/Emails" }, // New nav item
     { name: "Settings", icon: Settings, path: "/admin/Settings" },
   ];
 
