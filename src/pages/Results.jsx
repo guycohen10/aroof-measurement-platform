@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -6,11 +5,11 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Loader2 } from "lucide-react";
+import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
-import { generateHomeownerPDF, generateRooferPDF, downloadHTML } from "../utils/pdfGenerator";
+import { generateHomeownerPDF, generateRooferPDF, downloadHTML } from "@/utils/pdfGenerator";
 
 export default function Results() {
   const navigate = useNavigate();
@@ -96,33 +95,6 @@ export default function Results() {
 
     // Get sections from measurement data
     const sections = measurement?.measurement_data?.sections || [];
-    const area = measurement.total_sqft || 0;
-    const isHomeowner = measurement.user_type === "homeowner";
-
-    // Material multipliers
-    const materialMultipliers = {
-      asphalt_shingles: 1.0,
-      architectural_shingles: 1.25,
-      metal_roofing: 1.60,
-      tile_roofing: 2.0
-    };
-
-    const materialNames = {
-      asphalt_shingles: "Asphalt Shingles (Standard)",
-      architectural_shingles: "Architectural Shingles (+25%)",
-      metal_roofing: "Metal Roofing (+60%)",
-      tile_roofing: "Tile Roofing (+100%)"
-    };
-
-    // Calculate pricing with material multiplier
-    const multiplier = materialMultipliers[materialType] || 1.0;
-    const baseMaterialCost = area * 4.00;
-    const materialCost = Math.round(baseMaterialCost * multiplier);
-    const laborCost = Math.round(area * 3.00);
-    const wasteCost = Math.round((materialCost + laborCost) * 0.10);
-    const subtotal = materialCost + laborCost + wasteCost;
-    const lowEstimate = Math.round(subtotal * 0.90);
-    const highEstimate = Math.round(subtotal * 1.10);
     
     // Prepare estimate data
     const estimateData = {
@@ -245,7 +217,7 @@ export default function Results() {
 
       {/* Enhanced Success Banner with Animation */}
       <div className="bg-gradient-to-r from-green-500 via-green-600 to-green-700 text-white py-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZjMCAyLjMxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6bS02IDBjMCAyLjMxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6bS02IDBjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-center gap-4 mb-6">
@@ -467,7 +439,7 @@ export default function Results() {
                 Measure Another Roof
               </Button>
 
-              {/* Download Report Button */}
+              {/* PDF Download Button */}
               <Button
                 size="lg"
                 variant="outline"
