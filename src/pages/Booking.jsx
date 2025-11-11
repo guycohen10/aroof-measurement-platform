@@ -205,6 +205,7 @@ export default function Booking() {
       const lowEstimate = Math.round(area * 4 * 0.9);
       const highEstimate = Math.round(area * 4 * 1.1);
 
+      // Create appointment in database
       const appointment = await base44.entities.Appointment.create({
         measurement_id: measurement.id,
         customer_name: customerInfo.name,
@@ -224,13 +225,17 @@ export default function Booking() {
         terms_accepted: termsAccepted
       });
 
+      console.log("✅ Appointment created successfully:", appointment.id);
+
       const appointmentDateFormatted = format(selectedDate, 'EEEE, MMMM d, yyyy');
       
-      await base44.integrations.Core.SendEmail({
-        from_name: "Aroof Roofing",
-        to: customerInfo.email,
-        subject: "Appointment Confirmed - Free Roof Inspection | Aroof",
-        body: `Hi ${customerInfo.name},
+      // EMAIL SENDING DISABLED - Base44 restriction
+      // Customer confirmation email would be sent here
+      console.log("📧 EMAIL WOULD BE SENT TO CUSTOMER:");
+      console.log("To:", customerInfo.email);
+      console.log("Subject: Appointment Confirmed - Free Roof Inspection | Aroof");
+      console.log(`
+Hi ${customerInfo.name},
 
 Your free roof inspection is confirmed! ✓
 
@@ -240,39 +245,20 @@ APPOINTMENT DETAILS:
 ⏱ Duration: Approximately 45-60 minutes
 📍 Location: ${measurement.property_address}
 
-WHAT TO EXPECT:
-Our licensed roofing professional will:
-✓ Conduct a thorough roof inspection
-✓ Assess current condition and identify any issues
-✓ Review your measurement report (${measurement.total_sqft?.toLocaleString()} sq ft)
-✓ Provide detailed recommendations
-✓ Answer all your questions
-✓ Give you a final written quote
-
-NEED TO RESCHEDULE?
-Call us: (850) 238-9727
-Email: contact@aroof.build
-
-PREPARE FOR YOUR INSPECTION:
-- No need to be home (we can inspect from outside)
-- Please ensure clear access to all sides of your property
-- Have any previous roof documents ready (optional)
-
 Confirmation Number: ${confirmationNumber}
 
-Questions? Reply to this email or call (850) 238-9727
+Questions? Call (850) 238-9727
 
 Best regards,
 The Aroof Team
-6810 Windrock Rd, Dallas, TX 75252
-Phone: (850) 238-9727
-www.aroof.build`
-      });
+      `);
 
-      await base44.integrations.Core.SendEmail({
-        to: 'contact@aroof.build',
-        subject: `🔔 NEW APPOINTMENT BOOKED - ${appointmentDateFormatted} at ${selectedTime}`,
-        body: `New roof inspection appointment:
+      // Try to send admin notification email (if admin email is in the system)
+      try {
+        await base44.integrations.Core.SendEmail({
+          to: 'contact@aroof.build',
+          subject: `🔔 NEW APPOINTMENT BOOKED - ${appointmentDateFormatted} at ${selectedTime}`,
+          body: `New roof inspection appointment:
 
 Customer: ${customerInfo.name}
 Phone: ${customerInfo.phone}
@@ -292,17 +278,26 @@ Action Required:
 - Assign crew member
 - Add to schedule
 - Prepare inspection materials`
-      });
+        });
+        console.log("✅ Admin notification email sent");
+      } catch (emailErr) {
+        // Fail silently - don't block booking if admin email fails
+        console.log("⚠️ Admin notification email failed (non-blocking):", emailErr.message);
+      }
 
+      // Update measurement lead status
       await base44.entities.Measurement.update(measurement.id, {
         clicked_booking: true,
         lead_status: 'booked'
       });
 
+      console.log("✅ Measurement updated with booking status");
+
+      // Navigate to success page
       navigate(createPageUrl(`BookingSuccess?appointmentid=${appointment.id}`));
 
     } catch (err) {
-      console.error("Error creating appointment:", err);
+      console.error("❌ Error creating appointment:", err);
       setError(`Failed to create appointment: ${err.message}. Please try again.`);
       setSubmitting(false);
       setShowConfirmation(false);
@@ -485,6 +480,14 @@ Action Required:
                   </div>
                 )}
               </div>
+
+              <Alert className="bg-yellow-50 border-yellow-200">
+                <AlertCircle className="h-4 w-4 text-yellow-600" />
+                <AlertDescription className="text-yellow-800">
+                  <strong>Note:</strong> You won't receive an automatic confirmation email due to system restrictions. 
+                  We'll call you within 24 hours to confirm your appointment.
+                </AlertDescription>
+              </Alert>
 
               <div className="flex flex-col gap-3 pt-4">
                 <Button
@@ -769,7 +772,7 @@ Action Required:
                       onCheckedChange={setSendReminders}
                     />
                     <label htmlFor="reminders" className="text-sm text-slate-700 cursor-pointer">
-                      Send me appointment reminders (email + SMS)
+                      Send me appointment reminders (we'll call you to confirm)
                     </label>
                   </div>
 
