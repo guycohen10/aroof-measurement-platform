@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { sendMeasurementCompleteEmail } from "../utils/emailAutomation";
+import { sendMeasurementCompleteEmail } from "@/utils/emailAutomation";
 
 // Section colors for visual differentiation
 const SECTION_COLORS = [
@@ -439,7 +439,7 @@ export default function MeasurementPage() {
 
       if (measurementId) {
         await base44.entities.Measurement.update(measurementId, measurementData);
-        // Fetch updated measurement for email as update might not return the full object
+        // Fetch updated measurement for email
         const updated = await base44.entities.Measurement.filter({ id: measurementId });
         savedMeasurement = updated[0];
       } else {
@@ -456,7 +456,7 @@ export default function MeasurementPage() {
       }
 
       // Send measurement complete email
-      if (savedMeasurement && savedMeasurement.customer_email) {
+      if (savedMeasurement.customer_email) {
         try {
           await sendMeasurementCompleteEmail(savedMeasurement);
           console.log("✅ Measurement complete email sent");

@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Home, ArrowLeft, Calendar as CalendarIcon, Clock, MapPin, CheckCircle, Loader2, AlertCircle, ChevronLeft, ChevronRight, Ruler, DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, isBefore, startOfDay, addMonths, subMonths, getDay, parseISO } from "date-fns";
-import { sendAppointmentConfirmationEmail } from "../utils/emailAutomation";
+import { sendAppointmentConfirmationEmail } from "@/utils/emailAutomation";
 
 export default function Booking() {
   const navigate = useNavigate();
@@ -240,24 +240,60 @@ export default function Booking() {
         terms_accepted: termsAccepted
       });
 
-      // Send appointment confirmation email
+      // Send appointment confirmation email (using the external helper)
       try {
-        // Pass all necessary data from the created appointment object
-        await sendAppointmentConfirmationEmail({
-          ...appointment,
-          selectedDate: selectedDate, // Add selectedDate for formatting
-          selectedTime: selectedTime, // Add selectedTime if needed for formatting
-          property_address: measurement.property_address, // Ensure address is available
-          total_sqft: measurement.total_sqft, // Ensure total_sqft is available
-        });
+        await sendAppointmentConfirmationEmail(appointment);
         console.log("✅ Appointment confirmation email sent");
       } catch (emailError) {
         console.error("Email send failed (non-blocking):", emailError);
         // Don't block user flow if email fails
       }
 
-      // Send internal notification
+      // Send customer confirmation email (newly added)
       const appointmentDateFormatted = format(selectedDate, 'EEEE, MMMM d, yyyy');
+      await base44.integrations.Core.SendEmail({
+        to: customerInfo.email,
+        subject: "Appointment Confirmed - Free Roof Inspection | Aroof",
+        body: `Hi ${customerInfo.name},
+
+Your free roof inspection is confirmed! ✓
+
+APPOINTMENT DETAILS:
+📅 Date: ${appointmentDateFormatted}
+🕐 Time: ${selectedTime}
+⏱ Duration: Approximately 45-60 minutes
+📍 Location: ${measurement.property_address}
+
+WHAT TO EXPECT:
+Our licensed roofing professional will:
+✓ Conduct a thorough roof inspection
+✓ Assess current condition and identify any issues
+✓ Review your measurement report (${measurement.total_sqft?.toLocaleString()} sq ft)
+✓ Provide detailed recommendations
+✓ Answer all your questions
+✓ Give you a final written quote
+
+NEED TO RESCHEDULE?
+Call us: (850) 238-9727
+Email: contact@aroof.build
+
+PREPARE FOR YOUR INSPECTION:
+- No need to be home (we can inspect from outside)
+- Please ensure clear access to all sides of your property
+- Have any previous roof documents ready (optional)
+
+Confirmation Number: ${confirmationNumber}
+
+Questions? Reply to this email or call (850) 238-9727
+
+Best regards,
+The Aroof Team
+6810 Windrock Rd, Dallas, TX 75252
+Phone: (850) 238-9727
+www.aroof.build`
+      });
+
+      // Send internal notification
       await base44.integrations.Core.SendEmail({
         to: 'contact@aroof.build',
         subject: `🔔 NEW APPOINTMENT BOOKED - ${appointmentDateFormatted} at ${selectedTime}`,
@@ -542,8 +578,7 @@ Action Required:
               </Button>
             </Link>
           </div>
-        </div>
-      </header>
+        </header>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
