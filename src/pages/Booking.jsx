@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -9,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Home, ArrowLeft, Calendar as CalendarIcon, Clock, MapPin, CheckCircle, Loader2, AlertCircle, ChevronLeft, ChevronRight, Ruler, DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, isBefore, startOfDay, addMonths, subMonths, getDay, parseISO } from "date-fns";
+import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, isBefore, startOfDay, addMonths, subMonths, getDay } from "date-fns";
 
 export default function Booking() {
   const navigate = useNavigate();
@@ -17,7 +16,6 @@ export default function Booking() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   
-  // Measurement data
   const [measurement, setMeasurement] = useState(null);
   const [customerInfo, setCustomerInfo] = useState({
     name: "",
@@ -25,7 +23,6 @@ export default function Booking() {
     phone: ""
   });
   
-  // Calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
@@ -33,15 +30,12 @@ export default function Booking() {
   const [bookedSlots, setBookedSlots] = useState({});
   const [loadingSlots, setLoadingSlots] = useState(false);
   
-  // Form state
   const [specialRequests, setSpecialRequests] = useState("");
   const [sendReminders, setSendReminders] = useState(true);
   const [termsAccepted, setTermsAccepted] = useState(false);
   
-  // Confirmation state
   const [showConfirmation, setShowConfirmation] = useState(false);
 
-  // Business hours configuration
   const BUSINESS_HOURS = {
     0: { open: true, start: "08:00", end: "19:00" },
     1: { open: true, start: "08:00", end: "19:00" },
@@ -424,14 +418,12 @@ Action Required:
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
         <header className="border-b bg-white/80 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <Link to={createPageUrl("Homepage")} className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
-                  <Home className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-2xl font-bold text-slate-900">Aroof</span>
-              </Link>
-            </div>
+            <Link to={createPageUrl("Homepage")} className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
+                <Home className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-2xl font-bold text-slate-900">Aroof</span>
+            </Link>
           </div>
         </header>
 

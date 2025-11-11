@@ -14,6 +14,7 @@ import FormPage from './pages/FormPage';
 import MeasurementPage from './pages/MeasurementPage';
 import BookingConfirmation from './pages/BookingConfirmation';
 import BookingSuccess from './pages/BookingSuccess';
+import Booking from './pages/Booking';
 import Layout from './Layout.jsx';
 
 
@@ -34,6 +35,7 @@ export const PAGES = {
     "MeasurementPage": MeasurementPage,
     "BookingConfirmation": BookingConfirmation,
     "BookingSuccess": BookingSuccess,
+    "Booking": Booking,
 }
 
 export const pagesConfig = {
