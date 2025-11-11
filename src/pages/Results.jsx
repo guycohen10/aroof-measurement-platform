@@ -1,19 +1,22 @@
-
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
+import InteractiveMapView from "../components/results/InteractiveMapView";
 
 export default function Results() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [measurement, setMeasurement] = useState(null);
   const [error, setError] = useState("");
+  const [materialType, setMaterialType] = useState("asphalt_shingles");
+  const [trackingAction, setTrackingAction] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -55,6 +58,35 @@ export default function Results() {
     loadData();
   }, [navigate]);
 
+  const trackConversion = async (action, data = {}) => {
+    if (!measurement || trackingAction) return;
+    
+    setTrackingAction(true);
+    try {
+      await base44.entities.Measurement.update(measurement.id, data);
+      setMeasurement({ ...measurement, ...data });
+      console.log(`✅ Tracked: ${action}`);
+    } catch (err) {
+      console.error("Failed to track conversion:", err);
+    } finally {
+      setTrackingAction(false);
+    }
+  };
+
+  const handleScheduleClick = () => {
+    trackConversion("booking_clicked", { clicked_booking: true });
+    navigate(createPageUrl(`Booking?measurementid=${measurement.id}`));
+  };
+
+  const handleCallClick = () => {
+    trackConversion("call_clicked", { clicked_call: true });
+  };
+
+  const handleDownloadClick = () => {
+    trackConversion("download_clicked", { downloaded_report: true });
+    alert("PDF download coming soon! We're working on this feature.");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
@@ -93,15 +125,34 @@ export default function Results() {
     );
   }
 
-  // Calculate pricing estimate
+  // Get sections from measurement data
+  const sections = measurement?.measurement_data?.sections || [];
   const area = measurement.total_sqft || 0;
-  const materialCost = Math.round(area * 4.00);
+  const isHomeowner = measurement.user_type === "homeowner";
+
+  // Material multipliers
+  const materialMultipliers = {
+    asphalt_shingles: 1.0,
+    architectural_shingles: 1.25,
+    metal_roofing: 1.60,
+    tile_roofing: 2.0
+  };
+
+  const materialNames = {
+    asphalt_shingles: "Asphalt Shingles (Standard)",
+    architectural_shingles: "Architectural Shingles (+25%)",
+    metal_roofing: "Metal Roofing (+60%)",
+    tile_roofing: "Tile Roofing (+100%)"
+  };
+
+  // Calculate pricing with material multiplier
+  const multiplier = materialMultipliers[materialType] || 1.0;
+  const baseMaterialCost = area * 4.00;
+  const materialCost = Math.round(baseMaterialCost * multiplier);
   const laborCost = Math.round(area * 3.00);
   const totalCost = materialCost + laborCost;
   const lowEstimate = Math.round(totalCost * 0.9);
   const highEstimate = Math.round(totalCost * 1.1);
-
-  const isHomeowner = measurement.user_type === "homeowner";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-slate-50">
@@ -196,24 +247,14 @@ export default function Results() {
           </CardContent>
         </Card>
 
-        {/* Map Placeholder */}
+        {/* Interactive Map with Polygon */}
         <Card className="mb-8 shadow-lg">
           <CardHeader>
-            <CardTitle className="text-2xl">Satellite View</CardTitle>
+            <CardTitle className="text-2xl">Satellite View with Measurements</CardTitle>
+            <p className="text-sm text-slate-600 mt-1">Interactive map - zoom and pan to explore</p>
           </CardHeader>
           <CardContent>
-            <div className="bg-slate-100 border-2 border-slate-200 rounded-lg p-12 text-center">
-              <MapPin className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <p className="text-lg font-semibold text-slate-700 mb-2">
-                Satellite view with measurements
-              </p>
-              <p className="text-sm text-slate-500">
-                {measurement.property_address}
-              </p>
-              <p className="text-xs text-slate-400 mt-4">
-                Detailed map visualization coming soon
-              </p>
-            </div>
+            <InteractiveMapView measurement={measurement} sections={sections} />
           </CardContent>
         </Card>
 
@@ -223,24 +264,79 @@ export default function Results() {
             <CardHeader>
               <CardTitle className="text-2xl flex items-center gap-2">
                 <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-white" />
+                  <DollarSign className="w-5 h-5 text-white" />
                 </div>
                 Estimated Project Cost
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
+              {/* Material Selector */}
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">
+                  Select Roofing Material:
+                </label>
+                <Select value={materialType} onValueChange={setMaterialType}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="asphalt_shingles">
+                      Asphalt Shingles (Standard)
+                    </SelectItem>
+                    <SelectItem value="architectural_shingles">
+                      Architectural Shingles (+25%)
+                    </SelectItem>
+                    <SelectItem value="metal_roofing">
+                      Metal Roofing (+60%)
+                    </SelectItem>
+                    <SelectItem value="tile_roofing">
+                      Tile Roofing (+100%)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Cost Breakdown with Animation */}
               <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200">
-                  <span className="text-slate-600">Materials ({area.toLocaleString()} sq ft × $4.00)</span>
-                  <span className="font-bold text-slate-900">${materialCost.toLocaleString()}</span>
+                <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200 transition-all duration-300">
+                  <span className="text-slate-600">
+                    Materials ({area.toLocaleString()} sq ft × ${(4.00 * multiplier).toFixed(2)})
+                  </span>
+                  <span className="font-bold text-slate-900 transition-all duration-300">
+                    ${materialCost.toLocaleString()}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200">
                   <span className="text-slate-600">Labor ({area.toLocaleString()} sq ft × $3.00)</span>
                   <span className="font-bold text-slate-900">${laborCost.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between items-center p-4 bg-green-600 text-white rounded-lg">
+                <div className="flex justify-between items-center p-4 bg-green-600 text-white rounded-lg transition-all duration-300">
                   <span className="text-lg font-semibold">Estimated Cost Range</span>
-                  <span className="text-2xl font-bold">${lowEstimate.toLocaleString()} - ${highEstimate.toLocaleString()}</span>
+                  <span className="text-2xl font-bold transition-all duration-300">
+                    ${lowEstimate.toLocaleString()} - ${highEstimate.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* What's Included */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h4 className="font-bold text-slate-900 mb-4 text-lg">What's Included:</h4>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {[
+                    "Premium roofing materials",
+                    "Professional installation by licensed crew",
+                    "Complete tear-off & disposal of old roof",
+                    "Underlayment & ice/water shield",
+                    "Proper ventilation installation",
+                    "Full site cleanup & debris removal",
+                    "10-year workmanship warranty",
+                    "Final inspection & quality check"
+                  ].map((item, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      <span className="text-sm text-slate-700">{item}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -254,42 +350,124 @@ export default function Results() {
           </Card>
         )}
 
-        {/* Action Buttons */}
-        <div className="grid md:grid-cols-3 gap-4 mb-8">
-          <Link to={createPageUrl("FormPage")} className="block">
-            <Button size="lg" className="w-full h-16 text-lg bg-blue-600 hover:bg-blue-700">
-              <Home className="w-5 h-5 mr-2" />
-              Measure Another Roof
-            </Button>
-          </Link>
+        {/* Ready to Get Started - Enhanced CTA Section */}
+        <Card className="mb-8 shadow-2xl border-none overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-8 lg:p-12">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl lg:text-4xl font-bold mb-3">Ready for Your New Roof?</h2>
+              <p className="text-xl text-blue-100 mb-6">Let's Turn This Estimate Into Reality</p>
+              
+              {/* Benefits Icons */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+                {[
+                  { icon: Shield, text: "Licensed & Insured" },
+                  { icon: DollarSign, text: "Financing Available" },
+                  { icon: Zap, text: "Fast Scheduling" },
+                  { icon: Star, text: "4.9/5 Stars on Google" }
+                ].map((item, index) => (
+                  <div key={index} className="flex flex-col items-center gap-2 bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                    <item.icon className="w-8 h-8 text-blue-200" />
+                    <span className="text-sm font-medium text-blue-100">{item.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-          <Button 
-            size="lg" 
-            variant="outline" 
-            className="w-full h-16 text-lg border-2"
-            onClick={() => alert("PDF download coming soon! We're working on this feature.")}
-          >
-            <Download className="w-5 h-5 mr-2" />
-            Download Report
-          </Button>
+            {/* Action Buttons - Reordered with Primary CTA First */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* PRIMARY CTA - Schedule Free Inspection */}
+              <Button
+                size="lg"
+                className="w-full h-16 text-lg bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all md:col-span-2 lg:col-span-4"
+                onClick={handleScheduleClick}
+              >
+                <Calendar className="w-6 h-6 mr-2" />
+                Schedule Free Inspection
+                <span className="ml-2 text-xs bg-green-500 px-2 py-1 rounded-full">
+                  🔥 Same-Day Available
+                </span>
+              </Button>
 
-          <Button 
-            size="lg" 
-            variant="outline" 
-            className="w-full h-16 text-lg border-2 border-green-600 text-green-700 hover:bg-green-50"
-            asChild
-          >
-            <a href="tel:+18502389727">
-              <Phone className="w-5 h-5 mr-2" />
-              Call: (850) 238-9727
-            </a>
-          </Button>
-        </div>
+              {/* Secondary Actions */}
+              <Button
+                size="lg"
+                variant="secondary"
+                className="w-full h-14 text-lg bg-white text-blue-900 hover:bg-blue-50"
+                onClick={() => navigate(createPageUrl("FormPage"))}
+              >
+                <Home className="w-5 h-5 mr-2" />
+                Measure Another Roof
+              </Button>
+
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full h-14 text-lg border-2 border-white text-white hover:bg-white/10"
+                onClick={handleDownloadClick}
+              >
+                <Download className="w-5 h-5 mr-2" />
+                Download Report
+              </Button>
+
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full h-14 text-lg border-2 border-green-400 text-green-400 hover:bg-green-50 hover:text-green-700 md:col-span-2"
+                asChild
+                onClick={handleCallClick}
+              >
+                <a href="tel:+18502389727">
+                  <Phone className="w-5 h-5 mr-2" />
+                  Call: (850) 238-9727
+                </a>
+              </Button>
+            </div>
+
+            {/* Urgency Element */}
+            <div className="mt-6 text-center">
+              <div className="inline-flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse">
+                ⚡ 3 Spots Available This Week
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Testimonial */}
+        <Card className="mb-8 shadow-lg border-l-4 border-l-yellow-400">
+          <CardContent className="p-6">
+            <div className="flex gap-1 mb-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+              ))}
+            </div>
+            <p className="text-lg text-slate-700 italic mb-4">
+              "Aroof made getting my roof done so easy! The measurement was accurate and the team was professional from start to finish."
+            </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">S</span>
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900">Sarah J.</p>
+                  <p className="text-sm text-slate-500 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    Plano, TX
+                  </p>
+                </div>
+              </div>
+              <div className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                Verified Customer
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Contact Info */}
         <Card className="bg-slate-50 border-slate-200">
           <CardContent className="p-6 text-center">
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Ready to Get Started?</h3>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Questions About Your Estimate?</h3>
             <p className="text-slate-600 mb-4">
               Our roofing experts are here to help with your project
             </p>
