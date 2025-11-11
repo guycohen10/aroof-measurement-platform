@@ -10,127 +10,7 @@ import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone,
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
-
-// PDF generation functions (inline to avoid import issues)
-const generateHomeownerPDF = (measurement, sections, estimate) => {
-  const reportId = `ARM-${Date.now()}`;
-  const reportDate = format(new Date(), 'MMMM d, yyyy');
-  const totalArea = measurement?.total_sqft || 0;
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Aroof - Roof Measurement Report</title>
-  <style>
-    @media print { @page { margin: 0.75in; } body { margin: 0; } .page-break { page-break-after: always; } .no-print { display: none; } }
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 8.5in; margin: 0 auto; padding: 20px; }
-    .cover-page { min-height: 10in; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%); padding: 60px; border-radius: 8px; }
-    .logo { font-size: 48px; font-weight: bold; color: #2563eb; margin-bottom: 40px; }
-    .large-number { font-size: 72px; font-weight: bold; color: #2563eb; text-align: center; margin: 40px 0; }
-    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    th { background: #dbeafe; padding: 12px; text-align: left; font-weight: bold; }
-    td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
-    .highlight-row { background: #dbeafe; font-weight: bold; }
-  </style>
-</head>
-<body>
-  <div class="cover-page page-break">
-    <div class="logo">Aroof</div>
-    <h1 style="font-size: 36px; margin-bottom: 30px;">Roof Measurement & Cost Estimate Report</h1>
-    <p style="font-size: 24px; color: #475569;">${measurement?.property_address}</p>
-    <p style="margin-top: 60px;"><strong>Report Date:</strong> ${reportDate}</p>
-    <p><strong>Report ID:</strong> ${reportId}</p>
-  </div>
-  <div class="page-break">
-    <h2 style="border-bottom: 3px solid #e2e8f0; padding-bottom: 15px;">Measurement Results</h2>
-    <div class="large-number">${totalArea.toLocaleString()} sq ft</div>
-    <p style="text-align: center; font-size: 20px; color: #64748b;">Total Roof Area</p>
-  </div>
-  <div class="page-break">
-    <h2 style="border-bottom: 3px solid #e2e8f0; padding-bottom: 15px;">Aroof Professional Estimate</h2>
-    <table>
-      <tr><th>Line Item</th><th>Calculation</th><th style="text-align: right;">Amount</th></tr>
-      <tr><td>Materials</td><td>${totalArea.toLocaleString()} × $${estimate.materialRate || '4.00'}</td><td style="text-align: right;">$${estimate.materialCost?.toLocaleString()}</td></tr>
-      <tr><td>Labor</td><td>${totalArea.toLocaleString()} × $3.00</td><td style="text-align: right;">$${estimate.laborCost?.toLocaleString()}</td></tr>
-      <tr><td>Waste Factor (10%)</td><td>Subtotal × 0.10</td><td style="text-align: right;">$${estimate.wasteCost?.toLocaleString()}</td></tr>
-      <tr class="highlight-row"><td><strong>Estimated Range</strong></td><td>-</td><td style="text-align: right;"><strong>$${estimate.low?.toLocaleString()} - $${estimate.high?.toLocaleString()}</strong></td></tr>
-    </table>
-  </div>
-  <div>
-    <h2 style="border-bottom: 3px solid #e2e8f0; padding-bottom: 15px;">Contact Aroof Today</h2>
-    <p style="font-size: 24px; font-weight: bold; color: #1e40af; margin: 20px 0;">Phone: (850) 238-9727</p>
-    <p><strong>Email:</strong> contact@aroof.build</p>
-    <p><strong>Address:</strong> 6810 Windrock Rd, Dallas, TX 75252</p>
-  </div>
-  <div class="no-print" style="position: fixed; bottom: 20px; right: 20px; background: #2563eb; color: white; padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1000;">
-    <p style="margin: 0; font-weight: bold;">Ready to save as PDF?</p>
-    <p style="margin: 5px 0 0 0; font-size: 13px;">Press Ctrl+P (Windows) or Cmd+P (Mac) then select "Save as PDF"</p>
-  </div>
-</body>
-</html>`;
-};
-
-const generateRooferPDF = (measurement, sections, rooferNotes) => {
-  const reportId = `ARM-${Date.now()}`;
-  const totalArea = measurement?.total_sqft || 0;
-  const rooferName = measurement?.customer_name || 'Professional Roofer';
-  
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Aroof - Professional Roof Measurement Report</title>
-  <style>
-    @media print { @page { margin: 0.75in; } .page-break { page-break-after: always; } .no-print { display: none; } }
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 8.5in; margin: 0 auto; padding: 20px; }
-    .watermark { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 10px; color: #cbd5e1; opacity: 0.5; }
-    .diagonal-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 48px; font-weight: bold; color: rgba(255, 255, 255, 0.25); }
-    .large-number { font-size: 72px; font-weight: bold; color: #2563eb; text-align: center; margin: 40px 0; }
-  </style>
-</head>
-<body>
-  <div class="watermark">Measured with Aroof.build</div>
-  <div style="min-height: 10in; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%); padding: 60px; border-radius: 8px;" class="page-break">
-    <h1 style="font-size: 32px; margin-bottom: 30px;">Professional Roof Measurement Report</h1>
-    <p style="font-size: 20px;">${measurement?.property_address}</p>
-    <p style="margin-top: 40px;"><strong>Report ID:</strong> ${reportId}</p>
-    <p><strong>Prepared by:</strong> ${rooferName}</p>
-  </div>
-  <div class="page-break">
-    <h2 style="border-bottom: 3px solid #e2e8f0; padding-bottom: 15px;">Roof Measurements</h2>
-    <div class="large-number">${totalArea.toLocaleString()} sq ft</div>
-    <p style="text-align: center; font-size: 18px; color: #64748b;">TOTAL ROOF AREA</p>
-  </div>
-  <div style="position: relative; background: #1e293b; padding: 80px; text-align: center; border-radius: 8px; min-height: 500px; display: flex; flex-direction: column; justify-content: center;">
-    <div class="diagonal-watermark">Measured with<br>Aroof.build</div>
-    <p style="font-size: 28px; font-weight: bold; color: #cbd5e1;">Total Area: ${totalArea.toLocaleString()} sq ft</p>
-  </div>
-  <div class="no-print" style="position: fixed; bottom: 20px; right: 20px; background: #2563eb; color: white; padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1000;">
-    <p style="margin: 0; font-weight: bold;">Ready to save as PDF?</p>
-    <p style="margin: 5px 0 0 0; font-size: 13px;">Press Ctrl+P (Windows) or Cmd+P (Mac) then select "Save as PDF"</p>
-  </div>
-</body>
-</html>`;
-};
-
-const downloadHTML = (htmlContent, filename) => {
-  const blob = new Blob([htmlContent], { type: 'text/html' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
-  
-  const newWindow = window.open('', '_blank');
-  if (newWindow) {
-    newWindow.document.write(htmlContent);
-    newWindow.document.close();
-  }
-};
+import { generateHomeownerPDF, generateRooferPDF, downloadHTML } from "../utils/pdfGenerator";
 
 export default function Results() {
   const navigate = useNavigate();
@@ -216,6 +96,33 @@ export default function Results() {
 
     const sections = measurement?.measurement_data?.sections || [];
     
+    // Material multipliers (these need to be defined here for handleDownloadClick to use them)
+    const materialMultipliers = {
+      asphalt_shingles: 1.0,
+      architectural_shingles: 1.25,
+      metal_roofing: 1.60,
+      tile_roofing: 2.0
+    };
+
+    const materialNames = {
+      asphalt_shingles: "Asphalt Shingles (Standard)",
+      architectural_shingles: "Architectural Shingles (+25%)",
+      metal_roofing: "Metal Roofing (+60%)",
+      tile_roofing: "Tile Roofing (+100%)"
+    };
+
+    const area = measurement.total_sqft || 0;
+    const multiplier = materialMultipliers[materialType] || 1.0;
+    const baseMaterialCost = area * 4.00;
+    const materialCost = Math.round(baseMaterialCost * multiplier);
+    const laborCost = Math.round(area * 3.00);
+    const wasteCost = Math.round((materialCost + laborCost) * 0.10);
+    const subtotal = materialCost + laborCost + wasteCost;
+    const lowEstimate = Math.round(subtotal * 0.90);
+    const highEstimate = Math.round(subtotal * 1.10);
+
+    const isHomeowner = measurement.user_type === "homeowner";
+
     const estimateData = {
       materialType: materialNames[materialType],
       materialRate: (4.00 * multiplier).toFixed(2),
@@ -333,7 +240,7 @@ export default function Results() {
 
       {/* Enhanced Success Banner with Animation */}
       <div className="bg-gradient-to-r from-green-500 via-green-600 to-green-700 text-white py-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6bS02IDBjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6bS02IDBjMCAyLjMxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-center gap-4 mb-6">
