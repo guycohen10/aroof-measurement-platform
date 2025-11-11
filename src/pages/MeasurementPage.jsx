@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { sendMeasurementCompleteEmail } from "@/utils/emailAutomation";
 
 // Section colors for visual differentiation
 const SECTION_COLORS = [
@@ -419,7 +418,6 @@ export default function MeasurementPage() {
       const totalFlat = getTotalFlatArea();
       const totalAdjusted = getTotalAdjustedArea();
 
-      // Prepare sections data (remove polygon reference)
       const sectionsData = sections.map(({ polygon, ...section }) => section);
 
       const measurementData = {
@@ -439,7 +437,6 @@ export default function MeasurementPage() {
 
       if (measurementId) {
         await base44.entities.Measurement.update(measurementId, measurementData);
-        // Fetch updated measurement for email
         const updated = await base44.entities.Measurement.filter({ id: measurementId });
         savedMeasurement = updated[0];
       } else {
@@ -458,11 +455,42 @@ export default function MeasurementPage() {
       // Send measurement complete email
       if (savedMeasurement.customer_email) {
         try {
-          await sendMeasurementCompleteEmail(savedMeasurement);
+          const totalArea = savedMeasurement.total_adjusted_sqft || savedMeasurement.total_sqft || 0;
+          const lowEst = Math.round(totalArea * 4 * 0.9);
+          const highEst = Math.round(totalArea * 4 * 1.1);
+          
+          await base44.integrations.Core.SendEmail({
+            from_name: "Aroof Roofing",
+            to: savedMeasurement.customer_email,
+            subject: "Your Roof Measurement is Complete! 📏",
+            body: `Hi ${savedMeasurement.customer_name},
+
+Great news! Your roof measurement is complete! ✓
+
+MEASUREMENT RESULTS:
+📍 Property: ${savedMeasurement.property_address}
+📏 Total Roof Area: ${totalArea.toLocaleString()} sq ft
+${savedMeasurement.user_type === 'homeowner' ? `💰 Estimated Cost: $${lowEst.toLocaleString()} - $${highEst.toLocaleString()}` : ''}
+
+VIEW YOUR RESULTS:
+See your complete measurement report, satellite view, and detailed breakdown:
+https://aroof.build/results?measurementid=${savedMeasurement.id}
+
+WHAT'S NEXT?
+1. Schedule a FREE roof inspection
+2. Get a detailed quote from our experts
+3. Start your roofing project with confidence
+
+Questions? Call us: (850) 238-9727
+
+Best regards,
+The Aroof Team
+www.aroof.build`
+          });
+          
           console.log("✅ Measurement complete email sent");
         } catch (emailError) {
           console.error("Email send failed (non-blocking):", emailError);
-          // Don't block user flow if email fails
         }
       }
 

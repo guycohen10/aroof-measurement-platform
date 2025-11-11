@@ -239,7 +239,9 @@ export default function Booking() {
       }
 
       const appointmentDateFormatted = format(selectedDate, 'EEEE, MMMM d, yyyy');
+      // Send customer confirmation email
       await base44.integrations.Core.SendEmail({
+        from_name: "Aroof Roofing",
         to: customerInfo.email,
         subject: "Appointment Confirmed - Free Roof Inspection | Aroof",
         body: `Hi ${customerInfo.name},
@@ -281,6 +283,7 @@ Phone: (850) 238-9727
 www.aroof.build`
       });
 
+      // Send internal notification
       await base44.integrations.Core.SendEmail({
         to: 'contact@aroof.build',
         subject: `🔔 NEW APPOINTMENT BOOKED - ${appointmentDateFormatted} at ${selectedTime}`,
