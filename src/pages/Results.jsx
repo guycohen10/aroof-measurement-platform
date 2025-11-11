@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -128,8 +129,11 @@ export default function Results() {
 
   // Get sections from measurement data
   const sections = measurement?.measurement_data?.sections || [];
-  const area = measurement.total_sqft || 0;
+  const flatArea = measurement?.measurement_data?.total_flat_sqft || measurement.total_sqft || 0;
+  const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea; // Use total_sqft as fallback for adjusted if total_adjusted_sqft is not present. Original total_sqft is flat.
+  const area = adjustedArea; // Use adjusted area for calculations
   const isHomeowner = measurement.user_type === "homeowner";
+  const hasPitchAdjustment = flatArea !== adjustedArea;
 
   // Material multipliers
   const materialMultipliers = {
@@ -183,7 +187,7 @@ export default function Results() {
 
       {/* Enhanced Success Banner with Animation */}
       <div className="bg-gradient-to-r from-green-500 via-green-600 to-green-700 text-white py-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxs-cnVseD0ibWVub2RkIiBjbGFzcyBhYmMgZGVmIj48ZyBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSAzLjk5LTQtNC0zLjc5LTQtNHptLTYgMGMwIDIuMzExLjc5IDQgNCA0czQtMS43OSA0LTRzLTEuNzktNC00LTR6Ii8+PC9nPg==')] opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxs-cnVleD0ibWVub2RkIiBjbGFzcyBhYmMgZGVmIj48ZyBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSAzLjk5LTQtNC0zLjc5LTQtNHptLTYgMGMwIDIuMzExLjc5IDQgNCA0czQtMS43OSAzLjk5LTQtNC0zLjc5LTQtNHptLTItNGMwIDIzMTEuNzkyMjEzOC43NTg2OTUgNCA0cy0xLjc5MjI4MDMtNC0zLjk5OTg1NzgtNGwtLjAwMDAxNDMtLjAwMDAwODl6bTAgMGMwIDIuMzExLjczOTY3MzYgNCA0IDRzNC0xLjc5IDIuMjI3NzAyLTQuMDAxMjY1OS4wMDAwMTIzLS4wMDAwMDQ5eiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-center gap-4 mb-6">
@@ -206,13 +210,79 @@ export default function Results() {
         {/* Large Area Display */}
         <Card className="mb-8 border-2 border-blue-200 shadow-xl bg-gradient-to-br from-blue-50 to-white">
           <CardContent className="p-12 text-center">
-            <h2 className="text-2xl font-semibold text-slate-700 mb-4">Total Roof Area</h2>
+            <h2 className="text-2xl font-semibold text-slate-700 mb-4">
+              Total Roof Area {hasPitchAdjustment && <span className="text-sm">(Pitch-Adjusted)</span>}
+            </h2>
             <div className="text-7xl md:text-8xl font-bold text-blue-600 mb-2">
               {area.toLocaleString()}
             </div>
             <p className="text-3xl font-semibold text-slate-600">square feet</p>
+            {hasPitchAdjustment && (
+              <p className="text-sm text-blue-600 mt-4">
+                Flat area: {flatArea.toLocaleString()} sq ft • Adjusted for roof pitch
+              </p>
+            )}
           </CardContent>
         </Card>
+
+        {/* Section Breakdown - NEW */}
+        {sections.length > 1 && (
+          <Card className="mb-8 shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center gap-2">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <Ruler className="w-5 h-5 text-white" />
+                </div>
+                Section Breakdown
+              </CardTitle>
+              <p className="text-sm text-slate-600 mt-1">{sections.length} roof sections measured</p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {sections.map((section, index) => (
+                  <div
+                    key={section.id || index}
+                    className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border-l-4"
+                    style={{ borderColor: section.color || '#4A90E2' }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-6 h-6 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: section.color || '#4A90E2' }}
+                      />
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          {section.name || `Section ${index + 1}`}
+                        </p>
+                        {section.pitch && section.pitch !== 'flat' && (
+                          <p className="text-xs text-slate-500">
+                            Pitch: {section.pitch} (×{section.pitch_multiplier?.toFixed(2) || '1.00'})
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-slate-900">
+                        {(section.adjusted_area_sqft || section.flat_area_sqft || section.area_sqft || 0).toLocaleString()} sq ft
+                      </p>
+                      {section.flat_area_sqft && section.adjusted_area_sqft && section.flat_area_sqft !== section.adjusted_area_sqft && (
+                        <p className="text-xs text-slate-500">
+                          ({section.flat_area_sqft.toLocaleString()} sq ft flat)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Total */}
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-bold border-2 border-blue-800">
+                  <span className="text-lg">Total Roof Surface Area</span>
+                  <span className="text-2xl">{area.toLocaleString()} sq ft</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Measurement Details */}
         <Card className="mb-8 shadow-lg">
@@ -270,6 +340,11 @@ export default function Results() {
                 </div>
                 Estimated Project Cost
               </CardTitle>
+              {hasPitchAdjustment && (
+                <p className="text-sm text-green-700 mt-1">
+                  ✓ Based on {area.toLocaleString()} sq ft actual roof surface area
+                </p>
+              )}
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Material Selector */}
