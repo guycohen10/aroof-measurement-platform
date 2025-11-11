@@ -10,7 +10,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Home, ArrowLeft, Calendar as CalendarIcon, Clock, MapPin, CheckCircle, Loader2, AlertCircle, ChevronLeft, ChevronRight, Ruler, DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, isBefore, startOfDay, addMonths, subMonths, getDay, parseISO } from "date-fns";
-import { sendAppointmentConfirmationEmail } from "@/utils/emailAutomation";
 
 export default function Booking() {
   const navigate = useNavigate();
@@ -231,12 +230,9 @@ export default function Booking() {
         terms_accepted: termsAccepted
       });
 
-      try {
-        await sendAppointmentConfirmationEmail(appointment);
-        console.log("✅ Appointment confirmation email sent");
-      } catch (emailError) {
-        console.error("Email send failed (non-blocking):", emailError);
-      }
+      // Removed sendAppointmentConfirmationEmail from utils/emailAutomation
+      // The direct email sending via base44.integrations.Core.SendEmail is already implemented below.
+      // This comment serves as a placeholder for the removed external utility call.
 
       const appointmentDateFormatted = format(selectedDate, 'EEEE, MMMM d, yyyy');
       // Send customer confirmation email
