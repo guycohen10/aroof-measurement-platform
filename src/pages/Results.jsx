@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -10,7 +9,7 @@ import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone,
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
-import { generateHomeownerPDF, generateRooferPDF, downloadHTML } from "@/utils/pdfGenerator.js"; // Updated import path
+// PDF generation temporarily disabled - will be re-enabled after fixing import
 
 export default function Results() {
   const navigate = useNavigate();
@@ -85,40 +84,8 @@ export default function Results() {
   };
 
   const handleDownloadClick = () => {
-    if (!measurement) return;
-
-    const currentCount = measurement.pdf_download_count || 0;
-    trackConversion("download_clicked", { 
-      downloaded_report: true,
-      pdf_download_count: currentCount + 1,
-      pdf_generated_date: new Date().toISOString()
-    });
-
-    // `sections`, `materialNames`, `materialType`, `multiplier`, `materialCost`, `laborCost`,
-    // `wasteCost`, `subtotal`, `lowEstimate`, `highEstimate`, and `isHomeowner`
-    // are already defined in the component's scope and accessible here.
-    const sections = measurement?.measurement_data?.sections || [];
-    
-    const estimateData = {
-      materialType: materialNames[materialType],
-      materialRate: (4.00 * multiplier).toFixed(2),
-      materialCost,
-      laborCost,
-      wasteCost,
-      subtotal,
-      low: lowEstimate,
-      high: highEstimate
-    };
-
-    const htmlContent = isHomeowner
-      ? generateHomeownerPDF(measurement, sections, estimateData)
-      : generateRooferPDF(measurement, sections, measurement.roofer_notes);
-
-    const filename = isHomeowner
-      ? `Aroof_Estimate_${measurement.property_address.replace(/[^a-z0-9]/gi, '_')}_${format(new Date(), 'yyyy-MM-dd')}.html`
-      : `Roof_Measurement_${measurement.property_address.replace(/[^a-z0-9]/gi, '_')}_ARM-${Date.now()}.html`;
-
-    downloadHTML(htmlContent, filename);
+    // PDF download temporarily disabled
+    alert('📄 PDF download feature coming soon!\n\nFor now, you can:\n✓ Take a screenshot of your results\n✓ Call us at (850) 238-9727 for a copy\n✓ Email contact@aroof.build and we\'ll send you a detailed report');
   };
 
   if (loading) {
@@ -216,7 +183,7 @@ export default function Results() {
 
       {/* Enhanced Success Banner with Animation */}
       <div className="bg-gradient-to-r from-green-500 via-green-600 to-green-700 text-white py-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxs-cnVleD0ibWVub2RlIiBjbGFzcyBhYmMgZGVmIj48ZyBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSAzLjk5LTQtNC0zLjc5LTQtNHptLTYgMGMwIDIuMzExLjc5IDQgNCA0czQtMS43OS00LTRzLTEuNzktNC00LTR6Ii8+PC9nPg==')] opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxs-cnVseD0ibWVub2RkIiBjbGFzcyBhYmMgZGVmIj48ZyBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSAzLjk5LTQtNC0zLjc5LTQtNHptLTYgMGMwIDIuMzExLjc5IDQgNCA0czQtMS43OSA0LTRzLTEuNzktNC00LTR6Ii8+PC9nPg==')] opacity-20"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-center gap-4 mb-6">
@@ -438,7 +405,7 @@ export default function Results() {
                 Measure Another Roof
               </Button>
 
-              {/* PDF Download Button */}
+              {/* PDF Download Button - Temporarily Shows Alert */}
               <Button
                 size="lg"
                 variant="outline"
