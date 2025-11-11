@@ -12,7 +12,6 @@ import Measure from './pages/Measure';
 import SimpleResults from './pages/SimpleResults';
 import FormPage from './pages/FormPage';
 import MeasurementPage from './pages/MeasurementPage';
-import Booking from './pages/Booking';
 import BookingConfirmation from './pages/BookingConfirmation';
 import BookingSuccess from './pages/BookingSuccess';
 import Layout from './Layout.jsx';
@@ -33,7 +32,6 @@ export const PAGES = {
     "SimpleResults": SimpleResults,
     "FormPage": FormPage,
     "MeasurementPage": MeasurementPage,
-    "Booking": Booking,
     "BookingConfirmation": BookingConfirmation,
     "BookingSuccess": BookingSuccess,
 }
