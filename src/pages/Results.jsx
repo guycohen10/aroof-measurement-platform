@@ -10,9 +10,7 @@ import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone,
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
-import { PDFDownloadLink } from '@react-pdf/renderer';
-import HomeownerPDFDocument from "../components/pdf/HomeownerPDFDocument";
-import RooferPDFDocument from "../components/pdf/RooferPDFDocument";
+import { generateHomeownerPDF, generateRooferPDF, downloadHTML } from "../utils/pdfGenerator";
 
 export default function Results() {
   const navigate = useNavigate();
@@ -21,7 +19,6 @@ export default function Results() {
   const [error, setError] = useState("");
   const [materialType, setMaterialType] = useState("asphalt_shingles");
   const [trackingAction, setTrackingAction] = useState(false);
-  const [pdfReady, setPdfReady] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -47,7 +44,6 @@ export default function Results() {
           const loadedMeasurement = measurements[0];
           console.log("✅ Measurement found:", loadedMeasurement);
           setMeasurement(loadedMeasurement);
-          setPdfReady(true);
           console.log("✅✅✅ RESULTS PAGE READY TO DISPLAY");
         } else {
           console.log("❌ Measurement not found in database");
@@ -89,12 +85,69 @@ export default function Results() {
   };
 
   const handleDownloadClick = () => {
+    if (!measurement) return;
+
     const currentCount = measurement.pdf_download_count || 0;
     trackConversion("download_clicked", { 
       downloaded_report: true,
       pdf_download_count: currentCount + 1,
       pdf_generated_date: new Date().toISOString()
     });
+
+    // Get sections from measurement data
+    const sections = measurement?.measurement_data?.sections || [];
+    const area = measurement.total_sqft || 0;
+    const isHomeowner = measurement.user_type === "homeowner";
+
+    // Material multipliers
+    const materialMultipliers = {
+      asphalt_shingles: 1.0,
+      architectural_shingles: 1.25,
+      metal_roofing: 1.60,
+      tile_roofing: 2.0
+    };
+
+    const materialNames = {
+      asphalt_shingles: "Asphalt Shingles (Standard)",
+      architectural_shingles: "Architectural Shingles (+25%)",
+      metal_roofing: "Metal Roofing (+60%)",
+      tile_roofing: "Tile Roofing (+100%)"
+    };
+
+    // Calculate pricing with material multiplier
+    const multiplier = materialMultipliers[materialType] || 1.0;
+    const baseMaterialCost = area * 4.00;
+    const materialCost = Math.round(baseMaterialCost * multiplier);
+    const laborCost = Math.round(area * 3.00);
+    const wasteCost = Math.round((materialCost + laborCost) * 0.10);
+    const subtotal = materialCost + laborCost + wasteCost;
+    const lowEstimate = Math.round(subtotal * 0.90);
+    const highEstimate = Math.round(subtotal * 1.10);
+    
+    // Prepare estimate data
+    const estimateData = {
+      materialType: materialNames[materialType],
+      materialRate: (4.00 * multiplier).toFixed(2),
+      materialCost,
+      laborCost,
+      wasteCost,
+      subtotal,
+      low: lowEstimate,
+      high: highEstimate
+    };
+
+    // Generate HTML content
+    const htmlContent = isHomeowner
+      ? generateHomeownerPDF(measurement, sections, estimateData)
+      : generateRooferPDF(measurement, sections, measurement.roofer_notes);
+
+    // Create filename
+    const filename = isHomeowner
+      ? `Aroof_Estimate_${measurement.property_address.replace(/[^a-z0-9]/gi, '_')}_${format(new Date(), 'yyyy-MM-dd')}.html`
+      : `Roof_Measurement_${measurement.property_address.replace(/[^a-z0-9]/gi, '_')}_ARM-${Date.now()}.html`;
+
+    // Download and open
+    downloadHTML(htmlContent, filename);
   };
 
   if (loading) {
@@ -165,22 +218,6 @@ export default function Results() {
   const lowEstimate = Math.round(subtotal * 0.90);
   const highEstimate = Math.round(subtotal * 1.10);
 
-  // Prepare PDF data
-  const estimateData = {
-    materialType: materialNames[materialType],
-    materialRate: (4.00 * multiplier).toFixed(2),
-    materialCost,
-    laborCost,
-    wasteCost,
-    subtotal,
-    low: lowEstimate,
-    high: highEstimate
-  };
-
-  const pdfFilename = isHomeowner
-    ? `Aroof_Estimate_${measurement.property_address.replace(/[^a-z0-9]/gi, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`
-    : `Roof_Measurement_${measurement.property_address.replace(/[^a-z0-9]/gi, '_')}_ARM-${Date.now()}.pdf`;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-slate-50">
       {/* Modern Header */}
@@ -208,7 +245,7 @@ export default function Results() {
 
       {/* Enhanced Success Banner with Animation */}
       <div className="bg-gradient-to-r from-green-500 via-green-600 to-green-700 text-white py-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6bS02IDBjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZjMCAyLjMxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6bS02IDBjMCAyLjMxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-center gap-4 mb-6">
@@ -404,7 +441,7 @@ export default function Results() {
               </div>
             </div>
 
-            {/* Action Buttons - Reordered with Primary CTA First */}
+            {/* Action Buttons */}
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* PRIMARY CTA - Schedule Free Inspection */}
               <Button
@@ -430,60 +467,16 @@ export default function Results() {
                 Measure Another Roof
               </Button>
 
-              {/* PDF Download Button */}
-              {pdfReady ? (
-                <PDFDownloadLink
-                  document={
-                    isHomeowner ? (
-                      <HomeownerPDFDocument
-                        measurement={measurement}
-                        sections={sections}
-                        estimate={estimateData}
-                      />
-                    ) : (
-                      <RooferPDFDocument
-                        measurement={measurement}
-                        sections={sections}
-                        rooferNotes={measurement.roofer_notes}
-                      />
-                    )
-                  }
-                  fileName={pdfFilename}
-                  className="w-full"
-                >
-                  {({ blob, url, loading, error }) => (
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="w-full h-14 text-lg border-2 border-white text-white hover:bg-white/10"
-                      disabled={loading}
-                      onClick={!loading ? handleDownloadClick : undefined}
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                          Generating PDF...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="w-5 h-5 mr-2" />
-                          Download Report
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </PDFDownloadLink>
-              ) : (
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full h-14 text-lg border-2 border-white text-white hover:bg-white/10"
-                  disabled
-                >
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Preparing PDF...
-                </Button>
-              )}
+              {/* Download Report Button */}
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full h-14 text-lg border-2 border-white text-white hover:bg-white/10"
+                onClick={handleDownloadClick}
+              >
+                <Download className="w-5 h-5 mr-2" />
+                Download Report
+              </Button>
 
               <Button
                 size="lg"
