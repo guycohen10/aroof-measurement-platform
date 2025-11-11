@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -5,10 +6,13 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award } from "lucide-react";
+import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import HomeownerPDFDocument from "../components/pdf/HomeownerPDFDocument";
+import RooferPDFDocument from "../components/pdf/RooferPDFDocument";
 
 export default function Results() {
   const navigate = useNavigate();
@@ -17,6 +21,7 @@ export default function Results() {
   const [error, setError] = useState("");
   const [materialType, setMaterialType] = useState("asphalt_shingles");
   const [trackingAction, setTrackingAction] = useState(false);
+  const [pdfReady, setPdfReady] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -42,6 +47,7 @@ export default function Results() {
           const loadedMeasurement = measurements[0];
           console.log("✅ Measurement found:", loadedMeasurement);
           setMeasurement(loadedMeasurement);
+          setPdfReady(true);
           console.log("✅✅✅ RESULTS PAGE READY TO DISPLAY");
         } else {
           console.log("❌ Measurement not found in database");
@@ -83,8 +89,12 @@ export default function Results() {
   };
 
   const handleDownloadClick = () => {
-    trackConversion("download_clicked", { downloaded_report: true });
-    alert("PDF download coming soon! We're working on this feature.");
+    const currentCount = measurement.pdf_download_count || 0;
+    trackConversion("download_clicked", { 
+      downloaded_report: true,
+      pdf_download_count: currentCount + 1,
+      pdf_generated_date: new Date().toISOString()
+    });
   };
 
   if (loading) {
@@ -150,9 +160,26 @@ export default function Results() {
   const baseMaterialCost = area * 4.00;
   const materialCost = Math.round(baseMaterialCost * multiplier);
   const laborCost = Math.round(area * 3.00);
-  const totalCost = materialCost + laborCost;
-  const lowEstimate = Math.round(totalCost * 0.9);
-  const highEstimate = Math.round(totalCost * 1.1);
+  const wasteCost = Math.round((materialCost + laborCost) * 0.10);
+  const subtotal = materialCost + laborCost + wasteCost;
+  const lowEstimate = Math.round(subtotal * 0.90);
+  const highEstimate = Math.round(subtotal * 1.10);
+
+  // Prepare PDF data
+  const estimateData = {
+    materialType: materialNames[materialType],
+    materialRate: (4.00 * multiplier).toFixed(2),
+    materialCost,
+    laborCost,
+    wasteCost,
+    subtotal,
+    low: lowEstimate,
+    high: highEstimate
+  };
+
+  const pdfFilename = isHomeowner
+    ? `Aroof_Estimate_${measurement.property_address.replace(/[^a-z0-9]/gi, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`
+    : `Roof_Measurement_${measurement.property_address.replace(/[^a-z0-9]/gi, '_')}_ARM-${Date.now()}.pdf`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-slate-50">
@@ -310,6 +337,10 @@ export default function Results() {
                   <span className="text-slate-600">Labor ({area.toLocaleString()} sq ft × $3.00)</span>
                   <span className="font-bold text-slate-900">${laborCost.toLocaleString()}</span>
                 </div>
+                <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200">
+                  <span className="text-slate-600">Waste Factor (10%)</span>
+                  <span className="font-bold text-slate-900">${wasteCost.toLocaleString()}</span>
+                </div>
                 <div className="flex justify-between items-center p-4 bg-green-600 text-white rounded-lg transition-all duration-300">
                   <span className="text-lg font-semibold">Estimated Cost Range</span>
                   <span className="text-2xl font-bold transition-all duration-300">
@@ -399,15 +430,60 @@ export default function Results() {
                 Measure Another Roof
               </Button>
 
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full h-14 text-lg border-2 border-white text-white hover:bg-white/10"
-                onClick={handleDownloadClick}
-              >
-                <Download className="w-5 h-5 mr-2" />
-                Download Report
-              </Button>
+              {/* PDF Download Button */}
+              {pdfReady ? (
+                <PDFDownloadLink
+                  document={
+                    isHomeowner ? (
+                      <HomeownerPDFDocument
+                        measurement={measurement}
+                        sections={sections}
+                        estimate={estimateData}
+                      />
+                    ) : (
+                      <RooferPDFDocument
+                        measurement={measurement}
+                        sections={sections}
+                        rooferNotes={measurement.roofer_notes}
+                      />
+                    )
+                  }
+                  fileName={pdfFilename}
+                  className="w-full"
+                >
+                  {({ blob, url, loading, error }) => (
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full h-14 text-lg border-2 border-white text-white hover:bg-white/10"
+                      disabled={loading}
+                      onClick={!loading ? handleDownloadClick : undefined}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          Generating PDF...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-5 h-5 mr-2" />
+                          Download Report
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </PDFDownloadLink>
+              ) : (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full h-14 text-lg border-2 border-white text-white hover:bg-white/10"
+                  disabled
+                >
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Preparing PDF...
+                </Button>
+              )}
 
               <Button
                 size="lg"
