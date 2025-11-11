@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -8,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { sendMeasurementCompleteEmail } from "../utils/emailAutomation";
 
 // Section colors for visual differentiation
 const SECTION_COLORS = [
@@ -56,9 +58,7 @@ export default function MeasurementPage() {
   
   // Multi-section state
   const [sections, setSections] = useState([]);
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [editingSectionId, setEditingSectionId] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -428,18 +428,22 @@ export default function MeasurementPage() {
           total_adjusted_sqft: totalAdjusted,
           sections: sectionsData
         },
-        total_sqft: totalFlat, // Backwards compatibility
+        total_sqft: totalFlat, 
         total_adjusted_sqft: totalAdjusted,
         status: "completed",
         completed_at: new Date().toISOString()
       };
 
       let savedMeasurementId = measurementId;
+      let savedMeasurement;
 
       if (measurementId) {
         await base44.entities.Measurement.update(measurementId, measurementData);
+        // Fetch updated measurement for email as update might not return the full object
+        const updated = await base44.entities.Measurement.filter({ id: measurementId });
+        savedMeasurement = updated[0];
       } else {
-        const measurement = await base44.entities.Measurement.create({
+        savedMeasurement = await base44.entities.Measurement.create({
           property_address: address,
           user_type: "homeowner",
           payment_amount: 3,
@@ -448,7 +452,18 @@ export default function MeasurementPage() {
           ...measurementData
         });
         
-        savedMeasurementId = measurement.id;
+        savedMeasurementId = savedMeasurement.id;
+      }
+
+      // Send measurement complete email
+      if (savedMeasurement && savedMeasurement.customer_email) {
+        try {
+          await sendMeasurementCompleteEmail(savedMeasurement);
+          console.log("✅ Measurement complete email sent");
+        } catch (emailError) {
+          console.error("Email send failed (non-blocking):", emailError);
+          // Don't block user flow if email fails
+        }
       }
 
       if (!savedMeasurementId) {
