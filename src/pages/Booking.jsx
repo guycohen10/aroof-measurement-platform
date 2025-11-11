@@ -230,12 +230,8 @@ export default function Booking() {
         terms_accepted: termsAccepted
       });
 
-      // Removed sendAppointmentConfirmationEmail from utils/emailAutomation
-      // The direct email sending via base44.integrations.Core.SendEmail is already implemented below.
-      // This comment serves as a placeholder for the removed external utility call.
-
       const appointmentDateFormatted = format(selectedDate, 'EEEE, MMMM d, yyyy');
-      // Send customer confirmation email
+      
       await base44.integrations.Core.SendEmail({
         from_name: "Aroof Roofing",
         to: customerInfo.email,
@@ -279,7 +275,6 @@ Phone: (850) 238-9727
 www.aroof.build`
       });
 
-      // Send internal notification
       await base44.integrations.Core.SendEmail({
         to: 'contact@aroof.build',
         subject: `🔔 NEW APPOINTMENT BOOKED - ${appointmentDateFormatted} at ${selectedTime}`,
