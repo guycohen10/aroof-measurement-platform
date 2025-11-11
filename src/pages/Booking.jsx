@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -44,13 +43,13 @@ export default function Booking() {
 
   // Business hours configuration
   const BUSINESS_HOURS = {
-    0: { open: true, start: "08:00", end: "19:00" },  // Sunday
-    1: { open: true, start: "08:00", end: "19:00" },  // Monday
-    2: { open: true, start: "08:00", end: "19:00" },  // Tuesday
-    3: { open: true, start: "08:00", end: "19:00" },  // Wednesday
-    4: { open: true, start: "08:00", end: "19:00" },  // Thursday
-    5: { open: true, start: "08:00", end: "14:00" },  // Friday (ends at 2 PM)
-    6: { open: false, start: null, end: null }         // Saturday (closed)
+    0: { open: true, start: "08:00", end: "19:00" },
+    1: { open: true, start: "08:00", end: "19:00" },
+    2: { open: true, start: "08:00", end: "19:00" },
+    3: { open: true, start: "08:00", end: "19:00" },
+    4: { open: true, start: "08:00", end: "19:00" },
+    5: { open: true, start: "08:00", end: "14:00" },
+    6: { open: false, start: null, end: null }
   };
 
   const MAX_APPOINTMENTS_PER_DAY = 20;
@@ -102,7 +101,6 @@ export default function Booking() {
       const dateStr = format(date, 'yyyy-MM-dd');
       const dayOfWeek = getDay(date);
       
-      // Check if day is open
       const businessHours = BUSINESS_HOURS[dayOfWeek];
       if (!businessHours.open) {
         setAvailableSlots([]);
@@ -110,16 +108,12 @@ export default function Booking() {
         return;
       }
 
-      // Fetch existing appointments for this date
       const appointments = await base44.entities.Appointment.filter({
         appointment_date: dateStr,
         status: { $in: ["pending", "confirmed"] }
       });
 
-      // Generate all possible time slots
       const slots = generateTimeSlots(businessHours.start, businessHours.end);
-      
-      // Mark slots as booked
       const bookedTimes = appointments.map(apt => apt.appointment_time);
       const slotsWithAvailability = slots.map(slot => ({
         time: slot,
@@ -127,8 +121,6 @@ export default function Booking() {
       }));
 
       setAvailableSlots(slotsWithAvailability);
-      
-      // Update booked slots count for the day
       setBookedSlots(prev => ({
         ...prev,
         [dateStr]: appointments.length
@@ -215,12 +207,10 @@ export default function Booking() {
       const confirmationNumber = `AROOF-${Date.now()}`;
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       
-      // Calculate cost estimate
       const area = measurement.total_sqft || 0;
       const lowEstimate = Math.round(area * 4 * 0.9);
       const highEstimate = Math.round(area * 4 * 1.1);
 
-      // Create appointment
       const appointment = await base44.entities.Appointment.create({
         measurement_id: measurement.id,
         customer_name: customerInfo.name,
@@ -240,16 +230,13 @@ export default function Booking() {
         terms_accepted: termsAccepted
       });
 
-      // Send appointment confirmation email (using the external helper)
       try {
         await sendAppointmentConfirmationEmail(appointment);
         console.log("✅ Appointment confirmation email sent");
       } catch (emailError) {
         console.error("Email send failed (non-blocking):", emailError);
-        // Don't block user flow if email fails
       }
 
-      // Send customer confirmation email (newly added)
       const appointmentDateFormatted = format(selectedDate, 'EEEE, MMMM d, yyyy');
       await base44.integrations.Core.SendEmail({
         to: customerInfo.email,
@@ -293,7 +280,6 @@ Phone: (850) 238-9727
 www.aroof.build`
       });
 
-      // Send internal notification
       await base44.integrations.Core.SendEmail({
         to: 'contact@aroof.build',
         subject: `🔔 NEW APPOINTMENT BOOKED - ${appointmentDateFormatted} at ${selectedTime}`,
@@ -319,13 +305,11 @@ Action Required:
 - Prepare inspection materials`
       });
 
-      // Update measurement to track booking
       await base44.entities.Measurement.update(measurement.id, {
         clicked_booking: true,
         lead_status: 'booked'
       });
 
-      // Navigate to confirmation page
       navigate(createPageUrl(`BookingSuccess?appointmentid=${appointment.id}`));
 
     } catch (err) {
@@ -336,7 +320,6 @@ Action Required:
     }
   };
 
-  // Calendar rendering
   const renderCalendar = () => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
@@ -347,7 +330,6 @@ Action Required:
 
     return (
       <div className="space-y-4">
-        {/* Month Navigation */}
         <div className="flex items-center justify-between">
           <Button
             variant="outline"
@@ -368,7 +350,6 @@ Action Required:
           </Button>
         </div>
 
-        {/* Day Headers */}
         <div className="grid grid-cols-7 gap-2 text-center text-sm font-medium text-slate-600">
           <div>Sun</div>
           <div>Mon</div>
@@ -379,7 +360,6 @@ Action Required:
           <div>Sat</div>
         </div>
 
-        {/* Calendar Grid */}
         <div className="grid grid-cols-7 gap-2">
           {paddingDays.map((_, index) => (
             <div key={`pad-${index}`} className="aspect-square"></div>
@@ -444,7 +424,6 @@ Action Required:
   const lowEstimate = Math.round(area * 4 * 0.9);
   const highEstimate = Math.round(area * 4 * 1.1);
 
-  // Confirmation Modal
   if (showConfirmation) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
@@ -474,7 +453,6 @@ Action Required:
                 </Alert>
               )}
 
-              {/* Appointment Details */}
               <div className="space-y-4">
                 <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-lg">
                   <CalendarIcon className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
@@ -521,7 +499,6 @@ Action Required:
                 )}
               </div>
 
-              {/* Action Buttons */}
               <div className="flex flex-col gap-3 pt-4">
                 <Button
                   size="lg"
@@ -561,7 +538,6 @@ Action Required:
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
-      {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -578,9 +554,9 @@ Action Required:
               </Button>
             </Link>
           </div>
-        </header>
+        </div>
+      </header>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-slate-900 mb-2">Schedule Your Free Inspection</h1>
@@ -595,9 +571,7 @@ Action Required:
         )}
 
         <div className="grid lg:grid-cols-5 gap-8">
-          {/* Left Sidebar - Booking Summary (40%) */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Property Details */}
             <Card className="shadow-lg">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-green-50 border-b">
                 <CardTitle className="text-xl">Property Details</CardTitle>
@@ -631,7 +605,6 @@ Action Required:
               </CardContent>
             </Card>
 
-            {/* Service Details */}
             <Card className="shadow-lg border-2 border-green-200 bg-gradient-to-br from-green-50 to-white">
               <CardHeader className="border-b bg-green-100/50">
                 <CardTitle className="text-xl flex items-center gap-2">
@@ -659,7 +632,6 @@ Action Required:
               </CardContent>
             </Card>
 
-            {/* Selected Appointment */}
             {selectedDate && selectedTime && (
               <Card className="shadow-lg border-2 border-blue-200">
                 <CardHeader className="bg-blue-50 border-b">
@@ -681,9 +653,7 @@ Action Required:
             )}
           </div>
 
-          {/* Right Side - Calendar & Time Selection (60%) */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Calendar */}
             <Card className="shadow-xl">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-white border-b">
                 <CardTitle className="text-xl">Select Date</CardTitle>
@@ -707,7 +677,6 @@ Action Required:
               </CardContent>
             </Card>
 
-            {/* Time Slots */}
             {selectedDate && (
               <Card className="shadow-xl">
                 <CardHeader className="bg-gradient-to-r from-green-50 to-white border-b">
@@ -729,7 +698,6 @@ Action Required:
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {/* Morning Slots */}
                       <div>
                         <h4 className="font-bold text-slate-700 mb-3">Morning (8 AM - 12 PM)</h4>
                         <div className="grid grid-cols-3 gap-2">
@@ -755,7 +723,6 @@ Action Required:
                         </div>
                       </div>
 
-                      {/* Afternoon Slots */}
                       <div>
                         <h4 className="font-bold text-slate-700 mb-3">Afternoon (12 PM - 7 PM)</h4>
                         <div className="grid grid-cols-3 gap-2">
@@ -786,7 +753,6 @@ Action Required:
               </Card>
             )}
 
-            {/* Special Requests */}
             {selectedTime && (
               <Card className="shadow-xl">
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-white border-b">
@@ -806,7 +772,6 @@ Action Required:
               </Card>
             )}
 
-            {/* Terms and Proceed */}
             {selectedTime && (
               <Card className="shadow-xl border-2 border-green-200">
                 <CardContent className="p-6 space-y-4">
