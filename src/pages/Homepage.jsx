@@ -71,34 +71,28 @@ export default function Homepage() {
             Get Your Roof
             <br />
             <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-              Measured in 60 Seconds
+              Measured for FREE
             </span>
           </h1>
 
-          <p className="text-xl md:text-2xl text-blue-100 mb-12 max-w-3xl mx-auto">
+          <p className="text-xl md:text-2xl text-blue-100 mb-4 max-w-3xl mx-auto">
             Instant satellite measurements • Accurate pricing • DFW's most trusted roofing company
+          </p>
+          
+          <p className="text-lg text-green-300 mb-12 font-semibold">
+            📄 Download detailed PDF report for just $3-$5 (optional)
           </p>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Link to={createPageUrl("UserTypeSelection")}>
+            <Link to={createPageUrl("FormPage")}>
               <Button 
                 size="lg" 
-                className="h-16 px-10 text-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-2xl shadow-blue-500/50 hover:shadow-blue-500/75 transition-all duration-300 transform hover:scale-105"
+                className="h-16 px-10 text-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-2xl shadow-green-500/50 hover:shadow-green-500/75 transition-all duration-300 transform hover:scale-105"
               >
                 <Zap className="w-6 h-6 mr-2" />
-                Measure My Roof - $3
+                Get FREE Measurement Now
                 <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </Link>
-            <Link to={createPageUrl("UserTypeSelection")}>
-              <Button 
-                size="lg" 
-                variant="outline"
-                className="h-16 px-10 text-xl border-2 border-white text-white hover:bg-white hover:text-blue-900 transition-all duration-300"
-              >
-                <Wrench className="w-6 h-6 mr-2" />
-                I'm a Roofer - $5
               </Button>
             </Link>
           </div>
@@ -135,7 +129,7 @@ export default function Homepage() {
               How It Works
             </h2>
             <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              Get professional roof measurements in three simple steps
+              Get professional roof measurements in three simple steps - completely FREE
             </p>
           </div>
 
@@ -145,21 +139,21 @@ export default function Homepage() {
                 step: "1",
                 icon: MapPin,
                 title: "Enter Your Address",
-                description: "Type your property address and we'll locate it instantly using satellite imagery",
+                description: "Type your property address and we'll locate it instantly using satellite imagery - no payment required",
                 color: "from-blue-600 to-blue-700"
               },
               {
                 step: "2",
                 icon: Home,
                 title: "Measure Your Roof",
-                description: "Our advanced tool lets you outline your roof precisely with just a few clicks",
+                description: "Our advanced tool lets you outline your roof precisely with just a few clicks - 100% FREE",
                 color: "from-orange-600 to-orange-700"
               },
               {
                 step: "3",
                 icon: FileCheck,
-                title: "Get Instant Results",
-                description: "Receive accurate measurements, material estimates, and pricing immediately",
+                title: "View Results Instantly",
+                description: "See accurate measurements and pricing. Download detailed PDF report for just $3 (optional)",
                 color: "from-green-600 to-green-700"
               }
             ].map((step, index) => (
@@ -329,7 +323,7 @@ export default function Homepage() {
 
       {/* Final CTA Section */}
       <section className="py-20 bg-gradient-to-r from-blue-900 to-blue-700 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMSu3OS00LTQtNC00IDEuNzktNCA0em0tNiAwYzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0em0tNiAwYzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
         
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <h2 className="text-4xl md:text-6xl font-bold text-white mb-6">
@@ -339,19 +333,19 @@ export default function Homepage() {
             Join thousands of satisfied DFW homeowners who trust Aroof
           </p>
           
-          <Link to={createPageUrl("UserTypeSelection")}>
+          <Link to={createPageUrl("FormPage")}>
             <Button 
               size="lg" 
               className="h-20 px-12 text-2xl bg-white text-blue-900 hover:bg-blue-50 shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105"
             >
               <Zap className="w-8 h-8 mr-3" />
-              Measure My Roof Now
+              Measure My Roof FREE
               <ArrowRight className="w-6 h-6 ml-3" />
             </Button>
           </Link>
 
           <p className="text-blue-200 mt-8">
-            Quick • Accurate • Affordable • Starting at just $3
+            Quick • Accurate • FREE • Optional $3 PDF download
           </p>
         </div>
       </section>
@@ -381,7 +375,7 @@ export default function Homepage() {
                 <a href="#how-it-works" className="block hover:text-white">How It Works</a>
                 <a href="#benefits" className="block hover:text-white">Why Aroof</a>
                 <a href="#reviews" className="block hover:text-white">Reviews</a>
-                <Link to={createPageUrl("UserTypeSelection")} className="block hover:text-white">Get Started</Link>
+                <Link to={createPageUrl("FormPage")} className="block hover:text-white">Get Started FREE</Link>
               </div>
             </div>
             

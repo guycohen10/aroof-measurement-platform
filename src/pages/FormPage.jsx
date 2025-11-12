@@ -18,22 +18,12 @@ export default function FormPage() {
   const [placesLoaded, setPlacesLoaded] = useState(false);
   const [placesError, setPlacesError] = useState("");
   const [selectedPlace, setSelectedPlace] = useState(null);
-  const [userType, setUserType] = useState('homeowner'); // Default to homeowner
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     address: ""
   });
-
-  // Get user type from URL parameter
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const typeParam = urlParams.get('usertype');
-    if (typeParam) {
-      setUserType(typeParam);
-    }
-  }, []);
 
   // Load Google Places API
   useEffect(() => {
@@ -165,8 +155,7 @@ export default function FormPage() {
     e.preventDefault();
     setError("");
 
-    console.log("FormPage: Form submitted");
-    console.log("FormPage: User type:", userType);
+    console.log("FormPage: Form submitted - NEW FLOW (FREE measurement)");
 
     if (!selectedPlace) {
       setError("Please select your address from the dropdown suggestions");
@@ -176,9 +165,8 @@ export default function FormPage() {
     setLoading(true);
 
     try {
-      // Redirect to payment page with all data in URL
+      // NEW FLOW: Redirect directly to measurement page (NO PAYMENT)
       const params = new URLSearchParams({
-        usertype: userType,
         address: selectedPlace.formatted_address,
         lat: selectedPlace.lat.toString(),
         lng: selectedPlace.lng.toString(),
@@ -187,8 +175,8 @@ export default function FormPage() {
         phone: formData.phone
       });
 
-      console.log("FormPage: Redirecting to payment page");
-      navigate(createPageUrl(`Payment?${params.toString()}`));
+      console.log("FormPage: Redirecting directly to measurement page (free)");
+      navigate(createPageUrl(`MeasurementPage?${params.toString()}`));
 
     } catch (err) {
       console.error("FormPage: Error:", err);
@@ -196,9 +184,6 @@ export default function FormPage() {
       setLoading(false);
     }
   };
-
-  const amount = userType === 'homeowner' ? 3.00 : 5.00;
-  const userTypeLabel = userType === 'homeowner' ? 'Homeowner' : 'Professional Roofer';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
@@ -212,7 +197,7 @@ export default function FormPage() {
               </div>
               <span className="text-2xl font-bold text-slate-900">Aroof</span>
             </Link>
-            <Link to={createPageUrl("UserTypeSelection")}>
+            <Link to={createPageUrl("Homepage")}>
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
@@ -224,18 +209,21 @@ export default function FormPage() {
 
       {/* Main Content */}
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* User Type Banner */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl p-6 mb-8 text-center">
-          <p className="text-blue-100 mb-2">Selected Plan</p>
-          <p className="text-3xl font-bold mb-1">{userTypeLabel}</p>
-          <p className="text-2xl font-semibold">${amount.toFixed(2)} one-time payment</p>
+        {/* NEW: Free Measurement Banner */}
+        <div className="bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl p-6 mb-8 text-center">
+          <p className="text-green-100 mb-2">🎉 Limited Time Offer</p>
+          <p className="text-3xl font-bold mb-1">FREE Roof Measurement</p>
+          <p className="text-lg font-semibold">No payment required • View results instantly</p>
+          <p className="text-sm text-green-100 mt-2">
+            Optional: Download detailed PDF report for $3-$5
+          </p>
         </div>
 
         <Card className="shadow-xl">
           <CardHeader>
             <CardTitle className="text-3xl text-center">Enter Your Information</CardTitle>
             <p className="text-center text-slate-600 mt-2">
-              We need a few details to get started
+              Get started with your FREE roof measurement
             </p>
           </CardHeader>
           <CardContent className="p-6">
@@ -253,7 +241,6 @@ export default function FormPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Name */}
               <div>
                 <Label htmlFor="name" className="text-base font-medium">
                   Your Name <span className="text-red-500">*</span>
@@ -270,7 +257,6 @@ export default function FormPage() {
                 />
               </div>
 
-              {/* Email */}
               <div>
                 <Label htmlFor="email" className="text-base font-medium">
                   Email Address <span className="text-red-500">*</span>
@@ -287,7 +273,6 @@ export default function FormPage() {
                 />
               </div>
 
-              {/* Phone */}
               <div>
                 <Label htmlFor="phone" className="text-base font-medium">
                   Phone Number <span className="text-red-500">*</span>
@@ -304,7 +289,6 @@ export default function FormPage() {
                 />
               </div>
 
-              {/* Property Address */}
               <div>
                 <Label htmlFor="address" className="text-base font-medium">
                   Property Address <span className="text-red-500">*</span>
@@ -346,7 +330,7 @@ export default function FormPage() {
               <Button
                 type="submit"
                 disabled={loading || (!selectedPlace && !placesError)}
-                className="w-full h-14 text-lg bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white"
               >
                 {loading ? (
                   <>
@@ -354,7 +338,7 @@ export default function FormPage() {
                     Processing...
                   </>
                 ) : (
-                  `Continue to Payment ($${amount.toFixed(2)})`
+                  'Continue to FREE Measurement Tool →'
                 )}
               </Button>
             </form>
@@ -362,25 +346,25 @@ export default function FormPage() {
         </Card>
 
         {/* Info Box */}
-        <Card className="mt-6 bg-blue-50 border-blue-200">
+        <Card className="mt-6 bg-green-50 border-green-200">
           <CardContent className="p-4">
-            <p className="text-sm text-blue-900">
-              <strong>💡 Next Step:</strong> You'll be taken to a secure payment page to complete your ${amount.toFixed(2)} payment, 
-              then immediately access the measurement tool.
+            <p className="text-sm text-green-900">
+              <strong>💡 100% FREE:</strong> Measure your roof, view results, and get pricing estimates - no payment required! 
+              Download a detailed PDF report for just $3 (optional).
             </p>
-            <p className="text-xs text-blue-800 mt-2">
+            <p className="text-xs text-green-800 mt-2">
               <strong>Questions?</strong> Call us at <a href="tel:+18502389727" className="font-bold hover:underline">(850) 238-9727</a>
             </p>
           </CardContent>
         </Card>
 
         {/* Trust Badge */}
-        <Card className="mt-4 bg-green-50 border-green-200">
+        <Card className="mt-4 bg-blue-50 border-blue-200">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-green-900 font-bold">
+            <p className="text-sm text-blue-900 font-bold">
               ✓ Texas Licensed Roofing Contractor
             </p>
-            <p className="text-xs text-green-700 mt-1">
+            <p className="text-xs text-blue-700 mt-1">
               Licensed & Insured | Serving DFW since 2010
             </p>
           </CardContent>

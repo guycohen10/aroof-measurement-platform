@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -6,450 +7,432 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Home, ArrowLeft, Lock, CheckCircle, CreditCard, Loader2, ShieldCheck } from "lucide-react";
+import { Home, CreditCard, Lock, CheckCircle, Loader2, Shield, AlertCircle, FileText } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Payment() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Changed initial state to true
+  const [processing, setProcessing] = useState(false); // New state for processing payment
   const [error, setError] = useState("");
+  const [measurement, setMeasurement] = useState(null); // New state to store measurement object
   const [orderDetails, setOrderDetails] = useState(null);
 
   // Payment form data
   const [cardNumber, setCardNumber] = useState("");
-  const [expiry, setExpiry] = useState("");
+  const [cardName, setCardName] = useState(""); // Renamed from nameOnCard
+  const [expiryDate, setExpiryDate] = useState(""); // Renamed from expiry
   const [cvc, setCvc] = useState("");
-  const [zipCode, setZipCode] = useState("");
-  const [nameOnCard, setNameOnCard] = useState("");
+  // Removed zipCode state
 
   useEffect(() => {
-    // Get order details from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
+    const measurementId = urlParams.get('measurementid');
     const userType = urlParams.get('usertype');
+    const amount = urlParams.get('amount');
     const address = urlParams.get('address');
     const name = urlParams.get('name');
     const email = urlParams.get('email');
     const phone = urlParams.get('phone');
 
-    if (!userType || !address) {
-      navigate(createPageUrl("UserTypeSelection"));
+    if (!measurementId || !userType || !amount) {
+      console.error("Payment: Missing required parameters");
+      navigate(createPageUrl("Homepage"));
       return;
     }
 
-    const amount = userType === 'homeowner' ? 3.00 : 5.00;
-    
-    setOrderDetails({
-      userType,
-      address,
-      name,
-      email,
-      phone,
-      amount
-    });
-  }, [navigate]);
+    const loadMeasurement = async () => {
+      try {
+        const measurements = await base44.entities.Measurement.filter({ id: measurementId });
+        if (measurements.length > 0) {
+          setMeasurement(measurements[0]);
+        } else {
+          console.error("Measurement not found for ID:", measurementId);
+        }
+      } catch (err) {
+        console.error("Error loading measurement:", err);
+      }
+    };
 
+    loadMeasurement(); // Call to load measurement data
+
+    setOrderDetails({
+      measurementId,
+      userType,
+      amount: parseFloat(amount),
+      address: decodeURIComponent(address || ''),
+      name: decodeURIComponent(name || ''),
+      email: decodeURIComponent(email || ''),
+      phone: decodeURIComponent(phone || '')
+    });
+
+    setLoading(false);
+  }, [navigate]); // Added navigate to dependency array
+
+  // Card formatting functions (updated from outline)
   const formatCardNumber = (value) => {
     const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
     const matches = v.match(/\d{4,16}/g);
     const match = (matches && matches[0]) || '';
     const parts = [];
 
-    for (let i = 0; i < match.length; i += 4) {
+    for (let i = 0, len = match.length; i < len; i += 4) {
       parts.push(match.substring(i, i + 4));
     }
 
-    if (parts.length) {
-      return parts.join(' ');
-    } else {
-      return value;
-    }
+    return parts.length ? parts.join(' ') : value;
   };
 
-  const formatExpiry = (value) => {
+  const formatExpiryDate = (value) => {
     const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
     if (v.length >= 2) {
-      return v.slice(0, 2) + '/' + v.slice(2, 4);
+      return v.slice(0, 2) + (v.length > 2 ? ' / ' + v.slice(2, 4) : '');
     }
     return v;
   };
 
-  const handleCardNumberChange = (e) => {
-    const formatted = formatCardNumber(e.target.value);
-    if (formatted.replace(/\s/g, '').length <= 16) {
-      setCardNumber(formatted);
-    }
+  const formatCVC = (value) => {
+    return value.replace(/\D/g, '').slice(0, 4);
   };
 
-  const handleExpiryChange = (e) => {
-    const formatted = formatExpiry(e.target.value);
-    if (formatted.replace('/', '').length <= 4) {
-      setExpiry(formatted);
-    }
-  };
-
-  const handleCvcChange = (e) => {
-    const value = e.target.value.replace(/[^0-9]/gi, '');
-    if (value.length <= 4) {
-      setCvc(value);
-    }
-  };
+  // Removed handleCardNumberChange, handleExpiryChange, handleCvcChange, they are now inline in JSX
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    // Validate form
-    if (!cardNumber || cardNumber.replace(/\s/g, '').length !== 16) {
+    const cleanCardNumber = cardNumber.replace(/\s/g, '');
+    if (cleanCardNumber.length < 13 || cleanCardNumber.length > 19) {
       setError("Please enter a valid card number");
       return;
     }
 
-    if (!expiry || expiry.length !== 5) {
-      setError("Please enter a valid expiry date (MM/YY)");
+    // Validate expiryDate (MM / YY)
+    const expiryParts = expiryDate.split(' / ').map(s => s.trim());
+    if (expiryParts.length !== 2 || expiryParts[0].length !== 2 || expiryParts[1].length !== 2) {
+      setError("Please enter a valid expiry date (MM / YY)");
+      return;
+    }
+    const currentYear = new Date().getFullYear() % 100;
+    const currentMonth = new Date().getMonth() + 1;
+    const expMonth = parseInt(expiryParts[0], 10);
+    const expYear = parseInt(expiryParts[1], 10);
+
+    if (expMonth < 1 || expMonth > 12) {
+      setError("Invalid expiry month.");
+      return;
+    }
+    if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
+      setError("Card has expired.");
       return;
     }
 
-    if (!cvc || cvc.length < 3) {
-      setError("Please enter a valid CVC code");
+    if (cvc.length < 3 || cvc.length > 4) { // CVC can be 3 or 4 digits
+      setError("Please enter a valid CVC");
       return;
     }
 
-    if (!zipCode || zipCode.length < 5) {
-      setError("Please enter a valid ZIP code");
+    if (!cardName.trim()) {
+      setError("Please enter the cardholder name");
       return;
     }
 
-    if (!nameOnCard) {
-      setError("Please enter the name on card");
-      return;
-    }
-
-    setLoading(true);
+    setProcessing(true); // Use processing state
 
     try {
-      // DEMO MODE: Simulate payment processing
-      // In production, this would call Stripe API
-      
-      console.log("Processing payment...");
-      console.log("Card:", cardNumber);
-      console.log("Amount:", orderDetails.amount);
-      
+      console.log("Processing payment for PDF report:", orderDetails);
+
+      // Test card handling
+      if (cleanCardNumber === '4242424242424242') {
+        console.log("✅ Test card - simulating successful payment");
+      } else if (cleanCardNumber === '4000000000000002') { // Updated test decline card number
+        throw new Error("Card declined (test card)");
+      }
+
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Check for test card numbers
-      const cardDigits = cardNumber.replace(/\s/g, '');
-      
-      // 4242 4242 4242 4242 = success
-      // 4000 0000 0000 9995 = declined
-      if (cardDigits === '4000000000009995') {
-        throw new Error("Card declined - insufficient funds (test card)");
+      // Update measurement with payment info
+      const paymentData = {
+        user_type: orderDetails.userType,
+        payment_amount: orderDetails.amount,
+        payment_status: 'completed',
+        stripe_payment_id: 'stripe_' + Date.now(), // In production: real Stripe payment ID
+        pdf_purchased: true, // New field
+        pdf_purchase_date: new Date().toISOString() // New field
+        // Removed agrees_to_quotes as it's not in the new context
+      };
+
+      if (measurement) { // Check if measurement object is loaded
+        await base44.entities.Measurement.update(measurement.id, paymentData);
+      } else {
+        throw new Error("Measurement data not available to update.");
       }
 
-      // Create measurement record with payment info
-      const measurement = await base44.entities.Measurement.create({
-        property_address: orderDetails.address,
-        user_type: orderDetails.userType,
-        customer_name: orderDetails.name,
-        customer_email: orderDetails.email,
-        customer_phone: orderDetails.phone,
-        payment_status: 'completed',
-        payment_amount: orderDetails.amount,
-        stripe_payment_id: 'demo_' + Date.now(), // In production: real Stripe payment ID
-        agrees_to_quotes: true
-      });
+      console.log("✅ Payment successful, PDF purchased");
 
-      console.log("✅ Payment successful, measurement created:", measurement.id);
-
-      // Redirect to measurement page with coordinates if available
-      const urlParams = new URLSearchParams(window.location.search);
-      const lat = urlParams.get('lat');
-      const lng = urlParams.get('lng');
-
-      const measurementUrl = createPageUrl(
-        `MeasurementPage?measurementId=${measurement.id}&address=${encodeURIComponent(orderDetails.address)}` +
-        (lat && lng ? `&lat=${lat}&lng=${lng}` : '')
-      );
-
-      navigate(measurementUrl);
+      // Redirect to download success page
+      navigate(createPageUrl(`PDFDownload?measurementid=${orderDetails.measurementId}&usertype=${orderDetails.userType}`));
 
     } catch (err) {
       console.error("Payment error:", err);
-      setError(err.message || "Payment failed. Please try again.");
-      setLoading(false);
+      setError(err.message || "Payment failed. Please check your card details and try again.");
+      setProcessing(false); // Reset processing on error
     }
   };
 
-  if (!orderDetails) {
+  if (loading) { // Display loading spinner while fetching initial data
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-slate-600">Loading payment page...</p>
-        </div>
+        <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
       </div>
     );
   }
 
+  // If orderDetails are missing after loading, show an error message
+  if (!orderDetails || !orderDetails.measurementId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4">
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center">
+            <p className="text-red-600 mb-4">Invalid order information. Please go back and try again.</p>
+            <Link to={createPageUrl("Homepage")}>
+              <Button>Go to Homepage</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Calculate area for display, defaulting to 0 if not available
+  const area = measurement?.total_adjusted_sqft || measurement?.total_sqft || 0;
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
-      {/* Header */}
+      {/* Header (simplified) */}
       <header className="border-b bg-white/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Link to={createPageUrl("Homepage")} className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
-                <Home className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold text-slate-900">Aroof</span>
-            </Link>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => window.history.back()}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </div>
+          <Link to={createPageUrl("Homepage")} className="flex items-center gap-2">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
+              <Home className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-2xl font-bold text-slate-900">Aroof</span>
+          </Link>
+          {/* Removed Back button */}
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Complete Your Order</h1>
-          <p className="text-lg text-slate-600">Secure payment powered by Stripe</p>
-        </div>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <div className="grid lg:grid-cols-2 gap-8"> {/* Changed to 2 columns */}
+          {/* Payment Form */}
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Complete Your Purchase</h1>
+            <p className="text-slate-600 mb-8">
+              Secure payment to download your professional PDF report
+            </p>
 
-        <div className="grid lg:grid-cols-5 gap-8">
-          {/* Payment Form - 3 columns */}
-          <div className="lg:col-span-3">
+            {error && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
             <Card className="shadow-xl">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-white border-b">
-                <CardTitle className="text-2xl flex items-center gap-2">
-                  <CreditCard className="w-6 h-6 text-blue-600" />
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-6 h-6" />
                   Payment Information
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-8">
-                {error && (
-                  <Alert variant="destructive" className="mb-6">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-
-                {/* Demo Mode Notice */}
+              <CardContent>
+                {/* Updated Demo Mode Notice */}
                 <Alert className="mb-6 bg-yellow-50 border-yellow-200">
                   <AlertDescription className="text-sm">
-                    <strong>DEMO MODE:</strong> Use test card <strong>4242 4242 4242 4242</strong> for success, 
-                    or <strong>4000 0000 0000 9995</strong> for decline. Any future date and CVC works.
+                    <strong>DEMO MODE:</strong> Use test card <strong>4242 4242 4242 4242</strong> for success,
+                    or <strong>4000 0000 0000 0002</strong> for decline. Any future date and CVC works.
                   </AlertDescription>
                 </Alert>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Cardholder Name */}
+                  <div>
+                    <Label htmlFor="cardName" className="text-base font-medium">Cardholder Name <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="cardName"
+                      type="text"
+                      required
+                      placeholder="John Smith"
+                      value={cardName}
+                      onChange={(e) => setCardName(e.target.value)}
+                      className="mt-2 h-12 text-lg"
+                      disabled={processing}
+                    />
+                  </div>
+
                   {/* Card Number */}
                   <div>
-                    <Label htmlFor="cardNumber" className="text-base font-medium">
-                      Card Number <span className="text-red-500">*</span>
-                    </Label>
+                    <Label htmlFor="cardNumber" className="text-base font-medium">Card Number <span className="text-red-500">*</span></Label>
                     <Input
                       id="cardNumber"
                       type="text"
-                      placeholder="1234 5678 9012 3456"
-                      value={cardNumber}
-                      onChange={handleCardNumberChange}
-                      className="mt-2 h-12 text-lg"
-                      disabled={loading}
                       required
+                      placeholder="4242 4242 4242 4242"
+                      value={cardNumber}
+                      onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                      maxLength={19}
+                      className="mt-2 h-12 text-lg"
+                      disabled={processing}
                     />
                   </div>
 
-                  {/* Card Details Row */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="col-span-1">
-                      <Label htmlFor="expiry" className="text-base font-medium">
-                        Expiry <span className="text-red-500">*</span>
-                      </Label>
+                  {/* Expiry Date and CVC */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="expiry" className="text-base font-medium">Expiry Date <span className="text-red-500">*</span></Label>
                       <Input
                         id="expiry"
                         type="text"
-                        placeholder="MM/YY"
-                        value={expiry}
-                        onChange={handleExpiryChange}
-                        className="mt-2 h-12 text-lg"
-                        disabled={loading}
                         required
+                        placeholder="MM / YY"
+                        value={expiryDate}
+                        onChange={(e) => setExpiryDate(formatExpiryDate(e.target.value))}
+                        maxLength={7}
+                        className="mt-2 h-12 text-lg"
+                        disabled={processing}
                       />
                     </div>
 
-                    <div className="col-span-1">
-                      <Label htmlFor="cvc" className="text-base font-medium">
-                        CVC <span className="text-red-500">*</span>
-                      </Label>
+                    <div>
+                      <Label htmlFor="cvc" className="text-base font-medium">CVC <span className="text-red-500">*</span></Label>
                       <Input
                         id="cvc"
                         type="text"
+                        required
                         placeholder="123"
                         value={cvc}
-                        onChange={handleCvcChange}
+                        onChange={(e) => setCvc(formatCVC(e.target.value))}
+                        maxLength={4}
                         className="mt-2 h-12 text-lg"
-                        disabled={loading}
-                        required
-                      />
-                    </div>
-
-                    <div className="col-span-1">
-                      <Label htmlFor="zipCode" className="text-base font-medium">
-                        ZIP <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="zipCode"
-                        type="text"
-                        placeholder="12345"
-                        value={zipCode}
-                        onChange={(e) => setZipCode(e.target.value)}
-                        className="mt-2 h-12 text-lg"
-                        disabled={loading}
-                        maxLength={10}
-                        required
+                        disabled={processing}
                       />
                     </div>
                   </div>
 
-                  {/* Name on Card */}
-                  <div>
-                    <Label htmlFor="nameOnCard" className="text-base font-medium">
-                      Name on Card <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="nameOnCard"
-                      type="text"
-                      placeholder="John Smith"
-                      value={nameOnCard}
-                      onChange={(e) => setNameOnCard(e.target.value)}
-                      className="mt-2 h-12 text-lg"
-                      disabled={loading}
-                      required
-                    />
+                  {/* Secure Payment Info within form */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+                    <Lock className="w-4 h-4 inline mr-2" />
+                    <strong>Secure Payment:</strong> Your payment information is encrypted and secure.
+                    We use industry-standard security.
                   </div>
 
                   {/* Submit Button */}
                   <Button
                     type="submit"
-                    size="lg"
-                    className="w-full h-16 text-xl bg-green-600 hover:bg-green-700"
-                    disabled={loading}
+                    disabled={processing}
+                    className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
                   >
-                    {loading ? (
+                    {processing ? (
                       <>
-                        <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                         Processing Payment...
                       </>
                     ) : (
                       <>
-                        <Lock className="w-6 h-6 mr-3" />
+                        <Lock className="w-5 h-5 mr-2" />
                         Pay ${orderDetails.amount.toFixed(2)} Securely
                       </>
                     )}
                   </Button>
 
-                  {/* Trust Badges */}
-                  <div className="flex flex-wrap justify-center items-center gap-6 pt-4 text-sm text-slate-500">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-green-600" />
-                      <span>256-bit Encryption</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-green-600" />
-                      <span>Secure Payment</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Powered by Stripe</span>
-                    </div>
-                  </div>
+                  {/* Test card info at the bottom */}
+                  <p className="text-xs text-center text-slate-500">
+                    Test card: 4242 4242 4242 4242 | Any future expiry | Any CVC
+                  </p>
                 </form>
               </CardContent>
             </Card>
           </div>
 
-          {/* Order Summary - 2 columns */}
-          <div className="lg:col-span-2">
+          {/* Order Summary */}
+          <div>
             <Card className="shadow-xl sticky top-24">
-              <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b">
-                <CardTitle className="text-xl">Order Summary</CardTitle>
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
+                <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-slate-600 mb-1">Service</p>
-                  <p className="text-lg font-bold text-slate-900">Roof Measurement Service</p>
+                <div className="flex items-start gap-3">
+                  <FileText className="w-6 h-6 text-blue-600 mt-1" />
+                  <div className="flex-1">
+                    <p className="font-bold text-slate-900 text-lg">
+                      {orderDetails.userType === 'homeowner' ? 'Homeowner' : 'Professional'} PDF Report
+                    </p>
+                    <p className="text-sm text-slate-600">Detailed roof measurement report</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-slate-900">${orderDetails.amount.toFixed(2)}</p>
+                  </div>
                 </div>
 
-                <div>
-                  <p className="text-sm font-medium text-slate-600 mb-1">Property Address</p>
-                  <p className="text-base font-semibold text-slate-900">{orderDetails.address}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-slate-600 mb-1">User Type</p>
-                  <p className="text-base font-semibold text-slate-900">
-                    {orderDetails.userType === 'homeowner' ? 'Homeowner' : 'Professional Roofer'}
-                  </p>
-                </div>
-
-                <div className="border-t pt-4">
-                  <p className="text-sm font-medium text-slate-600 mb-3">What's Included:</p>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-slate-700">Accurate satellite measurement</span>
+                <div className="border-t pt-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Property:</span>
+                    <span className="font-semibold text-slate-900">{orderDetails.address}</span>
+                  </div>
+                  {area > 0 && ( // Display area only if available
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Roof Area:</span>
+                      <span className="font-semibold text-slate-900">{area.toLocaleString()} sq ft</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-slate-700">Detailed roof report</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-slate-700">Instant results</span>
-                    </div>
-                    {orderDetails.userType === 'homeowner' && (
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                        <span className="text-sm text-slate-700">Cost estimate included</span>
-                      </div>
-                    )}
-                    {orderDetails.userType === 'roofer' && (
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                        <span className="text-sm text-slate-700">Material calculations</span>
-                      </div>
-                    )}
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Report Type:</span>
+                    <span className="font-semibold text-slate-900 capitalize">{orderDetails.userType}</span>
                   </div>
                 </div>
 
                 <div className="border-t pt-4">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-base text-slate-600">Subtotal</span>
-                    <span className="text-base font-semibold text-slate-900">
-                      ${orderDetails.amount.toFixed(2)}
-                    </span>
+                    <span className="text-lg font-bold text-slate-900">Total:</span>
+                    <span className="text-3xl font-bold text-green-600">${orderDetails.amount.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-base text-slate-600">Processing Fee</span>
-                    <span className="text-base font-semibold text-slate-900">$0.00</span>
-                  </div>
-                  <div className="flex justify-between items-center bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg p-4">
-                    <span className="text-lg font-bold">Total</span>
-                    <span className="text-2xl font-bold">${orderDetails.amount.toFixed(2)}</span>
+                  <p className="text-xs text-slate-500">One-time payment • No recurring charges</p>
+                </div>
+
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
+                  <h4 className="font-bold text-green-900 mb-2 text-sm">What You'll Get:</h4>
+                  <ul className="text-xs text-green-800 space-y-1">
+                    <li>✓ Professional PDF report</li>
+                    <li>✓ Detailed measurements & satellite imagery</li>
+                    <li>✓ Cost breakdown and estimates</li>
+                    {orderDetails.userType === 'roofer' && (
+                      <>
+                        <li>✓ Material quantity calculations</li>
+                        <li>✓ Client-ready formatting</li>
+                      </>
+                    )}
+                    <li>✓ Instant download after payment</li>
+                    <li>✓ Lifetime access</li>
+                  </ul>
+                </div>
+
+                {/* New Secure Checkout Badge */}
+                <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900">
+                  <Shield className="w-4 h-4 flex-shrink-0" />
+                  <div>
+                    <strong>Secure Checkout:</strong> Your payment is protected with bank-level encryption
                   </div>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-                  <p className="text-xs text-blue-900">
-                    <strong>Money-back guarantee:</strong> If you're not satisfied with your measurement, 
-                    contact us within 24 hours for a full refund.
-                  </p>
+                {/* New Money-Back Guarantee Badge */}
+                <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded text-xs text-green-900">
+                  <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                  <div>
+                    <strong>Money-Back Guarantee:</strong> 100% refund if not satisfied
+                  </div>
                 </div>
               </CardContent>
             </Card>

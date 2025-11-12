@@ -6,11 +6,10 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award } from "lucide-react";
+import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Building2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
-// PDF generation temporarily disabled - will be re-enabled after fixing import
 
 export default function Results() {
   const navigate = useNavigate();
@@ -84,9 +83,13 @@ export default function Results() {
     trackConversion("call_clicked", { clicked_call: true });
   };
 
-  const handleDownloadClick = () => {
-    // PDF download temporarily disabled
-    alert('📄 PDF download feature coming soon!\n\nFor now, you can:\n✓ Take a screenshot of your results\n✓ Call us at (850) 238-9727 for a copy\n✓ Email contact@aroof.build and we\'ll send you a detailed report');
+  const handleDownloadClick = (reportType = null) => {
+    trackConversion("pdf_download_clicked", { requested_quote: true, report_type: reportType });
+    let url = `SelectReportType?measurementid=${measurement.id}`;
+    if (reportType) {
+      url += `&reportType=${reportType}`;
+    }
+    navigate(createPageUrl(url));
   };
 
   if (loading) {
@@ -187,7 +190,7 @@ export default function Results() {
 
       {/* Enhanced Success Banner with Animation */}
       <div className="bg-gradient-to-r from-green-500 via-green-600 to-green-700 text-white py-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxs-cnVleD0ibWVub2RkIiBjbGFzcyBhYmMgZGVmIj48ZyBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSAzLjk5LTQtNC0zLjc5LTQtNHptLTYgMGMwIDIuMzExLjc5IDQgNCA0czQtMS43OSAzLjk5LTQtNC0zLjc5LTQtNHptLTItNGMwIDIzMTEuNzkyMjEzOC43NTg2OTUgNCA0cy0xLjc5MjI4MDMtNC0zLjk5OTg1NzgtNGwtLjAwMDAxNDMtLjAwMDAwODl6bTAgMGMwIDIuMzExLjczOTY3MzYgNCA0IDRzNC0xLjc5IDIuMjI3NzAyLTQuMDAxMjY1OS4wMDAwMTIzLS4wMDAwMDQ5eiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsYXNzIGFiYyBkZWYiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDMuOTktNGMwLTIuMjEtNC0zLjc5LTQtNHptLTYgMGMwIDIuMzExLjc5IDQgNCA0czQtMS43OSAzLjk5LTQtNC0zLjc5LTQtNHptLTItNGMwIDIzMTEuNzkyMjEzOC43NTg2OTUgNCA0cy0xLjc5MjI4MDMtNC0zLjk5OTg1NzgtNGwtLjAwMDAxNDMtLjAwMDAwODl6bTAgMGMwIDIuMzExLjczOTY3MzYgNCA0IDRzNC0xLjc5IDIuMjI3NzAyLTQuMDAxMjY1OS4wMDAwMTIzLS4wMDAwMDQ5eiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-center gap-4 mb-6">
@@ -431,6 +434,89 @@ export default function Results() {
           </Card>
         )}
 
+        {/* NEW: PDF Download CTA Section */}
+        <Card className="mb-8 shadow-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
+          <CardHeader className="bg-gradient-to-r from-purple-100 to-blue-100 border-b pb-6">
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <FileText className="w-12 h-12 text-purple-600" />
+            </div>
+            <CardTitle className="text-3xl text-center text-slate-900">
+              📄 Download Your Detailed PDF Report
+            </CardTitle>
+            <p className="text-center text-slate-600 mt-2">
+              Get a professional, printable PDF report with complete analysis
+            </p>
+          </CardHeader>
+          <CardContent className="p-8">
+            <div className="bg-white border-2 border-purple-200 rounded-lg p-6 mb-6">
+              <h3 className="font-bold text-slate-900 mb-4 text-lg">Your PDF Report Includes:</h3>
+              <div className="grid md:grid-cols-2 gap-3">
+                {[
+                  "High-resolution satellite imagery with measurements",
+                  "Complete cost breakdown by material and labor",
+                  "Section-by-section roof analysis with pitch adjustments",
+                  "Material quantity estimates (shingles, underlayment, etc.)",
+                  "Professional formatting for insurance and contractors",
+                  "Printable and shareable format",
+                  "Lifetime access - download anytime",
+                  "Money-back satisfaction guarantee"
+                ].map((item, index) => (
+                  <div key={index} className="flex items-start gap-2">
+                    <CheckCircle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-slate-700">{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+              {/* Homeowner Option */}
+              <div className="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-300 rounded-xl p-6 text-center hover:shadow-lg transition-all">
+                <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+                <h4 className="font-bold text-slate-900 text-xl mb-2">Homeowner Report</h4>
+                <div className="text-4xl font-bold text-blue-600 mb-3">$3</div>
+                <p className="text-sm text-slate-600 mb-4">
+                  Includes pricing and recommendations
+                </p>
+                <Button
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700"
+                  onClick={() => handleDownloadClick('homeowner')}
+                >
+                  <Download className="w-5 h-5 mr-2" />
+                  Download for $3
+                </Button>
+              </div>
+
+              {/* Professional Option */}
+              <div className="bg-gradient-to-br from-purple-50 to-white border-2 border-purple-300 rounded-xl p-6 text-center hover:shadow-lg transition-all">
+                <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <Building2 className="w-6 h-6 text-white" />
+                </div>
+                <h4 className="font-bold text-slate-900 text-xl mb-2">Professional Report</h4>
+                <div className="text-4xl font-bold text-purple-600 mb-3">$5</div>
+                <p className="text-sm text-slate-600 mb-4">
+                  Includes material calculations
+                </p>
+                <Button
+                  className="w-full h-12 bg-purple-600 hover:bg-purple-700"
+                  onClick={() => handleDownloadClick('roofer')}
+                >
+                  <Download className="w-5 h-5 mr-2" />
+                  Download for $5
+                </Button>
+              </div>
+            </div>
+
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+              <p className="text-sm text-green-900">
+                💯 <strong>100% Satisfaction Guaranteed</strong> - Get accurate measurements or your money back
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Ready to Get Started - Enhanced CTA Section */}
         <Card className="mb-8 shadow-2xl border-none overflow-hidden">
           <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-8 lg:p-12">
@@ -480,12 +566,11 @@ export default function Results() {
                 Measure Another Roof
               </Button>
 
-              {/* PDF Download Button - Temporarily Shows Alert */}
               <Button
                 size="lg"
                 variant="outline"
                 className="w-full h-14 text-lg border-2 border-white text-white hover:bg-white/10"
-                onClick={handleDownloadClick}
+                onClick={() => handleDownloadClick()}
               >
                 <Download className="w-5 h-5 mr-2" />
                 Download Report
