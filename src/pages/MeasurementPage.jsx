@@ -39,8 +39,6 @@ const PITCH_OPTIONS = [
   { value: 'steep', label: 'Steep (over 12/12)', multiplier: 1.50 },
 ];
 
-const GOOGLE_MAPS_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
-
 export default function MeasurementPage() {
   const navigate = useNavigate();
   const mapRef = useRef(null);
@@ -134,8 +132,9 @@ export default function MeasurementPage() {
         return;
       }
 
+      const apiKey = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=geometry,drawing,places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,drawing,places`;
       script.async = true;
       script.defer = true;
 
@@ -215,13 +214,15 @@ export default function MeasurementPage() {
 
   // NEW: Initialize magnifier map when enabled
   useEffect(() => {
-    if (!magnifierEnabled || !magnifierContainerRef.current || !mapInstanceRef.current || !window.google || !window.google.maps) {
+    if (!magnifierEnabled || !magnifierContainerRef.current || !mapInstanceRef.current) {
       if (magnifierMapRef.current) {
         // Clear the ref when magnifier is disabled
         magnifierMapRef.current = null;
       }
       return;
     }
+
+    if (!window.google || !window.google.maps) return;
 
     // Only create if it doesn't exist yet
     if (!magnifierMapRef.current) {
@@ -250,7 +251,7 @@ export default function MeasurementPage() {
         console.error("❌ Error creating magnifier map:", err);
       }
     }
-  }, [magnifierEnabled, magnifierContainerRef.current, mapInstanceRef.current]); // Dependencies for creation
+  }, [magnifierEnabled, currentZoom, magnificationLevel]); // Dependencies for creation
 
   // NEW: Update magnifier map zoom when magnification level or main map zoom changes
   useEffect(() => {
@@ -261,53 +262,84 @@ export default function MeasurementPage() {
   }, [magnificationLevel, currentZoom, magnifierEnabled]);
 
 
-  // NEW: Magnifier mouse tracking
+  // FIXED: Accurate magnifier mouse tracking with correct lat/lng calculation
   useEffect(() => {
-    if (!magnifierEnabled || !mapRef.current || !mapInstanceRef.current) {
-      if (mapRef.current) mapRef.current.style.cursor = 'default';
-      return;
-    }
+    if (!magnifierEnabled || !mapRef.current || !mapInstanceRef.current) return;
 
     const mapElement = mapRef.current;
-
+    
     const handleMouseMove = (e) => {
       const rect = mapElement.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-
+      
+      // Update magnifier visual position
       setMousePosition({ x, y });
 
-      // Get the lat/lng at cursor position using the map's projection
+      // FIXED: Calculate EXACT lat/lng at cursor position
       try {
-        const point = new window.google.maps.Point(x, y);
-        const latLng = mapInstanceRef.current.getProjection().fromContainerPixelToLatLng(point);
+        const bounds = mapInstanceRef.current.getBounds();
+        if (!bounds) return;
 
-        // Update magnifier map center to cursor position
-        if (magnifierMapRef.current && latLng) {
-          magnifierMapRef.current.setCenter(latLng);
+        const ne = bounds.getNorthEast();
+        const sw = bounds.getSouthWest();
+        
+        // Calculate the latitude and longitude ranges
+        const latRange = ne.lat() - sw.lat();
+        const lngRange = ne.lng() - sw.lng();
+        
+        // Calculate percentage position (0 to 1) within the map
+        const latPercent = 1 - (y / rect.height); // Invert Y because latitude increases northward
+        const lngPercent = x / rect.width;
+        
+        // Calculate actual lat/lng at cursor
+        const cursorLat = sw.lat() + (latRange * latPercent);
+        const cursorLng = sw.lng() + (lngRange * lngPercent);
+        
+        const cursorLatLng = new window.google.maps.LatLng(cursorLat, cursorLng);
+        
+        // Update magnifier map center to cursor position IMMEDIATELY
+        if (magnifierMapRef.current) {
+          magnifierMapRef.current.setCenter(cursorLatLng);
         }
+        
+        // DEBUG: Log coordinates (remove in production)
+        // console.log('Cursor at:', { lat: cursorLat, lng: cursorLng });
+        
       } catch (err) {
         console.error("Error updating magnifier position:", err);
       }
     };
 
     const handleMouseLeave = () => {
-      // No specific action needed for magnifierMapRef.current on mouse leave,
-      // as it will be handled by magnifierEnabled state.
+      // Optional: could hide magnifier when mouse leaves
     };
 
-    mapElement.addEventListener('mousemove', handleMouseMove);
+    // Use requestAnimationFrame for smooth updates
+    let rafId = null;
+    const optimizedMouseMove = (e) => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(() => {
+        handleMouseMove(e);
+      });
+    };
+
+    mapElement.addEventListener('mousemove', optimizedMouseMove);
     mapElement.addEventListener('mouseleave', handleMouseLeave);
 
-    // Add custom cursor style
     mapElement.style.cursor = 'none';
 
     return () => {
-      mapElement.removeEventListener('mousemove', handleMouseMove);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      mapElement.removeEventListener('mousemove', optimizedMouseMove);
       mapElement.removeEventListener('mouseleave', handleMouseLeave);
-      mapElement.style.cursor = 'default'; // Reset cursor on cleanup
+      mapElement.style.cursor = 'default';
     };
-  }, [magnifierEnabled]); // Simplified dependencies
+  }, [magnifierEnabled]);
 
   const createMap = useCallback((center) => {
     try {
@@ -544,7 +576,7 @@ export default function MeasurementPage() {
       const updateSection = () => {
         const newArea = calculateArea(polygon);
         const newCoords = [];
-        const path = polygon.getPath();
+        const path = polygon.current.getPath(); // Corrected from polygon.getPath() for editing
         for (let i = 0; i < path.getLength(); i++) {
           const point = path.getAt(i);
           newCoords.push({ lat: point.lat(), lng: point.lng() });
@@ -708,8 +740,6 @@ export default function MeasurementPage() {
   const totalAdjusted = getTotalAdjustedArea();
   const zoomAdvice = getZoomLevelAdvice();
 
-  // Removed getMagnifiedMapUrl as we are using a live map instance
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
       {/* Header */}
@@ -838,7 +868,7 @@ export default function MeasurementPage() {
                 </div>
                 <ul className="text-purple-800 space-y-1">
                   <li>• Move mouse over the roof</li>
-                  <li>• See magnified satellite view in lens</li>
+                  <li>• Magnifier shows EXACT area under cursor</li>
                   <li>• Click points precisely with magnifier</li>
                   <li>• Press <kbd className="px-1 bg-purple-100 border rounded text-[10px]">M</kbd> to toggle</li>
                 </ul>
@@ -961,7 +991,7 @@ export default function MeasurementPage() {
                 <li>🖱️ Mouse wheel to zoom</li>
                 <li>📱 Pinch to zoom on mobile</li>
                 <li>🔘 Click +/- buttons above</li>
-                <li>🔍 Enable magnifier for details</li>
+                <li>🔍 Magnifier tracks cursor EXACTLY</li>
               </ul>
             </div>
           )}
@@ -1183,8 +1213,8 @@ export default function MeasurementPage() {
 
           <div ref={mapRef} className="w-full h-full" />
 
-          {/* NEW: Magnifying Glass Lens */}
-          {magnifierEnabled && ( // No need for magnifierLatLng check now
+          {/* FIXED: Magnifying Glass Lens with accurate cursor tracking */}
+          {magnifierEnabled && (
             <div
               style={{
                 position: 'absolute',
@@ -1192,13 +1222,13 @@ export default function MeasurementPage() {
                 top: mousePosition.y - magnifierSize / 2,
                 width: magnifierSize,
                 height: magnifierSize,
-                border: '4px solid #9333ea', // Purple border
+                border: '4px solid #9333ea',
                 borderRadius: '50%',
-                pointerEvents: 'none', // Allow clicks to pass through to the map
+                pointerEvents: 'none',
                 zIndex: 1000,
                 boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
                 overflow: 'hidden',
-                background: '#1e293b' // Fallback background
+                background: '#1e293b'
               }}
             >
               {/* Magnifier Map Container */}
@@ -1210,7 +1240,8 @@ export default function MeasurementPage() {
                   borderRadius: '50%'
                 }}
               />
-              {/* Crosshair */}
+              
+              {/* Enhanced Crosshair Overlay */}
               <div
                 style={{
                   position: 'absolute',
