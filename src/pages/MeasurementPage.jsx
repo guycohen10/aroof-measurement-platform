@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp, ZoomIn, ZoomOut, Maximize2, RotateCcw, Search } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Section colors for visual differentiation
 const SECTION_COLORS = [
   { stroke: '#4A90E2', fill: '#4A90E2', name: 'Blue' },
   { stroke: '#10b981', fill: '#10b981', name: 'Green' },
@@ -22,7 +21,6 @@ const SECTION_COLORS = [
   { stroke: '#ec4899', fill: '#ec4899', name: 'Pink' },
 ];
 
-// Pitch multipliers for accurate 3D roof surface area calculation
 const PITCH_OPTIONS = [
   { value: 'flat', label: 'Flat (0/12)', multiplier: 1.00 },
   { value: '2/12', label: '2/12 pitch', multiplier: 1.02 },
@@ -44,10 +42,10 @@ export default function MeasurementPage() {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const drawingManagerRef = useRef(null);
-  const polygonsRef = useRef([]); // Store all section polygons
-  const magnifierMapRef = useRef(null); // NEW: Reference to magnifier map instance
-  const magnifierContainerRef = useRef(null); // NEW: Reference to magnifier container
-
+  const polygonsRef = useRef([]);
+  const magnifierMapRef = useRef(null);
+  const magnifierContainerRef = useRef(null);
+  
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -56,20 +54,16 @@ export default function MeasurementPage() {
   const [error, setError] = useState("");
   const [mapError, setMapError] = useState("");
   const [coordinates, setCoordinates] = useState(null);
-
-  // Multi-section state
+  
   const [sections, setSections] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  // NEW: Zoom state
+  
   const [currentZoom, setCurrentZoom] = useState(20);
   const [showZoomTutorial, setShowZoomTutorial] = useState(true);
-
-  // NEW: Magnifier state
+  
   const [magnifierEnabled, setMagnifierEnabled] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  // Removed magnifierLatLng state as the magnifier map will handle its own center
   const [magnificationLevel, setMagnificationLevel] = useState(3);
   const [magnifierSize, setMagnifierSize] = useState(200);
   const [showMagnifierInstructions, setShowMagnifierInstructions] = useState(true);
@@ -80,12 +74,12 @@ export default function MeasurementPage() {
     const latParam = urlParams.get('lat');
     const lngParam = urlParams.get('lng');
     const measurementIdParam = urlParams.get('measurementId');
-
+    
     if (!addressParam) {
       navigate(createPageUrl("FormPage"));
       return;
     }
-
+    
     const decodedAddress = decodeURIComponent(addressParam);
     setAddress(decodedAddress);
 
@@ -117,7 +111,7 @@ export default function MeasurementPage() {
       if (document.querySelector('script[src*="maps.googleapis.com"]')) {
         let attempts = 0;
         const maxAttempts = 50;
-
+        
         const checkGoogle = setInterval(() => {
           attempts++;
           if (window.google && window.google.maps && window.google.maps.drawing) {
@@ -137,7 +131,7 @@ export default function MeasurementPage() {
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,drawing,places`;
       script.async = true;
       script.defer = true;
-
+      
       script.onload = () => initializeMap();
       script.onerror = () => {
         setMapError("Failed to load Google Maps. Please check your internet connection.");
@@ -150,7 +144,6 @@ export default function MeasurementPage() {
     loadGoogleMaps();
   }, [address, coordinates]);
 
-  // NEW: Zoom control functions (defined before keyboard shortcuts useEffect)
   const handleZoomIn = useCallback(() => {
     if (mapInstanceRef.current) {
       const currentZoom = mapInstanceRef.current.getZoom();
@@ -182,12 +175,11 @@ export default function MeasurementPage() {
     }
   }, []);
 
-  // NEW: Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (!mapInstanceRef.current) return;
-
-      if (!isDrawing) { // Only allow zoom shortcuts when not actively drawing a polygon
+      
+      if (!isDrawing) {
         if (e.key === '+' || e.key === '=') {
           e.preventDefault();
           handleZoomIn();
@@ -199,8 +191,7 @@ export default function MeasurementPage() {
           handleResetZoom();
         }
       }
-
-      // Magnifier toggle with 'M' key
+      
       if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
         setMagnifierEnabled(prev => !prev);
@@ -212,11 +203,9 @@ export default function MeasurementPage() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isDrawing, handleZoomIn, handleZoomOut, handleResetZoom]);
 
-  // NEW: Initialize magnifier map when enabled
   useEffect(() => {
     if (!magnifierEnabled || !magnifierContainerRef.current || !mapInstanceRef.current) {
       if (magnifierMapRef.current) {
-        // Clear the ref when magnifier is disabled
         magnifierMapRef.current = null;
       }
       return;
@@ -228,10 +217,10 @@ export default function MeasurementPage() {
     if (!magnifierMapRef.current) {
       try {
         const magnifiedZoom = Math.min(currentZoom + magnificationLevel, 22);
-
+        
         magnifierMapRef.current = new window.google.maps.Map(magnifierContainerRef.current, {
           zoom: magnifiedZoom,
-          center: mapInstanceRef.current.getCenter(), // Start centered where the main map is
+          center: mapInstanceRef.current.getCenter(),
           mapTypeId: 'satellite',
           disableDefaultUI: true,
           draggable: false,
@@ -251,9 +240,8 @@ export default function MeasurementPage() {
         console.error("❌ Error creating magnifier map:", err);
       }
     }
-  }, [magnifierEnabled, currentZoom, magnificationLevel]); // Dependencies for creation
+  }, [magnifierEnabled, currentZoom, magnificationLevel]);
 
-  // NEW: Update magnifier map zoom when magnification level or main map zoom changes
   useEffect(() => {
     if (magnifierMapRef.current && magnifierEnabled) {
       const magnifiedZoom = Math.min(currentZoom + magnificationLevel, 22);
@@ -261,8 +249,6 @@ export default function MeasurementPage() {
     }
   }, [magnificationLevel, currentZoom, magnifierEnabled]);
 
-
-  // FIXED: Accurate magnifier mouse tracking with correct lat/lng calculation
   useEffect(() => {
     if (!magnifierEnabled || !mapRef.current || !mapInstanceRef.current) return;
 
@@ -273,10 +259,8 @@ export default function MeasurementPage() {
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       
-      // Update magnifier visual position
       setMousePosition({ x, y });
 
-      // FIXED: Calculate EXACT lat/lng at cursor position
       try {
         const bounds = mapInstanceRef.current.getBounds();
         if (!bounds) return;
@@ -284,38 +268,28 @@ export default function MeasurementPage() {
         const ne = bounds.getNorthEast();
         const sw = bounds.getSouthWest();
         
-        // Calculate the latitude and longitude ranges
         const latRange = ne.lat() - sw.lat();
         const lngRange = ne.lng() - sw.lng();
         
-        // Calculate percentage position (0 to 1) within the map
-        const latPercent = 1 - (y / rect.height); // Invert Y because latitude increases northward
+        const latPercent = 1 - (y / rect.height);
         const lngPercent = x / rect.width;
         
-        // Calculate actual lat/lng at cursor
         const cursorLat = sw.lat() + (latRange * latPercent);
         const cursorLng = sw.lng() + (lngRange * lngPercent);
         
         const cursorLatLng = new window.google.maps.LatLng(cursorLat, cursorLng);
         
-        // Update magnifier map center to cursor position IMMEDIATELY
         if (magnifierMapRef.current) {
           magnifierMapRef.current.setCenter(cursorLatLng);
         }
-        
-        // DEBUG: Log coordinates (remove in production)
-        // console.log('Cursor at:', { lat: cursorLat, lng: cursorLng });
         
       } catch (err) {
         console.error("Error updating magnifier position:", err);
       }
     };
 
-    const handleMouseLeave = () => {
-      // Optional: could hide magnifier when mouse leaves
-    };
+    const handleMouseLeave = () => {};
 
-    // Use requestAnimationFrame for smooth updates
     let rafId = null;
     const optimizedMouseMove = (e) => {
       if (rafId) {
@@ -350,19 +324,16 @@ export default function MeasurementPage() {
         maxZoom: 22,
         mapTypeId: "satellite",
         tilt: 0,
-
-        // Enable zoom controls
+        
         zoomControl: true,
         zoomControlOptions: {
           position: window.google.maps.ControlPosition.RIGHT_CENTER
         },
-
-        // Enhanced zoom options
+        
         scrollwheel: true,
         gestureHandling: 'greedy',
         disableDoubleClickZoom: false,
-
-        // Other controls
+        
         mapTypeControl: true,
         mapTypeControlOptions: {
           position: window.google.maps.ControlPosition.TOP_RIGHT,
@@ -379,19 +350,16 @@ export default function MeasurementPage() {
 
       mapInstanceRef.current = map;
 
-      // Listen for zoom changes
       window.google.maps.event.addListener(map, 'zoom_changed', () => {
         const newZoom = map.getZoom();
         setCurrentZoom(newZoom);
         
-        // Update magnifier map zoom when main map zooms
         if (magnifierMapRef.current && magnifierEnabled) {
-            const magnifiedZoom = Math.min(newZoom + magnificationLevel, 22);
-            magnifierMapRef.current.setZoom(magnifiedZoom);
+          const magnifiedZoom = Math.min(newZoom + magnificationLevel, 22);
+          magnifierMapRef.current.setZoom(magnifiedZoom);
         }
       });
 
-      // Add marker at center
       new window.google.maps.Marker({
         position: center,
         map: map,
@@ -413,7 +381,7 @@ export default function MeasurementPage() {
       setMapError(`Error creating map: ${err.message}`);
       setMapLoading(false);
     }
-  }, [address, magnifierEnabled, magnificationLevel]); // Add magnifier-related deps
+  }, [address, magnifierEnabled, magnificationLevel]);
 
   const initializeMap = useCallback(async () => {
     try {
@@ -429,10 +397,10 @@ export default function MeasurementPage() {
       }
 
       setGeocodingStatus("Finding address location...");
-
+      
       const geocoder = new window.google.maps.Geocoder();
       let geocodingCompleted = false;
-
+      
       const geocodeTimeout = setTimeout(() => {
         if (!geocodingCompleted) {
           setMapError("Could not find address location. Using default map center.");
@@ -444,14 +412,14 @@ export default function MeasurementPage() {
       geocoder.geocode({ address: address }, (results, status) => {
         geocodingCompleted = true;
         clearTimeout(geocodeTimeout);
-
+        
         if (status === "OK" && results[0]) {
           const location = results[0].geometry.location;
           const geocodedCenter = {
             lat: location.lat(),
             lng: location.lng()
           };
-
+          
           setCoordinates(geocodedCenter);
           setGeocodingStatus("Address found!");
           createMap(geocodedCenter);
@@ -503,20 +471,17 @@ export default function MeasurementPage() {
       setError("Drawing tools not available. Please refresh the page.");
       return;
     }
-
+    
     setIsDrawing(true);
     setError("");
-
-    // Remove existing drawing manager if any
+    
     if (drawingManagerRef.current) {
       drawingManagerRef.current.setMap(null);
     }
 
-    // Get color for this section
     const colorIndex = sections.length % SECTION_COLORS.length;
     const sectionColor = SECTION_COLORS[colorIndex];
 
-    // Create Drawing Manager
     const drawingManager = new window.google.maps.drawing.DrawingManager({
       drawingMode: window.google.maps.drawing.OverlayType.POLYGON,
       drawingControl: false,
@@ -534,12 +499,9 @@ export default function MeasurementPage() {
     drawingManagerRef.current = drawingManager;
     drawingManager.setMap(mapInstanceRef.current);
 
-    // Listen for polygon completion
     window.google.maps.event.addListener(drawingManager, 'polygoncomplete', function(polygon) {
-      // Store the polygon
       polygonsRef.current.push(polygon);
-
-      // Get the points
+      
       const path = polygon.getPath();
       const coordinates = [];
       for (let i = 0; i < path.getLength(); i++) {
@@ -549,11 +511,9 @@ export default function MeasurementPage() {
           lng: point.lng()
         });
       }
-
-      // Calculate area
+      
       const flatArea = calculateArea(polygon);
-
-      // Create new section
+      
       const newSection = {
         id: `section-${Date.now()}`,
         name: `Section ${sections.length + 1}`,
@@ -567,22 +527,20 @@ export default function MeasurementPage() {
       };
 
       setSections(prev => [...prev, newSection]);
-
-      // Disable drawing mode
+      
       drawingManager.setDrawingMode(null);
       setIsDrawing(false);
-
-      // Add listeners for editing
+      
       const updateSection = () => {
         const newArea = calculateArea(polygon);
         const newCoords = [];
-        const path = polygon.current.getPath(); // Corrected from polygon.getPath() for editing
+        const path = polygon.getPath();
         for (let i = 0; i < path.getLength(); i++) {
           const point = path.getAt(i);
           newCoords.push({ lat: point.lat(), lng: point.lng() });
         }
-
-        setSections(prev => prev.map(s =>
+        
+        setSections(prev => prev.map(s => 
           s.id === newSection.id
             ? {
                 ...s,
@@ -613,7 +571,7 @@ export default function MeasurementPage() {
     const pitchOption = PITCH_OPTIONS.find(p => p.value === pitchValue);
     if (!pitchOption) return;
 
-    setSections(prev => prev.map(section =>
+    setSections(prev => prev.map(section => 
       section.id === sectionId
         ? {
             ...section,
@@ -626,7 +584,7 @@ export default function MeasurementPage() {
   }, []);
 
   const updateSectionName = useCallback((sectionId, name) => {
-    setSections(prev => prev.map(section =>
+    setSections(prev => prev.map(section => 
       section.id === sectionId ? { ...section, name } : section
     ));
   }, []);
@@ -646,7 +604,7 @@ export default function MeasurementPage() {
     }
 
     const totalAdjusted = getTotalAdjustedArea();
-
+    
     if (totalAdjusted < 100) {
       setError("Total area seems too small. Please verify your measurement.");
       return;
@@ -672,7 +630,7 @@ export default function MeasurementPage() {
           total_adjusted_sqft: totalAdjusted,
           sections: sectionsData
         },
-        total_sqft: totalFlat,
+        total_sqft: totalFlat, 
         total_adjusted_sqft: totalAdjusted,
         status: "completed",
         completed_at: new Date().toISOString()
@@ -694,17 +652,12 @@ export default function MeasurementPage() {
           stripe_payment_id: "demo_" + Date.now(),
           ...measurementData
         });
-
+        
         savedMeasurementId = savedMeasurement.id;
       }
 
-      // Send measurement complete email
       if (savedMeasurement.customer_email) {
         try {
-          // const totalArea = savedMeasurement.total_adjusted_sqft || savedMeasurement.total_sqft || 0;
-          // const lowEst = Math.round(totalArea * 4 * 0.9);
-          // const highEst = Math.round(totalArea * 4 * 1.1);
-
           console.log("📧 EMAIL WOULD BE SENT TO:", savedMeasurement.customer_email);
         } catch (emailError) {
           console.error("Email send failed (non-blocking):", emailError);
@@ -717,7 +670,7 @@ export default function MeasurementPage() {
 
       const resultsUrl = createPageUrl(`Results?measurementid=${savedMeasurementId}`);
       navigate(resultsUrl);
-
+      
     } catch (err) {
       console.error("ERROR SAVING MEASUREMENT:", err);
       setError(`Failed to save measurement: ${err.message}. Please try again.`);
@@ -762,9 +715,8 @@ export default function MeasurementPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Drawing Controls */}
+        {/* Left Sidebar */}
         <div className="w-96 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
           <div className="p-6 border-b border-slate-200">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
@@ -790,14 +742,46 @@ export default function MeasurementPage() {
             </div>
           </div>
 
-          {/* NEW: Magnifying Glass Section */}
+          {/* MOVED: Drawing Button - Now here, right after address */}
+          <div className="p-4 border-b border-slate-200 bg-white">
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            <Button
+              onClick={startDrawingSection}
+              className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold shadow-md"
+              disabled={isDrawing || mapLoading || !!mapError}
+            >
+              {isDrawing ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Drawing Section {sections.length + 1}...
+                </>
+              ) : sections.length === 0 ? (
+                <>
+                  <Edit3 className="w-5 h-5 mr-2" />
+                  Start Drawing Section 1
+                </>
+              ) : (
+                <>
+                  <Plus className="w-5 h-5 mr-2" />
+                  Add Section {sections.length + 1}
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Magnifying Glass Section */}
           <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b border-purple-200">
             <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
               <Search className="w-5 h-5 text-purple-600" />
               Magnifying Glass
             </h3>
 
-            {/* Toggle Button */}
             <Button
               onClick={() => setMagnifierEnabled(!magnifierEnabled)}
               className={`w-full h-12 mb-3 text-lg font-bold ${
@@ -812,7 +796,6 @@ export default function MeasurementPage() {
 
             {magnifierEnabled && (
               <div className="space-y-3">
-                {/* Magnification Level */}
                 <div>
                   <label className="text-xs font-medium text-slate-700 mb-1 block">
                     Magnification Level:
@@ -832,7 +815,6 @@ export default function MeasurementPage() {
                   </Select>
                 </div>
 
-                {/* Magnifier Size */}
                 <div>
                   <label className="text-xs font-medium text-slate-700 mb-1 block">
                     Magnifier Size: {magnifierSize}px
@@ -854,7 +836,6 @@ export default function MeasurementPage() {
               </div>
             )}
 
-            {/* Instructions */}
             {magnifierEnabled && showMagnifierInstructions && (
               <div className="mt-3 p-3 bg-white border border-purple-200 rounded-lg text-xs">
                 <div className="flex justify-between items-start mb-2">
@@ -875,7 +856,6 @@ export default function MeasurementPage() {
               </div>
             )}
 
-            {/* Keyboard Shortcut */}
             <div className="mt-2 p-2 bg-purple-100 border border-purple-200 rounded text-xs text-purple-800 text-center">
               Press <kbd className="px-2 py-1 bg-white border rounded font-bold">M</kbd> to toggle magnifier
             </div>
@@ -886,8 +866,7 @@ export default function MeasurementPage() {
             <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
               🔍 Zoom Controls
             </h3>
-
-            {/* Zoom Level Indicator */}
+            
             <div className={`mb-3 p-2 rounded-lg text-center font-medium ${
               zoomAdvice.type === 'success' ? 'bg-green-100 text-green-800' :
               zoomAdvice.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
@@ -897,7 +876,6 @@ export default function MeasurementPage() {
               <div className="text-xs mt-1">{zoomAdvice.message}</div>
             </div>
 
-            {/* Zoom Buttons Grid */}
             <div className="grid grid-cols-2 gap-2 mb-3">
               <Button
                 onClick={handleZoomIn}
@@ -908,7 +886,7 @@ export default function MeasurementPage() {
                 <ZoomIn className="w-5 h-5 mr-2" />
                 Zoom In
               </Button>
-
+              
               <Button
                 onClick={handleZoomOut}
                 disabled={currentZoom <= 18}
@@ -920,7 +898,6 @@ export default function MeasurementPage() {
               </Button>
             </div>
 
-            {/* Additional Zoom Controls */}
             <div className="space-y-2">
               <Button
                 onClick={handleResetZoom}
@@ -944,7 +921,6 @@ export default function MeasurementPage() {
               )}
             </div>
 
-            {/* Zoom Slider */}
             <div className="mt-4">
               <label className="text-xs font-medium text-slate-700 mb-2 block">
                 Zoom Level Slider
@@ -963,7 +939,6 @@ export default function MeasurementPage() {
               </div>
             </div>
 
-            {/* Keyboard Shortcuts Hint */}
             <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
               <div className="font-bold mb-1">⌨️ Keyboard Shortcuts:</div>
               <div>• Press <kbd className="px-1 bg-white border rounded">+</kbd> to zoom in</div>
@@ -972,7 +947,7 @@ export default function MeasurementPage() {
             </div>
           </div>
 
-          {/* Zoom Tutorial (First Time) */}
+          {/* Zoom Tutorial */}
           {showZoomTutorial && sections.length === 0 && (
             <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200">
               <div className="flex justify-between items-start mb-2">
@@ -996,42 +971,6 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {/* Error Alert */}
-          {error && (
-            <div className="p-4 bg-red-50 border-b border-red-200">
-              <Alert variant="destructive" className="border-none shadow-none bg-transparent p-0">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm">{error}</AlertDescription>
-              </Alert>
-            </div>
-          )}
-
-          {/* Drawing Button */}
-          <div className="p-6 border-b border-slate-200">
-            <Button
-              onClick={startDrawingSection}
-              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={isDrawing || mapLoading || !!mapError}
-            >
-              {isDrawing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Drawing...
-                </>
-              ) : sections.length === 0 ? (
-                <>
-                  <Edit3 className="w-4 h-4 mr-2" />
-                  Start Drawing Section 1
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Another Section
-                </>
-              )}
-            </Button>
-          </div>
-
           {/* Sections List */}
           {sections.length > 0 && (
             <div className="flex-1 overflow-y-auto">
@@ -1046,7 +985,6 @@ export default function MeasurementPage() {
                 {sections.map((section) => (
                   <Card key={section.id} className="p-4 border-2" style={{ borderColor: section.color }}>
                     <div className="space-y-3">
-                      {/* Section Name */}
                       <div className="flex items-center gap-2">
                         <div
                           className="w-4 h-4 rounded-full flex-shrink-0"
@@ -1067,7 +1005,6 @@ export default function MeasurementPage() {
                         </Button>
                       </div>
 
-                      {/* Flat Area */}
                       <div className="bg-slate-50 rounded p-3">
                         <p className="text-xs text-slate-600">Flat Area (Satellite View)</p>
                         <p className="text-2xl font-bold text-slate-900">
@@ -1075,7 +1012,6 @@ export default function MeasurementPage() {
                         </p>
                       </div>
 
-                      {/* Pitch Selector */}
                       <div>
                         <label className="text-xs font-medium text-slate-700 mb-1 block">
                           Roof Pitch:
@@ -1097,7 +1033,6 @@ export default function MeasurementPage() {
                         </Select>
                       </div>
 
-                      {/* Adjusted Area */}
                       {section.pitch !== 'flat' && (
                         <div className="bg-green-50 border border-green-200 rounded p-3">
                           <p className="text-xs text-green-700 flex items-center gap-1">
@@ -1123,7 +1058,7 @@ export default function MeasurementPage() {
           {sections.length > 0 && (
             <div className="p-6 border-t border-slate-200 bg-gradient-to-br from-green-50 to-blue-50">
               <h3 className="text-sm font-bold text-slate-700 mb-3">Total Roof Area</h3>
-
+              
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-slate-600">Flat Area:</span>
@@ -1131,7 +1066,7 @@ export default function MeasurementPage() {
                     {totalFlat.toLocaleString()} sq ft
                   </span>
                 </div>
-
+                
                 {totalAdjusted !== totalFlat && (
                   <div className="flex justify-between items-center pt-2 border-t border-green-200">
                     <span className="text-sm font-semibold text-green-700">
@@ -1199,9 +1134,9 @@ export default function MeasurementPage() {
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   <p className="font-bold mb-2">{mapError}</p>
-                  <Button
-                    onClick={() => window.location.reload()}
-                    variant="outline"
+                  <Button 
+                    onClick={() => window.location.reload()} 
+                    variant="outline" 
                     className="mt-2"
                   >
                     Refresh Page
@@ -1213,7 +1148,7 @@ export default function MeasurementPage() {
 
           <div ref={mapRef} className="w-full h-full" />
 
-          {/* FIXED: Magnifying Glass Lens with accurate cursor tracking */}
+          {/* Magnifying Glass Lens */}
           {magnifierEnabled && (
             <div
               style={{
@@ -1231,7 +1166,6 @@ export default function MeasurementPage() {
                 background: '#1e293b'
               }}
             >
-              {/* Magnifier Map Container */}
               <div
                 ref={magnifierContainerRef}
                 style={{
@@ -1241,7 +1175,6 @@ export default function MeasurementPage() {
                 }}
               />
               
-              {/* Enhanced Crosshair Overlay */}
               <div
                 style={{
                   position: 'absolute',
@@ -1312,7 +1245,7 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {/* Mobile Zoom Controls (Floating) */}
+          {/* Mobile Zoom Controls */}
           <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col gap-2 lg:hidden z-10">
             <Button
               onClick={handleZoomIn}
