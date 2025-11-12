@@ -17,6 +17,7 @@ import BookingSuccess from './pages/BookingSuccess';
 import Booking from './pages/Booking';
 import SelectReportType from './pages/SelectReportType';
 import PDFDownload from './pages/PDFDownload';
+import Services from './pages/Services';
 import Layout from './Layout.jsx';
 
 
@@ -40,6 +41,7 @@ export const PAGES = {
     "Booking": Booking,
     "SelectReportType": SelectReportType,
     "PDFDownload": PDFDownload,
+    "Services": Services,
 }
 
 export const pagesConfig = {

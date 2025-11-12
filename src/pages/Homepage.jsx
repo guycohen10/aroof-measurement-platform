@@ -1,5 +1,4 @@
-
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
@@ -20,17 +19,20 @@ import {
   ArrowRight,
   Phone,
   Wrench,
-  Mail
+  Mail,
+  ChevronDown
 } from "lucide-react";
 
 export default function Homepage() {
+  const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation Bar */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
+            <Link to={createPageUrl("Homepage")} className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-900 to-blue-700 rounded-xl flex items-center justify-center">
                 <Home className="w-6 h-6 text-white" />
               </div>
@@ -38,8 +40,85 @@ export default function Homepage() {
                 <h1 className="text-2xl font-bold text-slate-900">Aroof</h1>
                 <p className="text-xs text-blue-600 font-semibold">DFW's #1 Roofing Company</p>
               </div>
-            </div>
+            </Link>
             <div className="hidden md:flex items-center gap-8">
+              {/* Services Dropdown */}
+              <div 
+                className="relative"
+                onMouseEnter={() => setServicesDropdownOpen(true)}
+                onMouseLeave={() => setServicesDropdownOpen(false)}
+              >
+                <button className="flex items-center gap-1 text-slate-600 hover:text-blue-900 font-medium transition-colors">
+                  Services
+                  <ChevronDown className={`w-4 h-4 transition-transform ${servicesDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {servicesDropdownOpen && (
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-[600px] bg-white rounded-xl shadow-2xl border border-slate-200 p-6 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="grid grid-cols-3 gap-6">
+                      {/* Column 1: Roofing Services */}
+                      <div>
+                        <h4 className="font-bold text-slate-900 mb-3 text-sm">Roofing Services</h4>
+                        <div className="space-y-2">
+                          <Link to={createPageUrl("services/RoofReplacement")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                            Roof Replacement
+                          </Link>
+                          <Link to={createPageUrl("services/RoofRepair")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                            Roof Repair
+                          </Link>
+                          <Link to={createPageUrl("services/RoofInspection")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                            Roof Inspection
+                          </Link>
+                          <Link to={createPageUrl("services/EmergencyRoofing")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                            Emergency Roofing
+                          </Link>
+                          <Link to={createPageUrl("services/StormDamage")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                            Storm Damage
+                          </Link>
+                        </div>
+                      </div>
+                      
+                      {/* Column 2: Exterior Services */}
+                      <div>
+                        <h4 className="font-bold text-slate-900 mb-3 text-sm">Exterior Services</h4>
+                        <div className="space-y-2">
+                          <Link to={createPageUrl("services/Gutters")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                            Gutter Installation
+                          </Link>
+                          <Link to={createPageUrl("services/Siding")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                            Siding Installation
+                          </Link>
+                          <Link to={createPageUrl("services/Windows")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                            Window Replacement
+                          </Link>
+                        </div>
+                      </div>
+                      
+                      {/* Column 3: Specialized */}
+                      <div>
+                        <h4 className="font-bold text-slate-900 mb-3 text-sm">Specialized</h4>
+                        <div className="space-y-2">
+                          <Link to={createPageUrl("services/Commercial")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                            Commercial Roofing
+                          </Link>
+                          <Link to={createPageUrl("services/Insurance")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                            Insurance Claims
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* View All Services Link */}
+                    <div className="mt-6 pt-6 border-t border-slate-200 text-center">
+                      <Link to={createPageUrl("Services")} className="text-blue-600 hover:text-blue-700 font-semibold text-sm flex items-center justify-center gap-1">
+                        View All Services
+                        <ArrowRight className="w-4 h-4" />
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
               <a href="#how-it-works" className="text-slate-600 hover:text-blue-900 font-medium">How It Works</a>
               <a href="#benefits" className="text-slate-600 hover:text-blue-900 font-medium">Why Aroof</a>
               <a href="#reviews" className="text-slate-600 hover:text-blue-900 font-medium">Reviews</a>
@@ -52,21 +131,20 @@ export default function Homepage() {
         </div>
       </nav>
 
+      {/* ... keep all existing sections (Hero, How It Works, Why Choose Aroof, Reviews, Projects, Final CTA, Footer) ... */}
+
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
-        {/* Background with gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0em0tNiAwYzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-          {/* Trust Badge */}
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 mb-8">
             <Award className="w-4 h-4 text-yellow-400" />
             <span className="text-white text-sm font-semibold">Rated #1 Roofing Service in DFW</span>
           </div>
 
-          {/* Main Headline */}
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-6 leading-tight">
             Get Your Roof
             <br />
@@ -83,7 +161,6 @@ export default function Homepage() {
             📄 Download detailed PDF report for just $3-$5 (optional)
           </p>
 
-          {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Link to={createPageUrl("FormPage")}>
               <Button 
@@ -97,7 +174,6 @@ export default function Homepage() {
             </Link>
           </div>
 
-          {/* Trust Badges */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
             {[
               { icon: Users, text: "5000+ Roofs Measured", color: "text-green-400" },
@@ -113,7 +189,6 @@ export default function Homepage() {
           </div>
         </div>
 
-        {/* Scroll Indicator */}
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
           <div className="w-6 h-10 border-2 border-white/30 rounded-full flex items-start justify-center p-2">
             <div className="w-1 h-3 bg-white/50 rounded-full"></div>
@@ -160,12 +235,10 @@ export default function Homepage() {
               <Card key={index} className="relative overflow-hidden border-none shadow-2xl hover:shadow-3xl transition-all duration-500 transform hover:-translate-y-2 group">
                 <div className={`absolute top-0 left-0 right-0 h-2 bg-gradient-to-r ${step.color}`}></div>
                 <CardContent className="p-8 relative">
-                  {/* Step Number */}
                   <div className="absolute -top-4 -right-4 w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center opacity-50">
                     <span className="text-6xl font-bold text-slate-300">{step.step}</span>
                   </div>
                   
-                  {/* Icon */}
                   <div className={`w-16 h-16 bg-gradient-to-br ${step.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                     <step.icon className="w-8 h-8 text-white" />
                   </div>
@@ -375,6 +448,7 @@ export default function Homepage() {
                 <a href="#how-it-works" className="block hover:text-white">How It Works</a>
                 <a href="#benefits" className="block hover:text-white">Why Aroof</a>
                 <a href="#reviews" className="block hover:text-white">Reviews</a>
+                <Link to={createPageUrl("Services")} className="block hover:text-white">Services</Link>
                 <Link to={createPageUrl("FormPage")} className="block hover:text-white">Get Started FREE</Link>
               </div>
             </div>
@@ -424,7 +498,6 @@ export default function Homepage() {
         </div>
       </footer>
 
-      {/* Chat Widget - Added directly to homepage */}
       <ChatWidget currentPage="homepage" measurement={null} />
     </div>
   );
