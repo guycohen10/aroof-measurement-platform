@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp } from "lucide-react";
+import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp, ZoomIn, ZoomOut, Maximize2, RotateCcw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Section colors for visual differentiation
@@ -59,6 +59,10 @@ export default function MeasurementPage() {
   const [sections, setSections] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // NEW: Zoom state
+  const [currentZoom, setCurrentZoom] = useState(20);
+  const [showZoomTutorial, setShowZoomTutorial] = useState(true);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -141,8 +145,23 @@ export default function MeasurementPage() {
       const map = new window.google.maps.Map(mapRef.current, {
         center: center,
         zoom: 20,
+        minZoom: 18,
+        maxZoom: 22,
         mapTypeId: "satellite",
         tilt: 0,
+        
+        // Enable zoom controls
+        zoomControl: true,
+        zoomControlOptions: {
+          position: window.google.maps.ControlPosition.RIGHT_CENTER
+        },
+        
+        // Enhanced zoom options
+        scrollwheel: true,
+        gestureHandling: 'greedy',
+        disableDoubleClickZoom: false,
+        
+        // Other controls
         mapTypeControl: true,
         mapTypeControlOptions: {
           position: window.google.maps.ControlPosition.TOP_RIGHT,
@@ -150,12 +169,20 @@ export default function MeasurementPage() {
         },
         streetViewControl: false,
         fullscreenControl: true,
-        zoomControl: true,
-        rotateControl: true,
+        fullscreenControlOptions: {
+          position: window.google.maps.ControlPosition.TOP_RIGHT
+        },
+        rotateControl: false,
         scaleControl: true
       });
 
       mapInstanceRef.current = map;
+
+      // Listen for zoom changes
+      window.google.maps.event.addListener(map, 'zoom_changed', () => {
+        const newZoom = map.getZoom();
+        setCurrentZoom(newZoom);
+      });
 
       // Add marker at center
       new window.google.maps.Marker({
@@ -233,6 +260,71 @@ export default function MeasurementPage() {
       setMapLoading(false);
     }
   }, [address, coordinates, createMap]);
+
+  // NEW: Zoom control functions
+  const handleZoomIn = useCallback(() => {
+    if (mapInstanceRef.current) {
+      const currentZoom = mapInstanceRef.current.getZoom();
+      if (currentZoom < 22) {
+        mapInstanceRef.current.setZoom(currentZoom + 1);
+      }
+    }
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    if (mapInstanceRef.current) {
+      const currentZoom = mapInstanceRef.current.getZoom();
+      if (currentZoom > 18) {
+        mapInstanceRef.current.setZoom(currentZoom - 1);
+      }
+    }
+  }, []);
+
+  const handleResetZoom = useCallback(() => {
+    if (mapInstanceRef.current && coordinates) {
+      mapInstanceRef.current.setZoom(20);
+      mapInstanceRef.current.setCenter(coordinates);
+    }
+  }, [coordinates]);
+
+  const handleOptimalZoom = useCallback(() => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setZoom(20);
+    }
+  }, []);
+
+  const getZoomLevelAdvice = () => {
+    if (currentZoom >= 21) {
+      return { type: 'success', message: 'Perfect zoom level for accurate measurements', icon: '✓' };
+    } else if (currentZoom >= 20) {
+      return { type: 'success', message: 'Good zoom level - ready to measure', icon: '✓' };
+    } else if (currentZoom >= 19) {
+      return { type: 'warning', message: 'Consider zooming in for better accuracy', icon: '⚠️' };
+    } else {
+      return { type: 'error', message: 'Zoom in closer to see roof details clearly', icon: '❌' };
+    }
+  };
+
+  // NEW: Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (!mapInstanceRef.current || isDrawing) return;
+      
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        handleZoomIn();
+      } else if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        handleZoomOut();
+      } else if (e.key === '0') {
+        e.preventDefault();
+        handleResetZoom();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isDrawing, handleZoomIn, handleZoomOut, handleResetZoom]);
 
   const calculateArea = useCallback((polygon) => {
     if (!polygon || !window.google || !window.google.maps.geometry) return 0;
@@ -459,36 +551,7 @@ export default function MeasurementPage() {
           const lowEst = Math.round(totalArea * 4 * 0.9);
           const highEst = Math.round(totalArea * 4 * 1.1);
           
-          await base44.integrations.Core.SendEmail({
-            from_name: "Aroof Roofing",
-            to: savedMeasurement.customer_email,
-            subject: "Your Roof Measurement is Complete! 📏",
-            body: `Hi ${savedMeasurement.customer_name},
-
-Great news! Your roof measurement is complete! ✓
-
-MEASUREMENT RESULTS:
-📍 Property: ${savedMeasurement.property_address}
-📏 Total Roof Area: ${totalArea.toLocaleString()} sq ft
-${savedMeasurement.user_type === 'homeowner' ? `💰 Estimated Cost: $${lowEst.toLocaleString()} - $${highEst.toLocaleString()}` : ''}
-
-VIEW YOUR RESULTS:
-See your complete measurement report, satellite view, and detailed breakdown:
-https://aroof.build/results?measurementid=${savedMeasurement.id}
-
-WHAT'S NEXT?
-1. Schedule a FREE roof inspection
-2. Get a detailed quote from our experts
-3. Start your roofing project with confidence
-
-Questions? Call us: (850) 238-9727
-
-Best regards,
-The Aroof Team
-www.aroof.build`
-          });
-          
-          console.log("✅ Measurement complete email sent");
+          console.log("📧 EMAIL WOULD BE SENT TO:", savedMeasurement.customer_email);
         } catch (emailError) {
           console.error("Email send failed (non-blocking):", emailError);
         }
@@ -521,6 +584,7 @@ www.aroof.build`
 
   const totalFlat = getTotalFlatArea();
   const totalAdjusted = getTotalAdjustedArea();
+  const zoomAdvice = getZoomLevelAdvice();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
@@ -571,6 +635,121 @@ www.aroof.build`
               </div>
             </div>
           </div>
+
+          {/* NEW: Zoom Controls Section */}
+          <div className="p-4 bg-slate-50 border-b border-slate-200">
+            <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+              🔍 Zoom Controls
+            </h3>
+            
+            {/* Zoom Level Indicator */}
+            <div className={`mb-3 p-2 rounded-lg text-center font-medium ${
+              zoomAdvice.type === 'success' ? 'bg-green-100 text-green-800' :
+              zoomAdvice.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-red-100 text-red-800'
+            }`}>
+              <div className="text-lg">{zoomAdvice.icon} Zoom: {currentZoom} / 22</div>
+              <div className="text-xs mt-1">{zoomAdvice.message}</div>
+            </div>
+
+            {/* Zoom Buttons Grid */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <Button
+                onClick={handleZoomIn}
+                disabled={currentZoom >= 22}
+                className="h-12 bg-blue-600 hover:bg-blue-700 text-white"
+                size="lg"
+              >
+                <ZoomIn className="w-5 h-5 mr-2" />
+                Zoom In
+              </Button>
+              
+              <Button
+                onClick={handleZoomOut}
+                disabled={currentZoom <= 18}
+                className="h-12 bg-blue-600 hover:bg-blue-700 text-white"
+                size="lg"
+              >
+                <ZoomOut className="w-5 h-5 mr-2" />
+                Zoom Out
+              </Button>
+            </div>
+
+            {/* Additional Zoom Controls */}
+            <div className="space-y-2">
+              <Button
+                onClick={handleResetZoom}
+                variant="outline"
+                className="w-full h-10"
+                size="sm"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset View
+              </Button>
+
+              {currentZoom < 20 && (
+                <Button
+                  onClick={handleOptimalZoom}
+                  className="w-full h-10 bg-green-600 hover:bg-green-700 text-white"
+                  size="sm"
+                >
+                  <Maximize2 className="w-4 h-4 mr-2" />
+                  Auto-Zoom to Optimal
+                </Button>
+              )}
+            </div>
+
+            {/* Zoom Slider */}
+            <div className="mt-4">
+              <label className="text-xs font-medium text-slate-700 mb-2 block">
+                Zoom Level Slider
+              </label>
+              <input
+                type="range"
+                min="18"
+                max="22"
+                value={currentZoom}
+                onChange={(e) => mapInstanceRef.current?.setZoom(Number(e.target.value))}
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
+              <div className="flex justify-between text-xs text-slate-500 mt-1">
+                <span>Far (18)</span>
+                <span>Close (22)</span>
+              </div>
+            </div>
+
+            {/* Keyboard Shortcuts Hint */}
+            <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+              <div className="font-bold mb-1">⌨️ Keyboard Shortcuts:</div>
+              <div>• Press <kbd className="px-1 bg-white border rounded">+</kbd> to zoom in</div>
+              <div>• Press <kbd className="px-1 bg-white border rounded">-</kbd> to zoom out</div>
+              <div>• Press <kbd className="px-1 bg-white border rounded">0</kbd> to reset</div>
+            </div>
+          </div>
+
+          {/* Zoom Tutorial (First Time) */}
+          {showZoomTutorial && sections.length === 0 && (
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200">
+              <div className="flex justify-between items-start mb-2">
+                <h4 className="text-sm font-bold text-blue-900">💡 Measurement Tip</h4>
+                <button
+                  onClick={() => setShowZoomTutorial(false)}
+                  className="text-blue-600 hover:text-blue-800 text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-xs text-blue-800 mb-2">
+                Use zoom controls to get a closer view for accurate measurements
+              </p>
+              <ul className="text-xs text-blue-700 space-y-1">
+                <li>🖱️ Mouse wheel to zoom</li>
+                <li>📱 Pinch to zoom on mobile</li>
+                <li>🔘 Click +/- buttons above</li>
+                <li>⌨️ Keyboard shortcuts</li>
+              </ul>
+            </div>
+          )}
 
           {/* Error Alert */}
           {error && (
@@ -746,10 +925,11 @@ www.aroof.build`
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm font-bold text-blue-900 mb-2">📐 How to Measure Complex Roofs:</p>
                 <ul className="text-xs text-blue-800 space-y-2">
-                  <li>1. Draw each roof plane separately (front, back, sides)</li>
-                  <li>2. Include garage, additions, and all roof sections</li>
-                  <li>3. After drawing, select pitch for each section</li>
-                  <li>4. Tool calculates actual 3D surface area</li>
+                  <li>1. Zoom in close to see roof details clearly</li>
+                  <li>2. Draw each roof plane separately (front, back, sides)</li>
+                  <li>3. Include garage, additions, and all roof sections</li>
+                  <li>4. After drawing, select pitch for each section</li>
+                  <li>5. Tool calculates actual 3D surface area</li>
                 </ul>
               </div>
             </div>
@@ -809,6 +989,26 @@ www.aroof.build`
               </p>
             </div>
           )}
+
+          {/* Mobile Zoom Controls (Floating) */}
+          <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col gap-2 lg:hidden z-10">
+            <Button
+              onClick={handleZoomIn}
+              disabled={currentZoom >= 22}
+              className="h-14 w-14 bg-white hover:bg-slate-50 text-blue-600 shadow-lg rounded-full"
+              size="icon"
+            >
+              <ZoomIn className="w-6 h-6" />
+            </Button>
+            <Button
+              onClick={handleZoomOut}
+              disabled={currentZoom <= 18}
+              className="h-14 w-14 bg-white hover:bg-slate-50 text-blue-600 shadow-lg rounded-full"
+              size="icon"
+            >
+              <ZoomOut className="w-6 h-6" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
