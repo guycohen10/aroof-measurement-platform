@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -20,7 +21,8 @@ import {
   Phone,
   Wrench,
   Mail,
-  ChevronDown
+  ChevronDown,
+  Building2
 } from "lucide-react";
 
 export default function Homepage() {
@@ -60,19 +62,19 @@ export default function Homepage() {
                       <div>
                         <h4 className="font-bold text-slate-900 mb-3 text-sm">Roofing Services</h4>
                         <div className="space-y-2">
-                          <Link to={createPageUrl("services/RoofReplacement")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                          <Link to={createPageUrl("RoofReplacement")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
                             Roof Replacement
                           </Link>
-                          <Link to={createPageUrl("services/RoofRepair")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                          <Link to={createPageUrl("RoofRepair")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
                             Roof Repair
                           </Link>
-                          <Link to={createPageUrl("services/RoofInspection")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                          <Link to={createPageUrl("RoofInspection")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
                             Roof Inspection
                           </Link>
-                          <Link to={createPageUrl("services/EmergencyRoofing")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                          <Link to={createPageUrl("EmergencyRoofing")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
                             Emergency Roofing
                           </Link>
-                          <Link to={createPageUrl("services/StormDamage")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                          <Link to={createPageUrl("StormDamage")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
                             Storm Damage
                           </Link>
                         </div>
@@ -82,13 +84,13 @@ export default function Homepage() {
                       <div>
                         <h4 className="font-bold text-slate-900 mb-3 text-sm">Exterior Services</h4>
                         <div className="space-y-2">
-                          <Link to={createPageUrl("services/Gutters")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                          <Link to={createPageUrl("Gutters")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
                             Gutter Installation
                           </Link>
-                          <Link to={createPageUrl("services/Siding")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                          <Link to={createPageUrl("Siding")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
                             Siding Installation
                           </Link>
-                          <Link to={createPageUrl("services/Windows")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                          <Link to={createPageUrl("Windows")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
                             Window Replacement
                           </Link>
                         </div>
@@ -98,10 +100,10 @@ export default function Homepage() {
                       <div>
                         <h4 className="font-bold text-slate-900 mb-3 text-sm">Specialized</h4>
                         <div className="space-y-2">
-                          <Link to={createPageUrl("services/Commercial")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                          <Link to={createPageUrl("Commercial")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
                             Commercial Roofing
                           </Link>
-                          <Link to={createPageUrl("services/Insurance")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
+                          <Link to={createPageUrl("Insurance")} className="block text-sm text-slate-600 hover:text-blue-600 hover:translate-x-1 transition-all">
                             Insurance Claims
                           </Link>
                         </div>
@@ -130,8 +132,6 @@ export default function Homepage() {
           </div>
         </div>
       </nav>
-
-      {/* ... keep all existing sections (Hero, How It Works, Why Choose Aroof, Reviews, Projects, Final CTA, Footer) ... */}
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">

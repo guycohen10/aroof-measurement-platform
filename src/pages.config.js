@@ -18,6 +18,16 @@ import Booking from './pages/Booking';
 import SelectReportType from './pages/SelectReportType';
 import PDFDownload from './pages/PDFDownload';
 import Services from './pages/Services';
+import RoofReplacement from './pages/RoofReplacement';
+import RoofRepair from './pages/RoofRepair';
+import RoofInspection from './pages/RoofInspection';
+import EmergencyRoofing from './pages/EmergencyRoofing';
+import StormDamage from './pages/StormDamage';
+import Gutters from './pages/Gutters';
+import Siding from './pages/Siding';
+import Windows from './pages/Windows';
+import Commercial from './pages/Commercial';
+import Insurance from './pages/Insurance';
 import Layout from './Layout.jsx';
 
 
@@ -42,6 +52,16 @@ export const PAGES = {
     "SelectReportType": SelectReportType,
     "PDFDownload": PDFDownload,
     "Services": Services,
+    "RoofReplacement": RoofReplacement,
+    "RoofRepair": RoofRepair,
+    "RoofInspection": RoofInspection,
+    "EmergencyRoofing": EmergencyRoofing,
+    "StormDamage": StormDamage,
+    "Gutters": Gutters,
+    "Siding": Siding,
+    "Windows": Windows,
+    "Commercial": Commercial,
+    "Insurance": Insurance,
 }
 
 export const pagesConfig = {

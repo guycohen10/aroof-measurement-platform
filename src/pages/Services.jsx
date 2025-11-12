@@ -1,9 +1,10 @@
+
 import React from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Home, Phone, MapPin, Shield, Award, DollarSign, Clock, Star, ArrowRight, CheckCircle } from "lucide-react";
+import { Home, Phone, MapPin, Shield, Award, DollarSign, Clock, Star, ArrowRight, CheckCircle, Users, Building2 } from "lucide-react";
 
 export default function Services() {
   const services = [
@@ -12,70 +13,70 @@ export default function Services() {
       title: "Roof Replacement",
       description: "Complete tear-off and new roof installation with premium materials and 10-year warranty.",
       price: "Starting at $7/sq ft",
-      link: "services/RoofReplacement"
+      link: "RoofReplacement"
     },
     {
       icon: "🔧",
       title: "Roof Repair",
       description: "Fast, reliable roof leak repair and storm damage restoration.",
       price: "Starting at $300",
-      link: "services/RoofRepair"
+      link: "RoofRepair"
     },
     {
       icon: "🔍",
       title: "Roof Inspection",
       description: "Comprehensive roof assessment with detailed report and recommendations.",
       price: "FREE with estimate",
-      link: "services/RoofInspection"
+      link: "RoofInspection"
     },
     {
       icon: "⚡",
       title: "Emergency Roofing",
       description: "24/7 emergency response for urgent roof damage and leaks.",
       price: "Available 24/7",
-      link: "services/EmergencyRoofing"
+      link: "EmergencyRoofing"
     },
     {
       icon: "🌪️",
       title: "Storm Damage Repair",
       description: "Hail and wind damage repair with insurance claim assistance.",
       price: "Insurance approved",
-      link: "services/StormDamage"
+      link: "StormDamage"
     },
     {
       icon: "🌊",
       title: "Gutter Installation",
       description: "Seamless gutter systems with leaf guards and drainage solutions.",
       price: "Starting at $8/ft",
-      link: "services/Gutters"
+      link: "Gutters"
     },
     {
       icon: "🏗️",
       title: "Siding Installation",
       description: "Quality siding in vinyl, fiber cement, and wood options.",
       price: "Starting at $6/sq ft",
-      link: "services/Siding"
+      link: "Siding"
     },
     {
       icon: "🪟",
       title: "Window Replacement",
       description: "Energy-efficient replacement windows for lower utility bills.",
       price: "Starting at $450/window",
-      link: "services/Windows"
+      link: "Windows"
     },
     {
       icon: "🏢",
       title: "Commercial Roofing",
       description: "Flat roof systems, TPO, EPDM, and metal for commercial properties.",
       price: "Custom pricing",
-      link: "services/Commercial"
+      link: "Commercial"
     },
     {
       icon: "📋",
       title: "Insurance Claims",
       description: "Expert assistance with storm damage insurance claims.",
       price: "FREE help",
-      link: "services/Insurance"
+      link: "Insurance"
     }
   ];
 
