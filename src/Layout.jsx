@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import ChatWidget from "./components/chat/ChatWidget";
+import Navigation from "./components/Navigation";
 
 export default function Layout({ children, currentPageName }) {
   const [measurement, setMeasurement] = useState(null);
 
   useEffect(() => {
-    // Try to load the most recent measurement for context
     const loadRecentMeasurement = async () => {
       try {
         const measurements = await base44.entities.Measurement.list('-created_date', 1);
@@ -21,9 +21,16 @@ export default function Layout({ children, currentPageName }) {
     loadRecentMeasurement();
   }, []);
 
+  // Pages that shouldn't show the navigation
+  const pagesWithoutNav = ['Homepage', 'MeasurementPage', 'FormPage', 'Results', 'Booking', 'BookingSuccess', 'Payment', 'SelectReportType', 'PDFDownload'];
+  const shouldShowNav = !pagesWithoutNav.includes(currentPageName);
+
   return (
     <div className="min-h-screen">
-      {children}
+      {shouldShowNav && <Navigation />}
+      <div className={shouldShowNav ? 'pt-16' : ''}>
+        {children}
+      </div>
       <ChatWidget currentPage={currentPageName} measurement={measurement} />
     </div>
   );
