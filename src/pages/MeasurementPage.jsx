@@ -150,6 +150,38 @@ export default function MeasurementPage() {
     loadGoogleMaps();
   }, [address, coordinates]);
 
+  // NEW: Zoom control functions (defined before keyboard shortcuts useEffect)
+  const handleZoomIn = useCallback(() => {
+    if (mapInstanceRef.current) {
+      const currentZoom = mapInstanceRef.current.getZoom();
+      if (currentZoom < 22) {
+        mapInstanceRef.current.setZoom(currentZoom + 1);
+      }
+    }
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    if (mapInstanceRef.current) {
+      const currentZoom = mapInstanceRef.current.getZoom();
+      if (currentZoom > 18) {
+        mapInstanceRef.current.setZoom(currentZoom - 1);
+      }
+    }
+  }, []);
+
+  const handleResetZoom = useCallback(() => {
+    if (mapInstanceRef.current && coordinates) {
+      mapInstanceRef.current.setZoom(20);
+      mapInstanceRef.current.setCenter(coordinates);
+    }
+  }, [coordinates]);
+
+  const handleOptimalZoom = useCallback(() => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setZoom(20);
+    }
+  }, []);
+
   // NEW: Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e) => {
@@ -196,30 +228,21 @@ export default function MeasurementPage() {
 
       setMousePosition({ x, y });
 
-      // Get the lat/lng at cursor position
+      // Get the lat/lng at cursor position using the new, more robust method
       try {
+        const bounds = mapInstanceRef.current.getBounds();
         const projection = mapInstanceRef.current.getProjection();
-        if (projection) {
-          const mapLatLng = mapInstanceRef.current.getCenter();
-          const point = projection.fromLatLngToPoint(mapLatLng);
-          
-          // Calculate pixel coordinates of the map center relative to the map div
-          const mapDiv = mapInstanceRef.current.getDiv();
-          const mapDivRect = mapDiv.getBoundingClientRect();
-          const centerPxX = mapDivRect.width / 2;
-          const centerPxY = mapDivRect.height / 2;
 
-          // Mouse position relative to the map center in pixels
-          const mousePxX = x - centerPxX;
-          const mousePxY = y - centerPxY;
+        if (projection && bounds) {
+          const ne = projection.fromLatLngToPoint(bounds.getNorthEast());
+          const sw = projection.fromLatLngToPoint(bounds.getSouthWest());
 
-          // Convert pixel delta to world coordinate delta
-          const scale = Math.pow(2, mapInstanceRef.current.getZoom());
-          const worldPointAtCursorX = point.x + (mousePxX / 256) / scale;
-          const worldPointAtCursorY = point.y + (mousePxY / 256) / scale;
-          
-          const worldPointAtCursor = new window.google.maps.Point(worldPointAtCursorX, worldPointAtCursorY);
-          const latLng = projection.fromPointToLatLng(worldPointAtCursor);
+          const worldPoint = new window.google.maps.Point(
+            sw.x + (x / rect.width) * (ne.x - sw.x),
+            ne.y + (y / rect.height) * (sw.y - ne.y)
+          );
+
+          const latLng = projection.fromPointToLatLng(worldPoint);
           setMagnifierLatLng({ lat: latLng.lat(), lng: latLng.lng() });
         }
       } catch (err) {
@@ -242,7 +265,7 @@ export default function MeasurementPage() {
       mapElement.removeEventListener('mouseleave', handleMouseLeave);
       mapElement.style.cursor = 'default';
     };
-  }, [magnifierEnabled, magnificationLevel, currentZoom]); // Depend on zoom/magnification to re-calculate projection stuff if needed
+  }, [magnifierEnabled]); // Simplified dependencies
 
   const createMap = useCallback((center) => {
     try {
@@ -364,38 +387,6 @@ export default function MeasurementPage() {
       setMapLoading(false);
     }
   }, [address, coordinates, createMap]);
-
-  // NEW: Zoom control functions
-  const handleZoomIn = useCallback(() => {
-    if (mapInstanceRef.current) {
-      const currentZoom = mapInstanceRef.current.getZoom();
-      if (currentZoom < 22) {
-        mapInstanceRef.current.setZoom(currentZoom + 1);
-      }
-    }
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    if (mapInstanceRef.current) {
-      const currentZoom = mapInstanceRef.current.getZoom();
-      if (currentZoom > 18) {
-        mapInstanceRef.current.setZoom(currentZoom - 1);
-      }
-    }
-  }, []);
-
-  const handleResetZoom = useCallback(() => {
-    if (mapInstanceRef.current && coordinates) {
-      mapInstanceRef.current.setZoom(20);
-      mapInstanceRef.current.setCenter(coordinates);
-    }
-  }, [coordinates]);
-
-  const handleOptimalZoom = useCallback(() => {
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.setZoom(20);
-    }
-  }, []);
 
   const getZoomLevelAdvice = () => {
     if (currentZoom >= 21) {
