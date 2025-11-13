@@ -756,302 +756,112 @@ export default function MeasurementPage() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar */}
-        <div className="w-96 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
-          <div className="p-6 border-b border-slate-200">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
-            <p className="text-sm text-slate-600">
-              Draw each roof section separately, then adjust pitch for accurate measurements
-            </p>
+        <div className="w-96 bg-white border-r border-slate-200 flex flex-col">
+          {/* Title and Address - Fixed at top */}
+          <div className="flex-shrink-0">
+            <div className="p-6 border-b border-slate-200">
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
+              <p className="text-sm text-slate-600">
+                Draw each roof section separately, then adjust pitch for accurate measurements
+              </p>
+            </div>
+
+            {/* Address Display */}
+            <div className="p-4 bg-blue-50 border-b border-blue-200">
+              <div className="flex items-start gap-2">
+                <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-blue-600 font-medium">Property:</p>
+                  <p className="text-sm font-bold text-blue-900 break-words">{address}</p>
+                  {coordinates && (
+                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Location verified
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Address Display */}
-          <div className="p-4 bg-blue-50 border-b border-blue-200">
-            <div className="flex items-start gap-2">
-              <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-blue-600 font-medium">Property:</p>
-                <p className="text-sm font-bold text-blue-900 break-words">{address}</p>
-                {coordinates && (
-                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" />
-                    Location verified
+          {/* STICKY SECTION - Drawing Button + Roof Sections */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Drawing Button - Always visible at top of scrollable area */}
+            <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
+              <div className="p-4">
+                {error && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">{error}</AlertDescription>
+                  </Alert>
+                )}
+                
+                {mapLoading && (
+                  <Alert className="mb-4 bg-blue-50 border-blue-200">
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                    <AlertDescription className="text-sm text-blue-900">
+                      Loading map... Please wait before drawing.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {mapError && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                      {mapError}
+                      <Button 
+                        onClick={() => window.location.reload()} 
+                        variant="outline" 
+                        size="sm"
+                        className="mt-2 w-full"
+                      >
+                        Refresh Page
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <Button
+                  onClick={startDrawingSection}
+                  className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isDrawing || mapLoading || !!mapError}
+                >
+                  {isDrawing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Drawing Section {sections.length + 1}...
+                    </>
+                  ) : mapLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Loading Map...
+                    </>
+                  ) : sections.length === 0 ? (
+                    <>
+                      <Edit3 className="w-5 h-5 mr-2" />
+                      Start Drawing Section 1
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5 mr-2" />
+                      Add Section {sections.length + 1}
+                    </>
+                  )}
+                </Button>
+                
+                {!mapLoading && !mapError && (
+                  <p className="text-xs text-slate-500 mt-2 text-center">
+                    Click button, then click points on the map to draw
                   </p>
                 )}
               </div>
             </div>
-          </div>
 
-          {/* Drawing Button */}
-          <div className="p-4 border-b border-slate-200 bg-white">
-            {error && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm">{error}</AlertDescription>
-              </Alert>
-            )}
-            
-            {mapLoading && (
-              <Alert className="mb-4 bg-blue-50 border-blue-200">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                <AlertDescription className="text-sm text-blue-900">
-                  Loading map... Please wait before drawing.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {mapError && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm">
-                  {mapError}
-                  <Button 
-                    onClick={() => window.location.reload()} 
-                    variant="outline" 
-                    size="sm"
-                    className="mt-2 w-full"
-                  >
-                    Refresh Page
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            <Button
-              onClick={startDrawingSection}
-              className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isDrawing || mapLoading || !!mapError}
-            >
-              {isDrawing ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Drawing Section {sections.length + 1}...
-                </>
-              ) : mapLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Loading Map...
-                </>
-              ) : sections.length === 0 ? (
-                <>
-                  <Edit3 className="w-5 h-5 mr-2" />
-                  Start Drawing Section 1
-                </>
-              ) : (
-                <>
-                  <Plus className="w-5 h-5 mr-2" />
-                  Add Section {sections.length + 1}
-                </>
-              )}
-            </Button>
-            
-            {!mapLoading && !mapError && (
-              <p className="text-xs text-slate-500 mt-2 text-center">
-                Click button, then click points on the map to draw
-              </p>
-            )}
-          </div>
-
-          {/* Magnifying Glass Section */}
-          <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b border-purple-200">
-            <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-              <Search className="w-5 h-5 text-purple-600" />
-              Magnifying Glass
-            </h3>
-
-            <Button
-              onClick={() => setMagnifierEnabled(!magnifierEnabled)}
-              className={`w-full h-12 mb-3 text-lg font-bold ${
-                magnifierEnabled
-                  ? 'bg-green-600 hover:bg-green-700 text-white'
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
-              }`}
-            >
-              <Search className="w-5 h-5 mr-2" />
-              {magnifierEnabled ? '🔍 Magnifier ON' : '🔍 Magnifier OFF'}
-            </Button>
-
-            {magnifierEnabled && (
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-medium text-slate-700 mb-1 block">
-                    Magnification Level:
-                  </label>
-                  <Select
-                    value={magnificationLevel.toString()}
-                    onValueChange={(value) => setMagnificationLevel(Number(value))}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2">2x Zoom (+2 levels)</SelectItem>
-                      <SelectItem value="3">3x Zoom (+3 levels)</SelectItem>
-                      <SelectItem value="4">4x Zoom (+4 levels)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-slate-700 mb-1 block">
-                    Magnifier Size: {magnifierSize}px
-                  </label>
-                  <input
-                    type="range"
-                    min="150"
-                    max="300"
-                    step="25"
-                    value={magnifierSize}
-                    onChange={(e) => setMagnifierSize(Number(e.target.value))}
-                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
-                  />
-                  <div className="flex justify-between text-xs text-slate-500 mt-1">
-                    <span>Small</span>
-                    <span>Large</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {magnifierEnabled && showMagnifierInstructions && (
-              <div className="mt-3 p-3 bg-white border border-purple-200 rounded-lg text-xs">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-bold text-purple-900">💡 How to Use:</h4>
-                  <button
-                    onClick={() => setShowMagnifierInstructions(false)}
-                    className="text-purple-600 hover:text-purple-800"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <ul className="text-purple-800 space-y-1">
-                  <li>• Move mouse over the roof</li>
-                  <li>• Magnifier shows EXACT area under cursor</li>
-                  <li>• Click points precisely with magnifier</li>
-                  <li>• Press <kbd className="px-1 bg-purple-100 border rounded text-[10px]">M</kbd> to toggle</li>
-                </ul>
-              </div>
-            )}
-
-            <div className="mt-2 p-2 bg-purple-100 border border-purple-200 rounded text-xs text-purple-800 text-center">
-              Press <kbd className="px-2 py-1 bg-white border rounded font-bold">M</kbd> to toggle magnifier
-            </div>
-          </div>
-
-          {/* Zoom Controls Section */}
-          <div className="p-4 bg-slate-50 border-b border-slate-200">
-            <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-              🔍 Zoom Controls
-            </h3>
-            
-            <div className={`mb-3 p-2 rounded-lg text-center font-medium ${
-              zoomAdvice.type === 'success' ? 'bg-green-100 text-green-800' :
-              zoomAdvice.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-red-100 text-red-800'
-            }`}>
-              <div className="text-lg">{zoomAdvice.icon} Zoom: {currentZoom} / 22</div>
-              <div className="text-xs mt-1">{zoomAdvice.message}</div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <Button
-                onClick={handleZoomIn}
-                disabled={currentZoom >= 22}
-                className="h-12 bg-blue-600 hover:bg-blue-700 text-white"
-                size="lg"
-              >
-                <ZoomIn className="w-5 h-5 mr-2" />
-                Zoom In
-              </Button>
-              
-              <Button
-                onClick={handleZoomOut}
-                disabled={currentZoom <= 18}
-                className="h-12 bg-blue-600 hover:bg-blue-700 text-white"
-                size="lg"
-              >
-                <ZoomOut className="w-5 h-5 mr-2" />
-                Zoom Out
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <Button
-                onClick={handleResetZoom}
-                variant="outline"
-                className="w-full h-10"
-                size="sm"
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Reset View
-              </Button>
-
-              {currentZoom < 20 && (
-                <Button
-                  onClick={handleOptimalZoom}
-                  className="w-full h-10 bg-green-600 hover:bg-green-700 text-white"
-                  size="sm"
-                >
-                  <Maximize2 className="w-4 h-4 mr-2" />
-                  Auto-Zoom to Optimal
-                </Button>
-              )}
-            </div>
-
-            <div className="mt-4">
-              <label className="text-xs font-medium text-slate-700 mb-2 block">
-                Zoom Level Slider
-              </label>
-              <input
-                type="range"
-                min="18"
-                max="22"
-                value={currentZoom}
-                onChange={(e) => mapInstanceRef.current?.setZoom(Number(e.target.value))}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-              />
-              <div className="flex justify-between text-xs text-slate-500 mt-1">
-                <span>Far (18)</span>
-                <span>Close (22)</span>
-              </div>
-            </div>
-
-            <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
-              <div className="font-bold mb-1">⌨️ Keyboard Shortcuts:</div>
-              <div>• Press <kbd className="px-1 bg-white border rounded">+</kbd> to zoom in</div>
-              <div>• Press <kbd className="px-1 bg-white border rounded">-</kbd> to zoom out</div>
-              <div>• Press <kbd className="px-1 bg-white border rounded">0</kbd> to reset</div>
-            </div>
-          </div>
-
-          {/* Zoom Tutorial */}
-          {showZoomTutorial && sections.length === 0 && (
-            <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200">
-              <div className="flex justify-between items-start mb-2">
-                <h4 className="text-sm font-bold text-blue-900">💡 Measurement Tip</h4>
-                <button
-                  onClick={() => setShowZoomTutorial(false)}
-                  className="text-blue-600 hover:text-blue-800 text-xs"
-                >
-                  ✕
-                </button>
-              </div>
-              <p className="text-xs text-blue-800 mb-2">
-                Use zoom controls and magnifying glass for accurate measurements
-              </p>
-              <ul className="text-xs text-blue-700 space-y-1">
-                <li>🖱️ Mouse wheel to zoom</li>
-                <li>📱 Pinch to zoom on mobile</li>
-                <li>🔘 Click +/- buttons above</li>
-                <li>🔍 Magnifier tracks cursor EXACTLY</li>
-              </ul>
-            </div>
-          )}
-
-          {/* Sections List */}
-          {sections.length > 0 && (
-            <div className="flex-1 overflow-y-auto">
-              <div className="p-6 space-y-4">
-                <div className="flex items-center gap-2 mb-4">
+            {/* Roof Sections List - Scrollable */}
+            {sections.length > 0 && (
+              <div className="p-6 space-y-4 border-b border-slate-200">
+                <div className="flex items-center gap-2">
                   <Layers className="w-5 h-5 text-blue-600" />
                   <h3 className="text-lg font-bold text-slate-900">
                     Roof Sections ({sections.length})
@@ -1127,69 +937,265 @@ export default function MeasurementPage() {
                   </Card>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Total Area Summary */}
-          {sections.length > 0 && (
-            <div className="p-6 border-t border-slate-200 bg-gradient-to-br from-green-50 to-blue-50">
-              <h3 className="text-sm font-bold text-slate-700 mb-3">Total Roof Area</h3>
-              
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Flat Area:</span>
-                  <span className="text-lg font-bold text-slate-900">
-                    {totalFlat.toLocaleString()} sq ft
-                  </span>
-                </div>
+            {/* Total Area Summary - Sticky at bottom when sections exist */}
+            {sections.length > 0 && (
+              <div className="sticky bottom-0 p-6 border-t border-slate-200 bg-gradient-to-br from-green-50 to-blue-50 shadow-lg">
+                <h3 className="text-sm font-bold text-slate-700 mb-3">Total Roof Area</h3>
                 
-                {totalAdjusted !== totalFlat && (
-                  <div className="flex justify-between items-center pt-2 border-t border-green-200">
-                    <span className="text-sm font-semibold text-green-700">
-                      Adjusted for Pitch:
-                    </span>
-                    <span className="text-2xl font-bold text-green-900">
-                      {totalAdjusted.toLocaleString()} sq ft
+                <div className="space-y-2 mb-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600">Flat Area:</span>
+                    <span className="text-lg font-bold text-slate-900">
+                      {totalFlat.toLocaleString()} sq ft
                     </span>
                   </div>
-                )}
+                  
+                  {totalAdjusted !== totalFlat && (
+                    <div className="flex justify-between items-center pt-2 border-t border-green-200">
+                      <span className="text-sm font-semibold text-green-700">
+                        Adjusted for Pitch:
+                      </span>
+                      <span className="text-2xl font-bold text-green-900">
+                        {totalAdjusted.toLocaleString()} sq ft
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  onClick={handleCompleteMeasurement}
+                  disabled={sections.length === 0 || saving}
+                  className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-5 h-5 mr-2" />
+                      Complete Measurement
+                    </>
+                  )}
+                </Button>
               </div>
+            )}
+
+            {/* Instructions - Only shown when no sections */}
+            {sections.length === 0 && (
+              <div className="p-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm font-bold text-blue-900 mb-2">📐 How to Measure Complex Roofs:</p>
+                  <ul className="text-xs text-blue-800 space-y-2">
+                    <li>1. Zoom in close and use magnifier for details</li>
+                    <li>2. Draw each roof plane separately (front, back, sides)</li>
+                    <li>3. Include garage, additions, and all roof sections</li>
+                    <li>4. After drawing, select pitch for each section</li>
+                    <li>5. Tool calculates actual 3D surface area</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {/* Magnifying Glass Section */}
+            <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b border-purple-200">
+              <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                <Search className="w-5 h-5 text-purple-600" />
+                Magnifying Glass
+              </h3>
 
               <Button
-                onClick={handleCompleteMeasurement}
-                disabled={sections.length === 0 || saving}
-                className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => setMagnifierEnabled(!magnifierEnabled)}
+                className={`w-full h-12 mb-3 text-lg font-bold ${
+                  magnifierEnabled
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                }`}
               >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    Complete Measurement
-                  </>
-                )}
+                <Search className="w-5 h-5 mr-2" />
+                {magnifierEnabled ? '🔍 Magnifier ON' : '🔍 Magnifier OFF'}
               </Button>
-            </div>
-          )}
 
-          {/* Instructions */}
-          {sections.length === 0 && (
-            <div className="p-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm font-bold text-blue-900 mb-2">📐 How to Measure Complex Roofs:</p>
-                <ul className="text-xs text-blue-800 space-y-2">
-                  <li>1. Zoom in close and use magnifier for details</li>
-                  <li>2. Draw each roof plane separately (front, back, sides)</li>
-                  <li>3. Include garage, additions, and all roof sections</li>
-                  <li>4. After drawing, select pitch for each section</li>
-                  <li>5. Tool calculates actual 3D surface area</li>
-                </ul>
+              {magnifierEnabled && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">
+                      Magnification Level:
+                    </label>
+                    <Select
+                      value={magnificationLevel.toString()}
+                      onValueChange={(value) => setMagnificationLevel(Number(value))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2">2x Zoom (+2 levels)</SelectItem>
+                        <SelectItem value="3">3x Zoom (+3 levels)</SelectItem>
+                        <SelectItem value="4">4x Zoom (+4 levels)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">
+                      Magnifier Size: {magnifierSize}px
+                    </label>
+                    <input
+                      type="range"
+                      min="150"
+                      max="300"
+                      step="25"
+                      value={magnifierSize}
+                      onChange={(e) => setMagnifierSize(Number(e.target.value))}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                    />
+                    <div className="flex justify-between text-xs text-slate-500 mt-1">
+                      <span>Small</span>
+                      <span>Large</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {magnifierEnabled && showMagnifierInstructions && (
+                <div className="mt-3 p-3 bg-white border border-purple-200 rounded-lg text-xs">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-bold text-purple-900">💡 How to Use:</h4>
+                    <button
+                      onClick={() => setShowMagnifierInstructions(false)}
+                      className="text-purple-600 hover:text-purple-800"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <ul className="text-purple-800 space-y-1">
+                    <li>• Move mouse over the roof</li>
+                    <li>• Magnifier shows EXACT area under cursor</li>
+                    <li>• Click points precisely with magnifier</li>
+                    <li>• Press <kbd className="px-1 bg-purple-100 border rounded text-[10px]">M</kbd> to toggle</li>
+                  </ul>
+                </div>
+              )}
+
+              <div className="mt-2 p-2 bg-purple-100 border border-purple-200 rounded text-xs text-purple-800 text-center">
+                Press <kbd className="px-2 py-1 bg-white border rounded font-bold">M</kbd> to toggle magnifier
               </div>
             </div>
-          )}
+
+            {/* Zoom Controls Section */}
+            <div className="p-4 bg-slate-50 border-b border-slate-200">
+              <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                🔍 Zoom Controls
+              </h3>
+              
+              <div className={`mb-3 p-2 rounded-lg text-center font-medium ${
+                zoomAdvice.type === 'success' ? 'bg-green-100 text-green-800' :
+                zoomAdvice.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                'bg-red-100 text-red-800'
+              }`}>
+                <div className="text-lg">{zoomAdvice.icon} Zoom: {currentZoom} / 22</div>
+                <div className="text-xs mt-1">{zoomAdvice.message}</div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <Button
+                  onClick={handleZoomIn}
+                  disabled={currentZoom >= 22}
+                  className="h-12 bg-blue-600 hover:bg-blue-700 text-white"
+                  size="lg"
+                >
+                  <ZoomIn className="w-5 h-5 mr-2" />
+                  Zoom In
+                </Button>
+                
+                <Button
+                  onClick={handleZoomOut}
+                  disabled={currentZoom <= 18}
+                  className="h-12 bg-blue-600 hover:bg-blue-700 text-white"
+                  size="lg"
+                >
+                  <ZoomOut className="w-5 h-5 mr-2" />
+                  Zoom Out
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <Button
+                  onClick={handleResetZoom}
+                  variant="outline"
+                  className="w-full h-10"
+                  size="sm"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Reset View
+                </Button>
+
+                {currentZoom < 20 && (
+                  <Button
+                    onClick={handleOptimalZoom}
+                    className="w-full h-10 bg-green-600 hover:bg-green-700 text-white"
+                    size="sm"
+                  >
+                    <Maximize2 className="w-4 h-4 mr-2" />
+                    Auto-Zoom to Optimal
+                  </Button>
+                )}
+              </div>
+
+              <div className="mt-4">
+                <label className="text-xs font-medium text-slate-700 mb-2 block">
+                  Zoom Level Slider
+                </label>
+                <input
+                  type="range"
+                  min="18"
+                  max="22"
+                  value={currentZoom}
+                  onChange={(e) => mapInstanceRef.current?.setZoom(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                />
+                <div className="flex justify-between text-xs text-slate-500 mt-1">
+                  <span>Far (18)</span>
+                  <span>Close (22)</span>
+                </div>
+              </div>
+
+              <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                <div className="font-bold mb-1">⌨️ Keyboard Shortcuts:</div>
+                <div>• Press <kbd className="px-1 bg-white border rounded">+</kbd> to zoom in</div>
+                <div>• Press <kbd className="px-1 bg-white border rounded">-</kbd> to zoom out</div>
+                <div>• Press <kbd className="px-1 bg-white border rounded">0</kbd> to reset</div>
+              </div>
+            </div>
+
+            {/* Zoom Tutorial */}
+            {showZoomTutorial && sections.length === 0 && (
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="text-sm font-bold text-blue-900">💡 Measurement Tip</h4>
+                  <button
+                    onClick={() => setShowZoomTutorial(false)}
+                    className="text-blue-600 hover:text-blue-800 text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-xs text-blue-800 mb-2">
+                  Use zoom controls and magnifying glass for accurate measurements
+                </p>
+                <ul className="text-xs text-blue-700 space-y-1">
+                  <li>🖱️ Mouse wheel to zoom</li>
+                  <li>📱 Pinch to zoom on mobile</li>
+                  <li>🔘 Click +/- buttons above</li>
+                  <li>🔍 Magnifier tracks cursor EXACTLY</li>
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Map Container */}
