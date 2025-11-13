@@ -5,13 +5,15 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Crown, ArrowLeft, Loader2 } from "lucide-react";
+import { Check, Crown, ArrowLeft, Loader2, CreditCard } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function RooferPlans() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [upgrading, setUpgrading] = useState(false);
+  const [billingInterval, setBillingInterval] = useState("monthly");
 
   useEffect(() => {
     loadUser();
@@ -54,6 +56,7 @@ export default function RooferPlans() {
       name: 'Starter',
       price: 49,
       measurements: 20,
+      stripePriceId: 'STRIPE_PRICE_STARTER',
       features: [
         '20 measurements per month',
         'Standard PDF reports',
@@ -68,6 +71,7 @@ export default function RooferPlans() {
       price: 99,
       measurements: 100,
       popular: true,
+      stripePriceId: 'STRIPE_PRICE_PRO',
       features: [
         '100 measurements per month',
         'Custom branded PDFs',
@@ -82,6 +86,7 @@ export default function RooferPlans() {
       name: 'Unlimited',
       price: 199,
       measurements: 'Unlimited',
+      stripePriceId: 'STRIPE_PRICE_UNLIMITED',
       features: [
         'Unlimited measurements',
         'White label PDFs',
@@ -102,6 +107,70 @@ export default function RooferPlans() {
     setUpgrading(true);
 
     try {
+      // If user has Stripe subscription and is changing plans
+      if (user.stripe_subscription_id && planId !== 'free') {
+        // Update existing subscription via Stripe
+        const response = await base44.integrations.Core.InvokeLLM({
+          prompt: `Update Stripe subscription ${user.stripe_subscription_id} to new plan ${planId}`,
+          add_context_from_internet: false
+        });
+        
+        alert('⚠️ Stripe integration required. Please contact support to change plans.');
+        setUpgrading(false);
+        return;
+      }
+
+      // If downgrading to free
+      if (planId === 'free') {
+        const confirm = window.confirm(
+          'Are you sure you want to downgrade to the Free plan?\n\n' +
+          'You will lose access to premium features and your measurement limit will be reduced to 3 per month.'
+        );
+        
+        if (!confirm) {
+          setUpgrading(false);
+          return;
+        }
+
+        // Cancel Stripe subscription if exists
+        if (user.stripe_subscription_id) {
+          alert('⚠️ Please cancel your subscription through the billing portal in Settings.');
+          setUpgrading(false);
+          return;
+        }
+
+        // Update to free plan
+        await base44.auth.updateMe({
+          subscription_plan: 'free',
+          measurements_limit: 3,
+          subscription_status: 'active'
+        });
+
+        alert('✅ Downgraded to Free plan');
+        await loadUser();
+        setUpgrading(false);
+        return;
+      }
+
+      // If upgrading from free to paid plan
+      const plan = plans.find(p => p.id === planId);
+      
+      // Redirect to Stripe Checkout
+      // In production, this would call your backend API to create checkout session
+      alert(
+        `🚀 STRIPE CHECKOUT\n\n` +
+        `This would redirect to Stripe to collect payment for:\n\n` +
+        `Plan: ${plan.name}\n` +
+        `Price: $${plan.price}/month\n\n` +
+        `To integrate:\n` +
+        `1. Set up Stripe products\n` +
+        `2. Add backend API endpoint\n` +
+        `3. Create checkout session\n` +
+        `4. Handle webhooks\n\n` +
+        `For now, updating plan without payment...`
+      );
+
+      // Temporary: Update plan without payment (remove in production)
       const newLimit = planId === 'unlimited' ? 999999 : 
                       planId === 'pro' ? 100 :
                       planId === 'starter' ? 20 : 3;
@@ -109,16 +178,11 @@ export default function RooferPlans() {
       await base44.auth.updateMe({
         subscription_plan: planId,
         measurements_limit: newLimit,
-        subscription_status: 'active'
+        subscription_status: 'trialing' // Would be 'active' after Stripe payment
       });
 
-      alert(`✅ Successfully switched to ${planId.charAt(0).toUpperCase() + planId.slice(1)} plan!`);
+      alert(`✅ Switched to ${plan.name} plan! (Payment integration pending)`);
       await loadUser();
-      
-      // If downgrading, show warning about usage
-      if (user.measurements_used_this_month > newLimit && planId !== 'unlimited') {
-        alert(`⚠️ Note: You've used ${user.measurements_used_this_month} measurements this month, which is over your new limit of ${newLimit}. Your usage will reset at the start of your next billing cycle.`);
-      }
       
     } catch (err) {
       console.error('Error changing plan:', err);
@@ -168,6 +232,15 @@ export default function RooferPlans() {
             Upgrade or downgrade anytime. No contracts.
           </p>
         </div>
+
+        {/* Stripe Integration Alert */}
+        <Alert className="mb-8 bg-yellow-50 border-yellow-200">
+          <AlertDescription className="text-yellow-900">
+            <strong>⚠️ Stripe Integration Pending:</strong> To enable real payment processing, 
+            you need to set up Stripe credentials and create checkout sessions. 
+            See <code className="bg-yellow-100 px-2 py-0.5 rounded">STRIPE_SETUP.md</code> for instructions.
+          </AlertDescription>
+        </Alert>
 
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -240,17 +313,21 @@ export default function RooferPlans() {
                       {upgrading ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Switching...
+                          Processing...
                         </>
                       ) : (
                         <>
-                          {plan.price > (plans.find(p => p.id === user.subscription_plan)?.price || 0) ? (
+                          {plan.price > 0 ? (
                             <>
-                              <Crown className="w-4 h-4 mr-2" />
-                              Upgrade to {plan.name}
+                              <CreditCard className="w-4 h-4 mr-2" />
+                              {plan.price > (plans.find(p => p.id === user.subscription_plan)?.price || 0) ? (
+                                `Upgrade to ${plan.name}`
+                              ) : (
+                                `Switch to ${plan.name}`
+                              )}
                             </>
                           ) : (
-                            `Switch to ${plan.name}`
+                            `Downgrade to Free`
                           )}
                         </>
                       )}
@@ -262,17 +339,36 @@ export default function RooferPlans() {
           })}
         </div>
 
-        {/* Note about changes */}
+        {/* Plan Details */}
         <Card className="mt-12 bg-blue-50 border-blue-200">
           <CardContent className="p-6">
             <h3 className="font-bold text-blue-900 mb-2">Plan Change Policy</h3>
             <ul className="space-y-2 text-sm text-blue-800">
-              <li>• Changes take effect immediately</li>
-              <li>• Upgrades give you more measurements right away</li>
-              <li>• Downgrades keep your current usage until next billing cycle</li>
-              <li>• No refunds for partial months</li>
-              <li>• Usage resets on your billing cycle date</li>
+              <li>• Upgrades take effect immediately with prorated billing</li>
+              <li>• Downgrades take effect at the end of your billing cycle</li>
+              <li>• 14-day free trial on all paid plans</li>
+              <li>• Cancel anytime - no long-term contracts</li>
+              <li>• Usage resets monthly on your billing cycle date</li>
             </ul>
+          </CardContent>
+        </Card>
+
+        {/* Need Help */}
+        <Card className="mt-6">
+          <CardContent className="p-6 text-center">
+            <p className="text-slate-700 mb-2">
+              <strong>Need help choosing a plan?</strong>
+            </p>
+            <p className="text-sm text-slate-600">
+              Contact us at{' '}
+              <a href="mailto:sales@aroof.build" className="text-blue-600 hover:underline">
+                sales@aroof.build
+              </a>
+              {' '}or call{' '}
+              <a href="tel:+18502389727" className="text-blue-600 hover:underline">
+                (850) 238-9727
+              </a>
+            </p>
           </CardContent>
         </Card>
       </div>

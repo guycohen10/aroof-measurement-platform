@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   ArrowLeft, 
   Building2, 
@@ -16,7 +17,9 @@ import {
   Save,
   Upload,
   Loader2,
-  Crown
+  Crown,
+  ExternalLink,
+  AlertCircle
 } from "lucide-react";
 
 export default function RooferSettings() {
@@ -64,7 +67,6 @@ export default function RooferSettings() {
 
       setUser(currentUser);
       
-      // Set profile data
       setProfile({
         company_name: currentUser.company_name || '',
         full_name: currentUser.full_name || '',
@@ -72,7 +74,6 @@ export default function RooferSettings() {
         phone: currentUser.phone || ''
       });
 
-      // Set branding data if exists
       if (currentUser.custom_branding) {
         setBranding(currentUser.custom_branding);
       }
@@ -125,6 +126,66 @@ export default function RooferSettings() {
     }
   };
 
+  const handleOpenBillingPortal = () => {
+    if (!user.stripe_customer_id) {
+      alert('No billing information found. Please subscribe to a plan first.');
+      return;
+    }
+
+    // In production, this would call backend to create Stripe portal session
+    alert(
+      '🔗 STRIPE BILLING PORTAL\n\n' +
+      'This would open Stripe Customer Portal where you can:\n\n' +
+      '• Update payment method\n' +
+      '• View invoices & receipts\n' +
+      '• Update billing info\n' +
+      '• Cancel subscription\n\n' +
+      'To integrate: Create backend endpoint that returns portal URL'
+    );
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!user.stripe_subscription_id) {
+      alert('No active subscription found');
+      return;
+    }
+
+    const confirm = window.confirm(
+      '⚠️ Cancel Subscription?\n\n' +
+      'Your subscription will remain active until the end of your current billing period.\n' +
+      'After that, you will be downgraded to the Free plan (3 measurements/month).\n\n' +
+      'Are you sure you want to cancel?'
+    );
+
+    if (!confirm) return;
+
+    setSaving(true);
+    try {
+      // In production, call backend to cancel Stripe subscription
+      alert(
+        '⚠️ STRIPE CANCELLATION\n\n' +
+        'This would:\n' +
+        '1. Cancel Stripe subscription\n' +
+        '2. Keep access until period end\n' +
+        '3. Then downgrade to Free plan\n\n' +
+        'Requires backend integration'
+      );
+
+      // Temporary: Update status (remove in production)
+      await base44.auth.updateMe({
+        subscription_status: 'canceled'
+      });
+
+      alert('✅ Subscription canceled. Access until end of billing period.');
+      await loadUser();
+    } catch (err) {
+      console.error('Error canceling subscription:', err);
+      alert('Failed to cancel subscription');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const canCustomizeBranding = user?.subscription_plan === 'pro' || user?.subscription_plan === 'unlimited';
 
   if (loading) {
@@ -171,6 +232,17 @@ export default function RooferSettings() {
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Account Settings</h1>
           <p className="text-slate-600">Manage your profile, branding, and subscription</p>
         </div>
+
+        {/* Stripe Integration Alert */}
+        {user.subscription_plan !== 'free' && !user.stripe_customer_id && (
+          <Alert className="bg-yellow-50 border-yellow-200">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-900">
+              <strong>⚠️ Payment Integration Pending:</strong> Your subscription is active but Stripe integration 
+              is not yet configured. Contact support for billing management.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Company Profile */}
         <Card className="shadow-lg">
@@ -360,15 +432,15 @@ export default function RooferSettings() {
           </Card>
         )}
 
-        {/* Current Subscription */}
+        {/* Current Subscription & Billing */}
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="w-5 h-5" />
-              Current Subscription
+              Subscription & Billing
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div className="grid md:grid-cols-3 gap-6">
               <div>
                 <p className="text-sm text-slate-600 mb-1">Plan</p>
@@ -387,24 +459,55 @@ export default function RooferSettings() {
               </div>
               <div>
                 <p className="text-sm text-slate-600 mb-1">Status</p>
-                <Badge className="bg-green-100 text-green-800">
+                <Badge className={
+                  user.subscription_status === 'active' ? 'bg-green-100 text-green-800' :
+                  user.subscription_status === 'trialing' ? 'bg-blue-100 text-blue-800' :
+                  user.subscription_status === 'canceled' ? 'bg-red-100 text-red-800' :
+                  'bg-orange-100 text-orange-800'
+                }>
                   {user.subscription_status?.toUpperCase() || 'ACTIVE'}
                 </Badge>
               </div>
             </div>
 
-            <div className="flex gap-3 pt-4 border-t">
-              <Link to={createPageUrl("RooferPlans")} className="flex-1">
-                <Button variant="outline" className="w-full">
-                  Change Plan
+            {/* Billing Portal Button */}
+            {user.subscription_plan !== 'free' && (
+              <div className="pt-4 border-t space-y-3">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={handleOpenBillingPortal}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Open Billing Portal (Update Payment, View Invoices)
+                </Button>
+
+                <div className="flex gap-3">
+                  <Link to={createPageUrl("RooferPlans")} className="flex-1">
+                    <Button variant="outline" className="w-full">
+                      Change Plan
+                    </Button>
+                  </Link>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 text-red-600 hover:bg-red-50"
+                    onClick={handleCancelSubscription}
+                    disabled={saving}
+                  >
+                    Cancel Subscription
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {user.subscription_plan === 'free' && (
+              <Link to={createPageUrl("RooferPlans")}>
+                <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                  <Crown className="w-4 h-4 mr-2" />
+                  Upgrade to Paid Plan
                 </Button>
               </Link>
-              {user.subscription_plan !== 'free' && (
-                <Button variant="outline" className="flex-1 text-red-600 hover:bg-red-50">
-                  Cancel Subscription
-                </Button>
-              )}
-            </div>
+            )}
           </CardContent>
         </Card>
 
