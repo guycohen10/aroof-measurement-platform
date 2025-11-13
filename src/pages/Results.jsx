@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -601,83 +600,82 @@ export default function Results() {
           </CardContent>
         </Card>
 
-        {/* Ready to Get Started - Enhanced CTA Section */}
+        {/* IMPROVED: Ready to Get Started - Enhanced CTA Section */}
         <Card className="mb-8 shadow-2xl border-none overflow-hidden">
           <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-8 lg:p-12">
             <div className="text-center mb-8">
               <h2 className="text-3xl lg:text-4xl font-bold mb-3">Ready for Your New Roof?</h2>
-              <p className="text-xl text-blue-100 mb-6">Let's Turn This Estimate Into Reality</p>
+              <p className="text-xl text-blue-100 mb-8">Let's Turn This Estimate Into Reality</p>
               
               {/* Benefits Icons */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto mb-8">
                 {[
                   { icon: Shield, text: "Licensed & Insured" },
                   { icon: DollarSign, text: "Financing Available" },
                   { icon: Zap, text: "Fast Scheduling" },
                   { icon: Star, text: "4.9/5 Stars on Google" }
                 ].map((item, index) => (
-                  <div key={index} className="flex flex-col items-center gap-2 bg-white/10 backdrop-blur-sm rounded-lg p-4">
-                    <item.icon className="w-8 h-8 text-blue-200" />
-                    <span className="text-sm font-medium text-blue-100">{item.text}</span>
+                  <div key={index} className="flex flex-col items-center justify-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-6 min-h-[120px]">
+                    <item.icon className="w-10 h-10 text-blue-200 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-blue-100 text-center leading-tight">{item.text}</span>
                   </div>
                 ))}
               </div>
-            </div>
 
-            {/* Action Buttons */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* PRIMARY CTA - Schedule Free Inspection */}
               <Button
                 size="lg"
-                className="w-full h-16 text-lg bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all md:col-span-2 lg:col-span-4"
+                className="w-full max-w-2xl mx-auto h-20 text-xl bg-green-600 hover:bg-green-700 shadow-xl hover:shadow-2xl transition-all mb-6"
                 onClick={handleScheduleClick}
               >
-                <Calendar className="w-6 h-6 mr-2" />
-                Schedule Free Inspection
-                <span className="ml-2 text-xs bg-green-500 px-2 py-1 rounded-full">
+                <Calendar className="w-7 h-7 mr-3 flex-shrink-0" />
+                <span className="flex-1">Schedule Free Inspection</span>
+                <span className="ml-3 text-sm bg-green-500 px-3 py-1 rounded-full whitespace-nowrap">
                   🔥 Same-Day Available
                 </span>
               </Button>
 
-              {/* Secondary Actions */}
-              <Button
-                size="lg"
-                variant="secondary"
-                className="w-full h-14 text-lg bg-white text-blue-900 hover:bg-blue-50"
-                onClick={() => navigate(createPageUrl("FormPage"))}
-              >
-                <Home className="w-5 h-5 mr-2" />
-                Measure Another Roof
-              </Button>
+              {/* Secondary Actions - Better Grid */}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="w-full h-16 text-base bg-white text-blue-900 hover:bg-blue-50 font-semibold"
+                  onClick={() => navigate(createPageUrl("FormPage"))}
+                >
+                  <Home className="w-5 h-5 mr-2 flex-shrink-0" />
+                  Measure Another Roof
+                </Button>
 
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full h-14 text-lg border-2 border-white text-white hover:bg-white/10"
-                onClick={() => handleDownloadClick()}
-              >
-                <Download className="w-5 h-5 mr-2" />
-                Download Report
-              </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full h-16 text-base border-2 border-white text-white hover:bg-white/10 font-semibold"
+                  onClick={() => handleDownloadClick()}
+                >
+                  <Download className="w-5 h-5 mr-2 flex-shrink-0" />
+                  Download Report
+                </Button>
 
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full h-14 text-lg border-2 border-green-400 text-green-400 hover:bg-green-50 hover:text-green-700 md:col-span-2"
-                asChild
-                onClick={handleCallClick}
-              >
-                <a href="tel:+18502389727">
-                  <Phone className="w-5 h-5 mr-2" />
-                  Call: (850) 238-9727
-                </a>
-              </Button>
-            </div>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full h-16 text-base border-2 border-green-400 text-green-400 hover:bg-green-400 hover:text-white font-semibold sm:col-span-2 lg:col-span-1"
+                  asChild
+                  onClick={handleCallClick}
+                >
+                  <a href="tel:+18502389727" className="flex items-center justify-center gap-2">
+                    <Phone className="w-5 h-5 flex-shrink-0" />
+                    Call: (850) 238-9727
+                  </a>
+                </Button>
+              </div>
 
-            {/* Urgency Element */}
-            <div className="mt-6 text-center">
-              <div className="inline-flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse">
-                ⚡ 3 Spots Available This Week
+              {/* Urgency Element */}
+              <div className="mt-8 text-center">
+                <div className="inline-flex items-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-full text-base font-bold shadow-xl animate-pulse">
+                  ⚡ 3 Spots Available This Week
+                </div>
               </div>
             </div>
           </div>
