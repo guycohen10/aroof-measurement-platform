@@ -10,6 +10,7 @@ import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone,
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
+import DetailedMeasurements from "../components/results/DetailedMeasurements";
 
 export default function Results() {
   const navigate = useNavigate();
@@ -332,6 +333,9 @@ export default function Results() {
             <InteractiveMapView measurement={measurement} sections={sections} />
           </CardContent>
         </Card>
+
+        {/* NEW: Detailed Roof Components - Insert BEFORE Pricing Estimate */}
+        <DetailedMeasurements measurement={measurement} />
 
         {/* Pricing Estimate (for homeowners) */}
         {isHomeowner && (

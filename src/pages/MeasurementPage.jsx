@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -636,6 +637,80 @@ export default function MeasurementPage() {
     return sections.reduce((sum, section) => sum + section.adjusted_area_sqft, 0);
   };
 
+  const calculateRoofComponents = useCallback((sections) => {
+    console.log("📐 Calculating roof components for", sections.length, "sections");
+    
+    let totalFlatArea = 0;
+    let totalActualArea = 0;
+    let totalEaves = 0;
+    let totalRakes = 0;
+    let totalRidges = 0;
+    let totalHips = 0;
+    let totalValleys = 0;
+    let totalSteps = 0;
+    
+    const pitchBreakdown = {};
+    
+    sections.forEach(section => {
+      const flatArea = section.flat_area_sqft;
+      const pitchMultiplier = section.pitch_multiplier;
+      const actualArea = section.adjusted_area_sqft;
+      
+      totalFlatArea += flatArea;
+      totalActualArea += actualArea;
+      
+      // Track pitch breakdown
+      const pitchKey = section.pitch || "flat";
+      if (!pitchBreakdown[pitchKey]) {
+        pitchBreakdown[pitchKey] = 0;
+      }
+      pitchBreakdown[pitchKey] += actualArea / 100; // Convert to squares
+      
+      // Calculate perimeter (approximate based on area)
+      const avgDimension = Math.sqrt(flatArea); // This is a very crude estimation
+      const perimeter = avgDimension * 4; // Assuming a square-like shape for perimeter estimation
+      
+      // EAVES: Bottom edges (40% of perimeter)
+      totalEaves += perimeter * 0.4;
+      
+      // RAKES: Sloped edges (30% of perimeter, adjusted for pitch)
+      totalRakes += (perimeter * 0.3) * pitchMultiplier;
+      
+      // RIDGES: Peak lines (~50% of longest dimension)
+      totalRidges += avgDimension * 0.5;
+      
+      // HIPS: External corners (30% adjusted for pitch)
+      const hipEstimate = avgDimension * 0.3 * pitchMultiplier;
+      totalHips += hipEstimate;
+      
+      // VALLEYS: Internal corners (20% adjusted for pitch)
+      const valleyEstimate = avgDimension * 0.2 * pitchMultiplier;
+      totalValleys += valleyEstimate;
+      
+      // STEPS: Wall intersections (15% of perimeter)
+      totalSteps += perimeter * 0.15;
+    });
+    
+    const measurements = {
+      totalFlatArea: Math.round(totalFlatArea * 100) / 100,
+      totalActualArea: Math.round(totalActualArea * 100) / 100,
+      totalSquares: Math.round((totalActualArea / 100) * 100) / 100,
+      
+      eaves: Math.round(totalEaves * 10) / 10,
+      rakes: Math.round(totalRakes * 10) / 10,
+      ridges: Math.round(totalRidges * 10) / 10,
+      hips: Math.round(totalHips * 10) / 10,
+      valleys: Math.round(totalValleys * 10) / 10,
+      steps: Math.round(totalSteps * 10) / 10,
+      walls: 0, // Placeholder, can be estimated more accurately with proper geometry processing
+      
+      pitchBreakdown: pitchBreakdown
+    };
+    
+    console.log("✅ Roof components calculated:", measurements);
+    return measurements;
+  }, []);
+
   const handleCompleteMeasurement = useCallback(async () => {
     if (sections.length === 0) {
       setError("Please draw at least one section");
@@ -663,6 +738,10 @@ export default function MeasurementPage() {
 
       const sectionsData = sections.map(({ polygon, ...section }) => section);
 
+      // NEW: Calculate roof components
+      const roofComponents = calculateRoofComponents(sections);
+      console.log("📐 Roof components:", roofComponents);
+
       const measurementData = {
         measurement_data: {
           total_flat_sqft: totalFlat,
@@ -671,6 +750,17 @@ export default function MeasurementPage() {
         },
         total_sqft: totalFlat, 
         total_adjusted_sqft: totalAdjusted,
+        
+        // NEW: Add roof component measurements
+        eaves_ft: roofComponents.eaves,
+        rakes_ft: roofComponents.rakes,
+        ridges_ft: roofComponents.ridges,
+        hips_ft: roofComponents.hips,
+        valleys_ft: roofComponents.valleys,
+        steps_ft: roofComponents.steps,
+        walls_ft: roofComponents.walls,
+        pitch_breakdown: roofComponents.pitchBreakdown,
+        
         status: "completed",
         completed_at: new Date().toISOString()
       };
@@ -715,7 +805,7 @@ export default function MeasurementPage() {
       setError(`Failed to save measurement: ${err.message}. Please try again.`);
       setSaving(false);
     }
-  }, [sections, address, measurementId, navigate]);
+  }, [sections, address, measurementId, navigate, calculateRoofComponents]);
 
   if (loading) {
     return (
