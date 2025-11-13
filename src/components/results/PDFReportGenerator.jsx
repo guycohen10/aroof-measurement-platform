@@ -8,19 +8,33 @@ export default function PDFReportGenerator({ measurement, onGenerate }) {
   const handleGeneratePDF = () => {
     setGenerating(true);
     
-    // Open print-friendly view in new window
+    // Extract data
     const sections = measurement?.measurement_data?.sections || [];
     const photos = measurement?.photos || [];
     const flatArea = measurement?.measurement_data?.total_flat_sqft || measurement.total_sqft || 0;
     const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea;
     
+    // Generate satellite images URLs
+    const centerLat = sections.length > 0 && sections[0].coordinates?.length > 0 
+      ? sections[0].coordinates[0].lat 
+      : 32.7767;
+    const centerLng = sections.length > 0 && sections[0].coordinates?.length > 0
+      ? sections[0].coordinates[0].lng
+      : -96.7970;
+    
+    const satelliteImageUrl = generateSatelliteImageUrl(centerLat, centerLng, 20);
+    const diagramImageUrl = generateDiagramImageUrl(sections, centerLat, centerLng);
+    
+    // Open print-friendly view in new window
     const printWindow = window.open('', '_blank');
     printWindow.document.write(generatePrintableHTML({
       measurement,
       sections,
       photos,
       flatArea,
-      adjustedArea
+      adjustedArea,
+      satelliteImageUrl,
+      diagramImageUrl
     }));
     printWindow.document.close();
     
@@ -29,7 +43,7 @@ export default function PDFReportGenerator({ measurement, onGenerate }) {
       printWindow.print();
       setGenerating(false);
       if (onGenerate) onGenerate();
-    }, 1000);
+    }, 1500); // Increased delay for images to load
   };
 
   return (
@@ -54,7 +68,42 @@ export default function PDFReportGenerator({ measurement, onGenerate }) {
   );
 }
 
-function generatePrintableHTML({ measurement, sections, photos, flatArea, adjustedArea }) {
+// Generate Google Static Maps satellite image URL
+function generateSatelliteImageUrl(lat, lng, zoom) {
+  const apiKey = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+  const width = 640;
+  const height = 400;
+  
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${width}x${height}&maptype=satellite&key=${apiKey}`;
+}
+
+// Generate measurement diagram with drawn sections
+function generateDiagramImageUrl(sections, centerLat, centerLng) {
+  const apiKey = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+  const width = 640;
+  const height = 500;
+  
+  let pathsParam = '';
+  
+  // Add each section as a polygon overlay
+  sections.forEach((section, index) => {
+    if (section.coordinates && section.coordinates.length > 0) {
+      const color = ['0x4A90E2', '0x10b981', '0xf97316', '0xa855f7', '0xef4444'][index % 5];
+      const path = section.coordinates
+        .map(coord => `${coord.lat},${coord.lng}`)
+        .join('|');
+      
+      // Close the polygon by adding first point at end
+      const closedPath = path + `|${section.coordinates[0].lat},${section.coordinates[0].lng}`;
+      
+      pathsParam += `&path=color:${color}|weight:3|fillcolor:${color}44|${closedPath}`;
+    }
+  });
+  
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=20&size=${width}x${height}&maptype=satellite${pathsParam}&key=${apiKey}`;
+}
+
+function generatePrintableHTML({ measurement, sections, photos, flatArea, adjustedArea, satelliteImageUrl, diagramImageUrl }) {
   const totalSquares = (adjustedArea / 100).toFixed(2);
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   
@@ -116,7 +165,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
       color: white;
       padding: 30px;
-      margin: -0.75in -0.75in 40px -0.75in;
+      margin: -0.75in -0.75in 30px -0.75in;
       border-radius: 0;
     }
     
@@ -132,69 +181,94 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     }
     
     .cover-title {
-      font-size: 32px;
+      font-size: 28px;
       font-weight: 700;
       color: #1e3a8a;
-      margin: 40px 0 20px 0;
+      margin: 20px 0 15px 0;
+      text-align: center;
     }
     
     .property-address {
-      font-size: 20px;
+      font-size: 18px;
       color: #334155;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
+      text-align: center;
     }
     
     .measurement-date {
-      font-size: 14px;
+      font-size: 13px;
       color: #64748b;
-      margin-bottom: 40px;
+      margin-bottom: 25px;
+      text-align: center;
+    }
+    
+    .satellite-container {
+      border: 3px solid #cbd5e1;
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 25px 0;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .satellite-container img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    
+    .image-caption {
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 8px;
+      font-style: italic;
     }
     
     .summary-box {
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border: 3px solid #3b82f6;
       border-radius: 12px;
-      padding: 40px;
+      padding: 30px;
       text-align: center;
-      margin: 40px 0;
+      margin: 25px 0;
     }
     
     .big-number {
-      font-size: 64px;
+      font-size: 56px;
       font-weight: 700;
       color: #1e3a8a;
       line-height: 1;
     }
     
     .big-label {
-      font-size: 20px;
+      font-size: 18px;
       color: #475569;
-      margin-top: 10px;
+      margin-top: 8px;
     }
     
     .squares-label {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 600;
       color: #0ea5e9;
-      margin-top: 15px;
+      margin-top: 12px;
     }
     
     .details-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      margin: 30px 0;
+      gap: 12px;
+      margin: 20px 0;
     }
     
     .detail-item {
       background: #f8fafc;
-      padding: 15px;
+      padding: 12px;
       border-radius: 8px;
       border-left: 4px solid #3b82f6;
     }
     
     .detail-label {
-      font-size: 12px;
+      font-size: 11px;
       color: #64748b;
       font-weight: 600;
       text-transform: uppercase;
@@ -202,25 +276,71 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     }
     
     .detail-value {
-      font-size: 18px;
+      font-size: 16px;
       color: #1e293b;
       font-weight: 700;
-      margin-top: 5px;
+      margin-top: 4px;
     }
     
     .section-title {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       color: #1e3a8a;
-      margin: 40px 0 20px 0;
-      padding-bottom: 10px;
+      margin: 30px 0 15px 0;
+      padding-bottom: 8px;
       border-bottom: 3px solid #3b82f6;
+    }
+    
+    .diagram-container {
+      border: 3px solid #cbd5e1;
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 20px 0;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .diagram-container img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    
+    .legend-box {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border: 2px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    
+    .legend-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 10px;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 11px;
+      color: #475569;
+    }
+    
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 2px solid #64748b;
     }
     
     table {
       width: 100%;
       border-collapse: collapse;
-      margin: 20px 0;
+      margin: 15px 0;
+      font-size: 12px;
     }
     
     thead {
@@ -229,16 +349,16 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     }
     
     th {
-      padding: 12px;
+      padding: 10px;
       text-align: left;
       font-weight: 600;
-      font-size: 12px;
+      font-size: 11px;
     }
     
     td {
-      padding: 12px;
+      padding: 10px;
       border-bottom: 1px solid #e2e8f0;
-      font-size: 13px;
+      font-size: 11px;
     }
     
     tbody tr:nth-child(even) {
@@ -254,8 +374,8 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     .photos-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
-      margin: 20px 0;
+      gap: 15px;
+      margin: 15px 0;
     }
     
     .photo-item {
@@ -266,14 +386,14 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     
     .photo-item img {
       width: 100%;
-      height: 250px;
+      height: 200px;
       object-fit: cover;
     }
     
     .photo-caption {
-      padding: 10px;
+      padding: 8px;
       background: #f8fafc;
-      font-size: 12px;
+      font-size: 10px;
       color: #475569;
     }
     
@@ -281,44 +401,44 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       background: #fef3c7;
       border: 2px solid #fbbf24;
       border-radius: 8px;
-      padding: 15px;
-      margin: 20px 0;
-      font-size: 13px;
+      padding: 12px;
+      margin: 15px 0;
+      font-size: 11px;
       color: #92400e;
     }
     
     .cta-box {
       background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
       color: white;
-      padding: 30px;
+      padding: 25px;
       border-radius: 12px;
       text-align: center;
-      margin: 40px 0;
+      margin: 30px 0;
     }
     
     .cta-box h2 {
-      font-size: 28px;
-      margin-bottom: 10px;
+      font-size: 24px;
+      margin-bottom: 8px;
     }
     
     .contact-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
-      margin: 20px 0;
+      gap: 15px;
+      margin: 15px 0;
     }
     
     .contact-item {
-      font-size: 14px;
+      font-size: 12px;
       line-height: 1.8;
     }
     
     .footer {
-      margin-top: 60px;
-      padding-top: 20px;
+      margin-top: 40px;
+      padding-top: 15px;
       border-top: 2px solid #e2e8f0;
       text-align: center;
-      font-size: 11px;
+      font-size: 10px;
       color: #64748b;
     }
     
@@ -346,7 +466,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
 <body>
   <button class="print-button no-print" onclick="window.print()">🖨️ Save as PDF</button>
 
-  <!-- PAGE 1: COVER PAGE -->
+  <!-- PAGE 1: COVER PAGE WITH SATELLITE IMAGE -->
   <div class="page">
     <div class="header">
       <h1>Aroof</h1>
@@ -356,6 +476,16 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     <h2 class="cover-title">PROFESSIONAL ROOF MEASUREMENT REPORT</h2>
     <p class="property-address">${measurement.property_address}</p>
     <p class="measurement-date">Measured on ${today}</p>
+    
+    <!-- SATELLITE IMAGE -->
+    <div class="satellite-container">
+      <img 
+        src="${satelliteImageUrl}" 
+        alt="Satellite view of property"
+        onerror="this.style.display='none'"
+      />
+    </div>
+    <p class="image-caption">Satellite View - ${measurement.property_address}</p>
     
     <div class="summary-box">
       <div class="big-number">${Math.round(adjustedArea).toLocaleString()}</div>
@@ -386,12 +516,63 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       <p><strong>Aroof Roofing</strong></p>
       <p>📞 (850) 238-9727 | ✉️ contact@aroof.build | 🌐 aroof.build</p>
       <p>6810 Windrock Rd, Dallas, TX 75252</p>
+      <p style="margin-top: 10px;">Page 1</p>
     </div>
   </div>
   
   <div class="page-break"></div>
   
-  <!-- PAGE 2: DETAILED MEASUREMENTS -->
+  <!-- PAGE 2: MEASUREMENT DIAGRAM -->
+  <div class="page">
+    <div class="header">
+      <h1>Aroof</h1>
+      <p>Measurement Diagram & Section Analysis</p>
+    </div>
+    
+    <h2 class="section-title">📐 Roof Sections Measured</h2>
+    
+    <!-- MEASUREMENT DIAGRAM -->
+    <div class="diagram-container">
+      <img 
+        src="${diagramImageUrl}" 
+        alt="Measurement diagram with sections"
+        onerror="this.style.display='none'"
+      />
+    </div>
+    <p class="image-caption">Color-coded sections showing measured roof areas</p>
+    
+    <!-- SECTION LEGEND -->
+    <div class="legend-box">
+      <div class="legend-title">Section Details:</div>
+      ${sections.map((section, idx) => {
+        const colors = ['#4A90E2', '#10b981', '#f97316', '#a855f7', '#ef4444'];
+        return `
+          <div class="legend-item">
+            <div class="legend-color" style="background: ${colors[idx % 5]};"></div>
+            <div>
+              <strong>Section ${idx + 1}:</strong> 
+              ${section.pitch || 'flat'} pitch • 
+              ${Math.round(section.flat_area_sqft || 0).toLocaleString()} sq ft (flat) • 
+              ${Math.round(section.adjusted_area_sqft || 0).toLocaleString()} sq ft (adjusted)
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+    
+    <div class="note-box">
+      <strong>📏 Measurement Methodology:</strong> Sections traced using high-resolution satellite imagery. 
+      Areas calculated using GPS coordinates with pitch adjustments for accurate 3D surface area.
+    </div>
+    
+    <div class="footer">
+      <p>Aroof | (850) 238-9727 | contact@aroof.build | Page 2</p>
+    </div>
+  </div>
+  
+  <div class="page-break"></div>
+  
+  <!-- PAGE 3: DETAILED MEASUREMENTS -->
   <div class="page">
     <div class="header">
       <h1>Aroof</h1>
@@ -469,13 +650,13 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     </table>
     
     <div class="footer">
-      <p>Aroof | (850) 238-9727 | contact@aroof.build | Page 2</p>
+      <p>Aroof | (850) 238-9727 | contact@aroof.build | Page 3</p>
     </div>
   </div>
   
   <div class="page-break"></div>
   
-  <!-- PAGE 3: WASTE & PRICING -->
+  <!-- PAGE 4: WASTE & PRICING -->
   <div class="page">
     <div class="header">
       <h1>Aroof</h1>
@@ -541,7 +722,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
         </tr>
         <tr class="highlight-row">
           <td colspan="2"><strong>ESTIMATED COST RANGE</strong></td>
-          <td style="text-align: right; font-size: 18px;"><strong>$${lowEstimate.toLocaleString()} - $${highEstimate.toLocaleString()}</strong></td>
+          <td style="text-align: right; font-size: 14px;"><strong>$${lowEstimate.toLocaleString()} - $${highEstimate.toLocaleString()}</strong></td>
         </tr>
       </tbody>
     </table>
@@ -551,14 +732,14 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     </div>
     
     <div class="footer">
-      <p>Aroof | (850) 238-9727 | contact@aroof.build | Page 3</p>
+      <p>Aroof | (850) 238-9727 | contact@aroof.build | Page 4</p>
     </div>
   </div>
   
   ${photos.length > 0 ? `
     <div class="page-break"></div>
     
-    <!-- PAGE 4: SITE PHOTOS -->
+    <!-- PAGE 5: SITE PHOTOS -->
     <div class="page">
       <div class="header">
         <h1>Aroof</h1>
@@ -568,16 +749,18 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       <h2 class="section-title">📸 Site Photos</h2>
       
       <div class="photos-grid">
-        ${photos.map((photo, idx) => `
+        ${photos.slice(0, 6).map((photo, idx) => `
           <div class="photo-item">
-            <img src="${photo.url}" alt="Site photo ${idx + 1}" />
+            <img src="${photo.url}" alt="Site photo ${idx + 1}" onerror="this.style.display='none'" />
             ${photo.caption ? `<div class="photo-caption"><strong>Photo ${idx + 1}:</strong> ${photo.caption}</div>` : `<div class="photo-caption">Photo ${idx + 1}</div>`}
           </div>
         `).join('')}
       </div>
       
+      ${photos.length > 6 ? `<p class="image-caption">Showing first 6 of ${photos.length} photos</p>` : ''}
+      
       <div class="footer">
-        <p>Aroof | (850) 238-9727 | contact@aroof.build | Page 4</p>
+        <p>Aroof | (850) 238-9727 | contact@aroof.build | Page 5</p>
       </div>
     </div>
   ` : ''}
@@ -593,7 +776,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     
     <div class="cta-box">
       <h2>Schedule Your FREE Roof Inspection</h2>
-      <p style="font-size: 16px; margin-top: 10px;">Our licensed roofing experts are here to help</p>
+      <p style="font-size: 14px; margin-top: 8px;">Our licensed roofing experts are here to help</p>
     </div>
     
     <h2 class="section-title">📞 Contact Aroof</h2>
@@ -650,14 +833,12 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     <div class="footer">
       <p><strong>This report was generated by Aroof's automated measurement system</strong></p>
       <p>For questions or to schedule a free inspection, call (850) 238-9727</p>
-      <p style="margin-top: 20px;">© ${new Date().getFullYear()} Aroof. All rights reserved. Licensed & Insured in Texas.</p>
+      <p style="margin-top: 15px;">© ${new Date().getFullYear()} Aroof. All rights reserved. Licensed & Insured in Texas.</p>
     </div>
   </div>
   
   <script>
-    // Auto-print dialog on load
     window.onload = function() {
-      // Small delay to ensure images load
       setTimeout(() => {
         console.log('PDF report ready - Click "Save as PDF" button or use Ctrl/Cmd+P');
       }, 500);
