@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -104,11 +103,13 @@ export default function MeasurementPage() {
 
     const loadGoogleMaps = () => {
       if (window.google && window.google.maps && window.google.maps.drawing) {
+        console.log("✅ Google Maps already loaded");
         initializeMap();
         return;
       }
 
       if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+        console.log("⏳ Google Maps script found, waiting for load...");
         let attempts = 0;
         const maxAttempts = 50;
         
@@ -116,9 +117,11 @@ export default function MeasurementPage() {
           attempts++;
           if (window.google && window.google.maps && window.google.maps.drawing) {
             clearInterval(checkGoogle);
+            console.log("✅ Google Maps loaded after", attempts, "attempts");
             initializeMap();
           } else if (attempts >= maxAttempts) {
             clearInterval(checkGoogle);
+            console.error("❌ Google Maps timeout");
             setMapError("Google Maps failed to load. Please refresh the page.");
             setMapLoading(false);
           }
@@ -126,14 +129,19 @@ export default function MeasurementPage() {
         return;
       }
 
+      console.log("📥 Loading Google Maps script...");
       const apiKey = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,drawing,places`;
       script.async = true;
       script.defer = true;
       
-      script.onload = () => initializeMap();
+      script.onload = () => {
+        console.log("✅ Google Maps script loaded");
+        initializeMap();
+      };
       script.onerror = () => {
+        console.error("❌ Failed to load Google Maps script");
         setMapError("Failed to load Google Maps. Please check your internet connection.");
         setMapLoading(false);
       };
@@ -195,7 +203,7 @@ export default function MeasurementPage() {
       if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
         setMagnifierEnabled(prev => !prev);
-        setShowMagnifierInstructions(false); // Hide instructions after first toggle
+        setShowMagnifierInstructions(false);
       }
     };
 
@@ -213,7 +221,6 @@ export default function MeasurementPage() {
 
     if (!window.google || !window.google.maps) return;
 
-    // Only create if it doesn't exist yet
     if (!magnifierMapRef.current) {
       try {
         const magnifiedZoom = Math.min(currentZoom + magnificationLevel, 22);
@@ -493,7 +500,6 @@ export default function MeasurementPage() {
     setIsDrawing(true);
     setError("");
     
-    // Clean up any existing drawing manager
     if (drawingManagerRef.current) {
       console.log("🧹 Cleaning up existing drawing manager");
       drawingManagerRef.current.setMap(null);
