@@ -35,6 +35,8 @@ import RooferDashboard from './pages/RooferDashboard';
 import RooferBilling from './pages/RooferBilling';
 import RooferPlans from './pages/RooferPlans';
 import RooferSettings from './pages/RooferSettings';
+import StripeSuccess from './pages/StripeSuccess';
+import StripeCanceled from './pages/StripeCanceled';
 import Layout from './Layout.jsx';
 
 
@@ -76,6 +78,8 @@ export const PAGES = {
     "RooferBilling": RooferBilling,
     "RooferPlans": RooferPlans,
     "RooferSettings": RooferSettings,
+    "StripeSuccess": StripeSuccess,
+    "StripeCanceled": StripeCanceled,
 }
 
 export const pagesConfig = {
