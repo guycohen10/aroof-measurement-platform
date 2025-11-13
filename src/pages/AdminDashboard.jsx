@@ -1,14 +1,16 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Home, LogOut, BarChart3, Users, Settings, FileText, Loader2 } from "lucide-react";
+import { Home, LogOut, BarChart3, Users, Settings, FileText, Loader2, Building2 } from "lucide-react";
 import OverviewTab from "../components/admin/OverviewTab";
 import LeadsTab from "../components/admin/LeadsTab";
 import UsersTab from "../components/admin/UsersTab";
 import SettingsTab from "../components/admin/SettingsTab";
+import ExternalRoofersTab from "../components/admin/ExternalRoofersTab";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -19,6 +21,7 @@ export default function AdminDashboard() {
   // Data state
   const [leads, setLeads] = useState([]);
   const [users, setUsers] = useState([]);
+  const [roofers, setRoofers] = useState([]);
   const [stats, setStats] = useState({});
   const [leadsData, setLeadsData] = useState({});
   const [revenueData, setRevenueData] = useState({});
@@ -57,6 +60,10 @@ export default function AdminDashboard() {
 
       setLeads(allLeads);
       setUsers(allUsers);
+      
+      // Filter external roofers
+      const externalRoofers = allUsers.filter(u => u.aroof_role === 'external_roofer');
+      setRoofers(externalRoofers);
       
       // Calculate stats
       calculateStats(allLeads, allUsers);
@@ -294,7 +301,7 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-3xl grid-cols-4 h-12">
+          <TabsList className="grid w-full max-w-4xl grid-cols-5 h-12">
             <TabsTrigger value="overview" className="text-base">
               <BarChart3 className="w-4 h-4 mr-2" />
               Overview
@@ -306,6 +313,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="users" className="text-base">
               <Users className="w-4 h-4 mr-2" />
               Users
+            </TabsTrigger>
+            <TabsTrigger value="roofers" className="text-base">
+              <Building2 className="w-4 h-4 mr-2" />
+              Roofers
             </TabsTrigger>
             <TabsTrigger value="settings" className="text-base">
               <Settings className="w-4 h-4 mr-2" />
@@ -335,6 +346,10 @@ export default function AdminDashboard() {
               onUpdateUser={handleUpdateUser}
               onDeleteUser={(userId) => handleUpdateUser(userId, { is_active: false })}
             />
+          </TabsContent>
+
+          <TabsContent value="roofers">
+            <ExternalRoofersTab roofers={roofers} />
           </TabsContent>
 
           <TabsContent value="settings">

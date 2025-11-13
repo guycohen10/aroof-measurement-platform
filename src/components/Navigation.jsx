@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -101,6 +102,11 @@ export default function Navigation() {
             <a href="#how-it-works" className="text-slate-600 hover:text-blue-900 font-medium">How It Works</a>
             <a href="#benefits" className="text-slate-600 hover:text-blue-900 font-medium">Why Aroof</a>
             <a href="#reviews" className="text-slate-600 hover:text-blue-900 font-medium">Reviews</a>
+
+            <Link to={createPageUrl("RooferSignup")} className="text-blue-600 hover:text-blue-900 font-semibold">
+              For Contractors
+            </Link>
+            
             <a href="tel:+18502389727" className="flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-4 py-2 rounded-lg font-bold shadow-lg hover:shadow-xl transition-all">
               <Phone className="w-4 h-4" />
               (850) 238-9727

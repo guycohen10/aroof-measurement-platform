@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Home, ArrowLeft, Loader2, MapPin, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { base44 } from "@/services/base44"; // Assuming base44 is an imported service
 
 export default function FormPage() {
   const navigate = useNavigate();
@@ -18,12 +19,38 @@ export default function FormPage() {
   const [placesLoaded, setPlacesLoaded] = useState(false);
   const [placesError, setPlacesError] = useState("");
   const [selectedPlace, setSelectedPlace] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null); // Added
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     address: ""
   });
+
+  // Load user data on component mount
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  const loadUser = async () => {
+    try {
+      const user = await base44.auth.me();
+      setCurrentUser(user);
+      
+      // Pre-fill form if user data exists
+      if (user.full_name) {
+        setFormData(prev => ({ ...prev, name: user.full_name }));
+      }
+      if (user.email) {
+        setFormData(prev => ({ ...prev, email: user.email }));
+      }
+      if (user.phone) {
+        setFormData(prev => ({ ...prev, phone: user.phone }));
+      }
+    } catch (err) {
+      console.log('Not logged in - continuing as guest', err);
+    }
+  };
 
   // Load Google Places API
   useEffect(() => {
@@ -154,6 +181,18 @@ export default function FormPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    // Check if external roofer and validate limits
+    if (currentUser?.aroof_role === 'external_roofer') {
+      const limit = currentUser.measurements_limit || 3;
+      const used = currentUser.measurements_used_this_month || 0;
+
+      if (currentUser.subscription_plan !== 'unlimited' && used >= limit) {
+        alert(`You've reached your monthly limit of ${limit} measurements.\n\nUpgrade your plan to measure more roofs.`);
+        navigate(createPageUrl("RooferPlans"));
+        return;
+      }
+    }
 
     console.log("FormPage: Form submitted - NEW FLOW (FREE measurement)");
 
