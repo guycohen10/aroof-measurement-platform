@@ -33,6 +33,8 @@ import EstimatorLeadDetail from './pages/EstimatorLeadDetail';
 import RooferSignup from './pages/RooferSignup';
 import RooferDashboard from './pages/RooferDashboard';
 import RooferBilling from './pages/RooferBilling';
+import RooferPlans from './pages/RooferPlans';
+import RooferSettings from './pages/RooferSettings';
 import Layout from './Layout.jsx';
 
 
@@ -72,6 +74,8 @@ export const PAGES = {
     "RooferSignup": RooferSignup,
     "RooferDashboard": RooferDashboard,
     "RooferBilling": RooferBilling,
+    "RooferPlans": RooferPlans,
+    "RooferSettings": RooferSettings,
 }
 
 export const pagesConfig = {
