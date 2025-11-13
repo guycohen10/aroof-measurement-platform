@@ -37,6 +37,8 @@ import RooferPlans from './pages/RooferPlans';
 import RooferSettings from './pages/RooferSettings';
 import StripeSuccess from './pages/StripeSuccess';
 import StripeCanceled from './pages/StripeCanceled';
+import RooferLogin from './pages/RooferLogin';
+import ForgotPassword from './pages/ForgotPassword';
 import Layout from './Layout.jsx';
 
 
@@ -80,6 +82,8 @@ export const PAGES = {
     "RooferSettings": RooferSettings,
     "StripeSuccess": StripeSuccess,
     "StripeCanceled": StripeCanceled,
+    "RooferLogin": RooferLogin,
+    "ForgotPassword": ForgotPassword,
 }
 
 export const pagesConfig = {

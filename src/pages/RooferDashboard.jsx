@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -17,7 +18,8 @@ import {
   Eye,
   AlertCircle,
   Crown,
-  LogOut
+  LogOut,
+  Loader2 // Added Loader2 import
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -28,43 +30,55 @@ export default function RooferDashboard() {
   const [measurements, setMeasurements] = useState([]);
 
   useEffect(() => {
-    checkAuthAndLoad();
+    loadDashboardData(); // Changed to loadDashboardData
   }, []);
 
-  const checkAuthAndLoad = async () => {
+  // Renamed from checkAuthAndLoad and updated
+  const loadDashboardData = async () => {
     try {
       const currentUser = await base44.auth.me();
       
+      // Check if user is external roofer
       if (currentUser.aroof_role !== 'external_roofer') {
-        alert('Access denied. External roofer account required.');
+        alert('Access denied. This dashboard is for external roofers only.');
         navigate(createPageUrl("Homepage"));
         return;
       }
 
       setUser(currentUser);
-      await loadMeasurements(currentUser);
-    } catch (err) {
-      console.error('Auth error:', err);
-      navigate(createPageUrl("RooferSignup"));
-    }
-  };
 
-  const loadMeasurements = async (currentUser) => {
-    try {
-      const userMeasurements = await base44.entities.Measurement.filter({
-        created_by: currentUser.email
-      });
+      // Load measurements created by this user, sorted by created_date descending, limited to 10
+      const userMeasurements = await base44.entities.Measurement.filter(
+        { created_by: currentUser.email },
+        '-created_date',
+        10
+      );
       
       setMeasurements(userMeasurements);
       setLoading(false);
     } catch (err) {
-      console.error('Error loading measurements:', err);
-      setLoading(false);
+      console.error('Error loading dashboard:', err);
+      
+      // Not authenticated - redirect to login
+      if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
+        navigate(createPageUrl("RooferLogin"));
+        return;
+      }
+      
+      alert('Failed to load dashboard. Please try logging in again.');
+      navigate(createPageUrl("RooferLogin"));
     }
   };
 
-  const handleLogout = () => {
-    base44.auth.logout();
+  const handleLogout = async () => { // Made async
+    try {
+      await base44.auth.logout(); // Added await
+      navigate(createPageUrl("RooferLogin")); // Navigate to login page
+    } catch (err) {
+      console.error('Logout error:', err);
+      // Fallback for more robust logout, force page reload to clear state
+      window.location.href = createPageUrl("RooferLogin");
+    }
   };
 
   const handleNewMeasurement = async () => {
@@ -110,7 +124,7 @@ export default function RooferDashboard() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" /> {/* Updated spinner */}
           <p className="text-slate-600">Loading dashboard...</p>
         </div>
       </div>
