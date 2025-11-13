@@ -6,13 +6,14 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Building2 } from "lucide-react";
+import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Building2, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
 import DetailedMeasurements from "../components/results/DetailedMeasurements";
 import PhotoUpload from "../components/results/PhotoUpload";
 import PDFReportGenerator from "../components/results/PDFReportGenerator";
+import { captureMapImage, showLoadingOverlay, hideLoadingOverlay } from "../components/results/MapImageCapture";
 
 export default function Results() {
   const navigate = useNavigate();
@@ -21,6 +22,11 @@ export default function Results() {
   const [error, setError] = useState("");
   const [materialType, setMaterialType] = useState("asphalt_shingles");
   const [trackingAction, setTrackingAction] = useState(false);
+
+  // NEW: State for captured map images
+  const [satelliteImageData, setSatelliteImageData] = React.useState(null);
+  const [diagramImageData, setDiagramImageData] = React.useState(null);
+  const [capturingImages, setCapturingImages] = React.useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -102,6 +108,46 @@ export default function Results() {
   const handlePDFGenerate = async () => {
     // Track PDF generation
     trackConversion("pdf_generated", { pdf_generated_date: new Date().toISOString() });
+  };
+
+  // NEW: Capture map images before generating PDF
+  const handleCaptureAndGeneratePDF = async () => {
+    try {
+      setCapturingImages(true);
+      showLoadingOverlay('📸 Capturing satellite imagery...');
+      
+      console.log('🗺️ Starting map capture...');
+      
+      // Capture the InteractiveMapView component
+      const satelliteImg = await captureMapImage('interactive-map-container');
+      const diagramImg = await captureMapImage('interactive-map-container'); // Same map shows both
+      
+      if (satelliteImg) {
+        console.log('✅ Satellite image captured');
+        setSatelliteImageData(satelliteImg);
+      }
+      
+      if (diagramImg) {
+        console.log('✅ Diagram image captured');
+        setDiagramImageData(diagramImg);
+      }
+      
+      showLoadingOverlay('📄 Preparing PDF report...');
+      
+      // Small delay to ensure state is updated
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      hideLoadingOverlay();
+      setCapturingImages(false);
+      
+      console.log('✅ Images captured, ready to generate PDF');
+      
+    } catch (error) {
+      console.error('❌ Error capturing images:', error);
+      hideLoadingOverlay();
+      setCapturingImages(false);
+      alert('Error capturing map images. Please try again.');
+    }
   };
 
   if (loading) {
@@ -334,14 +380,16 @@ export default function Results() {
           </CardContent>
         </Card>
 
-        {/* Interactive Map with Polygon */}
+        {/* Interactive Map with ID for capture */}
         <Card className="mb-8 shadow-lg">
           <CardHeader>
             <CardTitle className="text-2xl">Satellite View with Measurements</CardTitle>
             <p className="text-sm text-slate-600 mt-1">Interactive map - zoom and pan to explore</p>
           </CardHeader>
           <CardContent>
-            <InteractiveMapView measurement={measurement} sections={sections} />
+            <div id="interactive-map-container">
+              <InteractiveMapView measurement={measurement} sections={sections} />
+            </div>
           </CardContent>
         </Card>
 
@@ -452,7 +500,7 @@ export default function Results() {
         {/* NEW: Photo Upload Section */}
         <PhotoUpload measurement={measurement} onPhotosUpdate={handlePhotosUpdate} />
 
-        {/* UPDATED: PDF Download with Generator */}
+        {/* UPDATED: PDF Download with Image Capture */}
         <Card className="mb-8 shadow-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
           <CardHeader className="bg-gradient-to-r from-purple-100 to-blue-100 border-b pb-6">
             <div className="flex items-center justify-center gap-3 mb-3">
@@ -475,7 +523,8 @@ export default function Results() {
               <h3 className="font-bold text-slate-900 mb-4 text-lg">Your PDF Report Includes:</h3>
               <div className="grid md:grid-cols-2 gap-3">
                 {[
-                  "Professional cover page with total area",
+                  "Professional cover page with satellite imagery",
+                  "Measurement diagram with color-coded sections",
                   "Complete line measurements (eaves, ridges, valleys, hips)",
                   "Section-by-section breakdown with pitch adjustments",
                   "Material waste factor calculations",
@@ -483,8 +532,7 @@ export default function Results() {
                   measurement.photos && measurement.photos.length > 0 ? `${measurement.photos.length} site photos with captions` : "Site photos (if uploaded)",
                   "Pitch breakdown by roof section",
                   "Professional Aroof branding",
-                  "Ready for contractors and insurance",
-                  "Print-friendly multi-page format"
+                  "Ready for contractors and insurance"
                 ].map((item, index) => (
                   <div key={index} className="flex items-start gap-2">
                     <CheckCircle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
@@ -494,18 +542,60 @@ export default function Results() {
               </div>
             </div>
 
-            {/* Generate PDF Button */}
-            <div className="text-center">
-              <PDFReportGenerator measurement={measurement} onGenerate={handlePDFGenerate} />
+            {/* Two-step process: Capture then Generate */}
+            <div className="text-center space-y-4">
+              {!satelliteImageData || !diagramImageData ? (
+                <Button
+                  size="lg"
+                  className="w-full h-16 px-10 text-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-xl"
+                  onClick={handleCaptureAndGeneratePDF}
+                  disabled={capturingImages}
+                >
+                  {capturingImages ? (
+                    <>
+                      <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+                      Capturing Map Images...
+                    </>
+                  ) : (
+                    <>
+                      📸 Capture Satellite Images
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                    <p className="text-green-900 font-semibold flex items-center justify-center gap-2">
+                      <CheckCircle className="w-5 h-5" />
+                      ✅ Map images captured! Ready to generate PDF
+                    </p>
+                  </div>
+                  
+                  <PDFReportGenerator 
+                    measurement={measurement} 
+                    onGenerate={handlePDFGenerate}
+                    satelliteImageData={satelliteImageData}
+                    diagramImageData={diagramImageData}
+                  />
+                  
+                  <Button
+                    variant="outline"
+                    onClick={handleCaptureAndGeneratePDF}
+                    disabled={capturingImages}
+                  >
+                    🔄 Re-capture Images
+                  </Button>
+                </div>
+              )}
               
-              <p className="text-sm text-slate-600 mt-4">
+              <p className="text-sm text-slate-600">
                 💡 Tip: Click "Save as PDF" in the print dialog that opens
               </p>
             </div>
 
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center mt-6">
               <p className="text-sm text-green-900">
-                💯 <strong>FREE to Generate</strong> - Professional multi-page PDF report at no cost!
+                💯 <strong>FREE to Generate</strong> - Professional multi-page PDF report with satellite imagery!
               </p>
             </div>
           </CardContent>
