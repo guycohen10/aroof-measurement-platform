@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -11,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
 import DetailedMeasurements from "../components/results/DetailedMeasurements";
+import PhotoUpload from "../components/results/PhotoUpload";
 
 export default function Results() {
   const navigate = useNavigate();
@@ -93,6 +93,10 @@ export default function Results() {
     navigate(createPageUrl(url));
   };
 
+  const handlePhotosUpdate = (updatedPhotos) => {
+    setMeasurement({ ...measurement, photos: updatedPhotos });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
@@ -134,8 +138,8 @@ export default function Results() {
   // Get sections from measurement data
   const sections = measurement?.measurement_data?.sections || [];
   const flatArea = measurement?.measurement_data?.total_flat_sqft || measurement.total_sqft || 0;
-  const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea; // Use total_sqft as fallback for adjusted if total_adjusted_sqft is not present. Original total_sqft is flat.
-  const area = adjustedArea; // Use adjusted area for calculations
+  const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea;
+  const area = adjustedArea;
   const isHomeowner = measurement.user_type === "homeowner";
   const hasPitchAdjustment = flatArea !== adjustedArea;
 
@@ -229,7 +233,7 @@ export default function Results() {
           </CardContent>
         </Card>
 
-        {/* Section Breakdown - NEW */}
+        {/* Section Breakdown */}
         {sections.length > 1 && (
           <Card className="mb-8 shadow-lg">
             <CardHeader>
@@ -334,7 +338,7 @@ export default function Results() {
           </CardContent>
         </Card>
 
-        {/* NEW: Detailed Roof Components - Insert BEFORE Pricing Estimate */}
+        {/* NEW: Detailed Roof Components */}
         <DetailedMeasurements measurement={measurement} />
 
         {/* Pricing Estimate (for homeowners) */}
@@ -438,7 +442,10 @@ export default function Results() {
           </Card>
         )}
 
-        {/* NEW: PDF Download CTA Section */}
+        {/* NEW: Photo Upload Section */}
+        <PhotoUpload measurement={measurement} onPhotosUpdate={handlePhotosUpdate} />
+
+        {/* PDF Download CTA Section - Updated with photo count */}
         <Card className="mb-8 shadow-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
           <CardHeader className="bg-gradient-to-r from-purple-100 to-blue-100 border-b pb-6">
             <div className="flex items-center justify-center gap-3 mb-3">
@@ -449,6 +456,11 @@ export default function Results() {
             </CardTitle>
             <p className="text-center text-slate-600 mt-2">
               Get a professional, printable PDF report with complete analysis
+              {measurement.photos && measurement.photos.length > 0 && (
+                <span className="block mt-1 text-purple-600 font-semibold">
+                  Including {measurement.photos.length} site photo{measurement.photos.length !== 1 ? 's' : ''}
+                </span>
+              )}
             </p>
           </CardHeader>
           <CardContent className="p-8">
@@ -459,6 +471,8 @@ export default function Results() {
                   "High-resolution satellite imagery with measurements",
                   "Complete cost breakdown by material and labor",
                   "Section-by-section roof analysis with pitch adjustments",
+                  "Detailed line measurements (ridges, valleys, hips, eaves)",
+                  measurement.photos && measurement.photos.length > 0 ? `${measurement.photos.length} site photos with captions` : "Site photos (if uploaded)",
                   "Material quantity estimates (shingles, underlayment, etc.)",
                   "Professional formatting for insurance and contractors",
                   "Printable and shareable format",
