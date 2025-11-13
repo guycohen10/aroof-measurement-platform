@@ -29,6 +29,7 @@ import Windows from './pages/Windows';
 import Commercial from './pages/Commercial';
 import Insurance from './pages/Insurance';
 import EstimatorDashboard from './pages/EstimatorDashboard';
+import EstimatorLeadDetail from './pages/EstimatorLeadDetail';
 import Layout from './Layout.jsx';
 
 
@@ -64,6 +65,7 @@ export const PAGES = {
     "Commercial": Commercial,
     "Insurance": Insurance,
     "EstimatorDashboard": EstimatorDashboard,
+    "EstimatorLeadDetail": EstimatorLeadDetail,
 }
 
 export const pagesConfig = {
