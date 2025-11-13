@@ -1,14 +1,13 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Home, ArrowLeft, Loader2, MapPin, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { base44 } from "@/services/base44"; // Assuming base44 is an imported service
 
 export default function FormPage() {
   const navigate = useNavigate();
@@ -19,7 +18,7 @@ export default function FormPage() {
   const [placesLoaded, setPlacesLoaded] = useState(false);
   const [placesError, setPlacesError] = useState("");
   const [selectedPlace, setSelectedPlace] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null); // Added
+  const [currentUser, setCurrentUser] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -27,7 +26,6 @@ export default function FormPage() {
     address: ""
   });
 
-  // Load user data on component mount
   useEffect(() => {
     loadUser();
   }, []);
@@ -37,7 +35,6 @@ export default function FormPage() {
       const user = await base44.auth.me();
       setCurrentUser(user);
       
-      // Pre-fill form if user data exists
       if (user.full_name) {
         setFormData(prev => ({ ...prev, name: user.full_name }));
       }
@@ -48,11 +45,10 @@ export default function FormPage() {
         setFormData(prev => ({ ...prev, phone: user.phone }));
       }
     } catch (err) {
-      console.log('Not logged in - continuing as guest', err);
+      console.log('Not logged in - continuing as guest');
     }
   };
 
-  // Load Google Places API
   useEffect(() => {
     console.log("FormPage: Starting Google Places load...");
     
@@ -115,7 +111,6 @@ export default function FormPage() {
     };
   }, []);
 
-  // Initialize autocomplete
   useEffect(() => {
     if (!placesLoaded || !addressInputRef.current) {
       return;
@@ -182,7 +177,6 @@ export default function FormPage() {
     e.preventDefault();
     setError("");
 
-    // Check if external roofer and validate limits
     if (currentUser?.aroof_role === 'external_roofer') {
       const limit = currentUser.measurements_limit || 3;
       const used = currentUser.measurements_used_this_month || 0;
@@ -204,7 +198,6 @@ export default function FormPage() {
     setLoading(true);
 
     try {
-      // NEW FLOW: Redirect directly to measurement page (NO PAYMENT)
       const params = new URLSearchParams({
         address: selectedPlace.formatted_address,
         lat: selectedPlace.lat.toString(),
@@ -226,7 +219,6 @@ export default function FormPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
-      {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -246,9 +238,7 @@ export default function FormPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* NEW: Free Measurement Banner */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl p-6 mb-8 text-center">
           <p className="text-green-100 mb-2">🎉 Limited Time Offer</p>
           <p className="text-3xl font-bold mb-1">FREE Roof Measurement</p>
@@ -365,7 +355,6 @@ export default function FormPage() {
                 )}
               </div>
 
-              {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={loading || (!selectedPlace && !placesError)}
@@ -384,7 +373,6 @@ export default function FormPage() {
           </CardContent>
         </Card>
 
-        {/* Info Box */}
         <Card className="mt-6 bg-green-50 border-green-200">
           <CardContent className="p-4">
             <p className="text-sm text-green-900">
@@ -397,7 +385,6 @@ export default function FormPage() {
           </CardContent>
         </Card>
 
-        {/* Trust Badge */}
         <Card className="mt-4 bg-blue-50 border-blue-200">
           <CardContent className="p-4 text-center">
             <p className="text-sm text-blue-900 font-bold">
@@ -410,7 +397,6 @@ export default function FormPage() {
         </Card>
       </div>
 
-      {/* Autocomplete Styling */}
       <style>{`
         .pac-container {
           background-color: white;
