@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -11,6 +12,7 @@ import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
 import DetailedMeasurements from "../components/results/DetailedMeasurements";
 import PhotoUpload from "../components/results/PhotoUpload";
+import PDFReportGenerator from "../components/results/PDFReportGenerator";
 
 export default function Results() {
   const navigate = useNavigate();
@@ -95,6 +97,11 @@ export default function Results() {
 
   const handlePhotosUpdate = (updatedPhotos) => {
     setMeasurement({ ...measurement, photos: updatedPhotos });
+  };
+
+  const handlePDFGenerate = async () => {
+    // Track PDF generation
+    trackConversion("pdf_generated", { pdf_generated_date: new Date().toISOString() });
   };
 
   if (loading) {
@@ -195,7 +202,7 @@ export default function Results() {
 
       {/* Enhanced Success Banner with Animation */}
       <div className="bg-gradient-to-r from-green-500 via-green-600 to-green-700 text-white py-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsYXNzIGFiYyBkZWYiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDMuOTktNGMwLTIuMjEtNC0zLjc5LTQtNHptLTYgMGMwIDIuMzExLjc5IDQgNCA0czQtMS43OSAzLjk5LTQtNC0zLjc5LTQtNHptLTItNGMwIDIzMTEuNzkyMjEzOC43NTg2OTUgNCA0cy0xLjc5MjI4MDMtNC0zLjk5OTg1NzgtNGwtLjAwMDAxNDMtLjAwMDAwODl6bTAgMGMwIDIuMzExLjczOTY3MzYgNCA0IDRzNC0xLjc5IDIuMjI3NzAyLTQuMDAxMjY1OS4wMDAwMTIzLS4wMDAwMDQ5eiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsYXNzIGFiYyBkZWYiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZj																					 												 											  MDIuMjEgMS43OSA0IDQgNHM0LTEuNzkgMy45OS00YzAtMi4yMS00LTMuNzktNC00em0tNiAwYzAgMi4zMTEuNzkgNCA0IDRzNC0xLjc5IDMuOTktNC00LTMuNzktNC00em0tMi00YzAgMjMxMS43OTIyMTM4Ljc1ODY5NSA0IDRzLTEuNzkyMjgwMy00LTMuOTk5ODU3OC00bC0uMDAwMDE0My0uMDAwMDAwODl6bTAgMGMwIDIuMzExLjczOTY3MzYgNCA0IDRzNC0xLjc5IDIuMjI3NzAyLTQuMDAxMjY1OS4wMDAwMTIzLS4wMDAwMDQ5eiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-center gap-4 mb-6">
@@ -445,7 +452,7 @@ export default function Results() {
         {/* NEW: Photo Upload Section */}
         <PhotoUpload measurement={measurement} onPhotosUpdate={handlePhotosUpdate} />
 
-        {/* PDF Download CTA Section - Updated with photo count */}
+        {/* UPDATED: PDF Download with Generator */}
         <Card className="mb-8 shadow-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
           <CardHeader className="bg-gradient-to-r from-purple-100 to-blue-100 border-b pb-6">
             <div className="flex items-center justify-center gap-3 mb-3">
@@ -468,16 +475,16 @@ export default function Results() {
               <h3 className="font-bold text-slate-900 mb-4 text-lg">Your PDF Report Includes:</h3>
               <div className="grid md:grid-cols-2 gap-3">
                 {[
-                  "High-resolution satellite imagery with measurements",
-                  "Complete cost breakdown by material and labor",
-                  "Section-by-section roof analysis with pitch adjustments",
-                  "Detailed line measurements (ridges, valleys, hips, eaves)",
+                  "Professional cover page with total area",
+                  "Complete line measurements (eaves, ridges, valleys, hips)",
+                  "Section-by-section breakdown with pitch adjustments",
+                  "Material waste factor calculations",
+                  "Detailed cost breakdown and estimates",
                   measurement.photos && measurement.photos.length > 0 ? `${measurement.photos.length} site photos with captions` : "Site photos (if uploaded)",
-                  "Material quantity estimates (shingles, underlayment, etc.)",
-                  "Professional formatting for insurance and contractors",
-                  "Printable and shareable format",
-                  "Lifetime access - download anytime",
-                  "Money-back satisfaction guarantee"
+                  "Pitch breakdown by roof section",
+                  "Professional Aroof branding",
+                  "Ready for contractors and insurance",
+                  "Print-friendly multi-page format"
                 ].map((item, index) => (
                   <div key={index} className="flex items-start gap-2">
                     <CheckCircle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
@@ -487,49 +494,18 @@ export default function Results() {
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 mb-6">
-              {/* Homeowner Option */}
-              <div className="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-300 rounded-xl p-6 text-center hover:shadow-lg transition-all">
-                <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <h4 className="font-bold text-slate-900 text-xl mb-2">Homeowner Report</h4>
-                <div className="text-4xl font-bold text-blue-600 mb-3">$3</div>
-                <p className="text-sm text-slate-600 mb-4">
-                  Includes pricing and recommendations
-                </p>
-                <Button
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700"
-                  onClick={() => handleDownloadClick('homeowner')}
-                >
-                  <Download className="w-5 h-5 mr-2" />
-                  Download for $3
-                </Button>
-              </div>
-
-              {/* Professional Option */}
-              <div className="bg-gradient-to-br from-purple-50 to-white border-2 border-purple-300 rounded-xl p-6 text-center hover:shadow-lg transition-all">
-                <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-                  <Building2 className="w-6 h-6 text-white" />
-                </div>
-                <h4 className="font-bold text-slate-900 text-xl mb-2">Professional Report</h4>
-                <div className="text-4xl font-bold text-purple-600 mb-3">$5</div>
-                <p className="text-sm text-slate-600 mb-4">
-                  Includes material calculations
-                </p>
-                <Button
-                  className="w-full h-12 bg-purple-600 hover:bg-purple-700"
-                  onClick={() => handleDownloadClick('roofer')}
-                >
-                  <Download className="w-5 h-5 mr-2" />
-                  Download for $5
-                </Button>
-              </div>
+            {/* Generate PDF Button */}
+            <div className="text-center">
+              <PDFReportGenerator measurement={measurement} onGenerate={handlePDFGenerate} />
+              
+              <p className="text-sm text-slate-600 mt-4">
+                💡 Tip: Click "Save as PDF" in the print dialog that opens
+              </p>
             </div>
 
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center mt-6">
               <p className="text-sm text-green-900">
-                💯 <strong>100% Satisfaction Guaranteed</strong> - Get accurate measurements or your money back
+                💯 <strong>FREE to Generate</strong> - Professional multi-page PDF report at no cost!
               </p>
             </div>
           </CardContent>
