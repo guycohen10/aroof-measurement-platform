@@ -5,45 +5,62 @@ import { Download, Printer, Loader2 } from "lucide-react";
 export default function PDFReportGenerator({ measurement, onGenerate }) {
   const [generating, setGenerating] = React.useState(false);
 
-  const handleGeneratePDF = () => {
+  const handleGeneratePDF = async () => {
     setGenerating(true);
     
-    // Extract data
-    const sections = measurement?.measurement_data?.sections || [];
-    const photos = measurement?.photos || [];
-    const flatArea = measurement?.measurement_data?.total_flat_sqft || measurement.total_sqft || 0;
-    const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea;
-    
-    // Generate satellite images URLs
-    const centerLat = sections.length > 0 && sections[0].coordinates?.length > 0 
-      ? sections[0].coordinates[0].lat 
-      : 32.7767;
-    const centerLng = sections.length > 0 && sections[0].coordinates?.length > 0
-      ? sections[0].coordinates[0].lng
-      : -96.7970;
-    
-    const satelliteImageUrl = generateSatelliteImageUrl(centerLat, centerLng, 20);
-    const diagramImageUrl = generateDiagramImageUrl(sections, centerLat, centerLng);
-    
-    // Open print-friendly view in new window
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(generatePrintableHTML({
-      measurement,
-      sections,
-      photos,
-      flatArea,
-      adjustedArea,
-      satelliteImageUrl,
-      diagramImageUrl
-    }));
-    printWindow.document.close();
-    
-    // Wait for content to load, then trigger print
-    setTimeout(() => {
+    try {
+      // Extract data
+      const sections = measurement?.measurement_data?.sections || [];
+      const photos = measurement?.photos || [];
+      const flatArea = measurement?.measurement_data?.total_flat_sqft || measurement.total_sqft || 0;
+      const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea;
+      
+      // Generate satellite images URLs
+      const centerLat = sections.length > 0 && sections[0].coordinates?.length > 0 
+        ? sections[0].coordinates[0].lat 
+        : 32.7767;
+      const centerLng = sections.length > 0 && sections[0].coordinates?.length > 0
+        ? sections[0].coordinates[0].lng
+        : -96.7970;
+      
+      const satelliteImageUrl = generateSatelliteImageUrl(centerLat, centerLng, 20);
+      const diagramImageUrl = generateDiagramImageUrl(sections, centerLat, centerLng);
+      
+      // CRITICAL: Preload images BEFORE opening print window
+      console.log('🖼️ Preloading images...');
+      await Promise.all([
+        preloadImage(satelliteImageUrl),
+        preloadImage(diagramImageUrl),
+        ...photos.slice(0, 6).map(photo => preloadImage(photo.url))
+      ]);
+      console.log('✅ All images preloaded');
+      
+      // Open print-friendly view in new window
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(generatePrintableHTML({
+        measurement,
+        sections,
+        photos,
+        flatArea,
+        adjustedArea,
+        satelliteImageUrl,
+        diagramImageUrl
+      }));
+      printWindow.document.close();
+      
+      // Wait for images to fully render in the new window
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Trigger print
       printWindow.print();
       setGenerating(false);
       if (onGenerate) onGenerate();
-    }, 1500); // Increased delay for images to load
+      
+    } catch (error) {
+      console.error('❌ PDF generation error:', error);
+      alert('Error generating PDF. Please try again.');
+      setGenerating(false);
+    }
   };
 
   return (
@@ -56,7 +73,7 @@ export default function PDFReportGenerator({ measurement, onGenerate }) {
       {generating ? (
         <>
           <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-          Preparing Report...
+          Loading Images & Preparing Report...
         </>
       ) : (
         <>
@@ -68,13 +85,36 @@ export default function PDFReportGenerator({ measurement, onGenerate }) {
   );
 }
 
+// Preload image to ensure it's cached before PDF generation
+function preloadImage(url) {
+  return new Promise((resolve, reject) => {
+    if (!url) {
+      resolve();
+      return;
+    }
+    
+    const img = new Image();
+    img.onload = () => {
+      console.log('✅ Loaded:', url.substring(0, 80) + '...');
+      resolve();
+    };
+    img.onerror = () => {
+      console.warn('⚠️ Failed to load:', url.substring(0, 80) + '...');
+      resolve(); // Resolve anyway to not block PDF generation
+    };
+    
+    // Add cache buster to ensure fresh load
+    img.src = url.includes('?') ? `${url}&_t=${Date.now()}` : `${url}?_t=${Date.now()}`;
+  });
+}
+
 // Generate Google Static Maps satellite image URL
 function generateSatelliteImageUrl(lat, lng, zoom) {
   const apiKey = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
   const width = 640;
   const height = 400;
   
-  return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${width}x${height}&maptype=satellite&key=${apiKey}`;
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${width}x${height}&maptype=satellite&scale=2&key=${apiKey}`;
 }
 
 // Generate measurement diagram with drawn sections
@@ -88,7 +128,10 @@ function generateDiagramImageUrl(sections, centerLat, centerLng) {
   // Add each section as a polygon overlay
   sections.forEach((section, index) => {
     if (section.coordinates && section.coordinates.length > 0) {
-      const color = ['0x4A90E2', '0x10b981', '0xf97316', '0xa855f7', '0xef4444'][index % 5];
+      const colors = ['0x3b82f6', '0x10b981', '0xf59e0b', '0xa855f7', '0xef4444'];
+      const color = colors[index % colors.length];
+      const fillColor = color + '80'; // Add alpha for transparency
+      
       const path = section.coordinates
         .map(coord => `${coord.lat},${coord.lng}`)
         .join('|');
@@ -96,11 +139,11 @@ function generateDiagramImageUrl(sections, centerLat, centerLng) {
       // Close the polygon by adding first point at end
       const closedPath = path + `|${section.coordinates[0].lat},${section.coordinates[0].lng}`;
       
-      pathsParam += `&path=color:${color}|weight:3|fillcolor:${color}44|${closedPath}`;
+      pathsParam += `&path=fillcolor:${fillColor}|color:${color}|weight:3|${closedPath}`;
     }
   });
   
-  return `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=20&size=${width}x${height}&maptype=satellite${pathsParam}&key=${apiKey}`;
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=20&size=${width}x${height}&maptype=satellite&scale=2${pathsParam}&key=${apiKey}`;
 }
 
 function generatePrintableHTML({ measurement, sections, photos, flatArea, adjustedArea, satelliteImageUrl, diagramImageUrl }) {
@@ -208,12 +251,24 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       overflow: hidden;
       margin: 25px 0;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      background: #f1f5f9;
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     
     .satellite-container img {
       width: 100%;
       height: auto;
       display: block;
+    }
+    
+    .image-placeholder {
+      color: #94a3b8;
+      font-size: 14px;
+      text-align: center;
+      padding: 40px;
     }
     
     .image-caption {
@@ -297,6 +352,11 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       overflow: hidden;
       margin: 20px 0;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      background: #f1f5f9;
+      min-height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     
     .diagram-container img {
@@ -461,9 +521,26 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     .print-button:hover {
       background: #059669;
     }
+    
+    .loading-indicator {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      padding: 10px 20px;
+      background: #3b82f6;
+      color: white;
+      border-radius: 8px;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
+  <div class="loading-indicator no-print" id="loading">
+    ⏳ Loading images... Please wait before printing
+  </div>
+  
   <button class="print-button no-print" onclick="window.print()">🖨️ Save as PDF</button>
 
   <!-- PAGE 1: COVER PAGE WITH SATELLITE IMAGE -->
@@ -482,7 +559,8 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       <img 
         src="${satelliteImageUrl}" 
         alt="Satellite view of property"
-        onerror="this.style.display='none'"
+        onload="imageLoaded()"
+        onerror="this.parentElement.innerHTML='<div class=image-placeholder>Satellite image loading...</div>'"
       />
     </div>
     <p class="image-caption">Satellite View - ${measurement.property_address}</p>
@@ -536,7 +614,8 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       <img 
         src="${diagramImageUrl}" 
         alt="Measurement diagram with sections"
-        onerror="this.style.display='none'"
+        onload="imageLoaded()"
+        onerror="this.parentElement.innerHTML='<div class=image-placeholder>Diagram loading...</div>'"
       />
     </div>
     <p class="image-caption">Color-coded sections showing measured roof areas</p>
@@ -545,7 +624,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     <div class="legend-box">
       <div class="legend-title">Section Details:</div>
       ${sections.map((section, idx) => {
-        const colors = ['#4A90E2', '#10b981', '#f97316', '#a855f7', '#ef4444'];
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ef4444'];
         return `
           <div class="legend-item">
             <div class="legend-color" style="background: ${colors[idx % 5]};"></div>
@@ -751,7 +830,12 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       <div class="photos-grid">
         ${photos.slice(0, 6).map((photo, idx) => `
           <div class="photo-item">
-            <img src="${photo.url}" alt="Site photo ${idx + 1}" onerror="this.style.display='none'" />
+            <img 
+              src="${photo.url}" 
+              alt="Site photo ${idx + 1}" 
+              onload="imageLoaded()"
+              onerror="this.style.display='none'" 
+            />
             ${photo.caption ? `<div class="photo-caption"><strong>Photo ${idx + 1}:</strong> ${photo.caption}</div>` : `<div class="photo-caption">Photo ${idx + 1}</div>`}
           </div>
         `).join('')}
@@ -838,9 +922,26 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
   </div>
   
   <script>
+    let imagesLoaded = 0;
+    let totalImages = ${2 + photos.slice(0, 6).length}; // satellite + diagram + photos
+    
+    function imageLoaded() {
+      imagesLoaded++;
+      console.log('Image loaded: ' + imagesLoaded + '/' + totalImages);
+      
+      if (imagesLoaded >= totalImages) {
+        const loading = document.getElementById('loading');
+        if (loading) {
+          loading.innerHTML = '✅ All images loaded! Ready to print';
+          loading.style.background = '#10b981';
+          setTimeout(() => loading.style.display = 'none', 2000);
+        }
+      }
+    }
+    
     window.onload = function() {
       setTimeout(() => {
-        console.log('PDF report ready - Click "Save as PDF" button or use Ctrl/Cmd+P');
+        console.log('PDF report ready');
       }, 500);
     };
   </script>
