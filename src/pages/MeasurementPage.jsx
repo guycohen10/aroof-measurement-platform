@@ -317,6 +317,8 @@ export default function MeasurementPage() {
 
   const createMap = useCallback((center) => {
     try {
+      console.log("🗺️ Creating map with center:", center);
+      
       const map = new window.google.maps.Map(mapRef.current, {
         center: center,
         zoom: 20,
@@ -349,6 +351,7 @@ export default function MeasurementPage() {
       });
 
       mapInstanceRef.current = map;
+      console.log("✅ Map created successfully");
 
       window.google.maps.event.addListener(map, 'zoom_changed', () => {
         const newZoom = map.getZoom();
@@ -378,6 +381,7 @@ export default function MeasurementPage() {
       setMapLoading(false);
 
     } catch (err) {
+      console.error("❌ Error creating map:", err);
       setMapError(`Error creating map: ${err.message}`);
       setMapLoading(false);
     }
@@ -389,9 +393,12 @@ export default function MeasurementPage() {
         throw new Error("Google Maps not available");
       }
 
+      console.log("🗺️ Initializing map for address:", address);
+
       const defaultCenter = { lat: 32.7767, lng: -96.7970 };
 
       if (coordinates) {
+        console.log("📍 Using provided coordinates:", coordinates);
         createMap(coordinates);
         return;
       }
@@ -420,10 +427,12 @@ export default function MeasurementPage() {
             lng: location.lng()
           };
           
+          console.log("✅ Address geocoded:", geocodedCenter);
           setCoordinates(geocodedCenter);
           setGeocodingStatus("Address found!");
           createMap(geocodedCenter);
         } else {
+          console.warn("⚠️ Geocoding failed:", status);
           setMapError(`Could not find address (${status}). Showing default location.`);
           setGeocodingStatus("Using default location");
           createMap(defaultCenter);
@@ -431,6 +440,7 @@ export default function MeasurementPage() {
       });
 
     } catch (err) {
+      console.error("❌ Failed to initialize map:", err);
       setMapError(`Failed to initialize map: ${err.message}`);
       setMapLoading(false);
     }
@@ -462,100 +472,123 @@ export default function MeasurementPage() {
   }, []);
 
   const startDrawingSection = useCallback(() => {
+    console.log("🎨 Start drawing button clicked");
+    console.log("Map instance:", !!mapInstanceRef.current);
+    console.log("Google Maps available:", !!window.google?.maps);
+    console.log("Drawing library available:", !!window.google?.maps?.drawing);
+    
     if (!mapInstanceRef.current) {
-      setError("Map not initialized");
+      console.error("❌ Map not initialized");
+      setError("Map not initialized. Please wait for the map to load.");
       return;
     }
 
     if (!window.google || !window.google.maps || !window.google.maps.drawing) {
+      console.error("❌ Drawing tools not available");
       setError("Drawing tools not available. Please refresh the page.");
       return;
     }
     
+    console.log("✅ All checks passed, starting drawing mode");
     setIsDrawing(true);
     setError("");
     
+    // Clean up any existing drawing manager
     if (drawingManagerRef.current) {
+      console.log("🧹 Cleaning up existing drawing manager");
       drawingManagerRef.current.setMap(null);
     }
 
     const colorIndex = sections.length % SECTION_COLORS.length;
     const sectionColor = SECTION_COLORS[colorIndex];
+    console.log("🎨 Using color:", sectionColor.name);
 
-    const drawingManager = new window.google.maps.drawing.DrawingManager({
-      drawingMode: window.google.maps.drawing.OverlayType.POLYGON,
-      drawingControl: false,
-      polygonOptions: {
-        fillColor: sectionColor.fill,
-        fillOpacity: 0.35,
-        strokeWeight: 3,
-        strokeColor: sectionColor.stroke,
-        editable: true,
-        draggable: false,
-        clickable: true
-      }
-    });
+    try {
+      const drawingManager = new window.google.maps.drawing.DrawingManager({
+        drawingMode: window.google.maps.drawing.OverlayType.POLYGON,
+        drawingControl: false,
+        polygonOptions: {
+          fillColor: sectionColor.fill,
+          fillOpacity: 0.35,
+          strokeWeight: 3,
+          strokeColor: sectionColor.stroke,
+          editable: true,
+          draggable: false,
+          clickable: true
+        }
+      });
 
-    drawingManagerRef.current = drawingManager;
-    drawingManager.setMap(mapInstanceRef.current);
+      drawingManagerRef.current = drawingManager;
+      drawingManager.setMap(mapInstanceRef.current);
+      console.log("✅ Drawing manager created and attached to map");
 
-    window.google.maps.event.addListener(drawingManager, 'polygoncomplete', function(polygon) {
-      polygonsRef.current.push(polygon);
-      
-      const path = polygon.getPath();
-      const coordinates = [];
-      for (let i = 0; i < path.getLength(); i++) {
-        const point = path.getAt(i);
-        coordinates.push({
-          lat: point.lat(),
-          lng: point.lng()
-        });
-      }
-      
-      const flatArea = calculateArea(polygon);
-      
-      const newSection = {
-        id: `section-${Date.now()}`,
-        name: `Section ${sections.length + 1}`,
-        flat_area_sqft: flatArea,
-        pitch: 'flat',
-        pitch_multiplier: 1.00,
-        adjusted_area_sqft: flatArea,
-        color: sectionColor.stroke,
-        coordinates: coordinates,
-        polygon: polygon
-      };
-
-      setSections(prev => [...prev, newSection]);
-      
-      drawingManager.setDrawingMode(null);
-      setIsDrawing(false);
-      
-      const updateSection = () => {
-        const newArea = calculateArea(polygon);
-        const newCoords = [];
+      window.google.maps.event.addListener(drawingManager, 'polygoncomplete', function(polygon) {
+        console.log("✅ Polygon completed!");
+        polygonsRef.current.push(polygon);
+        
         const path = polygon.getPath();
+        const coordinates = [];
         for (let i = 0; i < path.getLength(); i++) {
           const point = path.getAt(i);
-          newCoords.push({ lat: point.lat(), lng: point.lng() });
+          coordinates.push({
+            lat: point.lat(),
+            lng: point.lng()
+          });
         }
         
-        setSections(prev => prev.map(s => 
-          s.id === newSection.id
-            ? {
-                ...s,
-                flat_area_sqft: newArea,
-                adjusted_area_sqft: newArea * s.pitch_multiplier,
-                coordinates: newCoords
-              }
-            : s
-        ));
-      };
+        const flatArea = calculateArea(polygon);
+        console.log("📏 Calculated area:", flatArea, "sq ft");
+        
+        const newSection = {
+          id: `section-${Date.now()}`,
+          name: `Section ${sections.length + 1}`,
+          flat_area_sqft: flatArea,
+          pitch: 'flat',
+          pitch_multiplier: 1.00,
+          adjusted_area_sqft: flatArea,
+          color: sectionColor.stroke,
+          coordinates: coordinates,
+          polygon: polygon
+        };
 
-      window.google.maps.event.addListener(path, 'set_at', updateSection);
-      window.google.maps.event.addListener(path, 'insert_at', updateSection);
-      window.google.maps.event.addListener(path, 'remove_at', updateSection);
-    });
+        setSections(prev => [...prev, newSection]);
+        
+        drawingManager.setDrawingMode(null);
+        setIsDrawing(false);
+        console.log("✅ Section added to state");
+        
+        const updateSection = () => {
+          const newArea = calculateArea(polygon);
+          const newCoords = [];
+          const path = polygon.getPath();
+          for (let i = 0; i < path.getLength(); i++) {
+            const point = path.getAt(i);
+            newCoords.push({ lat: point.lat(), lng: point.lng() });
+          }
+          
+          setSections(prev => prev.map(s => 
+            s.id === newSection.id
+              ? {
+                  ...s,
+                  flat_area_sqft: newArea,
+                  adjusted_area_sqft: newArea * s.pitch_multiplier,
+                  coordinates: newCoords
+                }
+              : s
+          ));
+        };
+
+        window.google.maps.event.addListener(path, 'set_at', updateSection);
+        window.google.maps.event.addListener(path, 'insert_at', updateSection);
+        window.google.maps.event.addListener(path, 'remove_at', updateSection);
+      });
+      
+      console.log("✅ Polygon complete listener added");
+    } catch (err) {
+      console.error("❌ Error creating drawing manager:", err);
+      setError(`Failed to start drawing: ${err.message}`);
+      setIsDrawing(false);
+    }
   }, [sections, calculateArea]);
 
   const deleteSection = useCallback((sectionId) => {
@@ -742,7 +775,7 @@ export default function MeasurementPage() {
             </div>
           </div>
 
-          {/* MOVED: Drawing Button - Now here, right after address */}
+          {/* Drawing Button */}
           <div className="p-4 border-b border-slate-200 bg-white">
             {error && (
               <Alert variant="destructive" className="mb-4">
@@ -751,15 +784,46 @@ export default function MeasurementPage() {
               </Alert>
             )}
             
+            {mapLoading && (
+              <Alert className="mb-4 bg-blue-50 border-blue-200">
+                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                <AlertDescription className="text-sm text-blue-900">
+                  Loading map... Please wait before drawing.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {mapError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  {mapError}
+                  <Button 
+                    onClick={() => window.location.reload()} 
+                    variant="outline" 
+                    size="sm"
+                    className="mt-2 w-full"
+                  >
+                    Refresh Page
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <Button
               onClick={startDrawingSection}
-              className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold shadow-md"
+              className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isDrawing || mapLoading || !!mapError}
             >
               {isDrawing ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   Drawing Section {sections.length + 1}...
+                </>
+              ) : mapLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Loading Map...
                 </>
               ) : sections.length === 0 ? (
                 <>
@@ -773,6 +837,12 @@ export default function MeasurementPage() {
                 </>
               )}
             </Button>
+            
+            {!mapLoading && !mapError && (
+              <p className="text-xs text-slate-500 mt-2 text-center">
+                Click button, then click points on the map to draw
+              </p>
+            )}
           </div>
 
           {/* Magnifying Glass Section */}
@@ -1124,6 +1194,7 @@ export default function MeasurementPage() {
                 <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
                 <p className="text-white text-lg">{geocodingStatus}</p>
                 <p className="text-slate-400 text-sm mt-2">Address: {address}</p>
+                <p className="text-slate-500 text-xs mt-4">Loading Google Maps drawing tools...</p>
               </div>
             </div>
           )}
