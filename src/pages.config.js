@@ -30,6 +30,9 @@ import Commercial from './pages/Commercial';
 import Insurance from './pages/Insurance';
 import EstimatorDashboard from './pages/EstimatorDashboard';
 import EstimatorLeadDetail from './pages/EstimatorLeadDetail';
+import RooferSignup from './pages/RooferSignup';
+import RooferDashboard from './pages/RooferDashboard';
+import RooferBilling from './pages/RooferBilling';
 import Layout from './Layout.jsx';
 
 
@@ -66,6 +69,9 @@ export const PAGES = {
     "Insurance": Insurance,
     "EstimatorDashboard": EstimatorDashboard,
     "EstimatorLeadDetail": EstimatorLeadDetail,
+    "RooferSignup": RooferSignup,
+    "RooferDashboard": RooferDashboard,
+    "RooferBilling": RooferBilling,
 }
 
 export const pagesConfig = {
