@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, Edit3, Trash2, Plus, Layers, TrendingUp, RotateCcw } from "lucide-react";
+import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, Edit3, Trash2, Layers, TrendingUp, RotateCcw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SECTION_COLORS = [
@@ -46,7 +46,6 @@ export default function MeasurementPage() {
   const navigate = useNavigate();
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
-  const imageRef = useRef(null);
   
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
@@ -56,8 +55,6 @@ export default function MeasurementPage() {
   
   const [baseImageUrl, setBaseImageUrl] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
   
   const [sections, setSections] = useState([]);
   const [currentSection, setCurrentSection] = useState([]);
@@ -96,7 +93,7 @@ export default function MeasurementPage() {
           const imageUrl = generateStaticMapUrl(lat, lng);
           console.log("📷 Generated image URL:", imageUrl);
           setBaseImageUrl(imageUrl);
-          setGeocodingStatus("Loading satellite image...");
+          setGeocodingStatus("Ready to measure!");
           setLoading(false);
           return;
         }
@@ -122,7 +119,7 @@ export default function MeasurementPage() {
           const imageUrl = generateStaticMapUrl(lat, lng);
           console.log("📷 Generated image URL:", imageUrl);
           setBaseImageUrl(imageUrl);
-          setGeocodingStatus("Loading satellite image...");
+          setGeocodingStatus("Ready to measure!");
         } else {
           console.error("❌ Geocoding failed:", data.status);
           setError(`Could not find address: ${data.status}`);
@@ -139,35 +136,8 @@ export default function MeasurementPage() {
   }, [navigate]);
 
   const generateStaticMapUrl = (lat, lng) => {
-    const url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${MAP_ZOOM}&size=${MAP_WIDTH}x${MAP_HEIGHT}&scale=${MAP_SCALE}&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}`;
-    return url;
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${MAP_ZOOM}&size=${MAP_WIDTH}x${MAP_HEIGHT}&scale=${MAP_SCALE}&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}`;
   };
-
-  useEffect(() => {
-    if (!baseImageUrl || !containerRef.current) return;
-
-    console.log("🖼️ Loading image:", baseImageUrl);
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    
-    img.onload = () => {
-      console.log("✅ Image loaded successfully!");
-      imageRef.current = img;
-      setImageLoaded(true);
-      setImageError(false);
-      setGeocodingStatus("Ready to measure!");
-      redrawCanvas();
-    };
-
-    img.onerror = (e) => {
-      console.error("❌ Failed to load image:", e);
-      console.error("Image URL:", baseImageUrl);
-      setImageError(true);
-      setError("Failed to load satellite image. The image URL may be invalid or blocked by CORS policy.");
-    };
-
-    img.src = baseImageUrl;
-  }, [baseImageUrl]);
 
   const pixelToLatLng = useCallback((pixelX, pixelY) => {
     if (!mapCenter) return null;
@@ -225,13 +195,10 @@ export default function MeasurementPage() {
 
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !imageLoaded || !imageRef.current) return;
+    if (!canvas || !baseImageUrl) return;
 
     const ctx = canvas.getContext('2d');
-    
-    // Draw the satellite image first
     ctx.clearRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
-    ctx.drawImage(imageRef.current, 0, 0, MAP_WIDTH, MAP_HEIGHT);
 
     // Draw completed sections
     sections.forEach((section, idx) => {
@@ -292,7 +259,7 @@ export default function MeasurementPage() {
         ctx.stroke();
       });
     }
-  }, [sections, currentSection, imageLoaded, latLngToPixel]);
+  }, [sections, currentSection, baseImageUrl, latLngToPixel]);
 
   useEffect(() => {
     redrawCanvas();
@@ -347,8 +314,8 @@ export default function MeasurementPage() {
   };
 
   const startDrawingSection = () => {
-    if (!imageLoaded) {
-      setError("Please wait for the satellite image to load");
+    if (!baseImageUrl) {
+      setError("Please wait for the map to load");
       return;
     }
     setIsDrawing(true);
@@ -571,7 +538,6 @@ export default function MeasurementPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
         <div className="w-96 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
           <div className="p-6 border-b border-slate-200">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
@@ -587,31 +553,12 @@ export default function MeasurementPage() {
               <AlertDescription className="text-sm">{error}</AlertDescription>
             </Alert>
           )}
-          
-          {imageError && (
-            <Alert variant="destructive" className="m-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-sm">
-                Failed to load satellite image. Please try refreshing the page.
-                <br />
-                <Button 
-                  onClick={() => window.location.reload()} 
-                  variant="outline" 
-                  size="sm"
-                  className="mt-2 w-full"
-                >
-                  Refresh Page
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
 
-          {/* Drawing Controls */}
           <div className="p-4 border-b border-slate-200">
             {!isDrawing && currentSection.length === 0 && (
               <Button
                 onClick={startDrawingSection}
-                disabled={!imageLoaded || imageError}
+                disabled={!baseImageUrl}
                 className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-lg"
               >
                 <Edit3 className="w-5 h-5 mr-2" />
@@ -652,7 +599,6 @@ export default function MeasurementPage() {
             )}
           </div>
 
-          {/* Sections List */}
           {sections.length > 0 && (
             <div className="flex-1 overflow-y-auto p-4">
               <div className="flex items-center gap-2 mb-4">
@@ -663,7 +609,7 @@ export default function MeasurementPage() {
               </div>
 
               <div className="space-y-4">
-                {sections.map((section, index) => (
+                {sections.map((section) => (
                   <Card key={section.id} className="p-4 border-2" style={{ borderColor: section.color }}>
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
@@ -735,7 +681,6 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {/* Total and Complete Button */}
           {sections.length > 0 && (
             <div className="p-6 border-t border-slate-200 bg-gradient-to-br from-green-50 to-blue-50">
               <h3 className="text-sm font-bold text-slate-700 mb-3">Total Roof Area</h3>
@@ -781,19 +726,15 @@ export default function MeasurementPage() {
           )}
         </div>
 
-        {/* Map Container */}
         <div className="flex-1 relative bg-slate-900 flex items-center justify-center overflow-auto p-8">
-          {!imageLoaded && !imageError && baseImageUrl && (
-            <div className="absolute inset-0 flex items-center justify-center z-10">
-              <div className="text-center">
-                <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-                <p className="text-white text-lg">{geocodingStatus}</p>
-                <p className="text-slate-400 text-sm mt-2">Loading satellite image...</p>
-              </div>
+          {!baseImageUrl && (
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
+              <p className="text-white text-lg">{geocodingStatus}</p>
             </div>
           )}
 
-          {isDrawing && imageLoaded && (
+          {isDrawing && baseImageUrl && (
             <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-blue-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
               <p className="text-sm font-bold mb-1">
                 🖱️ Click to Draw Section {sections.length + 1}
@@ -804,7 +745,7 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {sections.length > 0 && !isDrawing && imageLoaded && (
+          {sections.length > 0 && !isDrawing && baseImageUrl && (
             <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-green-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
               <p className="text-sm font-medium flex items-center gap-2">
                 <CheckCircle className="w-4 h-4" />
@@ -813,16 +754,29 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          <div ref={containerRef} className="relative shadow-2xl rounded-lg overflow-hidden" style={{ width: MAP_WIDTH, height: MAP_HEIGHT }}>
-            <canvas
-              ref={canvasRef}
-              width={MAP_WIDTH}
-              height={MAP_HEIGHT}
-              onClick={handleCanvasClick}
-              className="absolute top-0 left-0 cursor-crosshair"
-              style={{ width: MAP_WIDTH, height: MAP_HEIGHT }}
-            />
-          </div>
+          {baseImageUrl && (
+            <div 
+              ref={containerRef} 
+              className="relative shadow-2xl rounded-lg overflow-hidden" 
+              style={{ 
+                width: MAP_WIDTH, 
+                height: MAP_HEIGHT,
+                backgroundImage: `url(${baseImageUrl})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+              }}
+            >
+              <canvas
+                ref={canvasRef}
+                width={MAP_WIDTH}
+                height={MAP_HEIGHT}
+                onClick={handleCanvasClick}
+                className="absolute top-0 left-0 cursor-crosshair"
+                style={{ width: MAP_WIDTH, height: MAP_HEIGHT }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
