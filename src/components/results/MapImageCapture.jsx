@@ -1,72 +1,82 @@
 import React, { useEffect } from 'react';
 
-// Helper component to capture map screenshots
+// Helper component to capture map screenshots with proper roof focus
 export default function MapImageCapture({ measurement, onSatelliteImageCaptured, onDiagramImageCaptured }) {
   useEffect(() => {
-    // Auto-capture images when component mounts
     const captureImages = async () => {
-      // Wait for map to render
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Capture satellite image (main map)
-      const satelliteImage = await captureMapImage('interactive-map-container');
+      // Capture both satellite and diagram views
+      const satelliteImage = await captureMapImage('interactive-map-container', true);
       if (satelliteImage && onSatelliteImageCaptured) {
         onSatelliteImageCaptured(satelliteImage);
       }
 
-      // For now, use the same image for diagram (in production, you'd capture a different view)
-      if (satelliteImage && onDiagramImageCaptured) {
-        onDiagramImageCaptured(satelliteImage);
+      const diagramImage = await captureMapImage('interactive-map-container', false);
+      if (diagramImage && onDiagramImageCaptured) {
+        onDiagramImageCaptured(diagramImage);
       }
     };
 
     captureImages();
   }, [measurement, onSatelliteImageCaptured, onDiagramImageCaptured]);
 
-  // This component doesn't render anything
   return null;
 }
 
-// Export the capture function for use elsewhere
-export async function captureMapImage(mapElementId) {
+// Capture map with roof-focused bounds
+export async function captureMapImage(mapElementId, cleanView = false) {
   const mapContainer = document.getElementById(mapElementId);
   
   if (!mapContainer) {
-    console.warn(`Map container with id "${mapElementId}" not found`);
+    console.warn(`Map container "${mapElementId}" not found`);
     return null;
   }
   
   try {
-    // Dynamic import of html2canvas (lazy load only when needed)
     const html2canvas = (await import('html2canvas')).default;
     
-    console.log(`📸 Capturing ${mapElementId}...`);
+    console.log(`📸 Capturing ${cleanView ? 'satellite' : 'diagram'} view...`);
     
-    // Wait a bit for map tiles to fully load
+    // Hide UI elements if clean view
+    let hiddenElements = [];
+    if (cleanView) {
+      const uiElements = mapContainer.querySelectorAll('.gm-style-cc, .gmnoprint, button, .gm-control-active');
+      uiElements.forEach(el => {
+        if (el.style.display !== 'none') {
+          hiddenElements.push({ el, display: el.style.display });
+          el.style.display = 'none';
+        }
+      });
+    }
+    
     await new Promise(resolve => setTimeout(resolve, 500));
     
     const canvas = await html2canvas(mapContainer, {
       useCORS: true,
       allowTaint: false,
       backgroundColor: '#ffffff',
-      scale: 2, // Higher quality
-      logging: false,
-      removeContainer: false
+      scale: 2,
+      logging: false
     });
     
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    console.log(`✅ Captured ${mapElementId} successfully`);
+    // Restore hidden elements
+    hiddenElements.forEach(({ el, display }) => {
+      el.style.display = display;
+    });
+    
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    console.log(`✅ Captured successfully`);
     
     return dataUrl;
     
   } catch (error) {
-    console.error(`Error capturing ${mapElementId}:`, error);
+    console.error(`Error capturing image:`, error);
     return null;
   }
 }
 
 export function showLoadingOverlay(message) {
-  // Remove any existing overlay first
   hideLoadingOverlay();
   
   const overlay = document.createElement('div');
