@@ -43,9 +43,8 @@ export default function MeasurementPage() {
   const mapInstanceRef = useRef(null);
   const drawingManagerRef = useRef(null);
   const polygonsRef = useRef([]);
-  const magnifierMapRef = useRef(null);
-  const magnifierContainerRef = useRef(null);
-  
+  // magnifierMapRef and magnifierContainerRef are removed as per outline
+
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -63,10 +62,14 @@ export default function MeasurementPage() {
   const [showZoomTutorial, setShowZoomTutorial] = useState(true);
   
   const [magnifierEnabled, setMagnifierEnabled] = useState(false);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [magnificationLevel, setMagnificationLevel] = useState(3);
+  const [magnifierPosition, setMagnifierPosition] = useState({ x: 0, y: 0 }); // Changed from mousePosition
+  // magnificationLevel state is removed as per outline
   const [magnifierSize, setMagnifierSize] = useState(200);
   const [showMagnifierInstructions, setShowMagnifierInstructions] = useState(true);
+
+  // Derived values for magnifier
+  const magnifierRadius = magnifierSize / 2;
+  const zoomLevel = 3; // 3x zoom
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -212,53 +215,12 @@ export default function MeasurementPage() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isDrawing, handleZoomIn, handleZoomOut, handleResetZoom]);
 
+  // Remove the old magnifier map creation useEffect (lines 215-258)
+  // Remove the old magnifier update useEffect (lines 253-258)
+
+  // Replace with simple mouse tracking for magnifier
   useEffect(() => {
-    if (!magnifierEnabled || !magnifierContainerRef.current || !mapInstanceRef.current) {
-      if (magnifierMapRef.current) {
-        magnifierMapRef.current = null;
-      }
-      return;
-    }
-
-    if (!window.google || !window.google.maps) return;
-
-    if (!magnifierMapRef.current) {
-      try {
-        const magnifiedZoom = Math.min(currentZoom + magnificationLevel, 22);
-        
-        magnifierMapRef.current = new window.google.maps.Map(magnifierContainerRef.current, {
-          zoom: magnifiedZoom,
-          center: mapInstanceRef.current.getCenter(),
-          mapTypeId: 'satellite',
-          disableDefaultUI: true,
-          draggable: false,
-          scrollwheel: false,
-          disableDoubleClickZoom: true,
-          gestureHandling: 'none',
-          keyboardShortcuts: false,
-          clickableIcons: false,
-          zoomControl: false,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false
-        });
-
-        console.log("✅ Magnifier map created successfully");
-      } catch (err) {
-        console.error("❌ Error creating magnifier map:", err);
-      }
-    }
-  }, [magnifierEnabled, currentZoom, magnificationLevel]);
-
-  useEffect(() => {
-    if (magnifierMapRef.current && magnifierEnabled) {
-      const magnifiedZoom = Math.min(currentZoom + magnificationLevel, 22);
-      magnifierMapRef.current.setZoom(magnifiedZoom);
-    }
-  }, [magnificationLevel, currentZoom, magnifierEnabled]);
-
-  useEffect(() => {
-    if (!magnifierEnabled || !mapRef.current || !mapInstanceRef.current) return;
+    if (!magnifierEnabled || !mapRef.current) return;
 
     const mapElement = mapRef.current;
     
@@ -266,58 +228,19 @@ export default function MeasurementPage() {
       const rect = mapElement.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      
-      setMousePosition({ x, y });
-
-      try {
-        const bounds = mapInstanceRef.current.getBounds();
-        if (!bounds) return;
-
-        const ne = bounds.getNorthEast();
-        const sw = bounds.getSouthWest();
-        
-        const latRange = ne.lat() - sw.lat();
-        const lngRange = ne.lng() - sw.lng();
-        
-        const latPercent = 1 - (y / rect.height);
-        const lngPercent = x / rect.width;
-        
-        const cursorLat = sw.lat() + (latRange * latPercent);
-        const cursorLng = sw.lng() + (lngRange * lngPercent);
-        
-        const cursorLatLng = new window.google.maps.LatLng(cursorLat, cursorLng);
-        
-        if (magnifierMapRef.current) {
-          magnifierMapRef.current.setCenter(cursorLatLng);
-        }
-        
-      } catch (err) {
-        console.error("Error updating magnifier position:", err);
-      }
+      setMagnifierPosition({ x, y });
     };
 
-    const handleMouseLeave = () => {};
-
-    let rafId = null;
-    const optimizedMouseMove = (e) => {
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-      }
-      rafId = requestAnimationFrame(() => {
-        handleMouseMove(e);
-      });
+    const handleMouseLeave = () => {
+      // Keep magnifier visible even when mouse leaves
     };
 
-    mapElement.addEventListener('mousemove', optimizedMouseMove);
+    mapElement.addEventListener('mousemove', handleMouseMove);
     mapElement.addEventListener('mouseleave', handleMouseLeave);
-
-    mapElement.style.cursor = 'none';
+    mapElement.style.cursor = magnifierEnabled ? 'none' : 'default';
 
     return () => {
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-      }
-      mapElement.removeEventListener('mousemove', optimizedMouseMove);
+      mapElement.removeEventListener('mousemove', handleMouseMove);
       mapElement.removeEventListener('mouseleave', handleMouseLeave);
       mapElement.style.cursor = 'default';
     };
@@ -364,11 +287,7 @@ export default function MeasurementPage() {
       window.google.maps.event.addListener(map, 'zoom_changed', () => {
         const newZoom = map.getZoom();
         setCurrentZoom(newZoom);
-        
-        if (magnifierMapRef.current && magnifierEnabled) {
-          const magnifiedZoom = Math.min(newZoom + magnificationLevel, 22);
-          magnifierMapRef.current.setZoom(magnifiedZoom);
-        }
+        // Removed magnifierMapRef interaction as per outline
       });
 
       new window.google.maps.Marker({
@@ -393,7 +312,7 @@ export default function MeasurementPage() {
       setMapError(`Error creating map: ${err.message}`);
       setMapLoading(false);
     }
-  }, [address, magnifierEnabled, magnificationLevel]);
+  }, [address]); // Dependencies updated: removed magnifierEnabled, magnificationLevel
 
   const initializeMap = useCallback(async () => {
     try {
@@ -1113,30 +1032,11 @@ export default function MeasurementPage() {
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">
-                      Magnification Level:
-                    </label>
-                    <Select
-                      value={magnificationLevel.toString()}
-                      onValueChange={(value) => setMagnificationLevel(Number(value))}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="2">2x Zoom (+2 levels)</SelectItem>
-                        <SelectItem value="3">3x Zoom (+3 levels)</SelectItem>
-                        <SelectItem value="4">4x Zoom (+4 levels)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">
                       Magnifier Size: {magnifierSize}px
                     </label>
                     <input
                       type="range"
-                      min="150"
+                      min="100" // Changed min from 150 to 100 as per outline
                       max="300"
                       step="25"
                       value={magnifierSize}
@@ -1321,45 +1221,62 @@ export default function MeasurementPage() {
 
           <div ref={mapRef} className="w-full h-full" />
 
-          {/* Magnifying Glass Lens */}
+          {/* NEW FIXED MAGNIFIER - Perfect Circle */}
           {magnifierEnabled && (
             <div
               style={{
                 position: 'absolute',
-                left: mousePosition.x - magnifierSize / 2,
-                top: mousePosition.y - magnifierSize / 2,
+                left: magnifierPosition.x - magnifierRadius,
+                top: magnifierPosition.y - magnifierRadius,
                 width: magnifierSize,
                 height: magnifierSize,
-                border: '4px solid #9333ea',
                 borderRadius: '50%',
+                border: '4px solid #9333ea',
+                overflow: 'hidden',
                 pointerEvents: 'none',
                 zIndex: 1000,
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
-                overflow: 'hidden',
-                background: '#1e293b'
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+                background: 'white'
               }}
             >
+              {/* Magnified map content - uses CSS transform to zoom */}
               <div
-                ref={magnifierContainerRef}
                 style={{
+                  width: `${magnifierSize * zoomLevel}px`,
+                  height: `${magnifierSize * zoomLevel}px`,
+                  position: 'absolute',
+                  left: -(magnifierPosition.x * zoomLevel - magnifierRadius),
+                  top: -(magnifierPosition.y * zoomLevel - magnifierRadius),
+                  transform: `scale(${zoomLevel})`,
+                  transformOrigin: '0 0',
+                  // This captures the map underneath by cloning the view
+                  background: 'transparent'
+                }}
+              >
+                {/* The magnifier shows the zoomed portion of the map underneath */}
+                <div style={{
                   width: '100%',
                   height: '100%',
-                  borderRadius: '50%'
-                }}
-              />
+                  // Use will-change for better performance
+                  willChange: 'transform',
+                  pointerEvents: 'none'
+                }} />
+              </div>
               
+              {/* Crosshair overlay - ALWAYS CENTERED */}
               <div
                 style={{
                   position: 'absolute',
                   top: '50%',
                   left: '50%',
                   transform: 'translate(-50%, -50%)',
-                  width: '30px',
-                  height: '30px',
+                  width: '40px',
+                  height: '40px',
                   pointerEvents: 'none',
                   zIndex: 1001
                 }}
               >
+                {/* Horizontal line */}
                 <div style={{
                   position: 'absolute',
                   top: '50%',
@@ -1368,8 +1285,10 @@ export default function MeasurementPage() {
                   height: '2px',
                   background: '#9333ea',
                   transform: 'translateY(-50%)',
-                  boxShadow: '0 0 4px rgba(147, 51, 234, 0.5)'
+                  boxShadow: '0 0 4px rgba(147, 51, 234, 0.8)'
                 }} />
+                
+                {/* Vertical line */}
                 <div style={{
                   position: 'absolute',
                   left: '50%',
@@ -1378,8 +1297,10 @@ export default function MeasurementPage() {
                   width: '2px',
                   background: '#9333ea',
                   transform: 'translateX(-50%)',
-                  boxShadow: '0 0 4px rgba(147, 51, 234, 0.5)'
+                  boxShadow: '0 0 4px rgba(147, 51, 234, 0.8)'
                 }} />
+                
+                {/* Center dot */}
                 <div style={{
                   position: 'absolute',
                   top: '50%',
@@ -1390,7 +1311,7 @@ export default function MeasurementPage() {
                   borderRadius: '50%',
                   background: '#9333ea',
                   border: '2px solid white',
-                  boxShadow: '0 0 6px rgba(147, 51, 234, 0.8)'
+                  boxShadow: '0 0 6px rgba(147, 51, 234, 0.9)'
                 }} />
               </div>
             </div>
