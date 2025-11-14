@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -7,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp, ZoomIn, ZoomOut, Maximize2, RotateCcw, Search } from "lucide-react";
+import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp, ZoomIn, ZoomOut, Maximize2, RotateCcw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SECTION_COLORS = [
@@ -59,17 +58,9 @@ export default function MeasurementPage() {
   
   const [currentZoom, setCurrentZoom] = useState(20);
   const [showZoomTutorial, setShowZoomTutorial] = useState(true);
-  
-  const [magnifierEnabled, setMagnifierEnabled] = useState(false);
-  const [magnifierPosition, setMagnifierPosition] = useState({ x: 0, y: 0 });
-  const [magnifierCenter, setMagnifierCenter] = useState({ lat: 0, lng: 0 });
-  const [magnifierSize, setMagnifierSize] = useState(200);
-  const [showMagnifierInstructions, setShowMagnifierInstructions] = useState(true);
   const [capturingImages, setCapturingImages] = useState(false);
 
-  // Derived values for magnifier
-  const magnifierRadius = magnifierSize / 2;
-  const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc'; // Define API key once
+  const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -134,7 +125,6 @@ export default function MeasurementPage() {
       }
 
       console.log("📥 Loading Google Maps script...");
-      // Using the defined API key
       const apiKey = GOOGLE_MAPS_API_KEY; 
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,drawing,places`;
@@ -204,63 +194,11 @@ export default function MeasurementPage() {
           handleResetZoom();
         }
       }
-      
-      if (e.key === 'm' || e.key === 'M') {
-        e.preventDefault();
-        setMagnifierEnabled(prev => !prev);
-        setShowMagnifierInstructions(false);
-      }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isDrawing, handleZoomIn, handleZoomOut, handleResetZoom]);
-
-  // Track cursor and update magnifier coordinates
-  useEffect(() => {
-    if (!magnifierEnabled || !mapRef.current || !mapInstanceRef.current) return;
-
-    const mapElement = mapRef.current;
-    
-    const handleMouseMove = (e) => {
-      const rect = mapElement.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      
-      setMagnifierPosition({ x, y });
-
-      try {
-        const bounds = mapInstanceRef.current.getBounds();
-        if (!bounds) return;
-
-        const ne = bounds.getNorthEast();
-        const sw = bounds.getSouthWest();
-        
-        if (!ne || !sw) return;
-        
-        const latRange = ne.lat() - sw.lat();
-        const lngRange = ne.lng() - sw.lng();
-        
-        const latPercent = 1 - (y / rect.height);
-        const lngPercent = x / rect.width;
-        
-        const cursorLat = sw.lat() + (latRange * latPercent);
-        const cursorLng = sw.lng() + (lngRange * lngPercent);
-        
-        setMagnifierCenter({ lat: cursorLat, lng: cursorLng });
-      } catch (err) {
-        // Silent
-      }
-    };
-
-    mapElement.addEventListener('mousemove', handleMouseMove);
-    mapElement.style.cursor = magnifierEnabled ? 'none' : 'default';
-
-    return () => {
-      mapElement.removeEventListener('mousemove', handleMouseMove);
-      mapElement.style.cursor = 'default';
-    };
-  }, [magnifierEnabled]);
 
   const createMap = useCallback((center) => {
     try {
@@ -593,35 +531,22 @@ export default function MeasurementPage() {
       totalFlatArea += flatArea;
       totalActualArea += actualArea;
       
-      // Track pitch breakdown
       const pitchKey = section.pitch || "flat";
       if (!pitchBreakdown[pitchKey]) {
         pitchBreakdown[pitchKey] = 0;
       }
-      pitchBreakdown[pitchKey] += actualArea / 100; // Convert to squares
+      pitchBreakdown[pitchKey] += actualArea / 100;
       
-      // Calculate perimeter (approximate based on area)
-      const avgDimension = Math.sqrt(flatArea); // This is a very crude estimation
-      const perimeter = avgDimension * 4; // Assuming a square-like shape for perimeter estimation
+      const avgDimension = Math.sqrt(flatArea);
+      const perimeter = avgDimension * 4;
       
-      // EAVES: Bottom edges (40% of perimeter)
       totalEaves += perimeter * 0.4;
-      
-      // RAKES: Sloped edges (30% of perimeter, adjusted for pitch)
       totalRakes += (perimeter * 0.3) * pitchMultiplier;
-      
-      // RIDGES: Peak lines (~50% of longest dimension)
       totalRidges += avgDimension * 0.5;
-      
-      // HIPS: External corners (30% adjusted for pitch)
       const hipEstimate = avgDimension * 0.3 * pitchMultiplier;
       totalHips += hipEstimate;
-      
-      // VALLEYS: Internal corners (20% adjusted for pitch)
       const valleyEstimate = avgDimension * 0.2 * pitchMultiplier;
       totalValleys += valleyEstimate;
-      
-      // STEPS: Wall intersections (15% of perimeter)
       totalSteps += perimeter * 0.15;
     });
     
@@ -636,7 +561,7 @@ export default function MeasurementPage() {
       hips: Math.round(totalHips * 10) / 10,
       valleys: Math.round(totalValleys * 10) / 10,
       steps: Math.round(totalSteps * 10) / 10,
-      walls: 0, // Placeholder, can be estimated more accurately with proper geometry processing
+      walls: 0,
       
       pitchBreakdown: pitchBreakdown
     };
@@ -645,7 +570,6 @@ export default function MeasurementPage() {
     return measurements;
   }, []);
 
-  // NEW: Function to capture satellite view (clean map without UI)
   const captureSatelliteView = async () => {
     const mapContainer = mapRef.current;
     
@@ -657,25 +581,20 @@ export default function MeasurementPage() {
     try {
       console.log('📸 Capturing satellite view...');
       
-      // Hide ALL UI elements temporarily
       const uiElements = document.querySelectorAll(
         '.gmnoprint, .gm-style-cc, .gm-bundled-control, .gm-svpc, .gm-control-active'
       );
       const originalDisplays = Array.from(uiElements).map(el => el.style.display);
       uiElements.forEach(el => el.style.display = 'none');
       
-      // Also hide our custom UI overlays
       const customUI = document.querySelectorAll('[style*="z-index: 10"], [style*="z-index: 1000"]');
       const originalCustomDisplays = Array.from(customUI).map(el => el.style.display);
       customUI.forEach(el => el.style.display = 'none');
       
-      // Wait for render
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Dynamic import of html2canvas
       const html2canvas = (await import('html2canvas')).default;
       
-      // Capture clean satellite view
       const canvas = await html2canvas(mapContainer, {
         useCORS: true,
         allowTaint: false,
@@ -686,7 +605,6 @@ export default function MeasurementPage() {
         height: mapContainer.offsetHeight
       });
       
-      // Restore UI elements
       uiElements.forEach((el, i) => el.style.display = originalDisplays[i]);
       customUI.forEach((el, i) => el.style.display = originalCustomDisplays[i]);
       
@@ -701,7 +619,6 @@ export default function MeasurementPage() {
     }
   };
 
-  // NEW: Function to capture measurement diagram (map with drawn polygons)
   const captureMeasurementDiagram = async () => {
     const mapContainer = mapRef.current;
     
@@ -713,25 +630,20 @@ export default function MeasurementPage() {
     try {
       console.log('📸 Capturing measurement diagram...');
       
-      // Hide UI controls but KEEP polygons visible
       const uiElements = document.querySelectorAll(
         '.gmnoprint, .gm-style-cc, .gm-bundled-control, .gm-svpc, .gm-control-active'
       );
       const originalDisplays = Array.from(uiElements).map(el => el.style.display);
       uiElements.forEach(el => el.style.display = 'none');
       
-      // Hide custom UI overlays but keep polygons
       const customUI = document.querySelectorAll('[style*="z-index: 10"], [style*="z-index: 1000"]');
       const originalCustomDisplays = Array.from(customUI).map(el => el.style.display);
       customUI.forEach(el => el.style.display = 'none');
       
-      // Wait for render
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Dynamic import of html2canvas
       const html2canvas = (await import('html2canvas')).default;
       
-      // Capture map with drawn sections
       const canvas = await html2canvas(mapContainer, {
         useCORS: true,
         allowTaint: false,
@@ -742,7 +654,6 @@ export default function MeasurementPage() {
         height: mapContainer.offsetHeight
       });
       
-      // Restore UI
       uiElements.forEach((el, i) => el.style.display = originalDisplays[i]);
       customUI.forEach((el, i) => el.style.display = originalCustomDisplays[i]);
       
@@ -785,13 +696,9 @@ export default function MeasurementPage() {
       const sectionsData = sections.map(({ polygon, ...section }) => section);
       const roofComponents = calculateRoofComponents(sections);
 
-      // CAPTURE IMAGES BEFORE SAVING
       console.log('📸 Starting image capture...');
       
-      // Capture satellite view (clean map)
       const satelliteImage = await captureSatelliteView();
-      
-      // Capture measurement diagram (with polygons)
       const measurementDiagram = await captureMeasurementDiagram();
       
       console.log('📸 Image capture complete:', {
@@ -816,7 +723,6 @@ export default function MeasurementPage() {
         walls_ft: roofComponents.walls,
         pitch_breakdown: roofComponents.pitchBreakdown,
         
-        // ADD CAPTURED IMAGES
         satellite_image: satelliteImage,
         measurement_diagram: measurementDiagram,
         
@@ -1140,82 +1046,15 @@ export default function MeasurementPage() {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm font-bold text-blue-900 mb-2">📐 How to Measure Complex Roofs:</p>
                   <ul className="text-xs text-blue-800 space-y-2">
-                    <li>1. Zoom in close and use magnifier for details</li>
+                    <li>1. Zoom in close for better details</li>
                     <li>2. Draw each roof plane separately (front, back, sides)</li>
-                    <li>3. Include garage, additions, and all roof sections)</li>
+                    <li>3. Include garage, additions, and all roof sections</li>
                     <li>4. After drawing, select pitch for each section</li>
                     <li>5. Tool calculates actual 3D surface area</li>
                   </ul>
                 </div>
               </div>
             )}
-
-            {/* Magnifying Glass Section */}
-            <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b border-purple-200">
-              <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                <Search className="w-5 h-5 text-purple-600" />
-                Magnifying Glass
-              </h3>
-
-              <Button
-                onClick={() => setMagnifierEnabled(!magnifierEnabled)}
-                className={`w-full h-12 mb-3 text-lg font-bold ${
-                  magnifierEnabled
-                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : 'bg-purple-600 hover:bg-purple-700 text-white'
-                }`}
-              >
-                <Search className="w-5 h-5 mr-2" />
-                {magnifierEnabled ? '🔍 Magnifier ON' : '🔍 Magnifier OFF'}
-              </Button>
-
-              {magnifierEnabled && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">
-                      Magnifier Size: {magnifierSize}px
-                    </label>
-                    <input
-                      type="range"
-                      min="100" 
-                      max="300"
-                      step="25"
-                      value={magnifierSize}
-                      onChange={(e) => setMagnifierSize(Number(e.target.value))}
-                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
-                    />
-                    <div className="flex justify-between text-xs text-slate-500 mt-1">
-                      <span>Small</span>
-                      <span>Large</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {magnifierEnabled && showMagnifierInstructions && (
-                <div className="mt-3 p-3 bg-white border border-purple-200 rounded-lg text-xs">
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-bold text-purple-900">💡 How to Use:</h4>
-                    <button
-                      onClick={() => setShowMagnifierInstructions(false)}
-                      className="text-purple-600 hover:text-purple-800"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <ul className="text-purple-800 space-y-1">
-                    <li>• Move mouse over the roof</li>
-                    <li>• Magnifier shows EXACT area under cursor</li>
-                    <li>• Click points precisely with magnifier</li>
-                    <li>• Press <kbd className="px-1 bg-purple-100 border rounded text-[10px]">M</kbd> to toggle</li>
-                  </ul>
-                </div>
-              )}
-
-              <div className="mt-2 p-2 bg-purple-100 border border-purple-200 rounded text-xs text-purple-800 text-center">
-                Press <kbd className="px-2 py-1 bg-white border rounded font-bold">M</kbd> to toggle magnifier
-              </div>
-            </div>
 
             {/* Zoom Controls Section */}
             <div className="p-4 bg-slate-50 border-b border-slate-200">
@@ -1316,13 +1155,12 @@ export default function MeasurementPage() {
                   </button>
                 </div>
                 <p className="text-xs text-blue-800 mb-2">
-                  Use zoom controls and magnifying glass for accurate measurements
+                  Use zoom controls for accurate measurements
                 </p>
                 <ul className="text-xs text-blue-700 space-y-1">
                   <li>🖱️ Mouse wheel to zoom</li>
                   <li>📱 Pinch to zoom on mobile</li>
                   <li>🔘 Click +/- buttons above</li>
-                  <li>🔍 Magnifier tracks cursor EXACTLY</li>
                 </ul>
               </div>
             )}
@@ -1376,95 +1214,6 @@ export default function MeasurementPage() {
                 <p className="text-sm text-slate-500">
                   This takes just a moment
                 </p>
-              </div>
-            </div>
-          )}
-
-          {/* MAGNIFIER - Uses img tag with cache buster for proper reloading */}
-          {magnifierEnabled && !capturingImages && magnifierCenter.lat !== 0 && (
-            <div
-              style={{
-                position: 'absolute',
-                left: magnifierPosition.x - magnifierRadius,
-                top: magnifierPosition.y - magnifierRadius,
-                width: magnifierSize,
-                height: magnifierSize,
-                borderRadius: '50%',
-                border: '4px solid #9333ea',
-                overflow: 'hidden',
-                pointerEvents: 'none',
-                zIndex: 1000,
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-                background: '#1e293b' // Dark background for when image is loading
-              }}
-            >
-              {/* Use img tag with key to force reload */}
-              <img
-                key={`${magnifierCenter.lat}-${magnifierCenter.lng}-${currentZoom}-${magnifierSize}`} // Include zoom and size in key
-                src={`https://maps.googleapis.com/maps/api/staticmap?center=${magnifierCenter.lat},${magnifierCenter.lng}&zoom=${Math.min((mapInstanceRef.current?.getZoom() || 20) + 4, 22)}&size=${magnifierSize * 2}x${magnifierSize * 2}&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}&scale=2&t=${Date.now()}`}
-                alt="Magnified view"
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  width: magnifierSize * 2,
-                  height: magnifierSize * 2,
-                  objectFit: 'cover'
-                }}
-                onError={(e) => {
-                  console.error('Magnifier image failed to load');
-                  e.target.style.display = 'none'; // Hide image on error
-                }}
-              />
-              
-              {/* Crosshair */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  width: '40px',
-                  height: '40px',
-                  pointerEvents: 'none',
-                  zIndex: 1001
-                }}
-              >
-                <div style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: 0,
-                  right: 0,
-                  height: '2px',
-                  background: '#9333ea',
-                  transform: 'translateY(-50%)',
-                  boxShadow: '0 0 4px rgba(147, 51, 234, 0.8)'
-                }} />
-                
-                <div style={{
-                  position: 'absolute',
-                  left: '50%',
-                  top: 0,
-                  bottom: 0,
-                  width: '2px',
-                  background: '#9333ea',
-                  transform: 'translateX(-50%)',
-                  boxShadow: '0 0 4px rgba(147, 51, 234, 0.8)'
-                }} />
-                
-                <div style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: '#9333ea',
-                  border: '2px solid white',
-                  boxShadow: '0 0 6px rgba(147, 51, 234, 0.9)'
-                }} />
               </div>
             </div>
           )}
