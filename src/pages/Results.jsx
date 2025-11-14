@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -132,16 +131,50 @@ export default function Results() {
   const lowEstimate = Math.round(subtotal * 0.90);
   const highEstimate = Math.round(subtotal * 1.10);
 
-  // Generate static image URLs
-  const satelliteUrl = measurement.base_image_url || 
-    `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
+  // Calculate center from drawn sections
+  const calculateRoofCenter = () => {
+    if (!sections || sections.length === 0) {
+      return null;
+    }
+
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+
+    sections.forEach(section => {
+      if (section.coordinates && section.coordinates.length > 0) {
+        section.coordinates.forEach(point => {
+          minLat = Math.min(minLat, point.lat);
+          maxLat = Math.max(maxLat, point.lat);
+          minLng = Math.min(minLng, point.lng);
+          maxLng = Math.max(maxLng, point.lng);
+        });
+      }
+    });
+
+    if (minLat === Infinity) return null;
+
+    const centerLat = (minLat + maxLat) / 2;
+    const centerLng = (minLng + maxLng) / 2;
+
+    return { lat: centerLat, lng: centerLng };
+  };
+
+  const roofCenter = calculateRoofCenter();
+
+  // Generate edit measurement URL
+  const editMeasurementUrl = roofCenter 
+    ? createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&lat=${roofCenter.lat}&lng=${roofCenter.lng}&measurementId=${measurement.id}`)
+    : createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&measurementId=${measurement.id}`);
+
+  // Generate static map URLs
+  const satelliteUrl = roofCenter 
+    ? `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`
+    : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
   
   const diagramUrl = (() => {
-    if (!measurement.base_image_url || sections.length === 0) return null;
-    
+    if (sections.length === 0 || !roofCenter) return null;
     const colors = ['0xff0000', '0x00ff00', '0x0000ff', '0xffff00', '0xff00ff', '0x00ffff'];
     let pathsString = '';
-    
     sections.forEach((section, index) => {
       if (section.coordinates && section.coordinates.length > 0) {
         const color = colors[index % colors.length];
@@ -150,14 +183,8 @@ export default function Results() {
         pathsString += `&path=color:${color}|weight:3|fillcolor:${color}44|${points}|${firstPoint}`;
       }
     });
-    
-    return measurement.base_image_url + pathsString;
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite${pathsString}&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
   })();
-
-  // Generate edit URL
-  const editMeasurementUrl = measurement.base_image_center
-    ? createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&lat=${measurement.base_image_center.lat}&lng=${measurement.base_image_center.lng}&measurementId=${measurement.id}`)
-    : createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&measurementId=${measurement.id}`);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
@@ -211,13 +238,19 @@ export default function Results() {
               </CardHeader>
               <CardContent className="p-6">
                 <p className="text-slate-600 mb-4">
-                  High-resolution satellite view of your property
+                  High-resolution satellite view focused on your roof
                 </p>
                 <div className="border-2 border-slate-200 rounded-xl overflow-hidden shadow-lg">
                   <img 
                     src={satelliteUrl}
                     alt="Satellite view"
                     className="w-full h-auto"
+                    style={{ maxWidth: '800px', width: '100%' }}
+                    onError={(e) => {
+                      console.error("Satellite image failed to load");
+                      e.target.style.display = 'none';
+                      e.target.parentElement.innerHTML = '<div class="p-12 text-center text-slate-500">Unable to load satellite image</div>';
+                    }}
                   />
                 </div>
               </CardContent>
@@ -241,6 +274,11 @@ export default function Results() {
                       src={diagramUrl}
                       alt="Measurement diagram"
                       className="w-full h-auto"
+                      style={{ maxWidth: '800px', width: '100%' }}
+                      onError={(e) => {
+                        console.error("Diagram image failed to load");
+                        e.target.style.display = 'none';
+                      }}
                     />
                   </div>
                   
