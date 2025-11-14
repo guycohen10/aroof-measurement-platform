@@ -5,7 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Loader2, Crown, ArrowRight, Box } from "lucide-react";
+import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Phone, FileText, Star, DollarSign, Loader2, Box } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
@@ -131,50 +131,20 @@ export default function Results() {
   const lowEstimate = Math.round(subtotal * 0.90);
   const highEstimate = Math.round(subtotal * 1.10);
 
-  // Calculate center from drawn sections
-  const calculateRoofCenter = () => {
-    if (!sections || sections.length === 0) {
-      return null;
-    }
-
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
-
-    sections.forEach(section => {
-      if (section.coordinates && section.coordinates.length > 0) {
-        section.coordinates.forEach(point => {
-          minLat = Math.min(minLat, point.lat);
-          maxLat = Math.max(maxLat, point.lat);
-          minLng = Math.min(minLng, point.lng);
-          maxLng = Math.max(maxLng, point.lng);
-        });
-      }
-    });
-
-    if (minLat === Infinity) return null;
-
-    const centerLat = (minLat + maxLat) / 2;
-    const centerLng = (minLng + maxLng) / 2;
-
-    return { lat: centerLat, lng: centerLng };
-  };
-
-  const roofCenter = calculateRoofCenter();
-
-  // Generate edit measurement URL
-  const editMeasurementUrl = roofCenter 
-    ? createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&lat=${roofCenter.lat}&lng=${roofCenter.lng}&measurementId=${measurement.id}`)
-    : createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&measurementId=${measurement.id}`);
-
-  // Generate static map URLs
-  const satelliteUrl = roofCenter 
-    ? `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`
-    : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
+  // Use saved static image URL or generate as fallback
+  const satelliteUrl = measurement.base_image_url || 
+    (measurement.map_center_lat && measurement.map_center_lng
+      ? `https://maps.googleapis.com/maps/api/staticmap?center=${measurement.map_center_lat},${measurement.map_center_lng}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`
+      : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`);
   
+  // Generate diagram URL by adding polygon paths to the base satellite image
   const diagramUrl = (() => {
-    if (sections.length === 0 || !roofCenter) return null;
+    if (sections.length === 0) return null;
+    
+    const baseUrl = measurement.base_image_url || satelliteUrl;
     const colors = ['0xff0000', '0x00ff00', '0x0000ff', '0xffff00', '0xff00ff', '0x00ffff'];
     let pathsString = '';
+    
     sections.forEach((section, index) => {
       if (section.coordinates && section.coordinates.length > 0) {
         const color = colors[index % colors.length];
@@ -183,8 +153,14 @@ export default function Results() {
         pathsString += `&path=color:${color}|weight:3|fillcolor:${color}44|${points}|${firstPoint}`;
       }
     });
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite${pathsString}&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
+    
+    return baseUrl + pathsString;
   })();
+
+  // Generate edit measurement URL
+  const editMeasurementUrl = measurement.map_center_lat && measurement.map_center_lng
+    ? createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&lat=${measurement.map_center_lat}&lng=${measurement.map_center_lng}&measurementId=${measurement.id}`)
+    : createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&measurementId=${measurement.id}`);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
@@ -238,7 +214,7 @@ export default function Results() {
               </CardHeader>
               <CardContent className="p-6">
                 <p className="text-slate-600 mb-4">
-                  High-resolution satellite view focused on your roof
+                  High-resolution satellite view of your property
                 </p>
                 <div className="border-2 border-slate-200 rounded-xl overflow-hidden shadow-lg">
                   <img 
@@ -384,6 +360,8 @@ export default function Results() {
 
                       <PDFReportGenerator
                         measurement={measurement}
+                        satelliteImageUrl={satelliteUrl}
+                        diagramImageUrl={diagramUrl}
                         userBranding={getUserBranding()}
                         onGenerate={handlePDFDownload}
                       />
@@ -567,7 +545,7 @@ export default function Results() {
                 <div className="space-y-2 text-sm">
                   <a href="tel:+18502389727" className="flex items-center justify-center gap-2 hover:text-blue-600">
                     <Phone className="w-4 h-4" />
-                    <strong>(850) 238-9727</strong>
+                    <strong>(850) 238-9727)</strong>
                   </a>
                   <a href="mailto:contact@aroof.build" className="flex items-center justify-center gap-2 hover:text-blue-600">
                     <strong>contact@aroof.build</strong>
