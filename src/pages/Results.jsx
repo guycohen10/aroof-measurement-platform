@@ -6,7 +6,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Building2, Loader2, Crown } from "lucide-react"; // Added Crown icon
+import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Building2, Loader2, Crown, ArrowRight } from "lucide-react"; // Added Crown icon, ArrowRight
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
@@ -213,7 +213,7 @@ export default function Results() {
   const highEstimate = Math.round(subtotal * 1.10);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
       {/* Modern Header */}
       <header className="border-b border-slate-200 bg-white/90 backdrop-blur-lg shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -239,7 +239,7 @@ export default function Results() {
 
       {/* Enhanced Success Banner with Animation */}
       <div className="bg-gradient-to-r from-green-500 via-green-600 to-green-700 text-white py-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsYXNzIGFiYyBkZWYiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZj																					 												 											  MDIuMjEgMS43OSA0IDRoNHM0LTEuNzkgMy45OS00YzAtMi4yMS00LTMuNzktNC00em0tNiAwYzAgMi4zMTEuNzkgNCA0IDRzNC0xLjc5IDMuOTktNC00LTMuNzktNC00em0tMi00YzAgMjMxMS43OTIyMTM4Ljc1ODY5NSA0IDRzLTEuNzkyMjgwMy00LTMuOTk5ODU3OC00bC0uMDAwMDE0My0uMDAwMDAwODl6bTAgMGMwIDIuMzExLjczOTY3MzYgNCA0IDRzNC0xLjc5IDIuMjI3NzAyLTQuMDAxMjY1OS4wMDAwMTIzLS4wMDAwMDQ5eiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsYXNzIGFiYyBkZWYiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZj																					 												 											  MDIuMjEgMS43OSAzLjk5OTg1NzggNC4wMDAxNDMgNGg0cy00LTEuNzktMy45OTk4NTcxLTQuMDAwMTQzYzAtMi4yMS0zLjk5OTg1NzItMy45OTk4NTczLTQtNC4wMDAxNDN6bS02IDBjMCAyLjMxMS43Mzk2NzM2IDQgNC4wMDAxNDMgNC4wMDAxNDNzMy45OTk4NTczLTEuNzkyMjgwMyA0LTQuMDAwMTQzLS43ODgyOTQ4LTMuOTg4MjQ3LTQtMy45ODgyNDc0LTQuMDAwMTQzLTMuOTg4MjQ3NC00LjAwMDE0M3ptLTIuNzcyMjE5OC00LjQ4NDQyMDdIMzcuMDI3NzgwMi4yNzI4NTczeiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-center gap-4 mb-6">
@@ -258,489 +258,600 @@ export default function Results() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-        {/* Large Area Display */}
-        <Card className="mb-8 border-2 border-blue-200 shadow-xl bg-gradient-to-br from-blue-50 to-white">
-          <CardContent className="p-12 text-center">
-            <h2 className="text-2xl font-semibold text-slate-700 mb-4">
-              Total Roof Area {hasPitchAdjustment && <span className="text-sm">(Pitch-Adjusted)</span>}
-            </h2>
-            <div className="text-7xl md:text-8xl font-bold text-blue-600 mb-2">
-              {area.toLocaleString()}
-            </div>
-            <p className="text-3xl font-semibold text-slate-600">square feet</p>
-            {hasPitchAdjustment && (
-              <p className="text-sm text-blue-600 mt-4">
-                Flat area: {flatArea.toLocaleString()} sq ft • Adjusted for roof pitch
-              </p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Left Column - Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Satellite View Section - NEW */}
+            {measurement.satellite_image && (
+              <Card className="shadow-xl border-2 border-blue-200">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
+                  <CardTitle className="flex items-center gap-2 text-2xl">
+                    <MapPin className="w-6 h-6 text-blue-600" />
+                    📍 Satellite View
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <p className="text-slate-600 mb-4">
+                    High-resolution satellite imagery of your property
+                  </p>
+                  <div className="border-2 border-slate-200 rounded-xl overflow-hidden shadow-lg">
+                    <img 
+                      src={measurement.satellite_image} 
+                      alt="Satellite view of property"
+                      className="w-full h-auto"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
 
-        {/* Section Breakdown */}
-        {sections.length > 1 && (
-          <Card className="mb-8 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-2xl flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Ruler className="w-5 h-5 text-white" />
+            {/* Measurement Diagram Section - NEW */}
+            {measurement.measurement_diagram && (
+              <Card className="shadow-xl border-2 border-green-200">
+                <CardHeader className="bg-gradient-to-r from-green-50 to-white">
+                  <CardTitle className="flex items-center gap-2 text-2xl">
+                    <Ruler className="w-6 h-6 text-green-600" />
+                    📐 Measurement Diagram
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <p className="text-slate-600 mb-4">
+                    Color-coded sections showing measured roof areas
+                  </p>
+                  <div className="border-2 border-slate-200 rounded-xl overflow-hidden shadow-lg">
+                    <img 
+                      src={measurement.measurement_diagram} 
+                      alt="Measurement diagram with sections"
+                      className="w-full h-auto"
+                    />
+                  </div>
+                  
+                  {/* Legend for sections */}
+                  {measurement.measurement_data?.sections && measurement.measurement_data.sections.length > 0 && (
+                    <div className="mt-6 bg-slate-50 rounded-lg p-4">
+                      <h4 className="font-bold text-slate-900 mb-3">Section Legend:</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        {measurement.measurement_data.sections.map((section, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <div 
+                              className="w-4 h-4 rounded-full"
+                              style={{ backgroundColor: section.color || '#3b82f6' }}
+                            />
+                            <span className="text-sm font-semibold text-slate-700">
+                              {section.name || `Section ${idx + 1}`}: {Math.round(section.adjusted_area_sqft || section.flat_area_sqft).toLocaleString()} sq ft
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Fallback if no images */}
+            {!measurement.satellite_image && !measurement.measurement_diagram && (
+              <Card className="shadow-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-blue-600" />
+                    Property Map
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl p-12 text-center">
+                    <MapPin className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                    <p className="text-slate-600 font-semibold mb-2">
+                      📍 Satellite imagery not available
+                    </p>
+                    <p className="text-sm text-slate-500 mb-4">
+                      Images may take a moment to process
+                    </p>
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(measurement.property_address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold"
+                    >
+                      View on Google Maps
+                      <ArrowRight className="w-4 h-4" />
+                    </a>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Interactive Map with ID for capture */}
+            <Card className="shadow-xl">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Ruler className="w-5 h-5 text-green-600" />
+                  Interactive Measurement View
+                </CardTitle>
+                <p className="text-sm text-slate-600 mt-1">Interactive map - zoom and pan to explore</p>
+              </CardHeader>
+              <CardContent>
+                <div id="interactive-map-container" className="border-2 border-slate-200 rounded-xl overflow-hidden">
+                  <InteractiveMapView measurement={measurement} sections={sections} />
                 </div>
-                Section Breakdown
-              </CardTitle>
-              <p className="text-sm text-slate-600 mt-1">{sections.length} roof sections measured</p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {sections.map((section, index) => (
-                  <div
-                    key={section.id || index}
-                    className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border-l-4"
-                    style={{ borderColor: section.color || '#4A90E2' }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-6 h-6 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: section.color || '#4A90E2' }}
-                      />
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          {section.name || `Section ${index + 1}`}
-                        </p>
-                        {section.pitch && section.pitch !== 'flat' && (
-                          <p className="text-xs text-slate-500">
-                            Pitch: {section.pitch} (×{section.pitch_multiplier?.toFixed(2) || '1.00'})
-                          </p>
+              </CardContent>
+            </Card>
+
+            {/* Detailed Roof Components */}
+            <DetailedMeasurements measurement={measurement} />
+
+            {/* Photo Upload Section */}
+            <PhotoUpload measurement={measurement} onPhotosUpdate={handlePhotosUpdate} />
+
+            {/* PDF Report Download Section */}
+            <section className="py-16 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl shadow-xl">
+              <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8"> {/* Adjusted max-width here for section */}
+                <div className="text-center mb-12">
+                  <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-full mb-4">
+                    <FileText className="w-4 h-4" />
+                    <span className="font-semibold">Professional Report Available</span>
+                  </div>
+                  <h2 className="text-4xl font-bold text-slate-900 mb-4">
+                    Download Detailed PDF Report
+                  </h2>
+                  <p className="text-xl text-slate-600">
+                    Get a comprehensive professional report with all measurements and calculations
+                  </p>
+                </div>
+
+                <Card className="max-w-4xl mx-auto shadow-2xl border-2 border-purple-200">
+                  <CardContent className="p-8">
+                    {/* Map Image Capture component */}
+                    <MapImageCapture
+                      measurement={measurement}
+                      onSatelliteImageCaptured={setMapImageData} // Adjusted prop name
+                      onDiagramImageCaptured={setDiagramImageData} // Adjusted prop name
+                    />
+
+                    <div className="space-y-6 mt-8">
+                      <div className="bg-gradient-to-r from-purple-100 to-blue-100 border-2 border-purple-300 rounded-xl p-6">
+                        <h3 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+                          <FileText className="w-6 h-6 text-purple-600" />
+                          What's Included in Your Report
+                        </h3>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {[
+                            'Satellite imagery of your property',
+                            'Detailed measurement diagram',
+                            'Section-by-section breakdown',
+                            'Line measurements (eaves, ridges, valleys)',
+                            'Material estimates with waste factors',
+                            'Project cost estimates',
+                            measurement.photos && measurement.photos.length > 0 ? `${measurement.photos.length} site photo${measurement.photos.length !== 1 ? 's' : ''}` : 'Site photos (if uploaded)',
+                            'Professional formatting'
+                          ].map((item, idx) => (
+                            <div key={idx} className="flex items-start gap-2">
+                              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                              <span className="text-slate-700">{item}</span>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {getUserBranding() && (
+                          <div className="mt-4 p-4 bg-purple-200 rounded-lg border-2 border-purple-400">
+                            <p className="font-bold text-purple-900 flex items-center gap-2">
+                              <Crown className="w-5 h-5" />
+                              Custom Branded Report - {currentUser.subscription_plan?.toUpperCase()} Plan
+                            </p>
+                            <p className="text-sm text-purple-800 mt-1">
+                              Your PDF will feature your company logo, colors, and contact information
+                            </p>
+                          </div>
                         )}
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-slate-900">
-                        {(section.adjusted_area_sqft || section.flat_area_sqft || section.area_sqft || 0).toLocaleString()} sq ft
-                      </p>
-                      {section.flat_area_sqft && section.adjusted_area_sqft && section.flat_area_sqft !== section.adjusted_area_sqft && (
-                        <p className="text-xs text-slate-500">
-                          ({section.flat_area_sqft.toLocaleString()} sq ft flat)
+
+                      {/* PDF Generation Button */}
+                      <div className="flex flex-col items-center gap-4">
+                        <PDFReportGenerator
+                          measurement={measurement}
+                          satelliteImageData={mapImageData}
+                          diagramImageData={diagramImageData}
+                          userBranding={getUserBranding()}
+                          onGenerate={handlePDFDownload} // New handler
+                        />
+                        
+                        <p className="text-sm text-slate-500 text-center">
+                          Click to generate your professional PDF report
+                          {mapImageData ? ' (Map images captured ✓)' : ' (Capturing map images...)'}
                         </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                
-                {/* Total */}
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-bold border-2 border-blue-800">
-                  <span className="text-lg">Total Roof Surface Area</span>
-                  <span className="text-2xl">{area.toLocaleString()} sq ft</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
-        {/* Measurement Details */}
-        <Card className="mb-8 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-2xl">Measurement Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-lg">
-              <MapPin className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-600">Property Address</p>
-                <p className="text-lg font-semibold text-slate-900">{measurement.property_address}</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-lg">
-              <Calendar className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-600">Measurement Date</p>
-                <p className="text-lg font-semibold text-slate-900">
-                  {format(new Date(measurement.created_date), 'MMMM d, yyyy h:mm a')}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-lg">
-              <Ruler className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-600">Measurement Method</p>
-                <p className="text-lg font-semibold text-slate-900">Satellite Imagery Analysis</p>
-                <p className="text-sm text-slate-500 mt-1">Accuracy: ±2-5%</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Interactive Map with ID for capture */}
-        <Card className="mb-8 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-2xl">Satellite View with Measurements</CardTitle>
-            <p className="text-sm text-slate-600 mt-1">Interactive map - zoom and pan to explore</p>
-          </CardHeader>
-          <CardContent>
-            <div id="interactive-map-container">
-              <InteractiveMapView measurement={measurement} sections={sections} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Detailed Roof Components */}
-        <DetailedMeasurements measurement={measurement} />
-
-        {/* Pricing Estimate (for homeowners) */}
-        {isHomeowner && (
-          <Card className="mb-8 shadow-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white">
-            <CardHeader>
-              <CardTitle className="text-2xl flex items-center gap-2">
-                <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-                  <DollarSign className="w-5 h-5 text-white" />
-                </div>
-                Estimated Project Cost
-              </CardTitle>
-              {hasPitchAdjustment && (
-                <p className="text-sm text-green-700 mt-1">
-                  ✓ Based on {area.toLocaleString()} sq ft actual roof surface area
-                </p>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Material Selector */}
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">
-                  Select Roofing Material:
-                </label>
-                <Select value={materialType} onValueChange={setMaterialType}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="asphalt_shingles">
-                      Asphalt Shingles (Standard)
-                    </SelectItem>
-                    <SelectItem value="architectural_shingles">
-                      Architectural Shingles (+25%)
-                    </SelectItem>
-                    <SelectItem value="metal_roofing">
-                      Metal Roofing (+60%)
-                    </SelectItem>
-                    <SelectItem value="tile_roofing">
-                      Tile Roofing (+100%)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Cost Breakdown with Animation */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200 transition-all duration-300">
-                  <span className="text-slate-600">
-                    Materials ({area.toLocaleString()} sq ft × ${(4.00 * multiplier).toFixed(2)})
-                  </span>
-                  <span className="font-bold text-slate-900 transition-all duration-300">
-                    ${materialCost.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200">
-                  <span className="text-slate-600">Labor ({area.toLocaleString()} sq ft × $3.00)</span>
-                  <span className="font-bold text-slate-900">${laborCost.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200">
-                  <span className="text-slate-600">Waste Factor (10%)</span>
-                  <span className="font-bold text-slate-900">${wasteCost.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center p-4 bg-green-600 text-white rounded-lg transition-all duration-300">
-                  <span className="text-lg font-semibold">Estimated Cost Range</span>
-                  <span className="text-2xl font-bold transition-all duration-300">
-                    ${lowEstimate.toLocaleString()} - ${highEstimate.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-
-              {/* What's Included */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <h4 className="font-bold text-slate-900 mb-4 text-lg">What's Included:</h4>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {[
-                    "Premium roofing materials",
-                    "Professional installation by licensed crew",
-                    "Complete tear-off & disposal of old roof",
-                    "Underlayment & ice/water shield",
-                    "Proper ventilation installation",
-                    "Full site cleanup & debris removal",
-                    "10-year workmanship warranty",
-                    "Final inspection & quality check"
-                  ].map((item, index) => (
-                    <div key={index} className="flex items-start gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm text-slate-700">{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-sm text-yellow-900">
-                  <strong>Note:</strong> This is a preliminary estimate based on standard conditions. 
-                  Contact us for a detailed quote that accounts for roof pitch, complexity, and material selection.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Photo Upload Section */}
-        <PhotoUpload measurement={measurement} onPhotosUpdate={handlePhotosUpdate} />
-
-        {/* PDF Report Download Section */}
-        <section className="py-16 bg-gradient-to-br from-purple-50 to-blue-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-full mb-4">
-                <FileText className="w-4 h-4" />
-                <span className="font-semibold">Professional Report Available</span>
-              </div>
-              <h2 className="text-4xl font-bold text-slate-900 mb-4">
-                Download Detailed PDF Report
-              </h2>
-              <p className="text-xl text-slate-600">
-                Get a comprehensive professional report with all measurements and calculations
-              </p>
-            </div>
-
-            <Card className="max-w-4xl mx-auto shadow-2xl border-2 border-purple-200">
-              <CardContent className="p-8">
-                {/* Map Image Capture component */}
-                <MapImageCapture
-                  measurement={measurement}
-                  onSatelliteImageCaptured={setMapImageData} // Adjusted prop name
-                  onDiagramImageCaptured={setDiagramImageData} // Adjusted prop name
-                />
-
-                <div className="space-y-6 mt-8">
-                  <div className="bg-gradient-to-r from-purple-100 to-blue-100 border-2 border-purple-300 rounded-xl p-6">
-                    <h3 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                      <FileText className="w-6 h-6 text-purple-600" />
-                      What's Included in Your Report
-                    </h3>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {[
-                        'Satellite imagery of your property',
-                        'Detailed measurement diagram',
-                        'Section-by-section breakdown',
-                        'Line measurements (eaves, ridges, valleys)',
-                        'Material estimates with waste factors',
-                        'Project cost estimates',
-                        measurement.photos && measurement.photos.length > 0 ? `${measurement.photos.length} site photo${measurement.photos.length !== 1 ? 's' : ''}` : 'Site photos (if uploaded)',
-                        'Professional formatting'
-                      ].map((item, idx) => (
-                        <div key={idx} className="flex items-start gap-2">
-                          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                          <span className="text-slate-700">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {getUserBranding() && (
-                      <div className="mt-4 p-4 bg-purple-200 rounded-lg border-2 border-purple-400">
-                        <p className="font-bold text-purple-900 flex items-center gap-2">
-                          <Crown className="w-5 h-5" />
-                          Custom Branded Report - {currentUser.subscription_plan?.toUpperCase()} Plan
-                        </p>
-                        <p className="text-sm text-purple-800 mt-1">
-                          Your PDF will feature your company logo, colors, and contact information
-                        </p>
+                        {!getUserBranding() && currentUser?.aroof_role === 'external_roofer' && (
+                          <Link to={createPageUrl("RooferPlans")}>
+                            <Button variant="outline" className="border-purple-600 text-purple-600">
+                              <Crown className="w-4 h-4 mr-2" />
+                              Upgrade to Pro for Custom Branding
+                            </Button>
+                          </Link>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* PDF Generation Button */}
-                  <div className="flex flex-col items-center gap-4">
-                    <PDFReportGenerator
-                      measurement={measurement}
-                      satelliteImageData={mapImageData}
-                      diagramImageData={diagramImageData}
-                      userBranding={getUserBranding()}
-                      onGenerate={handlePDFDownload} // New handler
-                    />
+                      {downloadCount > 0 && (
+                        <Alert className="bg-green-50 border-green-200">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <AlertDescription className="text-green-800">
+                            <strong>Report generated {downloadCount} time{downloadCount > 1 ? 's' : ''}!</strong>
+                            {' '}Save it or print directly from your browser.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+                        <p className="font-semibold mb-2">💡 How to Save Your PDF:</p>
+                        <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                          <li>Click the button above to open your report</li>
+                          <li>Use browser's "Save as PDF" or Ctrl/Cmd + P</li>
+                          <li>Choose "Save as PDF" as the printer destination</li>
+                          <li>Save to your computer</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+          </div>
+
+          {/* Right Column - Stats and CTAs */}
+          <div className="lg:col-span-1 space-y-8">
+            {/* Large Area Display */}
+            <Card className="border-2 border-blue-200 shadow-xl bg-gradient-to-br from-blue-50 to-white">
+              <CardContent className="p-8 text-center">
+                <h2 className="text-xl font-semibold text-slate-700 mb-4">
+                  Total Roof Area {hasPitchAdjustment && <span className="text-sm">(Pitch-Adjusted)</span>}
+                </h2>
+                <div className="text-6xl md:text-7xl font-bold text-blue-600 mb-2">
+                  {area.toLocaleString()}
+                </div>
+                <p className="text-2xl font-semibold text-slate-600">square feet</p>
+                {hasPitchAdjustment && (
+                  <p className="text-sm text-blue-600 mt-4">
+                    Flat area: {flatArea.toLocaleString()} sq ft • Adjusted for roof pitch
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Section Breakdown */}
+            {sections.length > 1 && (
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
+                      <Ruler className="w-4 h-4 text-white" />
+                    </div>
+                    Section Breakdown
+                  </CardTitle>
+                  <p className="text-sm text-slate-600 mt-1">{sections.length} roof sections measured</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {sections.map((section, index) => (
+                      <div
+                        key={section.id || index}
+                        className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border-l-4"
+                        style={{ borderColor: section.color || '#4A90E2' }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-5 h-5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: section.color || '#4A90E2' }}
+                          />
+                          <div>
+                            <p className="font-semibold text-slate-900 text-sm">
+                              {section.name || `Section ${index + 1}`}
+                            </p>
+                            {section.pitch && section.pitch !== 'flat' && (
+                              <p className="text-xs text-slate-500">
+                                Pitch: {section.pitch} (×{section.pitch_multiplier?.toFixed(2) || '1.00'})
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-md font-bold text-slate-900">
+                            {(section.adjusted_area_sqft || section.flat_area_sqft || section.area_sqft || 0).toLocaleString()} sq ft
+                          </p>
+                          {section.flat_area_sqft && section.adjusted_area_sqft && section.flat_area_sqft !== section.adjusted_area_sqft && (
+                            <p className="text-xs text-slate-500">
+                              ({section.flat_area_sqft.toLocaleString()} sq ft flat)
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                     
-                    <p className="text-sm text-slate-500 text-center">
-                      Click to generate your professional PDF report
-                      {mapImageData ? ' (Map images captured ✓)' : ' (Capturing map images...)'}
-                    </p>
-
-                    {!getUserBranding() && currentUser?.aroof_role === 'external_roofer' && (
-                      <Link to={createPageUrl("RooferPlans")}>
-                        <Button variant="outline" className="border-purple-600 text-purple-600">
-                          <Crown className="w-4 h-4 mr-2" />
-                          Upgrade to Pro for Custom Branding
-                        </Button>
-                      </Link>
-                    )}
+                    {/* Total */}
+                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-bold border-2 border-blue-800">
+                      <span className="text-md">Total Roof Surface Area</span>
+                      <span className="text-xl">{area.toLocaleString()} sq ft</span>
+                    </div>
                   </div>
+                </CardContent>
+              </Card>
+            )}
 
-                  {downloadCount > 0 && (
-                    <Alert className="bg-green-50 border-green-200">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <AlertDescription className="text-green-800">
-                        <strong>Report generated {downloadCount} time{downloadCount > 1 ? 's' : ''}!</strong>
-                        {' '}Save it or print directly from your browser.
-                      </AlertDescription>
-                    </Alert>
-                  )}
+            {/* Measurement Details */}
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-xl">Measurement Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                  <MapPin className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-600">Property Address</p>
+                    <p className="text-md font-semibold text-slate-900">{measurement.property_address}</p>
+                  </div>
+                </div>
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
-                    <p className="font-semibold mb-2">💡 How to Save Your PDF:</p>
-                    <ol className="list-decimal list-inside space-y-1 text-blue-800">
-                      <li>Click the button above to open your report</li>
-                      <li>Use browser's "Save as PDF" or Ctrl/Cmd + P</li>
-                      <li>Choose "Save as PDF" as the printer destination</li>
-                      <li>Save to your computer</li>
-                    </ol>
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                  <Calendar className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-600">Measurement Date</p>
+                    <p className="text-md font-semibold text-slate-900">
+                      {format(new Date(measurement.created_date), 'MMMM d, yyyy h:mm a')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                  <Ruler className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-600">Measurement Method</p>
+                    <p className="text-md font-semibold text-slate-900">Satellite Imagery Analysis</p>
+                    <p className="text-xs text-slate-500 mt-1">Accuracy: ±2-5%</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </div>
-        </section>
 
-        {/* IMPROVED: Ready to Get Started - Enhanced CTA Section */}
-        <Card className="mb-8 shadow-2xl border-none overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-8 lg:p-12">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl lg:text-4xl font-bold mb-3">Ready for Your New Roof?</h2>
-              <p className="text-xl text-blue-100 mb-8">Let's Turn This Estimate Into Reality</p>
-              
-              {/* Benefits Icons */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto mb-8">
-                {[
-                  { icon: Shield, text: "Licensed & Insured" },
-                  { icon: DollarSign, text: "Financing Available" },
-                  { icon: Zap, text: "Fast Scheduling" },
-                  { icon: Star, text: "4.9/5 Stars on Google" }
-                ].map((item, index) => (
-                  <div key={index} className="flex flex-col items-center justify-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-6 min-h-[120px]">
-                    <item.icon className="w-10 h-10 text-blue-200 flex-shrink-0" />
-                    <span className="text-sm font-semibold text-blue-100 text-center leading-tight">{item.text}</span>
+            {/* Pricing Estimate (for homeowners) */}
+            {isHomeowner && (
+              <Card className="shadow-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white">
+                <CardHeader>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <div className="w-7 h-7 bg-green-600 rounded-lg flex items-center justify-center">
+                      <DollarSign className="w-4 h-4 text-white" />
+                    </div>
+                    Estimated Project Cost
+                  </CardTitle>
+                  {hasPitchAdjustment && (
+                    <p className="text-sm text-green-700 mt-1">
+                      ✓ Based on {area.toLocaleString()} sq ft actual roof surface area
+                    </p>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Material Selector */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">
+                      Select Roofing Material:
+                    </label>
+                    <Select value={materialType} onValueChange={setMaterialType}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="asphalt_shingles">
+                          Asphalt Shingles (Standard)
+                        </SelectItem>
+                        <SelectItem value="architectural_shingles">
+                          Architectural Shingles (+25%)
+                        </SelectItem>
+                        <SelectItem value="metal_roofing">
+                          Metal Roofing (+60%)
+                        </SelectItem>
+                        <SelectItem value="tile_roofing">
+                          Tile Roofing (+100%)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                ))}
+
+                  {/* Cost Breakdown with Animation */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200 transition-all duration-300">
+                      <span className="text-slate-600">
+                        Materials ({area.toLocaleString()} sq ft × ${(4.00 * multiplier).toFixed(2)})
+                      </span>
+                      <span className="font-bold text-slate-900 transition-all duration-300">
+                        ${materialCost.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200">
+                      <span className="text-slate-600">Labor ({area.toLocaleString()} sq ft × $3.00)</span>
+                      <span className="font-bold text-slate-900">${laborCost.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200">
+                      <span className="text-slate-600">Waste Factor (10%)</span>
+                      <span className="font-bold text-slate-900">${wasteCost.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-4 bg-green-600 text-white rounded-lg transition-all duration-300">
+                      <span className="text-lg font-semibold">Estimated Cost Range</span>
+                      <span className="text-2xl font-bold transition-all duration-300">
+                        ${lowEstimate.toLocaleString()} - ${highEstimate.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* What's Included */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                    <h4 className="font-bold text-slate-900 mb-4 text-lg">What's Included:</h4>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      {[
+                        "Premium roofing materials",
+                        "Professional installation by licensed crew",
+                        "Complete tear-off & disposal of old roof",
+                        "Underlayment & ice/water shield",
+                        "Proper ventilation installation",
+                        "Full site cleanup & debris removal",
+                        "10-year workmanship warranty",
+                        "Final inspection & quality check"
+                      ].map((item, index) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                          <span className="text-sm text-slate-700">{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-sm text-yellow-900">
+                      <strong>Note:</strong> This is a preliminary estimate based on standard conditions. 
+                      Contact us for a detailed quote that accounts for roof pitch, complexity, and material selection.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* IMPROVED: Ready to Get Started - Enhanced CTA Section */}
+            <Card className="shadow-2xl border-none overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-8">
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl lg:text-3xl font-bold mb-3">Ready for Your New Roof?</h2>
+                  <p className="text-lg text-blue-100 mb-8">Let's Turn This Estimate Into Reality</p>
+                  
+                  {/* Benefits Icons */}
+                  <div className="grid grid-cols-2 gap-4 max-w-xs mx-auto mb-8">
+                    {[
+                      { icon: Shield, text: "Licensed & Insured" },
+                      { icon: DollarSign, text: "Financing Available" },
+                      { icon: Zap, text: "Fast Scheduling" },
+                      { icon: Star, text: "4.9/5 Stars on Google" }
+                    ].map((item, index) => (
+                      <div key={index} className="flex flex-col items-center justify-center gap-2 bg-white/10 backdrop-blur-sm rounded-xl p-4 min-h-[100px]">
+                        <item.icon className="w-8 h-8 text-blue-200 flex-shrink-0" />
+                        <span className="text-xs font-semibold text-blue-100 text-center leading-tight">{item.text}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* PRIMARY CTA - Schedule Free Inspection */}
+                  <Button
+                    size="lg"
+                    className="w-full h-16 text-lg bg-green-600 hover:bg-green-700 shadow-xl hover:shadow-2xl transition-all mb-4"
+                    onClick={handleScheduleClick}
+                  >
+                    <Calendar className="w-6 h-6 mr-2 flex-shrink-0" />
+                    <span className="flex-1">Schedule Free Inspection</span>
+                    <span className="ml-2 text-xs bg-green-500 px-2 py-1 rounded-full whitespace-nowrap">
+                      🔥 Same-Day
+                    </span>
+                  </Button>
+
+                  {/* Secondary Actions - Better Grid */}
+                  <div className="grid grid-cols-1 gap-4">
+                    <Button
+                      size="lg"
+                      variant="secondary"
+                      className="w-full h-14 text-base bg-white text-blue-900 hover:bg-blue-50 font-semibold"
+                      onClick={() => navigate(createPageUrl("FormPage"))}
+                    >
+                      <Home className="w-5 h-5 mr-2 flex-shrink-0" />
+                      Measure Another Roof
+                    </Button>
+
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full h-14 text-base border-2 border-white text-white hover:bg-white/10 font-semibold"
+                      onClick={() => handleDownloadClick()}
+                    >
+                      <Download className="w-5 h-5 mr-2 flex-shrink-0" />
+                      Download Report
+                    </Button>
+
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full h-14 text-base border-2 border-green-400 text-green-400 hover:bg-green-400 hover:text-white font-semibold"
+                      asChild
+                      onClick={handleCallClick}
+                    >
+                      <a href="tel:+18502389727" className="flex items-center justify-center gap-2">
+                        <Phone className="w-5 h-5 flex-shrink-0" />
+                        Call: (850) 238-9727
+                      </a>
+                    </Button>
+                  </div>
+
+                  {/* Urgency Element */}
+                  <div className="mt-8 text-center">
+                    <div className="inline-flex items-center gap-2 bg-orange-500 text-white px-5 py-2 rounded-full text-sm font-bold shadow-xl animate-pulse">
+                      ⚡ 3 Spots Available This Week
+                    </div>
+                  </div>
+                </div>
               </div>
+            </Card>
 
-              {/* PRIMARY CTA - Schedule Free Inspection */}
-              <Button
-                size="lg"
-                className="w-full max-w-2xl mx-auto h-20 text-xl bg-green-600 hover:bg-green-700 shadow-xl hover:shadow-2xl transition-all mb-6"
-                onClick={handleScheduleClick}
-              >
-                <Calendar className="w-7 h-7 mr-3 flex-shrink-0" />
-                <span className="flex-1">Schedule Free Inspection</span>
-                <span className="ml-3 text-sm bg-green-500 px-3 py-1 rounded-full whitespace-nowrap">
-                  🔥 Same-Day Available
-                </span>
-              </Button>
+            {/* Testimonial */}
+            <Card className="shadow-lg border-l-4 border-l-yellow-400">
+              <CardContent className="p-6">
+                <div className="flex gap-1 mb-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                  ))}
+                </div>
+                <p className="text-lg text-slate-700 italic mb-4">
+                  "Aroof made getting my roof done so easy! The measurement was accurate and the team was professional from start to finish."
+                </p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-lg">S</span>
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900">Sarah J.</p>
+                      <p className="text-sm text-slate-500 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        Plano, TX
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Verified Customer
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Secondary Actions - Better Grid */}
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="w-full h-16 text-base bg-white text-blue-900 hover:bg-blue-50 font-semibold"
-                  onClick={() => navigate(createPageUrl("FormPage"))}
-                >
-                  <Home className="w-5 h-5 mr-2 flex-shrink-0" />
-                  Measure Another Roof
-                </Button>
-
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full h-16 text-base border-2 border-white text-white hover:bg-white/10 font-semibold"
-                  onClick={() => handleDownloadClick()}
-                >
-                  <Download className="w-5 h-5 mr-2 flex-shrink-0" />
-                  Download Report
-                </Button>
-
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full h-16 text-base border-2 border-green-400 text-green-400 hover:bg-green-400 hover:text-white font-semibold sm:col-span-2 lg:col-span-1"
-                  asChild
-                  onClick={handleCallClick}
-                >
-                  <a href="tel:+18502389727" className="flex items-center justify-center gap-2">
-                    <Phone className="w-5 h-5 flex-shrink-0" />
-                    Call: (850) 238-9727
+            {/* Contact Info */}
+            <Card className="bg-slate-50 border-slate-200">
+              <CardContent className="p-6 text-center">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Questions About Your Estimate?</h3>
+                <p className="text-slate-600 mb-4">
+                  Our roofing experts are here to help with your project
+                </p>
+                <div className="space-y-2 text-sm text-slate-700">
+                  <a href="tel:+18502389727" className="flex items-center justify-center gap-2 hover:text-blue-600 transition-colors">
+                    <Phone className="w-4 h-4" />
+                    <strong>Phone:</strong> (850) 238-9727
                   </a>
-                </Button>
-              </div>
-
-              {/* Urgency Element */}
-              <div className="mt-8 text-center">
-                <div className="inline-flex items-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-full text-base font-bold shadow-xl animate-pulse">
-                  ⚡ 3 Spots Available This Week
+                  <a href="mailto:contact@aroof.build" className="flex items-center justify-center gap-2 hover:text-blue-600 transition-colors">
+                    <strong>Email:</strong> contact@aroof.build
+                  </a>
+                  <div className="flex items-center justify-center gap-2 text-slate-600">
+                    <MapPin className="w-4 h-4" />
+                    <div>
+                      <strong>Address:</strong> 6810 Windrock Rd, Dallas, TX 75252
+                    </div>
+                  </div>
+                  <p><strong>Hours:</strong> Monday - Friday, 8:00 AM - 6:00 PM</p>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
-        </Card>
-
-        {/* Testimonial */}
-        <Card className="mb-8 shadow-lg border-l-4 border-l-yellow-400">
-          <CardContent className="p-6">
-            <div className="flex gap-1 mb-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-              ))}
-            </div>
-            <p className="text-lg text-slate-700 italic mb-4">
-              "Aroof made getting my roof done so easy! The measurement was accurate and the team was professional from start to finish."
-            </p>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">S</span>
-                </div>
-                <div>
-                  <p className="font-bold text-slate-900">Sarah J.</p>
-                  <p className="text-sm text-slate-500 flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    Plano, TX
-                  </p>
-                </div>
-              </div>
-              <div className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" />
-                Verified Customer
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Contact Info */}
-        <Card className="bg-slate-50 border-slate-200">
-          <CardContent className="p-6 text-center">
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Questions About Your Estimate?</h3>
-            <p className="text-slate-600 mb-4">
-              Our roofing experts are here to help with your project
-            </p>
-            <div className="space-y-2 text-sm text-slate-700">
-              <a href="tel:+18502389727" className="flex items-center justify-center gap-2 hover:text-blue-600 transition-colors">
-                <Phone className="w-4 h-4" />
-                <strong>Phone:</strong> (850) 238-9727
-              </a>
-              <a href="mailto:contact@aroof.build" className="flex items-center justify-center gap-2 hover:text-blue-600 transition-colors">
-                <strong>Email:</strong> contact@aroof.build
-              </a>
-              <div className="flex items-center justify-center gap-2 text-slate-600">
-                <MapPin className="w-4 h-4" />
-                <div>
-                  <strong>Address:</strong> 6810 Windrock Rd, Dallas, TX 75252
-                </div>
-              </div>
-              <p><strong>Hours:</strong> Monday - Friday, 8:00 AM - 6:00 PM</p>
-            </div>
-          </CardContent>
-        </Card>
+        </div>
       </div>
     </div>
   );

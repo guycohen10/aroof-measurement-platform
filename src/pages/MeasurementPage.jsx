@@ -66,6 +66,7 @@ export default function MeasurementPage() {
   // magnificationLevel state is removed as per outline
   const [magnifierSize, setMagnifierSize] = useState(200);
   const [showMagnifierInstructions, setShowMagnifierInstructions] = useState(true);
+  const [capturingImages, setCapturingImages] = useState(false);
 
   // Derived values for magnifier
   const magnifierRadius = magnifierSize / 2;
@@ -630,6 +631,118 @@ export default function MeasurementPage() {
     return measurements;
   }, []);
 
+  // NEW: Function to capture satellite view (clean map without UI)
+  const captureSatelliteView = async () => {
+    const mapContainer = mapRef.current;
+    
+    if (!mapContainer) {
+      console.error('Map container not found for satellite capture');
+      return null;
+    }
+    
+    try {
+      console.log('📸 Capturing satellite view...');
+      
+      // Hide ALL UI elements temporarily
+      const uiElements = document.querySelectorAll(
+        '.gmnoprint, .gm-style-cc, .gm-bundled-control, .gm-svpc, .gm-control-active'
+      );
+      const originalDisplays = Array.from(uiElements).map(el => el.style.display);
+      uiElements.forEach(el => el.style.display = 'none');
+      
+      // Also hide our custom UI overlays
+      const customUI = document.querySelectorAll('[style*="z-index: 10"], [style*="z-index: 1000"]');
+      const originalCustomDisplays = Array.from(customUI).map(el => el.style.display);
+      customUI.forEach(el => el.style.display = 'none');
+      
+      // Wait for render
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Dynamic import of html2canvas
+      const html2canvas = (await import('html2canvas')).default;
+      
+      // Capture clean satellite view
+      const canvas = await html2canvas(mapContainer, {
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        width: mapContainer.offsetWidth,
+        height: mapContainer.offsetHeight
+      });
+      
+      // Restore UI elements
+      uiElements.forEach((el, i) => el.style.display = originalDisplays[i]);
+      customUI.forEach((el, i) => el.style.display = originalCustomDisplays[i]);
+      
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      console.log('✅ Satellite view captured successfully');
+      
+      return dataUrl;
+      
+    } catch (error) {
+      console.error('❌ Error capturing satellite view:', error);
+      return null;
+    }
+  };
+
+  // NEW: Function to capture measurement diagram (map with drawn polygons)
+  const captureMeasurementDiagram = async () => {
+    const mapContainer = mapRef.current;
+    
+    if (!mapContainer) {
+      console.error('Map container not found for diagram capture');
+      return null;
+    }
+    
+    try {
+      console.log('📸 Capturing measurement diagram...');
+      
+      // Hide UI controls but KEEP polygons visible
+      const uiElements = document.querySelectorAll(
+        '.gmnoprint, .gm-style-cc, .gm-bundled-control, .gm-svpc, .gm-control-active'
+      );
+      const originalDisplays = Array.from(uiElements).map(el => el.style.display);
+      uiElements.forEach(el => el.style.display = 'none');
+      
+      // Hide custom UI overlays but keep polygons
+      const customUI = document.querySelectorAll('[style*="z-index: 10"], [style*="z-index: 1000"]');
+      const originalCustomDisplays = Array.from(customUI).map(el => el.style.display);
+      customUI.forEach(el => el.style.display = 'none');
+      
+      // Wait for render
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Dynamic import of html2canvas
+      const html2canvas = (await import('html2canvas')).default;
+      
+      // Capture map with drawn sections
+      const canvas = await html2canvas(mapContainer, {
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        width: mapContainer.offsetWidth,
+        height: mapContainer.offsetHeight
+      });
+      
+      // Restore UI
+      uiElements.forEach((el, i) => el.style.display = originalDisplays[i]);
+      customUI.forEach((el, i) => el.style.display = originalCustomDisplays[i]);
+      
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      console.log('✅ Measurement diagram captured successfully');
+      
+      return dataUrl;
+      
+    } catch (error) {
+      console.error('❌ Error capturing measurement diagram:', error);
+      return null;
+    }
+  };
+
   const handleCompleteMeasurement = useCallback(async () => {
     if (sections.length === 0) {
       setError("Please draw at least one section");
@@ -649,17 +762,28 @@ export default function MeasurementPage() {
     }
 
     setSaving(true);
+    setCapturingImages(true);
     setError("");
 
     try {
       const totalFlat = getTotalFlatArea();
       const totalAdjusted = getTotalAdjustedArea();
-
       const sectionsData = sections.map(({ polygon, ...section }) => section);
-
-      // NEW: Calculate roof components
       const roofComponents = calculateRoofComponents(sections);
-      console.log("📐 Roof components:", roofComponents);
+
+      // CAPTURE IMAGES BEFORE SAVING
+      console.log('📸 Starting image capture...');
+      
+      // Capture satellite view (clean map)
+      const satelliteImage = await captureSatelliteView();
+      
+      // Capture measurement diagram (with polygons)
+      const measurementDiagram = await captureMeasurementDiagram();
+      
+      console.log('📸 Image capture complete:', {
+        satelliteImage: satelliteImage ? 'captured' : 'failed',
+        measurementDiagram: measurementDiagram ? 'captured' : 'failed'
+      });
 
       const measurementData = {
         measurement_data: {
@@ -669,8 +793,6 @@ export default function MeasurementPage() {
         },
         total_sqft: totalFlat, 
         total_adjusted_sqft: totalAdjusted,
-        
-        // NEW: Add roof component measurements
         eaves_ft: roofComponents.eaves,
         rakes_ft: roofComponents.rakes,
         ridges_ft: roofComponents.ridges,
@@ -679,6 +801,10 @@ export default function MeasurementPage() {
         steps_ft: roofComponents.steps,
         walls_ft: roofComponents.walls,
         pitch_breakdown: roofComponents.pitchBreakdown,
+        
+        // ADD CAPTURED IMAGES
+        satellite_image: satelliteImage,
+        measurement_diagram: measurementDiagram,
         
         status: "completed",
         completed_at: new Date().toISOString()
@@ -723,6 +849,7 @@ export default function MeasurementPage() {
       console.error("ERROR SAVING MEASUREMENT:", err);
       setError(`Failed to save measurement: ${err.message}. Please try again.`);
       setSaving(false);
+      setCapturingImages(false);
     }
   }, [sections, address, measurementId, navigate, calculateRoofComponents]);
 
@@ -975,7 +1102,7 @@ export default function MeasurementPage() {
 
                 <Button
                   onClick={handleCompleteMeasurement}
-                  disabled={sections.length === 0 || saving}
+                  disabled={sections.length === 0 || saving || capturingImages}
                   className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white"
                 >
                   {saving ? (
@@ -1221,8 +1348,26 @@ export default function MeasurementPage() {
 
           <div ref={mapRef} className="w-full h-full" />
 
+          {/* Capturing Images Overlay */}
+          {capturingImages && (
+            <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="text-center bg-white rounded-2xl p-8 shadow-2xl max-w-md">
+                <Loader2 className="w-16 h-16 animate-spin text-blue-600 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">
+                  📸 Capturing Satellite Imagery
+                </h3>
+                <p className="text-slate-600 mb-1">
+                  Creating high-quality images for your report...
+                </p>
+                <p className="text-sm text-slate-500">
+                  This takes just a moment
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* NEW FIXED MAGNIFIER - Perfect Circle */}
-          {magnifierEnabled && (
+          {magnifierEnabled && !capturingImages && (
             <div
               style={{
                 position: 'absolute',

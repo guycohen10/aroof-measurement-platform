@@ -1,99 +1,48 @@
-import React from "react";
-import { Button } from "@/components/ui/button";
-import { Download, Printer, Loader2 } from "lucide-react";
 
-export default function PDFReportGenerator({ measurement, onGenerate, satelliteImageData, diagramImageData, userBranding }) {
+import React from "react";
+
+export default function PDFReportGenerator({ measurement, mapImageData, diagramImageData, userBranding, onGenerate, children }) {
   const [generating, setGenerating] = React.useState(false);
 
-  const handleGeneratePDF = async () => {
-    setGenerating(true);
+  const generatePrintableHTML = () => {
+    // Extract data
+    const sections = measurement?.measurement_data?.sections || [];
+    const photos = measurement?.photos || [];
+    const flatArea = measurement?.measurement_data?.total_flat_sqft || measurement.total_sqft || 0;
+    const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea;
     
-    try {
-      // Extract data
-      const sections = measurement?.measurement_data?.sections || [];
-      const photos = measurement?.photos || [];
-      const flatArea = measurement?.measurement_data?.total_flat_sqft || measurement.total_sqft || 0;
-      const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea;
-      
-      console.log('📄 Generating PDF with captured images and custom branding...');
-      
-      // Open print-friendly view in new window
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(generatePrintableHTML({
-        measurement,
-        sections,
-        photos,
-        flatArea,
-        adjustedArea,
-        satelliteImageData,
-        diagramImageData,
-        branding: userBranding
-      }));
-      printWindow.document.close();
-      
-      // Wait for content to load
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Trigger print
-      printWindow.print();
-      setGenerating(false);
-      if (onGenerate) onGenerate();
-      
-    } catch (error) {
-      console.error('❌ PDF generation error:', error);
-      alert('Error generating PDF. Please try again.');
-      setGenerating(false);
-    }
-  };
+    const totalSquares = (adjustedArea / 100).toFixed(2);
+    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    
+    // Calculate estimates
+    const materialCost = Math.round(adjustedArea * 4);
+    const laborCost = Math.round(adjustedArea * 3);
+    const wasteCost = Math.round((materialCost + laborCost) * 0.10);
+    const lowEstimate = Math.round((materialCost + laborCost + wasteCost) * 0.90);
+    const highEstimate = Math.round((materialCost + laborCost + wasteCost) * 1.10);
+    
+    // Use custom branding or default Aroof branding
+    const branding = userBranding; // Use userBranding from props
+    const companyName = branding?.company_name || 'Aroof';
+    const companyLogo = branding?.logo_url || null;
+    const companyAddress = branding?.address || '6810 Windrock Rd, Dallas, TX 75252';
+    const companyPhone = branding?.phone || '(850) 238-9727';
+    const companyEmail = branding?.email || 'contact@aroof.build';
+    const primaryColor = branding?.primary_color || '#1e40af'; // Renamed from brandColor to primaryColor
+    const footerText = branding?.footer_text || "DFW's #1 Roofing Company - Licensed & Insured";
 
-  return (
-    <Button
-      size="lg"
-      className="h-16 px-10 text-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-xl"
-      onClick={handleGeneratePDF}
-      disabled={generating}
-    >
-      {generating ? (
-        <>
-          <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-          Preparing Report...
-        </>
-      ) : (
-        <>
-          <Printer className="w-6 h-6 mr-3" />
-          Generate PDF Report
-        </>
-      )}
-    </Button>
-  );
-}
+    // MODIFIED: Use satellite_image and measurement_diagram from database if available
+    const satelliteImageSrc = measurement.satellite_image || mapImageData;
+    const diagramImageSrc = measurement.measurement_diagram || diagramImageData;
 
-function generatePrintableHTML({ measurement, sections, photos, flatArea, adjustedArea, satelliteImageData, diagramImageData, branding }) {
-  const totalSquares = (adjustedArea / 100).toFixed(2);
-  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  
-  // Calculate estimates
-  const materialCost = Math.round(adjustedArea * 4);
-  const laborCost = Math.round(adjustedArea * 3);
-  const wasteCost = Math.round((materialCost + laborCost) * 0.10);
-  const lowEstimate = Math.round((materialCost + laborCost + wasteCost) * 0.90);
-  const highEstimate = Math.round((materialCost + laborCost + wasteCost) * 1.10);
-  
-  // Use custom branding or default Aroof branding
-  const companyName = branding?.company_name || 'Aroof';
-  const companyLogo = branding?.logo_url || null;
-  const companyAddress = branding?.address || '6810 Windrock Rd, Dallas, TX 75252';
-  const companyPhone = branding?.phone || '(850) 238-9727';
-  const companyEmail = branding?.email || 'contact@aroof.build';
-  const brandColor = branding?.primary_color || '#1e40af';
-  const footerText = branding?.footer_text || "DFW's #1 Roofing Company - Licensed & Insured";
-  
-  return `
+    const logoHtml = companyLogo ? `<img src="${companyLogo}" alt="${companyName} Logo" style="max-width: 150px; max-height: 60px; margin-bottom: 10px;" />` : '';
+
+    return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>${companyName} - Roof Measurement Report - ${measurement.property_address}</title>
+  <title>Roof Measurement Report - ${measurement.property_address}</title>
   <style>
     @media print {
       @page {
@@ -136,7 +85,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     }
     
     .header {
-      background: linear-gradient(135deg, ${brandColor} 0%, ${adjustBrightness(brandColor, -15)} 100%);
+      background: linear-gradient(135deg, ${primaryColor} 0%, ${adjustBrightness(primaryColor, -15)} 100%);
       color: white;
       padding: 30px;
       margin: -0.75in -0.75in 30px -0.75in;
@@ -170,7 +119,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     .cover-title {
       font-size: 28px;
       font-weight: 700;
-      color: ${brandColor};
+      color: ${primaryColor};
       margin: 20px 0 15px 0;
       text-align: center;
     }
@@ -189,6 +138,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       text-align: center;
     }
     
+    /* These original styles are not used by the new HTML structure but kept as per instruction */
     .satellite-container {
       border: 3px solid #cbd5e1;
       border-radius: 12px;
@@ -224,8 +174,8 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     }
     
     .summary-box {
-      background: linear-gradient(135deg, ${hexToRgba(brandColor, 0.1)} 0%, ${hexToRgba(brandColor, 0.2)} 100%);
-      border: 3px solid ${brandColor};
+      background: linear-gradient(135deg, ${hexToRgba(primaryColor, 0.1)} 0%, ${hexToRgba(primaryColor, 0.2)} 100%);
+      border: 3px solid ${primaryColor};
       border-radius: 12px;
       padding: 30px;
       text-align: center;
@@ -235,7 +185,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     .big-number {
       font-size: 56px;
       font-weight: 700;
-      color: ${brandColor};
+      color: ${primaryColor};
       line-height: 1;
     }
     
@@ -248,7 +198,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     .squares-label {
       font-size: 22px;
       font-weight: 600;
-      color: ${adjustBrightness(brandColor, 20)};
+      color: ${adjustBrightness(primaryColor, 20)};
       margin-top: 12px;
     }
     
@@ -263,7 +213,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       background: #f8fafc;
       padding: 12px;
       border-radius: 8px;
-      border-left: 4px solid ${brandColor};
+      border-left: 4px solid ${primaryColor};
     }
     
     .detail-label {
@@ -284,12 +234,13 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     .section-title {
       font-size: 22px;
       font-weight: 700;
-      color: ${brandColor};
+      color: ${primaryColor};
       margin: 30px 0 15px 0;
       padding-bottom: 8px;
-      border-bottom: 3px solid ${brandColor};
+      border-bottom: 3px solid ${primaryColor};
     }
     
+    /* These original styles are not used by the new HTML structure but kept as per instruction */
     .diagram-container {
       border: 3px solid #cbd5e1;
       border-radius: 12px;
@@ -348,7 +299,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     }
     
     thead {
-      background: ${brandColor};
+      background: ${primaryColor};
       color: white;
     }
     
@@ -412,7 +363,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     }
     
     .cta-box {
-      background: linear-gradient(135deg, ${brandColor} 0%, ${adjustBrightness(brandColor, -15)} 100%);
+      background: linear-gradient(135deg, ${primaryColor} 0%, ${adjustBrightness(primaryColor, -15)} 100%);
       color: white;
       padding: 25px;
       border-radius: 12px;
@@ -466,7 +417,6 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       background: #059669;
     }
     
-    ${branding ? '.branding-badge { background: ' + hexToRgba(brandColor, 0.1) + '; border: 2px solid ' + brandColor + '; padding: 8px 16px; border-radius: 6px; display: inline-block; margin: 10px 0; font-weight: 600; color: ' + brandColor + '; }' : ''}
   </style>
 </head>
 <body>
@@ -480,22 +430,45 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
         <h1>${companyName}</h1>
         <p>${footerText}</p>
       </div>
-      ${branding ? '<div class="branding-badge">Custom Branded Report</div>' : ''}
     </div>
     
     <h2 class="cover-title">PROFESSIONAL ROOF MEASUREMENT REPORT</h2>
     <p class="property-address">${measurement.property_address}</p>
     <p class="measurement-date">Measured on ${today}</p>
     
-    <!-- SATELLITE IMAGE (CAPTURED FROM PAGE) -->
-    <div class="satellite-container">
-      ${satelliteImageData ? `
-        <img src="${satelliteImageData}" alt="Satellite view of property" />
+    <!-- SATELLITE IMAGE SECTION -->
+    <div class="section">
+      <h2 style="color: ${primaryColor}; margin-bottom: 20px; font-size: 20px; border-bottom: 3px solid ${primaryColor}; padding-bottom: 10px;">
+        📍 Satellite View
+      </h2>
+      ${satelliteImageSrc ? `
+        <div style="border: 3px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+          <img 
+            src="${satelliteImageSrc}" 
+            alt="Satellite view of property"
+            style="width: 100%; height: auto; display: block;"
+          />
+        </div>
+        <p style="text-align: center; margin-top: 12px; color: #64748b; font-size: 12px;">
+          High-resolution satellite imagery of ${measurement.property_address}
+        </p>
       ` : `
-        <div class="image-placeholder">Satellite imagery captured from measurement tool</div>
+        <div style="
+          border: 2px dashed #d1d5db;
+          background: #f3f4f6;
+          padding: 60px 20px;
+          text-align: center;
+          border-radius: 12px;
+        ">
+          <p style="color: #6b7280; font-size: 16px; margin: 0;">
+            📍 Satellite image not available
+          </p>
+          <p style="color: #9ca3af; font-size: 12px; margin-top: 8px;">
+            View property on Google Maps for satellite imagery
+          </p>
+        </div>
       `}
     </div>
-    <p class="image-caption">Satellite View - ${measurement.property_address}</p>
     
     <div class="summary-box">
       <div class="big-number">${Math.round(adjustedArea).toLocaleString()}</div>
@@ -535,46 +508,93 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
   <!-- PAGE 2: MEASUREMENT DIAGRAM -->
   <div class="page">
     <div class="header">
-      <div class="header-left">
-        ${companyLogo ? `<img src="${companyLogo}" alt="${companyName} Logo" class="header-logo" />` : '<h1>' + companyName + '</h1>'}
-        <p>Measurement Diagram & Section Analysis</p>
+      <div>
+        ${logoHtml}
+        <h1 style="margin: 0; font-size: 28px; color: ${primaryColor};">${companyName}</h1>
+        <p style="margin: 5px 0 0 0; color: #64748b;">Roof Measurement Report</p>
+      </div>
+      <div style="text-align: right; color: #64748b; font-size: 14px;">
+        <p style="margin: 0;">Page 2 of 4</p>
       </div>
     </div>
-    
-    <h2 class="section-title">📐 Roof Sections Measured</h2>
-    
-    <!-- MEASUREMENT DIAGRAM (CAPTURED FROM PAGE) -->
-    <div class="diagram-container">
-      ${diagramImageData ? `
-        <img src="${diagramImageData}" alt="Measurement diagram with sections" />
+
+    <!-- MEASUREMENT DIAGRAM SECTION -->
+    <div class="section">
+      <h2 style="color: ${primaryColor}; margin-bottom: 20px; font-size: 22px; border-bottom: 3px solid ${primaryColor}; padding-bottom: 10px;">
+        📐 Measurement Diagram
+      </h2>
+      <p style="color: #64748b; margin-bottom: 20px;">
+        Color-coded sections showing measured roof areas
+      </p>
+      
+      ${diagramImageSrc ? `
+        <div style="border: 3px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 24px;">
+          <img 
+            src="${diagramImageSrc}" 
+            alt="Measurement diagram with sections"
+            style="width: 100%; height: auto; display: block;"
+          />
+        </div>
       ` : `
-        <div class="image-placeholder">Measurement diagram showing color-coded sections</div>
+        <div style="
+          border: 2px dashed #d1d5db;
+          background: #f3f4f6;
+          padding: 80px 20px;
+          text-align: center;
+          border-radius: 12px;
+          margin-bottom: 24px;
+        ">
+          <p style="color: #6b7280; font-size: 16px; margin: 0;">
+            📐 Measurement diagram not available
+          </p>
+          <p style="color: #9ca3af; font-size: 12px; margin-top: 8px;">
+            Contact us for detailed measurement diagrams
+          </p>
+        </div>
       `}
-    </div>
-    <p class="image-caption">Color-coded sections showing measured roof areas</p>
-    
-    <!-- SECTION LEGEND -->
-    <div class="legend-box">
-      <div class="legend-title">Section Details:</div>
-      ${sections.map((section, idx) => {
-        const colors = ['#4A90E2', '#10b981', '#f97316', '#a855f7', '#ef4444'];
-        return `
-          <div class="legend-item">
-            <div class="legend-color" style="background: ${colors[idx % 5]};"></div>
-            <div>
-              <strong>Section ${idx + 1}:</strong> 
-              ${section.pitch || 'flat'} pitch • 
-              ${Math.round(section.flat_area_sqft || 0).toLocaleString()} sq ft (flat) • 
-              ${Math.round(section.adjusted_area_sqft || 0).toLocaleString()} sq ft (adjusted)
-            </div>
+
+      <!-- SECTION LEGEND -->
+      ${measurement.measurement_data?.sections && measurement.measurement_data.sections.length > 0 ? `
+        <div style="background: #f8fafc; border-radius: 12px; padding: 20px; border: 2px solid #e5e7eb;">
+          <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #1e293b;">
+            Section Legend:
+          </h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+            ${measurement.measurement_data.sections.map((section, idx) => `
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="
+                  width: 16px;
+                  height: 16px;
+                  border-radius: 50%;
+                  background: ${section.color || '#3b82f6'};
+                  flex-shrink: 0;
+                "></div>
+                <span style="font-size: 13px; color: #475569; font-weight: 600;">
+                  ${section.name || `Section ${idx + 1}`}: 
+                  ${Math.round(section.adjusted_area_sqft || section.flat_area_sqft).toLocaleString()} sq ft
+                </span>
+              </div>
+            `).join('')}
           </div>
-        `;
-      }).join('')}
+        </div>
+      ` : ''}
     </div>
-    
-    <div class="note-box">
-      <strong>📏 Measurement Methodology:</strong> Sections traced using high-resolution satellite imagery. 
-      Areas calculated using GPS coordinates with pitch adjustments for accurate 3D surface area.
+
+    <!-- TOTAL AREA SUMMARY -->
+    <div class="section" style="margin-top: 30px;">
+      <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 24px; border-radius: 12px; text-align: center;">
+        <h3 style="margin: 0 0 12px 0; font-size: 16px; opacity: 0.9;">Total Roof Area</h3>
+        <div style="font-size: 42px; font-weight: bold; margin: 0;">
+          ${Math.round(measurement.total_adjusted_sqft || measurement.total_sqft || 0).toLocaleString()}
+        </div>
+        <div style="font-size: 18px; margin-top: 4px; opacity: 0.9;">square feet</div>
+        ${measurement.total_adjusted_sqft !== measurement.total_sqft ? `
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.3); font-size: 13px; opacity: 0.9;">
+            Flat area: ${Math.round(measurement.total_sqft).toLocaleString()} sq ft • 
+            Adjusted for pitch: ${Math.round(measurement.total_adjusted_sqft).toLocaleString()} sq ft
+          </div>
+        ` : ''}
+      </div>
     </div>
     
     <div class="footer">
@@ -860,7 +880,42 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
   </script>
 </body>
 </html>
-  `;
+    `;
+  };
+
+  const handleGeneratePDF = async () => {
+    setGenerating(true);
+    
+    try {
+      console.log('📄 Generating PDF with captured images and custom branding...');
+      
+      // Open print-friendly view in new window
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(generatePrintableHTML()); // Call the internal function
+      printWindow.document.close();
+      
+      // Wait for content to load
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Trigger print
+      printWindow.print();
+      setGenerating(false);
+      if (onGenerate) onGenerate();
+      
+    } catch (error) {
+      console.error('❌ PDF generation error:', error);
+      alert('Error generating PDF. Please try again.');
+      setGenerating(false);
+    }
+  };
+
+  // This component now acts as a wrapper. The children are rendered,
+  // and it is assumed that the children or the parent component will trigger handleGeneratePDF.
+  return (
+    <>
+      {children}
+    </>
+  );
 }
 
 // Helper functions for color manipulation
