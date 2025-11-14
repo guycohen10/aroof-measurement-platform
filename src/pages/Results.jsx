@@ -174,15 +174,16 @@ export default function Results() {
   const diagramUrl = (() => {
     if (sections.length === 0 || !roofCenter) return null;
     const colors = ['0xff0000', '0x00ff00', '0x0000ff', '0xffff00', '0xff00ff', '0x00ffff'];
-    let paths = '';
+    let pathsString = '';
     sections.forEach((section, index) => {
       if (section.coordinates && section.coordinates.length > 0) {
         const color = colors[index % colors.length];
         const points = section.coordinates.map(p => `${p.lat},${p.lng}`).join('|');
-        paths += `&path=color:${color}|weight:3|fillcolor:${color}33|${points}|${section.coordinates[0].lat},${section.coordinates[0].lng}`;
+        const firstPoint = `${section.coordinates[0].lat},${section.coordinates[0].lng}`;
+        pathsString += `&path=color:${color}|weight:3|fillcolor:${color}44|${points}|${firstPoint}`;
       }
     });
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite${paths}&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite${pathsString}&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
   })();
 
   return (
