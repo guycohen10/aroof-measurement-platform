@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -13,7 +12,6 @@ import InteractiveMapView from "../components/results/InteractiveMapView";
 import DetailedMeasurements from "../components/results/DetailedMeasurements";
 import PhotoUpload from "../components/results/PhotoUpload";
 import PDFReportGenerator from "../components/results/PDFReportGenerator";
-import MapImageCapture from "../components/results/MapImageCapture";
 import Roof3DView from "../components/results/Roof3DView";
 
 export default function Results() {
@@ -23,46 +21,37 @@ export default function Results() {
   const [error, setError] = useState(null);
   const [materialType, setMaterialType] = useState("asphalt_shingles");
   const [trackingAction, setTrackingAction] = useState(false);
-
-  // NEW: State for additional tracking and user data
-  const [clickedBooking, setClickedBooking] = useState(false);
-  const [clickedCall, setClickedCall] = useState(false);
   const [downloadCount, setDownloadCount] = useState(0);
-  const [mapImageData, setMapImageData] = useState(null); // Renamed from satelliteImageData
-  const [diagramImageData, setDiagramImageData] = useState(null); // This is now set by MapImageCapture
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    const loadMeasurement = async () => { // Renamed from loadData to loadMeasurement
+    const loadMeasurement = async () => {
       console.log("🟣 RESULTS PAGE LOADING");
       const urlParams = new URLSearchParams(window.location.search);
       const measurementId = urlParams.get('measurementid');
       
-      console.log("🟣 Full URL:", window.location.href);
-      console.log("🟣 URL params - measurementid:", measurementId);
+      console.log("🟣 measurementid:", measurementId);
 
       if (!measurementId) {
-        console.log("❌ No measurementid in URL - redirecting to Homepage");
+        console.log("❌ No measurementid - redirecting");
         navigate(createPageUrl("Homepage"));
         return;
       }
 
       try {
-        console.log("🟣 Fetching measurement from database with ID:", measurementId);
+        console.log("🟣 Fetching measurement...");
         const measurements = await base44.entities.Measurement.filter({ id: measurementId });
-        console.log("🟣 Database query result:", measurements);
         
         if (measurements.length > 0) {
           const loadedMeasurement = measurements[0];
           console.log("✅ Measurement found:", loadedMeasurement);
           setMeasurement(loadedMeasurement);
-          console.log("✅✅✅ RESULTS PAGE READY TO DISPLAY");
         } else {
-          console.log("❌ Measurement not found in database");
+          console.log("❌ Measurement not found");
           setError("Measurement not found");
         }
       } catch (err) {
-        console.error("❌ Error loading measurement data:", err);
+        console.error("❌ Error loading measurement:", err);
         setError("Failed to load measurement data");
       } finally {
         setLoading(false);
@@ -70,7 +59,7 @@ export default function Results() {
     };
 
     loadMeasurement();
-    loadCurrentUser(); // Call loadCurrentUser here
+    loadCurrentUser();
   }, [navigate]);
 
   const loadCurrentUser = async () => {
@@ -78,7 +67,6 @@ export default function Results() {
       const user = await base44.auth.me();
       setCurrentUser(user);
     } catch (err) {
-      // User not logged in - that's okay
       setCurrentUser(null);
     }
   };
@@ -100,13 +88,11 @@ export default function Results() {
 
   const handleScheduleClick = () => {
     trackConversion("booking_clicked", { clicked_booking: true });
-    setClickedBooking(true); // NEW: Update state
     navigate(createPageUrl(`Booking?measurementid=${measurement.id}`));
   };
 
   const handleCallClick = () => {
     trackConversion("call_clicked", { clicked_call: true });
-    setClickedCall(true); // NEW: Update state
   };
 
   const handleDownloadClick = (reportType = null) => {
@@ -122,15 +108,11 @@ export default function Results() {
     setMeasurement({ ...measurement, photos: updatedPhotos });
   };
 
-  // NEW: Handle PDF generation with incrementing download count
-  const handlePDFDownload = async () => { // Renamed from handlePDFGenerate
+  const handlePDFDownload = async () => {
     trackConversion("pdf_generated", { pdf_generated_date: new Date().toISOString() });
-    setDownloadCount(prev => prev + 1); // Increment download count
+    setDownloadCount(prev => prev + 1);
   };
 
-  // REMOVED: old handleCaptureAndGeneratePDF logic
-
-  // NEW: Get custom branding for Pro/Unlimited users
   const getUserBranding = () => {
     if (!currentUser) return null;
     
@@ -180,7 +162,6 @@ export default function Results() {
     );
   }
 
-  // Get sections from measurement data
   const sections = measurement?.measurement_data?.sections || [];
   const flatArea = measurement?.measurement_data?.total_flat_sqft || measurement.total_sqft || 0;
   const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea;
@@ -188,7 +169,6 @@ export default function Results() {
   const isHomeowner = measurement.user_type === "homeowner";
   const hasPitchAdjustment = flatArea !== adjustedArea;
 
-  // Material multipliers
   const materialMultipliers = {
     asphalt_shingles: 1.0,
     architectural_shingles: 1.25,
@@ -196,14 +176,6 @@ export default function Results() {
     tile_roofing: 2.0
   };
 
-  const materialNames = {
-    asphalt_shingles: "Asphalt Shingles (Standard)",
-    architectural_shingles: "Architectural Shingles (+25%)",
-    metal_roofing: "Metal Roofing (+60%)",
-    tile_roofing: "Tile Roofing (+100%)"
-  };
-
-  // Calculate pricing with material multiplier
   const multiplier = materialMultipliers[materialType] || 1.0;
   const baseMaterialCost = area * 4.00;
   const materialCost = Math.round(baseMaterialCost * multiplier);
@@ -215,7 +187,6 @@ export default function Results() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
-      {/* Modern Header */}
       <header className="border-b border-slate-200 bg-white/90 backdrop-blur-lg shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -238,9 +209,8 @@ export default function Results() {
         </div>
       </header>
 
-      {/* Enhanced Success Banner with Animation */}
       <div className="bg-gradient-to-r from-green-500 via-green-600 to-green-700 text-white py-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsYXNzIGFiYyBkZWYiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZj																					 												 											  MDIuMjEgMS43OSAzLjk5OTg1NzggNC4wMDAxNDMgNGg0cy00LTEuNzktMy45OTk4NTcxLTQuMDAwMTQzYzAtMi4yMS0zLjk5OTg1NzItMy45OTk4NTczLTQtNC4wMDAxNDN6bS02IDBj																					 												 											  MDIuMzExLjczOTY3MzYgNCA0LjAwMDE0MyA0LjAwMDE0M3MzLjk5OTg1NzMtMS43OTIyODAzIDQtNC4wMDAxNDMtLjc4ODI5NDgtMy45ODgyNDctNC0zLjk4ODI0NzQtNC4wMDAxNDMtMy45ODgyNDc0LTQuMDAwMTQzM3ptLTIuNzcyMjE5OC00LjQ4NDQyMDdIMzcuMDI3NzgwMi4yNzI4NTczeiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6bS02IDBjMCAyLjIxIDEuNzkgNCA0IDRzNC0xLjc5IDQtNC0xLjc5LTQtNC00LTQgMS43OS00IDR6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-center gap-4 mb-6">
@@ -258,12 +228,10 @@ export default function Results() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Satellite View Section - FIXED */}
+            {/* Satellite View - FIXED */}
             <Card className="shadow-xl border-2 border-blue-200">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
                 <CardTitle className="flex items-center gap-2 text-2xl">
@@ -286,7 +254,7 @@ export default function Results() {
               </CardContent>
             </Card>
 
-            {/* Measurement Diagram Section - FIXED */}
+            {/* Measurement Diagram - FIXED */}
             {sections.length > 0 && (
               <Card className="shadow-xl border-2 border-green-200">
                 <CardHeader className="bg-gradient-to-r from-green-50 to-white">
@@ -319,7 +287,6 @@ export default function Results() {
                     />
                   </div>
                   
-                  {/* Legend for sections */}
                   {sections.length > 0 && (
                     <div className="mt-6 bg-slate-50 rounded-lg p-4">
                       <h4 className="font-bold text-slate-900 mb-3">Section Legend:</h4>
@@ -342,7 +309,7 @@ export default function Results() {
               </Card>
             )}
 
-            {/* 3D Visualization Section - NEW */}
+            {/* 3D Visualization - FIXED */}
             {sections.length > 0 && (
               <Card className="shadow-xl border-2 border-purple-200">
                 <CardHeader className="bg-gradient-to-r from-purple-50 to-white">
@@ -360,12 +327,7 @@ export default function Results() {
               </Card>
             )}
 
-            {/* Fallback if no images */}
-            {/* The previous conditional was !measurement.satellite_image && !measurement.measurement_diagram,
-                but now satellite image is always shown and diagram is shown if sections > 0.
-                So this fallback becomes redundant for image display and is removed.
-            */}
-            {/* Interactive Map with ID for capture */}
+            {/* Interactive Map - FIXED */}
             <Card className="shadow-xl">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -375,21 +337,18 @@ export default function Results() {
                 <p className="text-sm text-slate-600 mt-1">Interactive map - zoom and pan to explore</p>
               </CardHeader>
               <CardContent>
-                <div id="interactive-map-container" className="border-2 border-slate-200 rounded-xl overflow-hidden">
-                  <InteractiveMapView measurement={measurement} sections={sections} />
-                </div>
+                <InteractiveMapView measurement={measurement} sections={sections} />
               </CardContent>
             </Card>
 
-            {/* Detailed Roof Components */}
             <DetailedMeasurements measurement={measurement} />
 
-            {/* Photo Upload Section */}
+            {/* Photo Upload - FIXED */}
             <PhotoUpload measurement={measurement} onPhotosUpdate={handlePhotosUpdate} />
 
-            {/* PDF Report Download Section */}
+            {/* PDF Report Section */}
             <section className="py-16 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl shadow-xl">
-              <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8"> {/* Adjusted max-width here for section */}
+              <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-12">
                   <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-full mb-4">
                     <FileText className="w-4 h-4" />
@@ -405,14 +364,7 @@ export default function Results() {
 
                 <Card className="max-w-4xl mx-auto shadow-2xl border-2 border-purple-200">
                   <CardContent className="p-8">
-                    {/* Map Image Capture component */}
-                    <MapImageCapture
-                      measurement={measurement}
-                      onSatelliteImageCaptured={setMapImageData} // Adjusted prop name
-                      onDiagramImageCaptured={setDiagramImageData} // Adjusted prop name
-                    />
-
-                    <div className="space-y-6 mt-8">
+                    <div className="space-y-6">
                       <div className="bg-gradient-to-r from-purple-100 to-blue-100 border-2 border-purple-300 rounded-xl p-6">
                         <h3 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                           <FileText className="w-6 h-6 text-purple-600" />
@@ -422,7 +374,7 @@ export default function Results() {
                           {[
                             'Satellite imagery of your property',
                             'Detailed measurement diagram',
-                            '3D visualization of your roof', // Added 3D visualization
+                            '3D visualization of your roof',
                             'Section-by-section breakdown',
                             'Line measurements (eaves, ridges, valleys)',
                             'Material estimates with waste factors',
@@ -450,21 +402,13 @@ export default function Results() {
                         )}
                       </div>
 
-                      {/* PDF Generation Button */}
                       <div className="flex flex-col items-center gap-4">
                         <PDFReportGenerator
                           measurement={measurement}
-                          satelliteImageData={mapImageData}
-                          diagramImageData={diagramImageData}
                           userBranding={getUserBranding()}
-                          onGenerate={handlePDFDownload} // New handler
+                          onGenerate={handlePDFDownload}
                         />
                         
-                        <p className="text-sm text-slate-500 text-center">
-                          Click to generate your professional PDF report
-                          {mapImageData ? ' (Map images captured ✓)' : ' (Capturing map images...)'}
-                        </p>
-
                         {!getUserBranding() && currentUser?.aroof_role === 'external_roofer' && (
                           <Link to={createPageUrl("RooferPlans")}>
                             <Button variant="outline" className="border-purple-600 text-purple-600">
@@ -501,9 +445,7 @@ export default function Results() {
             </section>
           </div>
 
-          {/* Right Column - Stats and CTAs */}
           <div className="lg:col-span-1 space-y-8">
-            {/* Large Area Display */}
             <Card className="border-2 border-blue-200 shadow-xl bg-gradient-to-br from-blue-50 to-white">
               <CardContent className="p-8 text-center">
                 <h2 className="text-xl font-semibold text-slate-700 mb-4">
@@ -521,7 +463,6 @@ export default function Results() {
               </CardContent>
             </Card>
 
-            {/* Section Breakdown */}
             {sections.length > 1 && (
               <Card className="shadow-lg">
                 <CardHeader>
@@ -559,7 +500,7 @@ export default function Results() {
                         </div>
                         <div className="text-right">
                           <p className="text-md font-bold text-slate-900">
-                            {(section.adjusted_area_sqft || section.flat_area_sqft || section.area_sqft || 0).toLocaleString()} sq ft
+                            {(section.adjusted_area_sqft || section.flat_area_sqft || 0).toLocaleString()} sq ft
                           </p>
                           {section.flat_area_sqft && section.adjusted_area_sqft && section.flat_area_sqft !== section.adjusted_area_sqft && (
                             <p className="text-xs text-slate-500">
@@ -570,7 +511,6 @@ export default function Results() {
                       </div>
                     ))}
                     
-                    {/* Total */}
                     <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-bold border-2 border-blue-800">
                       <span className="text-md">Total Roof Surface Area</span>
                       <span className="text-xl">{area.toLocaleString()} sq ft</span>
@@ -580,7 +520,6 @@ export default function Results() {
               </Card>
             )}
 
-            {/* Measurement Details */}
             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="text-xl">Measurement Details</CardTitle>
@@ -615,7 +554,6 @@ export default function Results() {
               </CardContent>
             </Card>
 
-            {/* Pricing Estimate (for homeowners) */}
             {isHomeowner && (
               <Card className="shadow-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white">
                 <CardHeader>
@@ -632,7 +570,6 @@ export default function Results() {
                   )}
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Material Selector */}
                   <div>
                     <label className="text-sm font-medium text-slate-700 mb-2 block">
                       Select Roofing Material:
@@ -642,31 +579,20 @@ export default function Results() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="asphalt_shingles">
-                          Asphalt Shingles (Standard)
-                        </SelectItem>
-                        <SelectItem value="architectural_shingles">
-                          Architectural Shingles (+25%)
-                        </SelectItem>
-                        <SelectItem value="metal_roofing">
-                          Metal Roofing (+60%)
-                        </SelectItem>
-                        <SelectItem value="tile_roofing">
-                          Tile Roofing (+100%)
-                        </SelectItem>
+                        <SelectItem value="asphalt_shingles">Asphalt Shingles (Standard)</SelectItem>
+                        <SelectItem value="architectural_shingles">Architectural Shingles (+25%)</SelectItem>
+                        <SelectItem value="metal_roofing">Metal Roofing (+60%)</SelectItem>
+                        <SelectItem value="tile_roofing">Tile Roofing (+100%)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {/* Cost Breakdown with Animation */}
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200 transition-all duration-300">
+                    <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200">
                       <span className="text-slate-600">
                         Materials ({area.toLocaleString()} sq ft × ${(4.00 * multiplier).toFixed(2)})
                       </span>
-                      <span className="font-bold text-slate-900 transition-all duration-300">
-                        ${materialCost.toLocaleString()}
-                      </span>
+                      <span className="font-bold text-slate-900">${materialCost.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-center p-3 bg-white rounded-lg border border-slate-200">
                       <span className="text-slate-600">Labor ({area.toLocaleString()} sq ft × $3.00)</span>
@@ -676,15 +602,14 @@ export default function Results() {
                       <span className="text-slate-600">Waste Factor (10%)</span>
                       <span className="font-bold text-slate-900">${wasteCost.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between items-center p-4 bg-green-600 text-white rounded-lg transition-all duration-300">
+                    <div className="flex justify-between items-center p-4 bg-green-600 text-white rounded-lg">
                       <span className="text-lg font-semibold">Estimated Cost Range</span>
-                      <span className="text-2xl font-bold transition-all duration-300">
+                      <span className="text-2xl font-bold">
                         ${lowEstimate.toLocaleString()} - ${highEstimate.toLocaleString()}
                       </span>
                     </div>
                   </div>
 
-                  {/* What's Included */}
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                     <h4 className="font-bold text-slate-900 mb-4 text-lg">What's Included:</h4>
                     <div className="grid md:grid-cols-2 gap-3">
@@ -716,14 +641,12 @@ export default function Results() {
               </Card>
             )}
 
-            {/* IMPROVED: Ready to Get Started - Enhanced CTA Section */}
             <Card className="shadow-2xl border-none overflow-hidden">
               <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-8">
                 <div className="text-center mb-8">
                   <h2 className="text-2xl lg:text-3xl font-bold mb-3">Ready for Your New Roof?</h2>
                   <p className="text-lg text-blue-100 mb-8">Let's Turn This Estimate Into Reality</p>
                   
-                  {/* Benefits Icons */}
                   <div className="grid grid-cols-2 gap-4 max-w-xs mx-auto mb-8">
                     {[
                       { icon: Shield, text: "Licensed & Insured" },
@@ -738,7 +661,6 @@ export default function Results() {
                     ))}
                   </div>
 
-                  {/* PRIMARY CTA - Schedule Free Inspection */}
                   <Button
                     size="lg"
                     className="w-full h-16 text-lg bg-green-600 hover:bg-green-700 shadow-xl hover:shadow-2xl transition-all mb-4"
@@ -751,7 +673,6 @@ export default function Results() {
                     </span>
                   </Button>
 
-                  {/* Secondary Actions - Better Grid */}
                   <div className="grid grid-cols-1 gap-4">
                     <Button
                       size="lg"
@@ -787,7 +708,6 @@ export default function Results() {
                     </Button>
                   </div>
 
-                  {/* Urgency Element */}
                   <div className="mt-8 text-center">
                     <div className="inline-flex items-center gap-2 bg-orange-500 text-white px-5 py-2 rounded-full text-sm font-bold shadow-xl animate-pulse">
                       ⚡ 3 Spots Available This Week
@@ -797,7 +717,6 @@ export default function Results() {
               </div>
             </Card>
 
-            {/* Testimonial */}
             <Card className="shadow-lg border-l-4 border-l-yellow-400">
               <CardContent className="p-6">
                 <div className="flex gap-1 mb-3">
@@ -829,7 +748,6 @@ export default function Results() {
               </CardContent>
             </Card>
 
-            {/* Contact Info */}
             <Card className="bg-slate-50 border-slate-200">
               <CardContent className="p-6 text-center">
                 <h3 className="text-xl font-bold text-slate-900 mb-2">Questions About Your Estimate?</h3>
