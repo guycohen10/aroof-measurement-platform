@@ -7,156 +7,164 @@ export default function Roof3DView({ measurement, sections }) {
   const [rotation, setRotation] = useState({ x: -0.5, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const animationRef = useRef(null);
 
   useEffect(() => {
-    if (!sections || sections.length === 0) return;
+    if (!sections || sections.length === 0) {
+      console.log("⚠️ No sections available for 3D rendering");
+      return;
+    }
     
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      console.log("⚠️ Canvas ref not available");
+      return;
+    }
+    
+    console.log(`🎨 Rendering ${sections.length} sections in 3D...`);
     
     const ctx = canvas.getContext('2d');
-    const width = canvas.width = 800;
-    const height = canvas.height = 600;
+    const width = canvas.width;
+    const height = canvas.height;
     
-    const render = () => {
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, width, height);
-      
-      // Get all coordinates from sections
-      const allCoords = [];
-      sections.forEach(section => {
-        if (section.coordinates && section.coordinates.length > 0) {
-          section.coordinates.forEach(coord => {
-            allCoords.push({ lat: coord.lat, lng: coord.lng });
-          });
-        }
-      });
-      
-      if (allCoords.length === 0) return;
-      
-      // Find bounds
-      const minLat = Math.min(...allCoords.map(c => c.lat));
-      const maxLat = Math.max(...allCoords.map(c => c.lat));
-      const minLng = Math.min(...allCoords.map(c => c.lng));
-      const maxLng = Math.max(...allCoords.map(c => c.lng));
-      
-      const centerLat = (minLat + maxLat) / 2;
-      const centerLng = (minLng + maxLng) / 2;
-      const scale = Math.min(width, height) * 0.0008;
-      
-      // Project 3D to 2D
-      const project = (lat, lng, height = 0) => {
-        const x = (lng - centerLng) * scale * 100000;
-        const y = (lat - centerLat) * scale * 100000;
-        const z = height;
-        
-        // Rotate around X axis
-        const cosX = Math.cos(rotation.x);
-        const sinX = Math.sin(rotation.x);
-        const y1 = y * cosX - z * sinX;
-        const z1 = y * sinX + z * cosX;
-        
-        // Rotate around Y axis
-        const cosY = Math.cos(rotation.y);
-        const sinY = Math.sin(rotation.y);
-        const x2 = x * cosY + z1 * sinY;
-        const z2 = -x * sinY + z1 * cosY;
-        
-        // Perspective projection
-        const perspective = 600;
-        const scale2d = perspective / (perspective + z2);
-        
-        return {
-          x: width / 2 + x2 * scale2d,
-          y: height / 2 - y1 * scale2d
-        };
-      };
-      
-      // Draw each section
-      sections.forEach((section, idx) => {
-        if (!section.coordinates || section.coordinates.length === 0) return;
-        
-        const color = section.color || '#3b82f6';
-        
-        // Calculate height based on pitch
-        const pitchMultiplier = section.pitch_multiplier || 1;
-        const baseHeight = (pitchMultiplier - 1) * 100;
-        
-        // Draw base (ground level)
-        ctx.beginPath();
-        section.coordinates.forEach((coord, i) => {
-          const p = project(coord.lat, coord.lng, 0);
-          if (i === 0) ctx.moveTo(p.x, p.y);
-          else ctx.lineTo(p.x, p.y);
-        });
-        ctx.closePath();
-        ctx.fillStyle = color + '40';
-        ctx.fill();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        // Draw roof surface (with height)
-        ctx.beginPath();
-        section.coordinates.forEach((coord, i) => {
-          const p = project(coord.lat, coord.lng, baseHeight);
-          if (i === 0) ctx.moveTo(p.x, p.y);
-          else ctx.lineTo(p.x, p.y);
-        });
-        ctx.closePath();
-        ctx.fillStyle = color + 'aa';
-        ctx.fill();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        
-        // Draw vertical edges
-        ctx.strokeStyle = color + '80';
-        ctx.lineWidth = 1.5;
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Get all coordinates from sections
+    const allCoords = [];
+    sections.forEach(section => {
+      if (section.coordinates && section.coordinates.length > 0) {
         section.coordinates.forEach(coord => {
-          const p1 = project(coord.lat, coord.lng, 0);
-          const p2 = project(coord.lat, coord.lng, baseHeight);
-          ctx.beginPath();
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.stroke();
+          allCoords.push({ lat: coord.lat, lng: coord.lng });
         });
-        
-        // Draw section label
-        const centerLat = section.coordinates.reduce((sum, c) => sum + c.lat, 0) / section.coordinates.length;
-        const centerLng = section.coordinates.reduce((sum, c) => sum + c.lng, 0) / section.coordinates.length;
-        const labelPos = project(centerLat, centerLng, baseHeight + 20);
-        
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const area = Math.round(section.adjusted_area_sqft || section.flat_area_sqft || 0);
-        ctx.fillText(`${section.name || 'Section ' + (idx + 1)}: ${area} sq ft`, labelPos.x, labelPos.y);
+      }
+    });
+    
+    if (allCoords.length === 0) {
+      console.log("⚠️ No coordinates found in sections");
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('No coordinates available for 3D rendering', width / 2, height / 2);
+      return;
+    }
+    
+    console.log(`📍 Found ${allCoords.length} coordinates`);
+    
+    // Find bounds
+    const minLat = Math.min(...allCoords.map(c => c.lat));
+    const maxLat = Math.max(...allCoords.map(c => c.lat));
+    const minLng = Math.min(...allCoords.map(c => c.lng));
+    const maxLng = Math.max(...allCoords.map(c => c.lng));
+    
+    const centerLat = (minLat + maxLat) / 2;
+    const centerLng = (minLng + maxLng) / 2;
+    const scale = Math.min(width, height) * 0.0008;
+    
+    // Project 3D to 2D with rotation
+    const project = (lat, lng, height = 0) => {
+      const x = (lng - centerLng) * scale * 100000;
+      const y = (lat - centerLat) * scale * 100000;
+      const z = height;
+      
+      // Rotate around X axis
+      const cosX = Math.cos(rotation.x);
+      const sinX = Math.sin(rotation.x);
+      const y1 = y * cosX - z * sinX;
+      const z1 = y * sinX + z * cosX;
+      
+      // Rotate around Y axis
+      const cosY = Math.cos(rotation.y);
+      const sinY = Math.sin(rotation.y);
+      const x2 = x * cosY + z1 * sinY;
+      const z2 = -x * sinY + z1 * cosY;
+      
+      // Perspective projection
+      const perspective = 600;
+      const scale2d = perspective / (perspective + z2);
+      
+      return {
+        x: width / 2 + x2 * scale2d,
+        y: height / 2 - y1 * scale2d
+      };
+    };
+    
+    // Draw each section
+    sections.forEach((section, idx) => {
+      if (!section.coordinates || section.coordinates.length === 0) return;
+      
+      const color = section.color || '#3b82f6';
+      
+      // Calculate height based on pitch
+      const pitchMultiplier = section.pitch_multiplier || 1;
+      const baseHeight = (pitchMultiplier - 1) * 100;
+      
+      // Draw base (ground level)
+      ctx.beginPath();
+      section.coordinates.forEach((coord, i) => {
+        const p = project(coord.lat, coord.lng, 0);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = color + '40';
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Draw roof surface (with height)
+      ctx.beginPath();
+      section.coordinates.forEach((coord, i) => {
+        const p = project(coord.lat, coord.lng, baseHeight);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = color + 'aa';
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      
+      // Draw vertical edges
+      ctx.strokeStyle = color + '80';
+      ctx.lineWidth = 1.5;
+      section.coordinates.forEach(coord => {
+        const p1 = project(coord.lat, coord.lng, 0);
+        const p2 = project(coord.lat, coord.lng, baseHeight);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
       });
       
-      // Draw title
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('3D Roof Visualization', 20, 30);
+      // Draw section label
+      const centerLat = section.coordinates.reduce((sum, c) => sum + c.lat, 0) / section.coordinates.length;
+      const centerLng = section.coordinates.reduce((sum, c) => sum + c.lng, 0) / section.coordinates.length;
+      const labelPos = project(centerLat, centerLng, baseHeight + 20);
       
-      // Draw instructions
-      ctx.font = '14px sans-serif';
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText('Drag to rotate', 20, 55);
-    };
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const area = Math.round(section.adjusted_area_sqft || section.flat_area_sqft || 0);
+      ctx.fillText(`${section.name || 'Section ' + (idx + 1)}: ${area} sq ft`, labelPos.x, labelPos.y);
+    });
     
-    render();
-    animationRef.current = requestAnimationFrame(render);
+    // Draw title
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('3D Roof Visualization', 20, 30);
     
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
+    // Draw instructions
+    ctx.font = '14px sans-serif';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('Drag to rotate', 20, 55);
+    
+    console.log("✅ 3D rendering complete");
   }, [sections, rotation]);
 
   const handleMouseDown = (e) => {

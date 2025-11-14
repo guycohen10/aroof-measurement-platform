@@ -11,26 +11,48 @@ export default function InteractiveMapView({ measurement, sections }) {
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    if (!window.google || !window.google.maps) {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc&libraries=places,drawing,geometry`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => initMap();
-      script.onerror = () => setError("Failed to load Google Maps");
-      document.head.appendChild(script);
-    } else {
-      initMap();
-    }
+    const initGoogleMaps = () => {
+      if (window.google && window.google.maps) {
+        console.log("✅ Google Maps available, initializing...");
+        initMap();
+      } else {
+        console.log("⏳ Loading Google Maps...");
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc&libraries=places,drawing,geometry`;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          console.log("✅ Google Maps loaded");
+          initMap();
+        };
+        script.onerror = () => {
+          console.error("❌ Failed to load Google Maps");
+          setError("Failed to load Google Maps");
+          setLoading(false);
+        };
+        document.head.appendChild(script);
+      }
+    };
+
+    initGoogleMaps();
   }, [measurement, sections]);
 
   const initMap = () => {
-    if (!mapRef.current || !measurement?.property_address) {
+    if (!mapRef.current) {
+      console.error("❌ Map container ref not found");
+      setLoading(false);
+      return;
+    }
+
+    if (!measurement?.property_address && (!sections || sections.length === 0)) {
+      console.error("❌ No address or sections available");
+      setError("No measurement data available");
       setLoading(false);
       return;
     }
 
     try {
+      console.log("🗺️ Creating map instance...");
       let mapCenter = { lat: 32.7767, lng: -96.7970 };
 
       const map = new window.google.maps.Map(mapRef.current, {
@@ -48,19 +70,26 @@ export default function InteractiveMapView({ measurement, sections }) {
       });
 
       mapInstanceRef.current = map;
+      console.log("✅ Map instance created");
 
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode({ address: measurement.property_address }, (results, status) => {
-        if (status === 'OK' && results[0]) {
-          const location = results[0].geometry.location;
-          map.setCenter(location);
-        }
-      });
+      // Geocode address
+      if (measurement?.property_address) {
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ address: measurement.property_address }, (results, status) => {
+          if (status === 'OK' && results[0]) {
+            const location = results[0].geometry.location;
+            console.log("📍 Address geocoded:", location.lat(), location.lng());
+            map.setCenter(location);
+          }
+        });
+      }
 
+      // Draw polygons from sections
       if (sections && sections.length > 0) {
+        console.log(`📐 Drawing ${sections.length} sections...`);
         const bounds = new window.google.maps.LatLngBounds();
         
-        sections.forEach((section) => {
+        sections.forEach((section, idx) => {
           if (section.coordinates && section.coordinates.length > 0) {
             const coords = section.coordinates.map(coord => ({
               lat: coord.lat,
@@ -83,35 +112,39 @@ export default function InteractiveMapView({ measurement, sections }) {
 
             polygonsRef.current.push(polygon);
 
+            // Add section label
             const center = getPolygonCenter(coords);
             new window.google.maps.Marker({
               position: center,
               map: map,
               icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 0 },
               label: {
-                text: section.name || `${Math.round(section.adjusted_area_sqft || section.flat_area_sqft || 0).toLocaleString()} sq ft`,
+                text: `${section.name || 'Section ' + (idx + 1)}`,
                 color: '#ffffff',
                 fontSize: '12px',
-                fontWeight: 'bold',
-                className: 'map-label'
+                fontWeight: 'bold'
               }
             });
           }
         });
 
         if (!bounds.isEmpty()) {
+          console.log("📏 Fitting map to bounds");
           map.fitBounds(bounds);
           setTimeout(() => {
             const currentZoom = map.getZoom();
-            map.setZoom(Math.min(currentZoom - 0.5, 20));
+            if (currentZoom > 20) {
+              map.setZoom(20);
+            }
           }, 100);
         }
       }
 
       setLoading(false);
+      console.log("✅ Map initialization complete");
     } catch (err) {
-      console.error("Error initializing map:", err);
-      setError("Failed to load map");
+      console.error("❌ Error initializing map:", err);
+      setError("Failed to load map: " + err.message);
       setLoading(false);
     }
   };
@@ -184,6 +217,7 @@ export default function InteractiveMapView({ measurement, sections }) {
     return (
       <div className="bg-red-50 border-2 border-red-200 rounded-lg p-8 text-center">
         <p className="text-red-600 font-semibold">{error}</p>
+        <p className="text-sm text-red-500 mt-2">Please refresh the page to try again</p>
       </div>
     );
   }
@@ -222,15 +256,6 @@ export default function InteractiveMapView({ measurement, sections }) {
           </>
         )}
       </Button>
-
-      <style>{`
-        .map-label {
-          background: rgba(37, 99, 235, 0.9);
-          padding: 4px 8px;
-          border-radius: 4px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-      `}</style>
     </div>
   );
 }
