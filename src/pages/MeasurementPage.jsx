@@ -1380,7 +1380,7 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {/* MAGNIFIER - Uses Static API with higher zoom */}
+          {/* MAGNIFIER - Uses img tag with cache buster for proper reloading */}
           {magnifierEnabled && !capturingImages && magnifierCenter.lat !== 0 && (
             <div
               style={{
@@ -1395,12 +1395,29 @@ export default function MeasurementPage() {
                 pointerEvents: 'none',
                 zIndex: 1000,
                 boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-                backgroundImage: `url(https://maps.googleapis.com/maps/api/staticmap?center=${magnifierCenter.lat},${magnifierCenter.lng}&zoom=${Math.min((mapInstanceRef.current?.getZoom() || 20) + 3, 22)}&size=${magnifierSize}x${magnifierSize}&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}&scale=2)`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
+                background: '#1e293b' // Dark background for when image is loading
               }}
             >
+              {/* Use img tag with key to force reload */}
+              <img
+                key={`${magnifierCenter.lat}-${magnifierCenter.lng}-${currentZoom}-${magnifierSize}`} // Include zoom and size in key
+                src={`https://maps.googleapis.com/maps/api/staticmap?center=${magnifierCenter.lat},${magnifierCenter.lng}&zoom=${Math.min((mapInstanceRef.current?.getZoom() || 20) + 4, 22)}&size=${magnifierSize * 2}x${magnifierSize * 2}&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}&scale=2&t=${Date.now()}`}
+                alt="Magnified view"
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: magnifierSize * 2,
+                  height: magnifierSize * 2,
+                  objectFit: 'cover'
+                }}
+                onError={(e) => {
+                  console.error('Magnifier image failed to load');
+                  e.target.style.display = 'none'; // Hide image on error
+                }}
+              />
+              
               {/* Crosshair */}
               <div
                 style={{
