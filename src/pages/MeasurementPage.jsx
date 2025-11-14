@@ -43,7 +43,8 @@ export default function MeasurementPage() {
   const mapInstanceRef = useRef(null);
   const drawingManagerRef = useRef(null);
   const polygonsRef = useRef([]);
-  // magnifierMapRef and magnifierContainerRef are removed as per outline
+  const magnifierMapRef = useRef(null);
+  const magnifierContainerRef = useRef(null);
 
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
@@ -62,15 +63,14 @@ export default function MeasurementPage() {
   const [showZoomTutorial, setShowZoomTutorial] = useState(true);
   
   const [magnifierEnabled, setMagnifierEnabled] = useState(false);
-  const [magnifierPosition, setMagnifierPosition] = useState({ x: 0, y: 0 }); // Changed from mousePosition
-  // magnificationLevel state is removed as per outline
+  const [magnifierPosition, setMagnifierPosition] = useState({ x: 0, y: 0 });
   const [magnifierSize, setMagnifierSize] = useState(200);
   const [showMagnifierInstructions, setShowMagnifierInstructions] = useState(true);
   const [capturingImages, setCapturingImages] = useState(false);
 
   // Derived values for magnifier
   const magnifierRadius = magnifierSize / 2;
-  const zoomLevel = 3; // 3x zoom
+  const magnifierZoomOffset = 3; // How many zoom levels higher
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -216,12 +216,62 @@ export default function MeasurementPage() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isDrawing, handleZoomIn, handleZoomOut, handleResetZoom]);
 
-  // Remove the old magnifier map creation useEffect (lines 215-258)
-  // Remove the old magnifier update useEffect (lines 253-258)
-
-  // Replace with simple mouse tracking for magnifier
+  // Create magnifier map when enabled
   useEffect(() => {
-    if (!magnifierEnabled || !mapRef.current) return;
+    if (!magnifierEnabled || !magnifierContainerRef.current || !mapInstanceRef.current) {
+      if (magnifierMapRef.current) {
+        // No explicit destroy method for map instance, but setting to null allows garbage collection
+        // and ensures it's recreated if magnifier is enabled again.
+        magnifierMapRef.current = null; 
+      }
+      return;
+    }
+
+    if (!window.google || !window.google.maps) return;
+
+    // Create magnifier map if it doesn't exist
+    if (!magnifierMapRef.current) {
+      try {
+        const mainMap = mapInstanceRef.current;
+        const magnifiedZoom = Math.min(mainMap.getZoom() + magnifierZoomOffset, 22);
+        
+        magnifierMapRef.current = new window.google.maps.Map(magnifierContainerRef.current, {
+          zoom: magnifiedZoom,
+          center: mainMap.getCenter(),
+          mapTypeId: 'satellite',
+          disableDefaultUI: true,
+          draggable: false,
+          scrollwheel: false,
+          disableDoubleClickZoom: true,
+          gestureHandling: 'none',
+          keyboardShortcuts: false,
+          clickableIcons: false,
+          zoomControl: false,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          styles: [], // No custom styles, just satellite
+        });
+
+        console.log("✅ Magnifier map created");
+      } catch (err) {
+        console.error("❌ Error creating magnifier map:", err);
+      }
+    }
+  }, [magnifierEnabled, magnifierZoomOffset]);
+
+  // Update magnifier map zoom when main map zoom changes
+  useEffect(() => {
+    if (magnifierMapRef.current && magnifierEnabled && mapInstanceRef.current) {
+      const mainZoom = mapInstanceRef.current.getZoom();
+      const magnifiedZoom = Math.min(mainZoom + magnifierZoomOffset, 22);
+      magnifierMapRef.current.setZoom(magnifiedZoom);
+    }
+  }, [currentZoom, magnifierEnabled, magnifierZoomOffset]);
+
+  // Track mouse and update magnifier position
+  useEffect(() => {
+    if (!magnifierEnabled || !mapRef.current || !mapInstanceRef.current) return;
 
     const mapElement = mapRef.current;
     
@@ -229,23 +279,42 @@ export default function MeasurementPage() {
       const rect = mapElement.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
+      
       setMagnifierPosition({ x, y });
-    };
 
-    const handleMouseLeave = () => {
-      // Keep magnifier visible even when mouse leaves
+      // Calculate the geographic coordinates under the cursor
+      if (mapInstanceRef.current && window.google) {
+        const map = mapInstanceRef.current;
+        const projection = map.getProjection();
+        if (!projection) return; 
+
+        // Get the pixel coordinates of the mouse event relative to the map div
+        const mapDiv = map.getDiv();
+        const mapRect = mapDiv.getBoundingClientRect();
+        const pixelX = e.clientX - mapRect.left;
+        const pixelY = e.clientY - mapRect.top;
+        
+        // Create a Point object for the pixel coordinates
+        const pixelCoord = new window.google.maps.Point(pixelX, pixelY);
+        
+        // Convert pixel coordinates to LatLng
+        const cursorLatLng = projection.fromContainerPixelToLatLng(pixelCoord);
+        
+        // Update magnifier map center to cursor position
+        if (magnifierMapRef.current && cursorLatLng) {
+          magnifierMapRef.current.setCenter(cursorLatLng);
+        }
+      }
     };
 
     mapElement.addEventListener('mousemove', handleMouseMove);
-    mapElement.addEventListener('mouseleave', handleMouseLeave);
     mapElement.style.cursor = magnifierEnabled ? 'none' : 'default';
 
     return () => {
       mapElement.removeEventListener('mousemove', handleMouseMove);
-      mapElement.removeEventListener('mouseleave', handleMouseLeave);
       mapElement.style.cursor = 'default';
     };
-  }, [magnifierEnabled]);
+  }, [magnifierEnabled, mapInstanceRef, mapRef]);
 
   const createMap = useCallback((center) => {
     try {
@@ -288,7 +357,6 @@ export default function MeasurementPage() {
       window.google.maps.event.addListener(map, 'zoom_changed', () => {
         const newZoom = map.getZoom();
         setCurrentZoom(newZoom);
-        // Removed magnifierMapRef interaction as per outline
       });
 
       new window.google.maps.Marker({
@@ -313,7 +381,7 @@ export default function MeasurementPage() {
       setMapError(`Error creating map: ${err.message}`);
       setMapLoading(false);
     }
-  }, [address]); // Dependencies updated: removed magnifierEnabled, magnificationLevel
+  }, [address]);
 
   const initializeMap = useCallback(async () => {
     try {
@@ -1105,10 +1173,10 @@ export default function MeasurementPage() {
                   disabled={sections.length === 0 || saving || capturingImages}
                   className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white"
                 >
-                  {saving ? (
+                  {saving || capturingImages ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Saving...
+                      {capturingImages ? 'Capturing Images...' : 'Saving...'}
                     </>
                   ) : (
                     <>
@@ -1163,7 +1231,7 @@ export default function MeasurementPage() {
                     </label>
                     <input
                       type="range"
-                      min="100" // Changed min from 150 to 100 as per outline
+                      min="100" 
                       max="300"
                       step="25"
                       value={magnifierSize}
@@ -1366,7 +1434,7 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {/* NEW FIXED MAGNIFIER - Perfect Circle */}
+          {/* FIXED MAGNIFIER - Perfect Circle with Working Zoom */}
           {magnifierEnabled && !capturingImages && (
             <div
               style={{
@@ -1381,32 +1449,18 @@ export default function MeasurementPage() {
                 pointerEvents: 'none',
                 zIndex: 1000,
                 boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-                background: 'white'
+                background: '#1e293b'
               }}
             >
-              {/* Magnified map content - uses CSS transform to zoom */}
+              {/* Google Maps instance for magnified view */}
               <div
+                ref={magnifierContainerRef}
                 style={{
-                  width: `${magnifierSize * zoomLevel}px`,
-                  height: `${magnifierSize * zoomLevel}px`,
-                  position: 'absolute',
-                  left: -(magnifierPosition.x * zoomLevel - magnifierRadius),
-                  top: -(magnifierPosition.y * zoomLevel - magnifierRadius),
-                  transform: `scale(${zoomLevel})`,
-                  transformOrigin: '0 0',
-                  // This captures the map underneath by cloning the view
-                  background: 'transparent'
-                }}
-              >
-                {/* The magnifier shows the zoomed portion of the map underneath */}
-                <div style={{
                   width: '100%',
                   height: '100%',
-                  // Use will-change for better performance
-                  willChange: 'transform',
-                  pointerEvents: 'none'
-                }} />
-              </div>
+                  borderRadius: '50%'
+                }}
+              />
               
               {/* Crosshair overlay - ALWAYS CENTERED */}
               <div
