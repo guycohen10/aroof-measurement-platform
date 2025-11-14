@@ -131,11 +131,43 @@ export default function Results() {
   const lowEstimate = Math.round(subtotal * 0.90);
   const highEstimate = Math.round(subtotal * 1.10);
 
+  // Calculate center from drawn sections
+  const calculateRoofCenter = () => {
+    if (!sections || sections.length === 0) {
+      return null;
+    }
+
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+
+    sections.forEach(section => {
+      if (section.coordinates && section.coordinates.length > 0) {
+        section.coordinates.forEach(point => {
+          minLat = Math.min(minLat, point.lat);
+          maxLat = Math.max(maxLat, point.lat);
+          minLng = Math.min(minLng, point.lng);
+          maxLng = Math.max(maxLng, point.lng);
+        });
+      }
+    });
+
+    if (minLat === Infinity) return null;
+
+    const centerLat = (minLat + maxLat) / 2;
+    const centerLng = (minLng + maxLng) / 2;
+
+    return { lat: centerLat, lng: centerLng };
+  };
+
+  const roofCenter = calculateRoofCenter();
+
   // Generate static map URLs
-  const satelliteUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
+  const satelliteUrl = roofCenter 
+    ? `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`
+    : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
   
   const diagramUrl = (() => {
-    if (sections.length === 0) return null;
+    if (sections.length === 0 || !roofCenter) return null;
     const colors = ['0xff0000', '0x00ff00', '0x0000ff', '0xffff00', '0xff00ff', '0x00ffff'];
     let paths = '';
     sections.forEach((section, index) => {
@@ -145,7 +177,7 @@ export default function Results() {
         paths += `&path=color:${color}|weight:3|fillcolor:${color}33|${points}|${section.coordinates[0].lat},${section.coordinates[0].lng}`;
       }
     });
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite${paths}&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite${paths}&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
   })();
 
   return (
@@ -207,6 +239,7 @@ export default function Results() {
                     src={satelliteUrl}
                     alt="Satellite view"
                     className="w-full h-auto"
+                    style={{ maxWidth: '800px', width: '100%' }}
                     onError={(e) => {
                       console.error("Satellite image failed to load");
                       e.target.style.display = 'none';
@@ -235,6 +268,7 @@ export default function Results() {
                       src={diagramUrl}
                       alt="Measurement diagram"
                       className="w-full h-auto"
+                      style={{ maxWidth: '800px', width: '100%' }}
                       onError={(e) => {
                         console.error("Diagram image failed to load");
                         e.target.style.display = 'none';
