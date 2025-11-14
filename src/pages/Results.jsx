@@ -6,7 +6,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Building2, Loader2, Crown, ArrowRight, Box } from "lucide-react"; // Added Box icon
+import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Building2, Loader2, Crown, ArrowRight, Box } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
@@ -14,7 +14,7 @@ import DetailedMeasurements from "../components/results/DetailedMeasurements";
 import PhotoUpload from "../components/results/PhotoUpload";
 import PDFReportGenerator from "../components/results/PDFReportGenerator";
 import MapImageCapture from "../components/results/MapImageCapture";
-import Roof3DView from "../components/results/Roof3DView"; // Added Roof3DView import
+import Roof3DView from "../components/results/Roof3DView";
 
 export default function Results() {
   const navigate = useNavigate();
@@ -240,7 +240,7 @@ export default function Results() {
 
       {/* Enhanced Success Banner with Animation */}
       <div className="bg-gradient-to-r from-green-500 via-green-600 to-green-700 text-white py-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsYXNzIGFiYyBkZWYiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZj																					 												 											  MDIuMjEgMS43OSAzLjk5OTg1NzggNC4wMDAxNDMgNGg0cy00LTEuNzktMy45OTk4NTcxLTQuMDAwMTQzYzAtMi4yMS0zLjk5OTg1NzItMy45OTk4NTczLTQtNC4wMDAxNDN6bS02IDBjMCAyLjMxMS43Mzk2NzM2IDQgNC4wMDAxNDMgNC4wMDAxNDNzMy45OTk4NTczLTEuNzkyMjgwMyA0LTQuMDAwMTQzLS43ODgyOTQ4LTMuOTg4MjQ3LTQtMy45ODgyNDc0LTQuMDAwMTQzLTMuOTg4MjQ3NC00LjAwMDE0M3ptLTIuNzcyMjE5OC00LjQ4NDQyMDdIMzcuMDI3NzgwMi4yNzI4NTczeiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsYXNzIGFiYyBkZWYiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZj																					 												 											  MDIuMjEgMS43OSAzLjk5OTg1NzggNC4wMDAxNDMgNGg0cy00LTEuNzktMy45OTk4NTcxLTQuMDAwMTQzYzAtMi4yMS0zLjk5OTg1NzItMy45OTk4NTczLTQtNC4wMDAxNDN6bS02IDBj																					 												 											  MDIuMzExLjczOTY3MzYgNCA0LjAwMDE0MyA0LjAwMDE0M3MzLjk5OTg1NzMtMS43OTIyODAzIDQtNC4wMDAxNDMtLjc4ODI5NDgtMy45ODgyNDctNC0zLjk4ODI0NzQtNC4wMDAxNDMtMy45ODgyNDc0LTQuMDAwMTQzM3ptLTIuNzcyMjE5OC00LjQ4NDQyMDdIMzcuMDI3NzgwMi4yNzI4NTczeiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-center gap-4 mb-6">
@@ -263,32 +263,31 @@ export default function Results() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Satellite View Section - NEW */}
-            {measurement.satellite_image && (
-              <Card className="shadow-xl border-2 border-blue-200">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
-                  <CardTitle className="flex items-center gap-2 text-2xl">
-                    <MapPin className="w-6 h-6 text-blue-600" />
-                    📍 Satellite View
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <p className="text-slate-600 mb-4">
-                    High-resolution satellite imagery of your property
-                  </p>
-                  <div className="border-2 border-slate-200 rounded-xl overflow-hidden shadow-lg">
-                    <img 
-                      src={measurement.satellite_image} 
-                      alt="Satellite view of property"
-                      className="w-full h-auto"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Satellite View Section - FIXED */}
+            <Card className="shadow-xl border-2 border-blue-200">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
+                <CardTitle className="flex items-center gap-2 text-2xl">
+                  <MapPin className="w-6 h-6 text-blue-600" />
+                  📍 Satellite View
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <p className="text-slate-600 mb-4">
+                  High-resolution satellite imagery focused on your roof
+                </p>
+                <div className="border-2 border-slate-200 rounded-xl overflow-hidden shadow-lg">
+                  <img 
+                    src={`https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`}
+                    alt="Satellite view of property"
+                    className="w-full h-auto"
+                    style={{ maxWidth: '800px' }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Measurement Diagram Section - NEW */}
-            {measurement.measurement_diagram && (
+            {/* Measurement Diagram Section - FIXED */}
+            {sections.length > 0 && (
               <Card className="shadow-xl border-2 border-green-200">
                 <CardHeader className="bg-gradient-to-r from-green-50 to-white">
                   <CardTitle className="flex items-center gap-2 text-2xl">
@@ -302,18 +301,30 @@ export default function Results() {
                   </p>
                   <div className="border-2 border-slate-200 rounded-xl overflow-hidden shadow-lg">
                     <img 
-                      src={measurement.measurement_diagram} 
+                      src={(() => {
+                        const colors = ['0xff0000', '0x00ff00', '0x0000ff', '0xffff00', '0xff00ff', '0x00ffff'];
+                        let pathsString = '';
+                        sections.forEach((section, index) => {
+                          if (section.coordinates && section.coordinates.length > 0) {
+                            const color = colors[index % colors.length];
+                            const points = section.coordinates.map(p => `${p.lat},${p.lng}`).join('|');
+                            pathsString += `&path=color:${color}|weight:3|fillcolor:${color}33|${points}|${section.coordinates[0].lat},${section.coordinates[0].lng}`;
+                          }
+                        });
+                        return `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite${pathsString}&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
+                      })()}
                       alt="Measurement diagram with sections"
                       className="w-full h-auto"
+                      style={{ maxWidth: '800px' }}
                     />
                   </div>
                   
                   {/* Legend for sections */}
-                  {measurement.measurement_data?.sections && measurement.measurement_data.sections.length > 0 && (
+                  {sections.length > 0 && (
                     <div className="mt-6 bg-slate-50 rounded-lg p-4">
                       <h4 className="font-bold text-slate-900 mb-3">Section Legend:</h4>
                       <div className="grid grid-cols-2 gap-3">
-                        {measurement.measurement_data.sections.map((section, idx) => (
+                        {sections.map((section, idx) => (
                           <div key={idx} className="flex items-center gap-2">
                             <div 
                               className="w-4 h-4 rounded-full"
@@ -350,37 +361,10 @@ export default function Results() {
             )}
 
             {/* Fallback if no images */}
-            {!measurement.satellite_image && !measurement.measurement_diagram && (
-              <Card className="shadow-xl">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-blue-600" />
-                    Property Map
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl p-12 text-center">
-                    <MapPin className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                    <p className="text-slate-600 font-semibold mb-2">
-                      📍 Satellite imagery not available
-                    </p>
-                    <p className="text-sm text-slate-500 mb-4">
-                      Images may take a moment to process
-                    </p>
-                    <a 
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(measurement.property_address)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold"
-                    >
-                      View on Google Maps
-                      <ArrowRight className="w-4 h-4" />
-                    </a>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
+            {/* The previous conditional was !measurement.satellite_image && !measurement.measurement_diagram,
+                but now satellite image is always shown and diagram is shown if sections > 0.
+                So this fallback becomes redundant for image display and is removed.
+            */}
             {/* Interactive Map with ID for capture */}
             <Card className="shadow-xl">
               <CardHeader>
