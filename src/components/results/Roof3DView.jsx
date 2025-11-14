@@ -10,28 +10,33 @@ export default function Roof3DView({ measurement, sections }) {
 
   useEffect(() => {
     if (!sections || sections.length === 0) {
-      console.log("⚠️ No sections available for 3D rendering");
+      console.log("⚠️ No sections for 3D");
       return;
     }
     
     const canvas = canvasRef.current;
-    if (!canvas) {
-      console.log("⚠️ Canvas ref not available");
-      return;
-    }
+    if (!canvas) return;
     
-    console.log(`🎨 Rendering ${sections.length} sections in 3D...`);
+    console.log(`🎨 Rendering ${sections.length} sections in 3D`);
     
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
     
-    // Clear canvas
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = '#1e293b';
+    
+    // Sky blue background instead of black
+    ctx.fillStyle = '#0ea5e9';
     ctx.fillRect(0, 0, width, height);
     
-    // Get all coordinates from sections
+    // Add gradient for depth
+    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, '#0ea5e9');
+    gradient.addColorStop(1, '#1e3a8a');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    
+    // Get coordinates
     const allCoords = [];
     sections.forEach(section => {
       if (section.coordinates && section.coordinates.length > 0) {
@@ -42,17 +47,13 @@ export default function Roof3DView({ measurement, sections }) {
     });
     
     if (allCoords.length === 0) {
-      console.log("⚠️ No coordinates found in sections");
       ctx.fillStyle = '#ffffff';
-      ctx.font = '16px sans-serif';
+      ctx.font = 'bold 20px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('No coordinates available for 3D rendering', width / 2, height / 2);
+      ctx.fillText('No measurement data', width / 2, height / 2);
       return;
     }
     
-    console.log(`📍 Found ${allCoords.length} coordinates`);
-    
-    // Find bounds
     const minLat = Math.min(...allCoords.map(c => c.lat));
     const maxLat = Math.max(...allCoords.map(c => c.lat));
     const minLng = Math.min(...allCoords.map(c => c.lng));
@@ -62,45 +63,57 @@ export default function Roof3DView({ measurement, sections }) {
     const centerLng = (minLng + maxLng) / 2;
     const scale = Math.min(width, height) * 0.0008;
     
-    // Project 3D to 2D with rotation
     const project = (lat, lng, height = 0) => {
       const x = (lng - centerLng) * scale * 100000;
       const y = (lat - centerLat) * scale * 100000;
       const z = height;
       
-      // Rotate around X axis
       const cosX = Math.cos(rotation.x);
       const sinX = Math.sin(rotation.x);
       const y1 = y * cosX - z * sinX;
       const z1 = y * sinX + z * cosX;
       
-      // Rotate around Y axis
       const cosY = Math.cos(rotation.y);
       const sinY = Math.sin(rotation.y);
       const x2 = x * cosY + z1 * sinY;
       const z2 = -x * sinY + z1 * cosY;
       
-      // Perspective projection
       const perspective = 600;
       const scale2d = perspective / (perspective + z2);
       
       return {
         x: width / 2 + x2 * scale2d,
-        y: height / 2 - y1 * scale2d
+        y: height / 2 - y1 * scale2d,
+        z: z2
       };
     };
     
-    // Draw each section
-    sections.forEach((section, idx) => {
+    // Sort sections by z-depth for proper rendering
+    const sectionsWithDepth = sections.map(section => {
+      const centerLat = section.coordinates.reduce((sum, c) => sum + c.lat, 0) / section.coordinates.length;
+      const centerLng = section.coordinates.reduce((sum, c) => sum + c.lng, 0) / section.coordinates.length;
+      const pitchMultiplier = section.pitch_multiplier || 1;
+      const baseHeight = (pitchMultiplier - 1) * 100;
+      const centerProj = project(centerLat, centerLng, baseHeight);
+      return { section, depth: centerProj.z };
+    });
+    
+    sectionsWithDepth.sort((a, b) => a.depth - b.depth);
+    
+    // Draw ground shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetX = 5;
+    ctx.shadowOffsetY = 5;
+    
+    sectionsWithDepth.forEach(({ section, depth }, idx) => {
       if (!section.coordinates || section.coordinates.length === 0) return;
       
       const color = section.color || '#3b82f6';
-      
-      // Calculate height based on pitch
       const pitchMultiplier = section.pitch_multiplier || 1;
       const baseHeight = (pitchMultiplier - 1) * 100;
       
-      // Draw base (ground level)
+      // Draw base
       ctx.beginPath();
       section.coordinates.forEach((coord, i) => {
         const p = project(coord.lat, coord.lng, 0);
@@ -108,13 +121,12 @@ export default function Roof3DView({ measurement, sections }) {
         else ctx.lineTo(p.x, p.y);
       });
       ctx.closePath();
-      ctx.fillStyle = color + '40';
+      ctx.fillStyle = color + '30';
       ctx.fill();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.stroke();
       
-      // Draw roof surface (with height)
+      // Draw roof surface
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+      ctx.shadowBlur = 15;
       ctx.beginPath();
       section.coordinates.forEach((coord, i) => {
         const p = project(coord.lat, coord.lng, baseHeight);
@@ -122,15 +134,16 @@ export default function Roof3DView({ measurement, sections }) {
         else ctx.lineTo(p.x, p.y);
       });
       ctx.closePath();
-      ctx.fillStyle = color + 'aa';
+      ctx.fillStyle = color;
       ctx.fill();
-      ctx.strokeStyle = color;
+      ctx.strokeStyle = adjustBrightness(color, -30);
       ctx.lineWidth = 3;
       ctx.stroke();
       
       // Draw vertical edges
-      ctx.strokeStyle = color + '80';
-      ctx.lineWidth = 1.5;
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = adjustBrightness(color, -20);
+      ctx.lineWidth = 2;
       section.coordinates.forEach(coord => {
         const p1 = project(coord.lat, coord.lng, 0);
         const p2 = project(coord.lat, coord.lng, baseHeight);
@@ -140,11 +153,13 @@ export default function Roof3DView({ measurement, sections }) {
         ctx.stroke();
       });
       
-      // Draw section label
+      // Draw label
       const centerLat = section.coordinates.reduce((sum, c) => sum + c.lat, 0) / section.coordinates.length;
       const centerLng = section.coordinates.reduce((sum, c) => sum + c.lng, 0) / section.coordinates.length;
       const labelPos = project(centerLat, centerLng, baseHeight + 20);
       
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = 4;
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 14px sans-serif';
       ctx.textAlign = 'center';
@@ -153,19 +168,33 @@ export default function Roof3DView({ measurement, sections }) {
       ctx.fillText(`${section.name || 'Section ' + (idx + 1)}: ${area} sq ft`, labelPos.x, labelPos.y);
     });
     
+    // Reset shadow
+    ctx.shadowBlur = 0;
+    
     // Draw title
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
+    ctx.font = 'bold 24px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('3D Roof Visualization', 20, 30);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 6;
+    ctx.fillText('3D Roof Visualization', 20, 35);
     
-    // Draw instructions
-    ctx.font = '14px sans-serif';
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillText('Drag to rotate', 20, 55);
+    ctx.font = '16px sans-serif';
+    ctx.fillStyle = '#e0e7ff';
+    ctx.fillText('Drag to rotate', 20, 60);
     
     console.log("✅ 3D rendering complete");
   }, [sections, rotation]);
+
+  const adjustBrightness = (color, percent) => {
+    const hex = color.replace('#', '');
+    const num = parseInt(hex, 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+    const G = Math.max(0, Math.min(255, (num >> 8 & 0x00FF) + amt));
+    const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+    return '#' + ((R << 16) | (G << 8) | B).toString(16).padStart(6, '0');
+  };
 
   const handleMouseDown = (e) => {
     setIsDragging(true);
@@ -194,6 +223,14 @@ export default function Roof3DView({ measurement, sections }) {
     setRotation({ x: -0.5, y: 0 });
   };
 
+  if (!sections || sections.length === 0) {
+    return (
+      <div className="bg-slate-100 rounded-xl p-12 text-center">
+        <p className="text-slate-600">Complete measurement to view 3D model</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="bg-slate-900 rounded-xl overflow-hidden border-2 border-slate-700 shadow-2xl">
@@ -206,7 +243,7 @@ export default function Roof3DView({ measurement, sections }) {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          style={{ touchAction: 'none' }}
+          style={{ touchAction: 'none', display: 'block' }}
         />
       </div>
       

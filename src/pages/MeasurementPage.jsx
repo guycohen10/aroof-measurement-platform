@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -573,13 +574,30 @@ export default function MeasurementPage() {
   const captureSatelliteView = async () => {
     const mapContainer = mapRef.current;
     
-    if (!mapContainer) {
-      console.error('Map container not found for satellite capture');
+    if (!mapContainer || !mapInstanceRef.current) {
+      console.error('Map not ready for satellite capture');
       return null;
     }
     
+    const originalZoom = mapInstanceRef.current.getZoom();
+    const originalCenter = mapInstanceRef.current.getCenter();
+
     try {
-      console.log('📸 Capturing satellite view...');
+      console.log('📸 Capturing satellite view focused on roof...');
+      
+      // Calculate bounds from sections
+      if (sections.length > 0 && window.google?.maps?.LatLngBounds) {
+        const bounds = new window.google.maps.LatLngBounds();
+        sections.forEach(section => {
+          section.coordinates.forEach(coord => {
+            bounds.extend({ lat: coord.lat, lng: coord.lng });
+          });
+        });
+        
+        // Temporarily fit to bounds for capture
+        mapInstanceRef.current.fitBounds(bounds);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for map to re-render after fitBounds
+      }
       
       const uiElements = document.querySelectorAll(
         '.gmnoprint, .gm-style-cc, .gm-bundled-control, .gm-svpc, .gm-control-active'
@@ -590,6 +608,11 @@ export default function MeasurementPage() {
       const customUI = document.querySelectorAll('[style*="z-index: 10"], [style*="z-index: 1000"]');
       const originalCustomDisplays = Array.from(customUI).map(el => el.style.display);
       customUI.forEach(el => el.style.display = 'none');
+      
+      // Hide all polygons temporarily for clean satellite view
+      polygonsRef.current.forEach(polygon => {
+        if (polygon.setVisible) polygon.setVisible(false);
+      });
       
       await new Promise(resolve => setTimeout(resolve, 300));
       
@@ -605,8 +628,18 @@ export default function MeasurementPage() {
         height: mapContainer.offsetHeight
       });
       
+      // Restore everything
       uiElements.forEach((el, i) => el.style.display = originalDisplays[i]);
       customUI.forEach((el, i) => el.style.display = originalCustomDisplays[i]);
+      polygonsRef.current.forEach(polygon => {
+        if (polygon.setVisible) polygon.setVisible(true);
+      });
+
+      // Restore original map view
+      if (sections.length > 0) {
+        mapInstanceRef.current.setZoom(originalZoom);
+        mapInstanceRef.current.setCenter(originalCenter);
+      }
       
       const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       console.log('✅ Satellite view captured successfully');
@@ -622,14 +655,31 @@ export default function MeasurementPage() {
   const captureMeasurementDiagram = async () => {
     const mapContainer = mapRef.current;
     
-    if (!mapContainer) {
-      console.error('Map container not found for diagram capture');
+    if (!mapContainer || !mapInstanceRef.current) {
+      console.error('Map not ready for diagram capture');
       return null;
     }
+
+    const originalZoom = mapInstanceRef.current.getZoom();
+    const originalCenter = mapInstanceRef.current.getCenter();
     
     try {
-      console.log('📸 Capturing measurement diagram...');
+      console.log('📸 Capturing measurement diagram with polygons...');
       
+      // Ensure map is focused on roof
+      if (sections.length > 0 && window.google?.maps?.LatLngBounds) {
+        const bounds = new window.google.maps.LatLngBounds();
+        sections.forEach(section => {
+          section.coordinates.forEach(coord => {
+            bounds.extend({ lat: coord.lat, lng: coord.lng });
+          });
+        });
+        
+        mapInstanceRef.current.fitBounds(bounds);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for map to re-render after fitBounds
+      }
+      
+      // Hide UI but KEEP polygons visible
       const uiElements = document.querySelectorAll(
         '.gmnoprint, .gm-style-cc, .gm-bundled-control, .gm-svpc, .gm-control-active'
       );
@@ -640,7 +690,12 @@ export default function MeasurementPage() {
       const originalCustomDisplays = Array.from(customUI).map(el => el.style.display);
       customUI.forEach(el => el.style.display = 'none');
       
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Ensure polygons are visible
+      polygonsRef.current.forEach(polygon => {
+        if (polygon.setVisible) polygon.setVisible(true);
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       const html2canvas = (await import('html2canvas')).default;
       
@@ -654,8 +709,15 @@ export default function MeasurementPage() {
         height: mapContainer.offsetHeight
       });
       
+      // Restore UI
       uiElements.forEach((el, i) => el.style.display = originalDisplays[i]);
       customUI.forEach((el, i) => el.style.display = originalCustomDisplays[i]);
+
+      // Restore original map view
+      if (sections.length > 0) {
+        mapInstanceRef.current.setZoom(originalZoom);
+        mapInstanceRef.current.setCenter(originalCenter);
+      }
       
       const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       console.log('✅ Measurement diagram captured successfully');
