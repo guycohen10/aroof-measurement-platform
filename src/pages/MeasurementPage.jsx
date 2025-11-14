@@ -43,8 +43,9 @@ export default function MeasurementPage() {
   const mapInstanceRef = useRef(null);
   const drawingManagerRef = useRef(null);
   const polygonsRef = useRef([]);
-  // Removed magnifierMapRef and magnifierContainerRef as per new static API approach
-
+  const magnifierMapRef = useRef(null);
+  const magnifierContainerRef = useRef(null);
+  
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -63,7 +64,6 @@ export default function MeasurementPage() {
   
   const [magnifierEnabled, setMagnifierEnabled] = useState(false);
   const [magnifierPosition, setMagnifierPosition] = useState({ x: 0, y: 0 });
-  const [magnifierImageUrl, setMagnifierImageUrl] = useState(''); // Added state for static map URL
   const [magnifierSize, setMagnifierSize] = useState(200);
   const [showMagnifierInstructions, setShowMagnifierInstructions] = useState(true);
   const [capturingImages, setCapturingImages] = useState(false);
@@ -217,12 +217,34 @@ export default function MeasurementPage() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isDrawing, handleZoomIn, handleZoomOut, handleResetZoom]);
 
-  // Track cursor and update magnifier with Static API
+  // Create magnifier map ONCE when main map is ready
   useEffect(() => {
-    if (!magnifierEnabled || !mapRef.current || !mapInstanceRef.current) {
-      setMagnifierImageUrl(''); // Clear image when magnifier is disabled
-      return;
+    if (!mapInstanceRef.current || magnifierMapRef.current || !window.google || !magnifierContainerRef.current) return;
+
+    try {
+      // Create magnifier map at VERY high zoom
+      magnifierMapRef.current = new window.google.maps.Map(magnifierContainerRef.current, {
+        zoom: 23, // FIXED high zoom
+        center: mapInstanceRef.current.getCenter(),
+        mapTypeId: 'satellite',
+        disableDefaultUI: true,
+        draggable: false,
+        scrollwheel: false,
+        disableDoubleClickZoom: true,
+        gestureHandling: 'none',
+        keyboardShortcuts: false,
+        clickableIcons: false
+      });
+
+      console.log("✅ Magnifier map created at fixed zoom 23");
+    } catch (err) {
+      console.error("❌ Error creating magnifier map:", err);
     }
+  }, [mapInstanceRef.current]);
+
+  // Track cursor and update magnifier center
+  useEffect(() => {
+    if (!magnifierEnabled || !mapRef.current || !mapInstanceRef.current || !magnifierMapRef.current) return;
 
     const mapElement = mapRef.current;
     
@@ -251,16 +273,11 @@ export default function MeasurementPage() {
         const cursorLat = sw.lat() + (latRange * latPercent);
         const cursorLng = sw.lng() + (lngRange * lngPercent);
         
-        // Use Static API with HIGHER zoom for magnification
-        const mainZoom = mapInstanceRef.current.getZoom();
-        const magnifiedZoom = Math.min(mainZoom + 3, 22); // 3 levels higher (max zoom for static maps is 20-21 usually, but here we cap at main map's max)
-        
-        const staticUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${cursorLat},${cursorLng}&zoom=${magnifiedZoom}&size=${magnifierSize}x${magnifierSize}&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}&scale=2`;
-        
-        setMagnifierImageUrl(staticUrl);
+        // Update magnifier map center
+        const cursorLatLng = new window.google.maps.LatLng(cursorLat, cursorLng);
+        magnifierMapRef.current.setCenter(cursorLatLng);
       } catch (err) {
         // Silent
-        console.error("Error calculating cursor LatLng for magnifier:", err);
       }
     };
 
@@ -270,9 +287,8 @@ export default function MeasurementPage() {
     return () => {
       mapElement.removeEventListener('mousemove', handleMouseMove);
       mapElement.style.cursor = 'default';
-      setMagnifierImageUrl(''); // Clear image when unmounting or disabling
     };
-  }, [magnifierEnabled, magnifierSize, GOOGLE_MAPS_API_KEY]); // Added GOOGLE_MAPS_API_KEY to dependencies
+  }, [magnifierEnabled]);
 
   const createMap = useCallback((center) => {
     try {
@@ -1154,7 +1170,7 @@ export default function MeasurementPage() {
                   <ul className="text-xs text-blue-800 space-y-2">
                     <li>1. Zoom in close and use magnifier for details</li>
                     <li>2. Draw each roof plane separately (front, back, sides)</li>
-                    <li>3. Include garage, additions, and all roof sections</li>
+                    <li>3. Include garage, additions, and all roof sections)</li>
                     <li>4. After drawing, select pitch for each section</li>
                     <li>5. Tool calculates actual 3D surface area</li>
                   </ul>
@@ -1374,6 +1390,18 @@ export default function MeasurementPage() {
 
           <div ref={mapRef} className="w-full h-full" />
 
+          {/* Hidden magnifier map container - ALWAYS RENDERED */}
+          <div
+            ref={magnifierContainerRef}
+            style={{
+              position: 'absolute',
+              left: '-9999px',
+              top: '-9999px',
+              width: `${magnifierSize * 2}px`,
+              height: `${magnifierSize * 2}px`
+            }}
+          />
+
           {/* Capturing Images Overlay */}
           {capturingImages && (
             <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50">
@@ -1392,8 +1420,8 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {/* MAGNIFIER - Static API for guaranteed zoom */}
-          {magnifierEnabled && !capturingImages && magnifierImageUrl && (
+          {/* MAGNIFIER LENS - Shows portion of hidden high-zoom map */}
+          {magnifierEnabled && !capturingImages && magnifierMapRef.current && (
             <div
               style={{
                 position: 'absolute',
@@ -1406,14 +1434,38 @@ export default function MeasurementPage() {
                 overflow: 'hidden',
                 pointerEvents: 'none',
                 zIndex: 1000,
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-                backgroundImage: `url(${magnifierImageUrl})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)'
+              }}
+              onMouseEnter={() => {
+                // Move the hidden map into view
+                if (magnifierContainerRef.current) {
+                  magnifierContainerRef.current.style.left = `${magnifierPosition.x - magnifierSize}px`;
+                  magnifierContainerRef.current.style.top = `${magnifierPosition.y - magnifierSize}px`;
+                }
               }}
             >
-              {/* Crosshair overlay */}
+              {/* This creates a "window" into the magnifier map */}
+              <div
+                style={{
+                  position: 'absolute',
+                  width: magnifierSize * 2,
+                  height: magnifierSize * 2,
+                  left: -magnifierSize / 2,
+                  top: -magnifierSize / 2,
+                  pointerEvents: 'none'
+                }}
+              >
+                {/* Clone the magnifier map view here */}
+                <div 
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    background: `url(https://maps.googleapis.com/maps/api/staticmap?center=${magnifierMapRef.current.getCenter()?.lat()},${magnifierMapRef.current.getCenter()?.lng()}&zoom=23&size=${magnifierSize}x${magnifierSize}&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}&scale=2) center/cover no-repeat`
+                  }}
+                />
+              </div>
+              
+              {/* Crosshair */}
               <div
                 style={{
                   position: 'absolute',
