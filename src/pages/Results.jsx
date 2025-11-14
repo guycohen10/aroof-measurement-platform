@@ -161,6 +161,11 @@ export default function Results() {
 
   const roofCenter = calculateRoofCenter();
 
+  // Generate edit measurement URL
+  const editMeasurementUrl = roofCenter 
+    ? createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&lat=${roofCenter.lat}&lng=${roofCenter.lng}&measurementId=${measurement.id}`)
+    : createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&measurementId=${measurement.id}`);
+
   // Generate static map URLs
   const satelliteUrl = roofCenter 
     ? `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`
@@ -194,7 +199,7 @@ export default function Results() {
                 <p className="text-xs text-blue-600 font-semibold">Your Measurement Results</p>
               </div>
             </Link>
-            <Link to={createPageUrl(`MeasurementPage?measurementId=${measurement.id}&address=${encodeURIComponent(measurement.property_address || '')}`)}>
+            <Link to={editMeasurementUrl}>
               <Button variant="outline" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Edit Measurement
