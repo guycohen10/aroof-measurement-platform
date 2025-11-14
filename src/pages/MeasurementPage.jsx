@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
@@ -7,18 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp, ZoomIn, ZoomOut, Maximize2, RotateCcw } from "lucide-react";
+import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, Edit3, Trash2, Plus, Layers, TrendingUp, RotateCcw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SECTION_COLORS = [
-  { stroke: '#4A90E2', fill: '#4A90E2', name: 'Blue' },
-  { stroke: '#10b981', fill: '#10b981', name: 'Green' },
-  { stroke: '#f97316', fill: '#f97316', name: 'Orange' },
-  { stroke: '#a855f7', fill: '#a855f7', name: 'Purple' },
-  { stroke: '#ef4444', fill: '#ef4444', name: 'Red' },
-  { stroke: '#06b6d4', fill: '#06b6d4', name: 'Cyan' },
-  { stroke: '#f59e0b', fill: '#f59e0b', name: 'Amber' },
-  { stroke: '#ec4899', fill: '#ec4899', name: 'Pink' },
+  { stroke: '#ef4444', fill: 'rgba(239, 68, 68, 0.3)', name: 'Red' },
+  { stroke: '#10b981', fill: 'rgba(16, 185, 129, 0.3)', name: 'Green' },
+  { stroke: '#3b82f6', fill: 'rgba(59, 130, 246, 0.3)', name: 'Blue' },
+  { stroke: '#f59e0b', fill: 'rgba(245, 158, 11, 0.3)', name: 'Orange' },
+  { stroke: '#8b5cf6', fill: 'rgba(139, 92, 246, 0.3)', name: 'Purple' },
+  { stroke: '#ec4899', fill: 'rgba(236, 72, 153, 0.3)', name: 'Pink' },
+  { stroke: '#06b6d4', fill: 'rgba(6, 182, 212, 0.3)', name: 'Cyan' },
+  { stroke: '#f97316', fill: 'rgba(249, 115, 22, 0.3)', name: 'DeepOrange' },
 ];
 
 const PITCH_OPTIONS = [
@@ -37,31 +36,34 @@ const PITCH_OPTIONS = [
   { value: 'steep', label: 'Steep (over 12/12)', multiplier: 1.50 },
 ];
 
+const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+
 export default function MeasurementPage() {
   const navigate = useNavigate();
-  const mapRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const drawingManagerRef = useRef(null);
-  const polygonsRef = useRef([]);
+  const canvasRef = useRef(null);
+  const imageRef = useRef(null);
   
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [mapLoading, setMapLoading] = useState(true);
-  const [geocodingStatus, setGeocodingStatus] = useState("Initializing map...");
+  const [imageLoading, setImageLoading] = useState(false);
   const [error, setError] = useState("");
-  const [mapError, setMapError] = useState("");
   const [coordinates, setCoordinates] = useState(null);
+  const [baseImageUrl, setBaseImageUrl] = useState("");
   
   const [sections, setSections] = useState([]);
+  const [currentSection, setCurrentSection] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [saving, setSaving] = useState(false);
   
-  const [currentZoom, setCurrentZoom] = useState(20);
-  const [showZoomTutorial, setShowZoomTutorial] = useState(true);
-  const [capturingImages, setCapturingImages] = useState(false);
-
-  const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+  const [mapMetadata, setMapMetadata] = useState({
+    centerLat: 0,
+    centerLng: 0,
+    zoom: 21,
+    imageWidth: 1200,
+    imageHeight: 800,
+    scale: 2
+  });
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -87,400 +89,214 @@ export default function MeasurementPage() {
       const lng = parseFloat(lngParam);
       if (!isNaN(lat) && !isNaN(lng)) {
         setCoordinates({ lat, lng });
-        setGeocodingStatus("Location verified!");
+        loadStaticMap(lat, lng);
       }
     }
 
     setLoading(false);
   }, [navigate]);
 
-  useEffect(() => {
-    if (!address) return;
+  const loadStaticMap = (lat, lng) => {
+    setImageLoading(true);
+    setError("");
+    
+    const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=21&size=1200x800&scale=2&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    setBaseImageUrl(staticMapUrl);
+    setMapMetadata(prev => ({
+      ...prev,
+      centerLat: lat,
+      centerLng: lng
+    }));
 
-    const loadGoogleMaps = () => {
-      if (window.google && window.google.maps && window.google.maps.drawing) {
-        console.log("✅ Google Maps already loaded");
-        initializeMap();
-        return;
-      }
-
-      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
-        console.log("⏳ Google Maps script found, waiting for load...");
-        let attempts = 0;
-        const maxAttempts = 50;
-        
-        const checkGoogle = setInterval(() => {
-          attempts++;
-          if (window.google && window.google.maps && window.google.maps.drawing) {
-            clearInterval(checkGoogle);
-            console.log("✅ Google Maps loaded after", attempts, "attempts");
-            initializeMap();
-          } else if (attempts >= maxAttempts) {
-            clearInterval(checkGoogle);
-            console.error("❌ Google Maps timeout");
-            setMapError("Google Maps failed to load. Please refresh the page.");
-            setMapLoading(false);
-          }
-        }, 100);
-        return;
-      }
-
-      console.log("📥 Loading Google Maps script...");
-      const apiKey = GOOGLE_MAPS_API_KEY; 
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,drawing,places`;
-      script.async = true;
-      script.defer = true;
-      
-      script.onload = () => {
-        console.log("✅ Google Maps script loaded");
-        initializeMap();
-      };
-      script.onerror = () => {
-        console.error("❌ Failed to load Google Maps script");
-        setMapError("Failed to load Google Maps. Please check your internet connection.");
-        setMapLoading(false);
-      };
-
-      document.head.appendChild(script);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = staticMapUrl;
+    
+    img.onload = () => {
+      imageRef.current = img;
+      setImageLoading(false);
+      redrawCanvas();
     };
-
-    loadGoogleMaps();
-  }, [address, coordinates]);
-
-  const handleZoomIn = useCallback(() => {
-    if (mapInstanceRef.current) {
-      const currentZoom = mapInstanceRef.current.getZoom();
-      if (currentZoom < 22) {
-        mapInstanceRef.current.setZoom(currentZoom + 1);
-      }
-    }
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    if (mapInstanceRef.current) {
-      const currentZoom = mapInstanceRef.current.getZoom();
-      if (currentZoom > 18) {
-        mapInstanceRef.current.setZoom(currentZoom - 1);
-      }
-    }
-  }, []);
-
-  const handleResetZoom = useCallback(() => {
-    if (mapInstanceRef.current && coordinates) {
-      mapInstanceRef.current.setZoom(20);
-      mapInstanceRef.current.setCenter(coordinates);
-    }
-  }, [coordinates]);
-
-  const handleOptimalZoom = useCallback(() => {
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.setZoom(20);
-    }
-  }, []);
-
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (!mapInstanceRef.current) return;
-      
-      if (!isDrawing) {
-        if (e.key === '+' || e.key === '=') {
-          e.preventDefault();
-          handleZoomIn();
-        } else if (e.key === '-' || e.key === '_') {
-          e.preventDefault();
-          handleZoomOut();
-        } else if (e.key === '0') {
-          e.preventDefault();
-          handleResetZoom();
-        }
-      }
+    
+    img.onerror = () => {
+      setError("Failed to load satellite image. Please refresh.");
+      setImageLoading(false);
     };
+  };
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isDrawing, handleZoomIn, handleZoomOut, handleResetZoom]);
+  const pixelToLatLng = (pixelX, pixelY) => {
+    const metersPerPixel = 156543.03392 * Math.cos(mapMetadata.centerLat * Math.PI / 180) / Math.pow(2, mapMetadata.zoom) / mapMetadata.scale;
+    
+    const centerPixelX = mapMetadata.imageWidth / 2;
+    const centerPixelY = mapMetadata.imageHeight / 2;
+    
+    const offsetX = (pixelX - centerPixelX) * metersPerPixel;
+    const offsetY = (centerPixelY - pixelY) * metersPerPixel;
+    
+    const lat = mapMetadata.centerLat + (offsetY / 111320);
+    const lng = mapMetadata.centerLng + (offsetX / (111320 * Math.cos(mapMetadata.centerLat * Math.PI / 180)));
+    
+    return { lat, lng };
+  };
 
-  const createMap = useCallback((center) => {
-    try {
-      console.log("🗺️ Creating map with center:", center);
-      
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: center,
-        zoom: 20,
-        minZoom: 18,
-        maxZoom: 22,
-        mapTypeId: "satellite",
-        tilt: 0,
-        
-        zoomControl: true,
-        zoomControlOptions: {
-          position: window.google.maps.ControlPosition.RIGHT_CENTER
-        },
-        
-        scrollwheel: true,
-        gestureHandling: 'greedy',
-        disableDoubleClickZoom: false,
-        
-        mapTypeControl: true,
-        mapTypeControlOptions: {
-          position: window.google.maps.ControlPosition.TOP_RIGHT,
-          mapTypeIds: ["satellite", "hybrid", "roadmap"]
-        },
-        streetViewControl: false,
-        fullscreenControl: true,
-        fullscreenControlOptions: {
-          position: window.google.maps.ControlPosition.TOP_RIGHT
-        },
-        rotateControl: false,
-        scaleControl: true
-      });
+  const latLngToPixel = (lat, lng) => {
+    const metersPerPixel = 156543.03392 * Math.cos(mapMetadata.centerLat * Math.PI / 180) / Math.pow(2, mapMetadata.zoom) / mapMetadata.scale;
+    
+    const offsetLat = lat - mapMetadata.centerLat;
+    const offsetLng = lng - mapMetadata.centerLng;
+    
+    const metersY = offsetLat * 111320;
+    const metersX = offsetLng * (111320 * Math.cos(mapMetadata.centerLat * Math.PI / 180));
+    
+    const centerPixelX = mapMetadata.imageWidth / 2;
+    const centerPixelY = mapMetadata.imageHeight / 2;
+    
+    const x = centerPixelX + (metersX / metersPerPixel);
+    const y = centerPixelY - (metersY / metersPerPixel);
+    
+    return { x, y };
+  };
 
-      mapInstanceRef.current = map;
-      console.log("✅ Map created successfully");
-
-      window.google.maps.event.addListener(map, 'zoom_changed', () => {
-        const newZoom = map.getZoom();
-        setCurrentZoom(newZoom);
-      });
-
-      new window.google.maps.Marker({
-        position: center,
-        map: map,
-        title: address,
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          fillColor: "#FF0000",
-          fillOpacity: 1,
-          strokeColor: "#FFFFFF",
-          strokeWeight: 3,
-          scale: 10,
-        }
-      });
-
-      setMapError("");
-      setMapLoading(false);
-
-    } catch (err) {
-      console.error("❌ Error creating map:", err);
-      setMapError(`Error creating map: ${err.message}`);
-      setMapLoading(false);
+  const calculatePolygonArea = (points) => {
+    if (points.length < 3) return 0;
+    
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+      const j = (i + 1) % points.length;
+      const xi = points[i].lng * 111320 * Math.cos(points[i].lat * Math.PI / 180);
+      const yi = points[i].lat * 111320;
+      const xj = points[j].lng * 111320 * Math.cos(points[j].lat * Math.PI / 180);
+      const yj = points[j].lat * 111320;
+      area += xi * yj - xj * yi;
     }
-  }, [address]);
+    
+    area = Math.abs(area) / 2;
+    const areaInSquareFeet = area * 10.764;
+    return Math.round(areaInSquareFeet * 100) / 100;
+  };
 
-  const initializeMap = useCallback(async () => {
-    try {
-      if (!window.google || !window.google.maps) {
-        throw new Error("Google Maps not available");
-      }
-
-      console.log("🗺️ Initializing map for address:", address);
-
-      const defaultCenter = { lat: 32.7767, lng: -96.7970 };
-
-      if (coordinates) {
-        console.log("📍 Using provided coordinates:", coordinates);
-        createMap(coordinates);
-        return;
-      }
-
-      setGeocodingStatus("Finding address location...");
+  const redrawCanvas = () => {
+    const canvas = canvasRef.current;
+    const img = imageRef.current;
+    if (!canvas || !img) return;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    
+    sections.forEach((section, idx) => {
+      const color = SECTION_COLORS[idx % SECTION_COLORS.length];
       
-      const geocoder = new window.google.maps.Geocoder();
-      let geocodingCompleted = false;
-      
-      const geocodeTimeout = setTimeout(() => {
-        if (!geocodingCompleted) {
-          setMapError("Could not find address location. Using default map center.");
-          setGeocodingStatus("Using default location");
-          createMap(defaultCenter);
-        }
-      }, 10000);
-
-      geocoder.geocode({ address: address }, (results, status) => {
-        geocodingCompleted = true;
-        clearTimeout(geocodeTimeout);
+      if (section.coordinates && section.coordinates.length > 0) {
+        const pixels = section.coordinates.map(coord => latLngToPixel(coord.lat, coord.lng));
         
-        if (status === "OK" && results[0]) {
-          const location = results[0].geometry.location;
-          const geocodedCenter = {
-            lat: location.lat(),
-            lng: location.lng()
-          };
-          
-          console.log("✅ Address geocoded:", geocodedCenter);
-          setCoordinates(geocodedCenter);
-          setGeocodingStatus("Address found!");
-          createMap(geocodedCenter);
-        } else {
-          console.warn("⚠️ Geocoding failed:", status);
-          setMapError(`Could not find address (${status}). Showing default location.`);
-          setGeocodingStatus("Using default location");
-          createMap(defaultCenter);
+        ctx.fillStyle = color.fill;
+        ctx.strokeStyle = color.stroke;
+        ctx.lineWidth = 3;
+        
+        ctx.beginPath();
+        ctx.moveTo(pixels[0].x, pixels[0].y);
+        for (let i = 1; i < pixels.length; i++) {
+          ctx.lineTo(pixels[i].x, pixels[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        pixels.forEach(p => {
+          ctx.fillStyle = color.stroke;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
+          ctx.fill();
+        });
+      }
+    });
+    
+    if (currentSection.length > 0) {
+      const color = SECTION_COLORS[sections.length % SECTION_COLORS.length];
+      
+      currentSection.forEach((point, i) => {
+        ctx.fillStyle = color.stroke;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        if (i > 0) {
+          ctx.strokeStyle = color.stroke;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(currentSection[i - 1].x, currentSection[i - 1].y);
+          ctx.lineTo(point.x, point.y);
+          ctx.stroke();
         }
       });
-
-    } catch (err) {
-      console.error("❌ Failed to initialize map:", err);
-      setMapError(`Failed to initialize map: ${err.message}`);
-      setMapLoading(false);
-    }
-  }, [address, coordinates, createMap]);
-
-  const getZoomLevelAdvice = () => {
-    if (currentZoom >= 21) {
-      return { type: 'success', message: 'Perfect zoom level for accurate measurements', icon: '✓' };
-    } else if (currentZoom >= 20) {
-      return { type: 'success', message: 'Good zoom level - ready to measure', icon: '✓' };
-    } else if (currentZoom >= 19) {
-      return { type: 'warning', message: 'Consider zooming in for better accuracy', icon: '⚠️' };
-    } else {
-      return { type: 'error', message: 'Zoom in closer to see roof details clearly', icon: '❌' };
     }
   };
 
-  const calculateArea = useCallback((polygon) => {
-    if (!polygon || !window.google || !window.google.maps.geometry) return 0;
-
-    try {
-      const areaInSquareMeters = window.google.maps.geometry.spherical.computeArea(polygon.getPath());
-      const areaInSquareFeet = areaInSquareMeters * 10.764;
-      return Math.round(areaInSquareFeet * 100) / 100;
-    } catch (err) {
-      console.error("Error calculating area:", err);
-      return 0;
-    }
-  }, []);
-
-  const startDrawingSection = useCallback(() => {
-    console.log("🎨 Start drawing button clicked");
-    console.log("Map instance:", !!mapInstanceRef.current);
-    console.log("Google Maps available:", !!window.google?.maps);
-    console.log("Drawing library available:", !!window.google?.maps?.drawing);
+  const handleCanvasClick = (e) => {
+    if (!isDrawing) return;
     
-    if (!mapInstanceRef.current) {
-      console.error("❌ Map not initialized");
-      setError("Map not initialized. Please wait for the map to load.");
-      return;
-    }
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const latLng = pixelToLatLng(x, y);
+    
+    setCurrentSection(prev => [...prev, { lat: latLng.lat, lng: latLng.lng, x, y }]);
+    
+    setTimeout(redrawCanvas, 0);
+  };
 
-    if (!window.google || !window.google.maps || !window.google.maps.drawing) {
-      console.error("❌ Drawing tools not available");
-      setError("Drawing tools not available. Please refresh the page.");
+  const handleCanvasDoubleClick = () => {
+    if (currentSection.length < 3) {
+      setError("Need at least 3 points to complete a section");
       return;
     }
     
-    console.log("✅ All checks passed, starting drawing mode");
-    setIsDrawing(true);
+    const coordinates = currentSection.map(p => ({ lat: p.lat, lng: p.lng }));
+    const flatArea = calculatePolygonArea(coordinates);
+    
+    const colorIndex = sections.length % SECTION_COLORS.length;
+    const color = SECTION_COLORS[colorIndex];
+    
+    const newSection = {
+      id: `section-${Date.now()}`,
+      name: `Section ${sections.length + 1}`,
+      flat_area_sqft: flatArea,
+      pitch: 'flat',
+      pitch_multiplier: 1.00,
+      adjusted_area_sqft: flatArea,
+      color: color.stroke,
+      coordinates: coordinates
+    };
+    
+    setSections(prev => [...prev, newSection]);
+    setCurrentSection([]);
+    setIsDrawing(false);
     setError("");
     
-    if (drawingManagerRef.current) {
-      console.log("🧹 Cleaning up existing drawing manager");
-      drawingManagerRef.current.setMap(null);
+    setTimeout(redrawCanvas, 0);
+  };
+
+  const startDrawingSection = () => {
+    if (!baseImageUrl) {
+      setError("Map not loaded yet");
+      return;
     }
+    setIsDrawing(true);
+    setCurrentSection([]);
+    setError("");
+  };
 
-    const colorIndex = sections.length % SECTION_COLORS.length;
-    const sectionColor = SECTION_COLORS[colorIndex];
-    console.log("🎨 Using color:", sectionColor.name);
-
-    try {
-      const drawingManager = new window.google.maps.drawing.DrawingManager({
-        drawingMode: window.google.maps.drawing.OverlayType.POLYGON,
-        drawingControl: false,
-        polygonOptions: {
-          fillColor: sectionColor.fill,
-          fillOpacity: 0.35,
-          strokeWeight: 3,
-          strokeColor: sectionColor.stroke,
-          editable: true,
-          draggable: false,
-          clickable: true
-        }
-      });
-
-      drawingManagerRef.current = drawingManager;
-      drawingManager.setMap(mapInstanceRef.current);
-      console.log("✅ Drawing manager created and attached to map");
-
-      window.google.maps.event.addListener(drawingManager, 'polygoncomplete', function(polygon) {
-        console.log("✅ Polygon completed!");
-        polygonsRef.current.push(polygon);
-        
-        const path = polygon.getPath();
-        const coordinates = [];
-        for (let i = 0; i < path.getLength(); i++) {
-          const point = path.getAt(i);
-          coordinates.push({
-            lat: point.lat(),
-            lng: point.lng()
-          });
-        }
-        
-        const flatArea = calculateArea(polygon);
-        console.log("📏 Calculated area:", flatArea, "sq ft");
-        
-        const newSection = {
-          id: `section-${Date.now()}`,
-          name: `Section ${sections.length + 1}`,
-          flat_area_sqft: flatArea,
-          pitch: 'flat',
-          pitch_multiplier: 1.00,
-          adjusted_area_sqft: flatArea,
-          color: sectionColor.stroke,
-          coordinates: coordinates,
-          polygon: polygon
-        };
-
-        setSections(prev => [...prev, newSection]);
-        
-        drawingManager.setDrawingMode(null);
-        setIsDrawing(false);
-        console.log("✅ Section added to state");
-        
-        const updateSection = () => {
-          const newArea = calculateArea(polygon);
-          const newCoords = [];
-          const path = polygon.getPath();
-          for (let i = 0; i < path.getLength(); i++) {
-            const point = path.getAt(i);
-            newCoords.push({ lat: point.lat(), lng: point.lng() });
-          }
-          
-          setSections(prev => prev.map(s => 
-            s.id === newSection.id
-              ? {
-                  ...s,
-                  flat_area_sqft: newArea,
-                  adjusted_area_sqft: newArea * s.pitch_multiplier,
-                  coordinates: newCoords
-                }
-              : s
-          ));
-        };
-
-        window.google.maps.event.addListener(path, 'set_at', updateSection);
-        window.google.maps.event.addListener(path, 'insert_at', updateSection);
-        window.google.maps.event.addListener(path, 'remove_at', updateSection);
-      });
-      
-      console.log("✅ Polygon complete listener added");
-    } catch (err) {
-      console.error("❌ Error creating drawing manager:", err);
-      setError(`Failed to start drawing: ${err.message}`);
-      setIsDrawing(false);
-    }
-  }, [sections, calculateArea]);
-
-  const deleteSection = useCallback((sectionId) => {
-    const section = sections.find(s => s.id === sectionId);
-    if (section && section.polygon) {
-      section.polygon.setMap(null);
-      polygonsRef.current = polygonsRef.current.filter(p => p !== section.polygon);
-    }
+  const deleteSection = (sectionId) => {
     setSections(prev => prev.filter(s => s.id !== sectionId));
-  }, [sections]);
+    setTimeout(redrawCanvas, 0);
+  };
 
-  const updateSectionPitch = useCallback((sectionId, pitchValue) => {
+  const updateSectionPitch = (sectionId, pitchValue) => {
     const pitchOption = PITCH_OPTIONS.find(p => p.value === pitchValue);
     if (!pitchOption) return;
 
@@ -494,13 +310,13 @@ export default function MeasurementPage() {
           }
         : section
     ));
-  }, []);
+  };
 
-  const updateSectionName = useCallback((sectionId, name) => {
+  const updateSectionName = (sectionId, name) => {
     setSections(prev => prev.map(section => 
       section.id === sectionId ? { ...section, name } : section
     ));
-  }, []);
+  };
 
   const getTotalFlatArea = () => {
     return sections.reduce((sum, section) => sum + section.flat_area_sqft, 0);
@@ -510,9 +326,7 @@ export default function MeasurementPage() {
     return sections.reduce((sum, section) => sum + section.adjusted_area_sqft, 0);
   };
 
-  const calculateRoofComponents = useCallback((sections) => {
-    console.log("📐 Calculating roof components for", sections.length, "sections");
-    
+  const calculateRoofComponents = (sections) => {
     let totalFlatArea = 0;
     let totalActualArea = 0;
     let totalEaves = 0;
@@ -544,18 +358,15 @@ export default function MeasurementPage() {
       totalEaves += perimeter * 0.4;
       totalRakes += (perimeter * 0.3) * pitchMultiplier;
       totalRidges += avgDimension * 0.5;
-      const hipEstimate = avgDimension * 0.3 * pitchMultiplier;
-      totalHips += hipEstimate;
-      const valleyEstimate = avgDimension * 0.2 * pitchMultiplier;
-      totalValleys += valleyEstimate;
+      totalHips += avgDimension * 0.3 * pitchMultiplier;
+      totalValleys += avgDimension * 0.2 * pitchMultiplier;
       totalSteps += perimeter * 0.15;
     });
     
-    const measurements = {
+    return {
       totalFlatArea: Math.round(totalFlatArea * 100) / 100,
       totalActualArea: Math.round(totalActualArea * 100) / 100,
       totalSquares: Math.round((totalActualArea / 100) * 100) / 100,
-      
       eaves: Math.round(totalEaves * 10) / 10,
       rakes: Math.round(totalRakes * 10) / 10,
       ridges: Math.round(totalRidges * 10) / 10,
@@ -563,174 +374,11 @@ export default function MeasurementPage() {
       valleys: Math.round(totalValleys * 10) / 10,
       steps: Math.round(totalSteps * 10) / 10,
       walls: 0,
-      
       pitchBreakdown: pitchBreakdown
     };
-    
-    console.log("✅ Roof components calculated:", measurements);
-    return measurements;
-  }, []);
-
-  const captureSatelliteView = async () => {
-    const mapContainer = mapRef.current;
-    
-    if (!mapContainer || !mapInstanceRef.current) {
-      console.error('Map not ready for satellite capture');
-      return null;
-    }
-    
-    const originalZoom = mapInstanceRef.current.getZoom();
-    const originalCenter = mapInstanceRef.current.getCenter();
-
-    try {
-      console.log('📸 Capturing satellite view focused on roof...');
-      
-      // Calculate bounds from sections
-      if (sections.length > 0 && window.google?.maps?.LatLngBounds) {
-        const bounds = new window.google.maps.LatLngBounds();
-        sections.forEach(section => {
-          section.coordinates.forEach(coord => {
-            bounds.extend({ lat: coord.lat, lng: coord.lng });
-          });
-        });
-        
-        // Temporarily fit to bounds for capture
-        mapInstanceRef.current.fitBounds(bounds);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for map to re-render after fitBounds
-      }
-      
-      const uiElements = document.querySelectorAll(
-        '.gmnoprint, .gm-style-cc, .gm-bundled-control, .gm-svpc, .gm-control-active'
-      );
-      const originalDisplays = Array.from(uiElements).map(el => el.style.display);
-      uiElements.forEach(el => el.style.display = 'none');
-      
-      const customUI = document.querySelectorAll('[style*="z-index: 10"], [style*="z-index: 1000"]');
-      const originalCustomDisplays = Array.from(customUI).map(el => el.style.display);
-      customUI.forEach(el => el.style.display = 'none');
-      
-      // Hide all polygons temporarily for clean satellite view
-      polygonsRef.current.forEach(polygon => {
-        if (polygon.setVisible) polygon.setVisible(false);
-      });
-      
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      const html2canvas = (await import('html2canvas')).default;
-      
-      const canvas = await html2canvas(mapContainer, {
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        scale: 2,
-        logging: false,
-        width: mapContainer.offsetWidth,
-        height: mapContainer.offsetHeight
-      });
-      
-      // Restore everything
-      uiElements.forEach((el, i) => el.style.display = originalDisplays[i]);
-      customUI.forEach((el, i) => el.style.display = originalCustomDisplays[i]);
-      polygonsRef.current.forEach(polygon => {
-        if (polygon.setVisible) polygon.setVisible(true);
-      });
-
-      // Restore original map view
-      if (sections.length > 0) {
-        mapInstanceRef.current.setZoom(originalZoom);
-        mapInstanceRef.current.setCenter(originalCenter);
-      }
-      
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      console.log('✅ Satellite view captured successfully');
-      
-      return dataUrl;
-      
-    } catch (error) {
-      console.error('❌ Error capturing satellite view:', error);
-      return null;
-    }
   };
 
-  const captureMeasurementDiagram = async () => {
-    const mapContainer = mapRef.current;
-    
-    if (!mapContainer || !mapInstanceRef.current) {
-      console.error('Map not ready for diagram capture');
-      return null;
-    }
-
-    const originalZoom = mapInstanceRef.current.getZoom();
-    const originalCenter = mapInstanceRef.current.getCenter();
-    
-    try {
-      console.log('📸 Capturing measurement diagram with polygons...');
-      
-      // Ensure map is focused on roof
-      if (sections.length > 0 && window.google?.maps?.LatLngBounds) {
-        const bounds = new window.google.maps.LatLngBounds();
-        sections.forEach(section => {
-          section.coordinates.forEach(coord => {
-            bounds.extend({ lat: coord.lat, lng: coord.lng });
-          });
-        });
-        
-        mapInstanceRef.current.fitBounds(bounds);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for map to re-render after fitBounds
-      }
-      
-      // Hide UI but KEEP polygons visible
-      const uiElements = document.querySelectorAll(
-        '.gmnoprint, .gm-style-cc, .gm-bundled-control, .gm-svpc, .gm-control-active'
-      );
-      const originalDisplays = Array.from(uiElements).map(el => el.style.display);
-      uiElements.forEach(el => el.style.display = 'none');
-      
-      const customUI = document.querySelectorAll('[style*="z-index: 10"], [style*="z-index: 1000"]');
-      const originalCustomDisplays = Array.from(customUI).map(el => el.style.display);
-      customUI.forEach(el => el.style.display = 'none');
-      
-      // Ensure polygons are visible
-      polygonsRef.current.forEach(polygon => {
-        if (polygon.setVisible) polygon.setVisible(true);
-      });
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const html2canvas = (await import('html2canvas')).default;
-      
-      const canvas = await html2canvas(mapContainer, {
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        scale: 2,
-        logging: false,
-        width: mapContainer.offsetWidth,
-        height: mapContainer.offsetHeight
-      });
-      
-      // Restore UI
-      uiElements.forEach((el, i) => el.style.display = originalDisplays[i]);
-      customUI.forEach((el, i) => el.style.display = originalCustomDisplays[i]);
-
-      // Restore original map view
-      if (sections.length > 0) {
-        mapInstanceRef.current.setZoom(originalZoom);
-        mapInstanceRef.current.setCenter(originalCenter);
-      }
-      
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      console.log('✅ Measurement diagram captured successfully');
-      
-      return dataUrl;
-      
-    } catch (error) {
-      console.error('❌ Error capturing measurement diagram:', error);
-      return null;
-    }
-  };
-
-  const handleCompleteMeasurement = useCallback(async () => {
+  const handleCompleteMeasurement = async () => {
     if (sections.length === 0) {
       setError("Please draw at least one section");
       return;
@@ -739,34 +387,23 @@ export default function MeasurementPage() {
     const totalAdjusted = getTotalAdjustedArea();
     
     if (totalAdjusted < 100) {
-      setError("Total area seems too small. Please verify your measurement.");
+      setError("Total area seems too small. Please verify.");
       return;
     }
 
     if (totalAdjusted > 50000) {
-      setError("Total area seems unusually large. Please verify your measurement.");
+      setError("Total area seems too large. Please verify.");
       return;
     }
 
     setSaving(true);
-    setCapturingImages(true);
     setError("");
 
     try {
       const totalFlat = getTotalFlatArea();
       const totalAdjusted = getTotalAdjustedArea();
-      const sectionsData = sections.map(({ polygon, ...section }) => section);
+      const sectionsData = sections.map(s => s);
       const roofComponents = calculateRoofComponents(sections);
-
-      console.log('📸 Starting image capture...');
-      
-      const satelliteImage = await captureSatelliteView();
-      const measurementDiagram = await captureMeasurementDiagram();
-      
-      console.log('📸 Image capture complete:', {
-        satelliteImage: satelliteImage ? 'captured' : 'failed',
-        measurementDiagram: measurementDiagram ? 'captured' : 'failed'
-      });
 
       const measurementData = {
         measurement_data: {
@@ -774,7 +411,7 @@ export default function MeasurementPage() {
           total_adjusted_sqft: totalAdjusted,
           sections: sectionsData
         },
-        total_sqft: totalFlat, 
+        total_sqft: totalFlat,
         total_adjusted_sqft: totalAdjusted,
         eaves_ft: roofComponents.eaves,
         rakes_ft: roofComponents.rakes,
@@ -784,10 +421,11 @@ export default function MeasurementPage() {
         steps_ft: roofComponents.steps,
         walls_ft: roofComponents.walls,
         pitch_breakdown: roofComponents.pitchBreakdown,
-        
-        satellite_image: satelliteImage,
-        measurement_diagram: measurementDiagram,
-        
+        base_image_url: baseImageUrl,
+        base_image_center: {
+          lat: mapMetadata.centerLat,
+          lng: mapMetadata.centerLng
+        },
         status: "completed",
         completed_at: new Date().toISOString()
       };
@@ -812,14 +450,6 @@ export default function MeasurementPage() {
         savedMeasurementId = savedMeasurement.id;
       }
 
-      if (savedMeasurement.customer_email) {
-        try {
-          console.log("📧 EMAIL WOULD BE SENT TO:", savedMeasurement.customer_email);
-        } catch (emailError) {
-          console.error("Email send failed (non-blocking):", emailError);
-        }
-      }
-
       if (!savedMeasurementId) {
         throw new Error("Failed to get measurement ID");
       }
@@ -828,31 +458,25 @@ export default function MeasurementPage() {
       navigate(resultsUrl);
       
     } catch (err) {
-      console.error("ERROR SAVING MEASUREMENT:", err);
-      setError(`Failed to save measurement: ${err.message}. Please try again.`);
+      console.error("ERROR SAVING:", err);
+      setError(`Failed to save: ${err.message}`);
       setSaving(false);
-      setCapturingImages(false);
     }
-  }, [sections, address, measurementId, navigate, calculateRoofComponents]);
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-slate-600">Loading...</p>
-        </div>
+        <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
       </div>
     );
   }
 
   const totalFlat = getTotalFlatArea();
   const totalAdjusted = getTotalAdjustedArea();
-  const zoomAdvice = getZoomLevelAdvice();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
-      {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -873,454 +497,205 @@ export default function MeasurementPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
-        <div className="w-96 bg-white border-r border-slate-200 flex flex-col">
-          {/* Title and Address - Fixed at top */}
-          <div className="flex-shrink-0">
-            <div className="p-6 border-b border-slate-200">
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
-              <p className="text-sm text-slate-600">
-                Draw each roof section separately, then adjust pitch for accurate measurements
-              </p>
-            </div>
-
-            {/* Address Display */}
-            <div className="p-4 bg-blue-50 border-b border-blue-200">
-              <div className="flex items-start gap-2">
-                <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-blue-600 font-medium">Property:</p>
-                  <p className="text-sm font-bold text-blue-900 break-words">{address}</p>
-                  {coordinates && (
-                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" />
-                      Location verified
-                    </p>
-                  )}
-                </div>
-              </div>
+        <div className="w-96 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
+          <div className="p-6 border-b border-slate-200">
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
+            <p className="text-sm text-slate-600 mb-4">
+              Draw sections on the satellite image
+            </p>
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <p className="text-xs font-bold text-blue-900 truncate">{address}</p>
             </div>
           </div>
 
-          {/* STICKY SECTION - Drawing Button + Roof Sections */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Drawing Button - Always visible at top of scrollable area */}
-            <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
-              <div className="p-4">
-                {error && (
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="text-sm">{error}</AlertDescription>
-                  </Alert>
-                )}
-                
-                {mapLoading && (
-                  <Alert className="mb-4 bg-blue-50 border-blue-200">
-                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                    <AlertDescription className="text-sm text-blue-900">
-                      Loading map... Please wait before drawing.
-                    </AlertDescription>
-                  </Alert>
-                )}
+          <div className="p-4 border-b">
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            <Button
+              onClick={startDrawingSection}
+              className="w-full h-14 bg-blue-600 hover:bg-blue-700"
+              disabled={isDrawing || imageLoading}
+            >
+              {isDrawing ? (
+                <>Drawing Section {sections.length + 1}...</>
+              ) : imageLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Loading Map...
+                </>
+              ) : sections.length === 0 ? (
+                <>
+                  <Edit3 className="w-5 h-5 mr-2" />
+                  Start Drawing Section 1
+                </>
+              ) : (
+                <>
+                  <Plus className="w-5 h-5 mr-2" />
+                  Add Section {sections.length + 1}
+                </>
+              )}
+            </Button>
+            
+            {isDrawing && (
+              <p className="text-xs text-blue-600 mt-2 text-center font-semibold">
+                Click to add points • Double-click to finish
+              </p>
+            )}
+          </div>
 
-                {mapError && (
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="text-sm">
-                      {mapError}
-                      <Button 
-                        onClick={() => window.location.reload()} 
-                        variant="outline" 
-                        size="sm"
-                        className="mt-2 w-full"
-                      >
-                        Refresh Page
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
-                <Button
-                  onClick={startDrawingSection}
-                  className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isDrawing || mapLoading || !!mapError}
-                >
-                  {isDrawing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Drawing Section {sections.length + 1}...
-                    </>
-                  ) : mapLoading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Loading Map...
-                    </>
-                  ) : sections.length === 0 ? (
-                    <>
-                      <Edit3 className="w-5 h-5 mr-2" />
-                      Start Drawing Section 1
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-5 h-5 mr-2" />
-                      Add Section {sections.length + 1}
-                    </>
-                  )}
-                </Button>
-                
-                {!mapLoading && !mapError && (
-                  <p className="text-xs text-slate-500 mt-2 text-center">
-                    Click button, then click points on the map to draw
-                  </p>
-                )}
+          {sections.length > 0 && (
+            <div className="p-6 space-y-4 flex-1 overflow-y-auto">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-blue-600" />
+                <h3 className="text-lg font-bold text-slate-900">
+                  Sections ({sections.length})
+                </h3>
               </div>
-            </div>
 
-            {/* Roof Sections List - Scrollable */}
-            {sections.length > 0 && (
-              <div className="p-6 space-y-4 border-b border-slate-200">
-                <div className="flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-bold text-slate-900">
-                    Roof Sections ({sections.length})
-                  </h3>
-                </div>
+              {sections.map((section) => (
+                <Card key={section.id} className="p-4 border-2" style={{ borderColor: section.color }}>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: section.color }}
+                      />
+                      <Input
+                        value={section.name}
+                        onChange={(e) => updateSectionName(section.id, e.target.value)}
+                        className="flex-1 font-semibold"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteSection(section.id)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
 
-                {sections.map((section) => (
-                  <Card key={section.id} className="p-4 border-2" style={{ borderColor: section.color }}>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-4 h-4 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: section.color }}
-                        />
-                        <Input
-                          value={section.name}
-                          onChange={(e) => updateSectionName(section.id, e.target.value)}
-                          className="flex-1 font-semibold"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteSection(section.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                    <div className="bg-slate-50 rounded p-3">
+                      <p className="text-xs text-slate-600">Flat Area</p>
+                      <p className="text-2xl font-bold text-slate-900">
+                        {section.flat_area_sqft.toLocaleString()} sq ft
+                      </p>
+                    </div>
 
-                      <div className="bg-slate-50 rounded p-3">
-                        <p className="text-xs text-slate-600">Flat Area (Satellite View)</p>
-                        <p className="text-2xl font-bold text-slate-900">
-                          {section.flat_area_sqft.toLocaleString()} sq ft
+                    <Select
+                      value={section.pitch}
+                      onValueChange={(value) => updateSectionPitch(section.id, value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PITCH_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {section.pitch !== 'flat' && (
+                      <div className="bg-green-50 border border-green-200 rounded p-3">
+                        <p className="text-xs text-green-700 flex items-center gap-1">
+                          <TrendingUp className="w-3 h-3" />
+                          Actual Surface Area
+                        </p>
+                        <p className="text-xl font-bold text-green-900">
+                          {section.adjusted_area_sqft.toLocaleString()} sq ft
                         </p>
                       </div>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
 
-                      <div>
-                        <label className="text-xs font-medium text-slate-700 mb-1 block">
-                          Roof Pitch:
-                        </label>
-                        <Select
-                          value={section.pitch}
-                          onValueChange={(value) => updateSectionPitch(section.id, value)}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PITCH_OPTIONS.map(option => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {section.pitch !== 'flat' && (
-                        <div className="bg-green-50 border border-green-200 rounded p-3">
-                          <p className="text-xs text-green-700 flex items-center gap-1">
-                            <TrendingUp className="w-3 h-3" />
-                            Actual Surface Area
-                          </p>
-                          <p className="text-xl font-bold text-green-900">
-                            {section.adjusted_area_sqft.toLocaleString()} sq ft
-                          </p>
-                          <p className="text-xs text-green-600 mt-1">
-                            × {section.pitch_multiplier.toFixed(2)} multiplier
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {/* Total Area Summary - Sticky at bottom when sections exist */}
-            {sections.length > 0 && (
-              <div className="sticky bottom-0 p-6 border-t border-slate-200 bg-gradient-to-br from-green-50 to-blue-50 shadow-lg">
-                <h3 className="text-sm font-bold text-slate-700 mb-3">Total Roof Area</h3>
+          {sections.length > 0 && (
+            <div className="p-6 border-t bg-gradient-to-br from-green-50 to-blue-50">
+              <h3 className="text-sm font-bold text-slate-700 mb-3">Total Roof Area</h3>
+              
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between">
+                  <span className="text-sm text-slate-600">Flat:</span>
+                  <span className="text-lg font-bold">{totalFlat.toLocaleString()} sq ft</span>
+                </div>
                 
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Flat Area:</span>
-                    <span className="text-lg font-bold text-slate-900">
-                      {totalFlat.toLocaleString()} sq ft
+                {totalAdjusted !== totalFlat && (
+                  <div className="flex justify-between pt-2 border-t">
+                    <span className="text-sm font-semibold text-green-700">Adjusted:</span>
+                    <span className="text-2xl font-bold text-green-900">
+                      {totalAdjusted.toLocaleString()} sq ft
                     </span>
                   </div>
-                  
-                  {totalAdjusted !== totalFlat && (
-                    <div className="flex justify-between items-center pt-2 border-t border-green-200">
-                      <span className="text-sm font-semibold text-green-700">
-                        Adjusted for Pitch:
-                      </span>
-                      <span className="text-2xl font-bold text-green-900">
-                        {totalAdjusted.toLocaleString()} sq ft
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <Button
-                  onClick={handleCompleteMeasurement}
-                  disabled={sections.length === 0 || saving || capturingImages}
-                  className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {saving || capturingImages ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      {capturingImages ? 'Capturing Images...' : 'Saving...'}
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-5 h-5 mr-2" />
-                      Complete Measurement
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-
-            {/* Instructions - Only shown when no sections */}
-            {sections.length === 0 && (
-              <div className="p-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm font-bold text-blue-900 mb-2">📐 How to Measure Complex Roofs:</p>
-                  <ul className="text-xs text-blue-800 space-y-2">
-                    <li>1. Zoom in close for better details</li>
-                    <li>2. Draw each roof plane separately (front, back, sides)</li>
-                    <li>3. Include garage, additions, and all roof sections</li>
-                    <li>4. After drawing, select pitch for each section</li>
-                    <li>5. Tool calculates actual 3D surface area</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {/* Zoom Controls Section */}
-            <div className="p-4 bg-slate-50 border-b border-slate-200">
-              <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                🔍 Zoom Controls
-              </h3>
-              
-              <div className={`mb-3 p-2 rounded-lg text-center font-medium ${
-                zoomAdvice.type === 'success' ? 'bg-green-100 text-green-800' :
-                zoomAdvice.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-red-100 text-red-800'
-              }`}>
-                <div className="text-lg">{zoomAdvice.icon} Zoom: {currentZoom} / 22</div>
-                <div className="text-xs mt-1">{zoomAdvice.message}</div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <Button
-                  onClick={handleZoomIn}
-                  disabled={currentZoom >= 22}
-                  className="h-12 bg-blue-600 hover:bg-blue-700 text-white"
-                  size="lg"
-                >
-                  <ZoomIn className="w-5 h-5 mr-2" />
-                  Zoom In
-                </Button>
-                
-                <Button
-                  onClick={handleZoomOut}
-                  disabled={currentZoom <= 18}
-                  className="h-12 bg-blue-600 hover:bg-blue-700 text-white"
-                  size="lg"
-                >
-                  <ZoomOut className="w-5 h-5 mr-2" />
-                  Zoom Out
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                <Button
-                  onClick={handleResetZoom}
-                  variant="outline"
-                  className="w-full h-10"
-                  size="sm"
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Reset View
-                </Button>
-
-                {currentZoom < 20 && (
-                  <Button
-                    onClick={handleOptimalZoom}
-                    className="w-full h-10 bg-green-600 hover:bg-green-700 text-white"
-                    size="sm"
-                  >
-                    <Maximize2 className="w-4 h-4 mr-2" />
-                    Auto-Zoom to Optimal
-                  </Button>
                 )}
               </div>
 
-              <div className="mt-4">
-                <label className="text-xs font-medium text-slate-700 mb-2 block">
-                  Zoom Level Slider
-                </label>
-                <input
-                  type="range"
-                  min="18"
-                  max="22"
-                  value={currentZoom}
-                  onChange={(e) => mapInstanceRef.current?.setZoom(Number(e.target.value))}
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
-                <div className="flex justify-between text-xs text-slate-500 mt-1">
-                  <span>Far (18)</span>
-                  <span>Close (22)</span>
-                </div>
-              </div>
-
-              <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
-                <div className="font-bold mb-1">⌨️ Keyboard Shortcuts:</div>
-                <div>• Press <kbd className="px-1 bg-white border rounded">+</kbd> to zoom in</div>
-                <div>• Press <kbd className="px-1 bg-white border rounded">-</kbd> to zoom out</div>
-                <div>• Press <kbd className="px-1 bg-white border rounded">0</kbd> to reset</div>
-              </div>
+              <Button
+                onClick={handleCompleteMeasurement}
+                disabled={sections.length === 0 || saving}
+                className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    Complete Measurement
+                  </>
+                )}
+              </Button>
             </div>
-
-            {/* Zoom Tutorial */}
-            {showZoomTutorial && sections.length === 0 && (
-              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="text-sm font-bold text-blue-900">💡 Measurement Tip</h4>
-                  <button
-                    onClick={() => setShowZoomTutorial(false)}
-                    className="text-blue-600 hover:text-blue-800 text-xs"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <p className="text-xs text-blue-800 mb-2">
-                  Use zoom controls for accurate measurements
-                </p>
-                <ul className="text-xs text-blue-700 space-y-1">
-                  <li>🖱️ Mouse wheel to zoom</li>
-                  <li>📱 Pinch to zoom on mobile</li>
-                  <li>🔘 Click +/- buttons above</li>
-                </ul>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
-        {/* Map Container */}
-        <div className="flex-1 relative">
-          {mapLoading && (
-            <div className="absolute inset-0 bg-slate-900 flex items-center justify-center z-10">
+        <div className="flex-1 relative bg-slate-900 flex items-center justify-center">
+          {imageLoading && (
+            <div className="absolute inset-0 flex items-center justify-center z-10 bg-slate-900/80">
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-                <p className="text-white text-lg">{geocodingStatus}</p>
-                <p className="text-slate-400 text-sm mt-2">Address: {address}</p>
-                <p className="text-slate-500 text-xs mt-4">Loading Google Maps drawing tools...</p>
+                <p className="text-white">Loading satellite image...</p>
               </div>
             </div>
           )}
 
-          {mapError && !mapLoading && (
-            <div className="absolute inset-0 bg-slate-900 flex items-center justify-center z-10 p-8">
-              <Alert variant="destructive" className="max-w-md">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <p className="font-bold mb-2">{mapError}</p>
-                  <Button 
-                    onClick={() => window.location.reload()} 
-                    variant="outline" 
-                    className="mt-2"
-                  >
-                    Refresh Page
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            </div>
+          {baseImageUrl && (
+            <canvas
+              ref={canvasRef}
+              width={1200}
+              height={800}
+              onClick={handleCanvasClick}
+              onDoubleClick={handleCanvasDoubleClick}
+              className="max-w-full max-h-full cursor-crosshair shadow-2xl"
+              style={{ 
+                cursor: isDrawing ? 'crosshair' : 'default',
+                imageRendering: 'crisp-edges'
+              }}
+            />
           )}
 
-          <div ref={mapRef} className="w-full h-full" />
-
-          {/* Capturing Images Overlay */}
-          {capturingImages && (
-            <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="text-center bg-white rounded-2xl p-8 shadow-2xl max-w-md">
-                <Loader2 className="w-16 h-16 animate-spin text-blue-600 mx-auto mb-4" />
-                <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                  📸 Capturing Satellite Imagery
-                </h3>
-                <p className="text-slate-600 mb-1">
-                  Creating high-quality images for your report...
-                </p>
-                <p className="text-sm text-slate-500">
-                  This takes just a moment
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Drawing Indicator */}
           {isDrawing && (
-            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-blue-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10 max-w-md text-center">
-              <p className="text-sm font-bold mb-1">
-                🖱️ Click on Map to Draw Section {sections.length + 1}
+            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg z-10">
+              <p className="text-sm font-bold">
+                Click to add points • Double-click to finish
               </p>
-              <p className="text-xs">
-                Click points around the roof section. Double-click to close the polygon.
-              </p>
-            </div>
-          )}
-
-          {/* Section Count Indicator */}
-          {sections.length > 0 && !isDrawing && (
-            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-green-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
-              <p className="text-sm font-medium flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" />
-                {sections.length} section{sections.length !== 1 ? 's' : ''} drawn | {totalAdjusted.toLocaleString()} sq ft total
+              <p className="text-xs mt-1">
+                {currentSection.length} point{currentSection.length !== 1 ? 's' : ''} placed
               </p>
             </div>
           )}
-
-          {/* Mobile Zoom Controls */}
-          <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col gap-2 lg:hidden z-10">
-            <Button
-              onClick={handleZoomIn}
-              disabled={currentZoom >= 22}
-              className="h-14 w-14 bg-white hover:bg-slate-50 text-blue-600 shadow-lg rounded-full"
-              size="icon"
-            >
-              <ZoomIn className="w-6 h-6" />
-            </Button>
-            <Button
-              onClick={handleZoomOut}
-              disabled={currentZoom <= 18}
-              className="h-14 w-14 bg-white hover:bg-slate-50 text-blue-600 shadow-lg rounded-full"
-              size="icon"
-            >
-              <ZoomOut className="w-6 h-6" />
-            </Button>
-          </div>
         </div>
       </div>
     </div>
