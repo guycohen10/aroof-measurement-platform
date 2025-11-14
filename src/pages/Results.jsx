@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -5,30 +6,33 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Building2, Loader2 } from "lucide-react";
+import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Building2, Loader2, Crown } from "lucide-react"; // Added Crown icon
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
 import DetailedMeasurements from "../components/results/DetailedMeasurements";
 import PhotoUpload from "../components/results/PhotoUpload";
 import PDFReportGenerator from "../components/results/PDFReportGenerator";
-import { captureMapImage, showLoadingOverlay, hideLoadingOverlay } from "../components/results/MapImageCapture";
+import MapImageCapture from "../components/results/MapImageCapture"; // Replaced old capture utilities with a component
 
 export default function Results() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [measurement, setMeasurement] = useState(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null); // Changed from "" to null
   const [materialType, setMaterialType] = useState("asphalt_shingles");
   const [trackingAction, setTrackingAction] = useState(false);
 
-  // NEW: State for captured map images
-  const [satelliteImageData, setSatelliteImageData] = React.useState(null);
-  const [diagramImageData, setDiagramImageData] = React.useState(null);
-  const [capturingImages, setCapturingImages] = React.useState(false);
+  // NEW: State for additional tracking and user data
+  const [clickedBooking, setClickedBooking] = useState(false);
+  const [clickedCall, setClickedCall] = useState(false);
+  const [downloadCount, setDownloadCount] = useState(0);
+  const [mapImageData, setMapImageData] = useState(null); // Renamed from satelliteImageData
+  const [diagramImageData, setDiagramImageData] = useState(null); // This is now set by MapImageCapture
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadMeasurement = async () => { // Renamed from loadData to loadMeasurement
       console.log("🟣 RESULTS PAGE LOADING");
       const urlParams = new URLSearchParams(window.location.search);
       const measurementId = urlParams.get('measurementid');
@@ -64,8 +68,19 @@ export default function Results() {
       }
     };
 
-    loadData();
+    loadMeasurement();
+    loadCurrentUser(); // Call loadCurrentUser here
   }, [navigate]);
+
+  const loadCurrentUser = async () => {
+    try {
+      const user = await base44.auth.me();
+      setCurrentUser(user);
+    } catch (err) {
+      // User not logged in - that's okay
+      setCurrentUser(null);
+    }
+  };
 
   const trackConversion = async (action, data = {}) => {
     if (!measurement || trackingAction) return;
@@ -84,11 +99,13 @@ export default function Results() {
 
   const handleScheduleClick = () => {
     trackConversion("booking_clicked", { clicked_booking: true });
+    setClickedBooking(true); // NEW: Update state
     navigate(createPageUrl(`Booking?measurementid=${measurement.id}`));
   };
 
   const handleCallClick = () => {
     trackConversion("call_clicked", { clicked_call: true });
+    setClickedCall(true); // NEW: Update state
   };
 
   const handleDownloadClick = (reportType = null) => {
@@ -104,49 +121,24 @@ export default function Results() {
     setMeasurement({ ...measurement, photos: updatedPhotos });
   };
 
-  const handlePDFGenerate = async () => {
-    // Track PDF generation
+  // NEW: Handle PDF generation with incrementing download count
+  const handlePDFDownload = async () => { // Renamed from handlePDFGenerate
     trackConversion("pdf_generated", { pdf_generated_date: new Date().toISOString() });
+    setDownloadCount(prev => prev + 1); // Increment download count
   };
 
-  // NEW: Capture map images before generating PDF
-  const handleCaptureAndGeneratePDF = async () => {
-    try {
-      setCapturingImages(true);
-      showLoadingOverlay('📸 Capturing satellite imagery...');
-      
-      console.log('🗺️ Starting map capture...');
-      
-      // Capture the InteractiveMapView component
-      const satelliteImg = await captureMapImage('interactive-map-container');
-      const diagramImg = await captureMapImage('interactive-map-container'); // Same map shows both
-      
-      if (satelliteImg) {
-        console.log('✅ Satellite image captured');
-        setSatelliteImageData(satelliteImg);
-      }
-      
-      if (diagramImg) {
-        console.log('✅ Diagram image captured');
-        setDiagramImageData(diagramImg);
-      }
-      
-      showLoadingOverlay('📄 Preparing PDF report...');
-      
-      // Small delay to ensure state is updated
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      hideLoadingOverlay();
-      setCapturingImages(false);
-      
-      console.log('✅ Images captured, ready to generate PDF');
-      
-    } catch (error) {
-      console.error('❌ Error capturing images:', error);
-      hideLoadingOverlay();
-      setCapturingImages(false);
-      alert('Error capturing map images. Please try again.');
-    }
+  // REMOVED: old handleCaptureAndGeneratePDF logic
+
+  // NEW: Get custom branding for Pro/Unlimited users
+  const getUserBranding = () => {
+    if (!currentUser) return null;
+    
+    const isPro = currentUser.subscription_plan === 'pro';
+    const isUnlimited = currentUser.subscription_plan === 'unlimited';
+    
+    if (!isPro && !isUnlimited) return null;
+    
+    return currentUser.custom_branding || null;
   };
 
   if (loading) {
@@ -247,7 +239,7 @@ export default function Results() {
 
       {/* Enhanced Success Banner with Animation */}
       <div className="bg-gradient-to-r from-green-500 via-green-600 to-green-700 text-white py-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsYXNzIGFiYyBkZWYiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZj																					 												 											  MDIuMjEgMS43OSA0IDQgNHM0LTEuNzkgMy45OS00YzAtMi4yMS00LTMuNzktNC00em0tNiAwYzAgMi4zMTEuNzkgNCA0IDRzNC0xLjc5IDMuOTktNC00LTMuNzktNC00em0tMi00YzAgMjMxMS43OTIyMTM4Ljc1ODY5NSA0IDRzLTEuNzkyMjgwMy00LTMuOTk5ODU3OC00bC0uMDAwMDE0My0uMDAwMDAwODl6bTAgMGMwIDIuMzExLjczOTY3MzYgNCA0IDRzNC0xLjc5IDIuMjI3NzAyLTQuMDAxMjY1OS4wMDAwMTIzLS4wMDAwMDQ5eiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsYXNzIGFiYyBkZWYiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMTZj																					 												 											  MDIuMjEgMS43OSA0IDRoNHM0LTEuNzkgMy45OS00YzAtMi4yMS00LTMuNzktNC00em0tNiAwYzAgMi4zMTEuNzkgNCA0IDRzNC0xLjc5IDMuOTktNC00LTMuNzktNC00em0tMi00YzAgMjMxMS43OTIyMTM4Ljc1ODY5NSA0IDRzLTEuNzkyMjgwMy00LTMuOTk5ODU3OC00bC0uMDAwMDE0My0uMDAwMDAwODl6bTAgMGMwIDIuMzExLjczOTY3MzYgNCA0IDRzNC0xLjc5IDIuMjI3NzAyLTQuMDAxMjY1OS4wMDAwMTIzLS4wMDAwMDQ5eiIvPjwvZz48L2c+PC9zdmc+')] opacity-20"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-center gap-4 mb-6">
@@ -392,7 +384,7 @@ export default function Results() {
           </CardContent>
         </Card>
 
-        {/* NEW: Detailed Roof Components */}
+        {/* Detailed Roof Components */}
         <DetailedMeasurements measurement={measurement} />
 
         {/* Pricing Estimate (for homeowners) */}
@@ -496,109 +488,120 @@ export default function Results() {
           </Card>
         )}
 
-        {/* NEW: Photo Upload Section */}
+        {/* Photo Upload Section */}
         <PhotoUpload measurement={measurement} onPhotosUpdate={handlePhotosUpdate} />
 
-        {/* UPDATED: PDF Download with Image Capture */}
-        <Card className="mb-8 shadow-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
-          <CardHeader className="bg-gradient-to-r from-purple-100 to-blue-100 border-b pb-6">
-            <div className="flex items-center justify-center gap-3 mb-3">
-              <FileText className="w-12 h-12 text-purple-600" />
-            </div>
-            <CardTitle className="text-3xl text-center text-slate-900">
-              📄 Download Your Detailed PDF Report
-            </CardTitle>
-            <p className="text-center text-slate-600 mt-2">
-              Get a professional, printable PDF report with complete analysis
-              {measurement.photos && measurement.photos.length > 0 && (
-                <span className="block mt-1 text-purple-600 font-semibold">
-                  Including {measurement.photos.length} site photo{measurement.photos.length !== 1 ? 's' : ''}
-                </span>
-              )}
-            </p>
-          </CardHeader>
-          <CardContent className="p-8">
-            <div className="bg-white border-2 border-purple-200 rounded-lg p-6 mb-6">
-              <h3 className="font-bold text-slate-900 mb-4 text-lg">Your PDF Report Includes:</h3>
-              <div className="grid md:grid-cols-2 gap-3">
-                {[
-                  "Professional cover page with satellite imagery",
-                  "Measurement diagram with color-coded sections",
-                  "Complete line measurements (eaves, ridges, valleys, hips)",
-                  "Section-by-section breakdown with pitch adjustments",
-                  "Material waste factor calculations",
-                  "Detailed cost breakdown and estimates",
-                  measurement.photos && measurement.photos.length > 0 ? `${measurement.photos.length} site photos with captions` : "Site photos (if uploaded)",
-                  "Pitch breakdown by roof section",
-                  "Professional Aroof branding",
-                  "Ready for contractors and insurance"
-                ].map((item, index) => (
-                  <div key={index} className="flex items-start gap-2">
-                    <CheckCircle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                    <span className="text-sm text-slate-700">{item}</span>
-                  </div>
-                ))}
+        {/* PDF Report Download Section */}
+        <section className="py-16 bg-gradient-to-br from-purple-50 to-blue-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-full mb-4">
+                <FileText className="w-4 h-4" />
+                <span className="font-semibold">Professional Report Available</span>
               </div>
+              <h2 className="text-4xl font-bold text-slate-900 mb-4">
+                Download Detailed PDF Report
+              </h2>
+              <p className="text-xl text-slate-600">
+                Get a comprehensive professional report with all measurements and calculations
+              </p>
             </div>
 
-            {/* Two-step process: Capture then Generate */}
-            <div className="text-center space-y-4">
-              {!satelliteImageData || !diagramImageData ? (
-                <Button
-                  size="lg"
-                  className="w-full h-16 px-10 text-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-xl"
-                  onClick={handleCaptureAndGeneratePDF}
-                  disabled={capturingImages}
-                >
-                  {capturingImages ? (
-                    <>
-                      <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-                      Capturing Map Images...
-                    </>
-                  ) : (
-                    <>
-                      📸 Capture Satellite Images
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <div className="space-y-4">
-                  <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-                    <p className="text-green-900 font-semibold flex items-center justify-center gap-2">
-                      <CheckCircle className="w-5 h-5" />
-                      ✅ Map images captured! Ready to generate PDF
-                    </p>
+            <Card className="max-w-4xl mx-auto shadow-2xl border-2 border-purple-200">
+              <CardContent className="p-8">
+                {/* Map Image Capture component */}
+                <MapImageCapture
+                  measurement={measurement}
+                  onSatelliteImageCaptured={setMapImageData} // Adjusted prop name
+                  onDiagramImageCaptured={setDiagramImageData} // Adjusted prop name
+                />
+
+                <div className="space-y-6 mt-8">
+                  <div className="bg-gradient-to-r from-purple-100 to-blue-100 border-2 border-purple-300 rounded-xl p-6">
+                    <h3 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <FileText className="w-6 h-6 text-purple-600" />
+                      What's Included in Your Report
+                    </h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {[
+                        'Satellite imagery of your property',
+                        'Detailed measurement diagram',
+                        'Section-by-section breakdown',
+                        'Line measurements (eaves, ridges, valleys)',
+                        'Material estimates with waste factors',
+                        'Project cost estimates',
+                        measurement.photos && measurement.photos.length > 0 ? `${measurement.photos.length} site photo${measurement.photos.length !== 1 ? 's' : ''}` : 'Site photos (if uploaded)',
+                        'Professional formatting'
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex items-start gap-2">
+                          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                          <span className="text-slate-700">{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {getUserBranding() && (
+                      <div className="mt-4 p-4 bg-purple-200 rounded-lg border-2 border-purple-400">
+                        <p className="font-bold text-purple-900 flex items-center gap-2">
+                          <Crown className="w-5 h-5" />
+                          Custom Branded Report - {currentUser.subscription_plan?.toUpperCase()} Plan
+                        </p>
+                        <p className="text-sm text-purple-800 mt-1">
+                          Your PDF will feature your company logo, colors, and contact information
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  
-                  <PDFReportGenerator 
-                    measurement={measurement} 
-                    onGenerate={handlePDFGenerate}
-                    satelliteImageData={satelliteImageData}
-                    diagramImageData={diagramImageData}
-                  />
-                  
-                  <Button
-                    variant="outline"
-                    onClick={handleCaptureAndGeneratePDF}
-                    disabled={capturingImages}
-                  >
-                    🔄 Re-capture Images
-                  </Button>
-                </div>
-              )}
-              
-              <p className="text-sm text-slate-600">
-                💡 Tip: Click "Save as PDF" in the print dialog that opens
-              </p>
-            </div>
 
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center mt-6">
-              <p className="text-sm text-green-900">
-                💯 <strong>FREE to Generate</strong> - Professional multi-page PDF report with satellite imagery!
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+                  {/* PDF Generation Button */}
+                  <div className="flex flex-col items-center gap-4">
+                    <PDFReportGenerator
+                      measurement={measurement}
+                      satelliteImageData={mapImageData}
+                      diagramImageData={diagramImageData}
+                      userBranding={getUserBranding()}
+                      onGenerate={handlePDFDownload} // New handler
+                    />
+                    
+                    <p className="text-sm text-slate-500 text-center">
+                      Click to generate your professional PDF report
+                      {mapImageData ? ' (Map images captured ✓)' : ' (Capturing map images...)'}
+                    </p>
+
+                    {!getUserBranding() && currentUser?.aroof_role === 'external_roofer' && (
+                      <Link to={createPageUrl("RooferPlans")}>
+                        <Button variant="outline" className="border-purple-600 text-purple-600">
+                          <Crown className="w-4 h-4 mr-2" />
+                          Upgrade to Pro for Custom Branding
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+
+                  {downloadCount > 0 && (
+                    <Alert className="bg-green-50 border-green-200">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-800">
+                        <strong>Report generated {downloadCount} time{downloadCount > 1 ? 's' : ''}!</strong>
+                        {' '}Save it or print directly from your browser.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+                    <p className="font-semibold mb-2">💡 How to Save Your PDF:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                      <li>Click the button above to open your report</li>
+                      <li>Use browser's "Save as PDF" or Ctrl/Cmd + P</li>
+                      <li>Choose "Save as PDF" as the printer destination</li>
+                      <li>Save to your computer</li>
+                    </ol>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
 
         {/* IMPROVED: Ready to Get Started - Enhanced CTA Section */}
         <Card className="mb-8 shadow-2xl border-none overflow-hidden">

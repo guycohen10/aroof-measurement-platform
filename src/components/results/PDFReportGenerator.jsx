@@ -2,7 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Printer, Loader2 } from "lucide-react";
 
-export default function PDFReportGenerator({ measurement, onGenerate, satelliteImageData, diagramImageData }) {
+export default function PDFReportGenerator({ measurement, onGenerate, satelliteImageData, diagramImageData, userBranding }) {
   const [generating, setGenerating] = React.useState(false);
 
   const handleGeneratePDF = async () => {
@@ -15,7 +15,7 @@ export default function PDFReportGenerator({ measurement, onGenerate, satelliteI
       const flatArea = measurement?.measurement_data?.total_flat_sqft || measurement.total_sqft || 0;
       const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea;
       
-      console.log('📄 Generating PDF with captured images...');
+      console.log('📄 Generating PDF with captured images and custom branding...');
       
       // Open print-friendly view in new window
       const printWindow = window.open('', '_blank');
@@ -26,7 +26,8 @@ export default function PDFReportGenerator({ measurement, onGenerate, satelliteI
         flatArea,
         adjustedArea,
         satelliteImageData,
-        diagramImageData
+        diagramImageData,
+        branding: userBranding
       }));
       printWindow.document.close();
       
@@ -67,7 +68,7 @@ export default function PDFReportGenerator({ measurement, onGenerate, satelliteI
   );
 }
 
-function generatePrintableHTML({ measurement, sections, photos, flatArea, adjustedArea, satelliteImageData, diagramImageData }) {
+function generatePrintableHTML({ measurement, sections, photos, flatArea, adjustedArea, satelliteImageData, diagramImageData, branding }) {
   const totalSquares = (adjustedArea / 100).toFixed(2);
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   
@@ -78,12 +79,21 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
   const lowEstimate = Math.round((materialCost + laborCost + wasteCost) * 0.90);
   const highEstimate = Math.round((materialCost + laborCost + wasteCost) * 1.10);
   
+  // Use custom branding or default Aroof branding
+  const companyName = branding?.company_name || 'Aroof';
+  const companyLogo = branding?.logo_url || null;
+  const companyAddress = branding?.address || '6810 Windrock Rd, Dallas, TX 75252';
+  const companyPhone = branding?.phone || '(850) 238-9727';
+  const companyEmail = branding?.email || 'contact@aroof.build';
+  const brandColor = branding?.primary_color || '#1e40af';
+  const footerText = branding?.footer_text || "DFW's #1 Roofing Company - Licensed & Insured";
+  
   return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Aroof - Roof Measurement Report - ${measurement.property_address}</title>
+  <title>${companyName} - Roof Measurement Report - ${measurement.property_address}</title>
   <style>
     @media print {
       @page {
@@ -126,15 +136,28 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     }
     
     .header {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+      background: linear-gradient(135deg, ${brandColor} 0%, ${adjustBrightness(brandColor, -15)} 100%);
       color: white;
       padding: 30px;
       margin: -0.75in -0.75in 30px -0.75in;
       border-radius: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .header-left {
+      flex: 1;
+    }
+    
+    .header-logo {
+      max-width: 150px;
+      max-height: 60px;
+      margin-bottom: 10px;
     }
     
     .header h1 {
-      font-size: 36px;
+      font-size: ${companyLogo ? '28px' : '36px'};
       font-weight: 700;
       margin-bottom: 5px;
     }
@@ -147,7 +170,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     .cover-title {
       font-size: 28px;
       font-weight: 700;
-      color: #1e3a8a;
+      color: ${brandColor};
       margin: 20px 0 15px 0;
       text-align: center;
     }
@@ -201,8 +224,8 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     }
     
     .summary-box {
-      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-      border: 3px solid #3b82f6;
+      background: linear-gradient(135deg, ${hexToRgba(brandColor, 0.1)} 0%, ${hexToRgba(brandColor, 0.2)} 100%);
+      border: 3px solid ${brandColor};
       border-radius: 12px;
       padding: 30px;
       text-align: center;
@@ -212,7 +235,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     .big-number {
       font-size: 56px;
       font-weight: 700;
-      color: #1e3a8a;
+      color: ${brandColor};
       line-height: 1;
     }
     
@@ -225,7 +248,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     .squares-label {
       font-size: 22px;
       font-weight: 600;
-      color: #0ea5e9;
+      color: ${adjustBrightness(brandColor, 20)};
       margin-top: 12px;
     }
     
@@ -240,7 +263,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       background: #f8fafc;
       padding: 12px;
       border-radius: 8px;
-      border-left: 4px solid #3b82f6;
+      border-left: 4px solid ${brandColor};
     }
     
     .detail-label {
@@ -261,10 +284,10 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     .section-title {
       font-size: 22px;
       font-weight: 700;
-      color: #1e3a8a;
+      color: ${brandColor};
       margin: 30px 0 15px 0;
       padding-bottom: 8px;
-      border-bottom: 3px solid #3b82f6;
+      border-bottom: 3px solid ${brandColor};
     }
     
     .diagram-container {
@@ -325,7 +348,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     }
     
     thead {
-      background: #1e3a8a;
+      background: ${brandColor};
       color: white;
     }
     
@@ -389,7 +412,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     }
     
     .cta-box {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+      background: linear-gradient(135deg, ${brandColor} 0%, ${adjustBrightness(brandColor, -15)} 100%);
       color: white;
       padding: 25px;
       border-radius: 12px;
@@ -442,6 +465,8 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     .print-button:hover {
       background: #059669;
     }
+    
+    ${branding ? '.branding-badge { background: ' + hexToRgba(brandColor, 0.1) + '; border: 2px solid ' + brandColor + '; padding: 8px 16px; border-radius: 6px; display: inline-block; margin: 10px 0; font-weight: 600; color: ' + brandColor + '; }' : ''}
   </style>
 </head>
 <body>
@@ -450,8 +475,12 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
   <!-- PAGE 1: COVER PAGE WITH SATELLITE IMAGE -->
   <div class="page">
     <div class="header">
-      <h1>Aroof</h1>
-      <p>DFW's #1 Roofing Company - Licensed & Insured</p>
+      <div class="header-left">
+        ${companyLogo ? `<img src="${companyLogo}" alt="${companyName} Logo" class="header-logo" />` : ''}
+        <h1>${companyName}</h1>
+        <p>${footerText}</p>
+      </div>
+      ${branding ? '<div class="branding-badge">Custom Branded Report</div>' : ''}
     </div>
     
     <h2 class="cover-title">PROFESSIONAL ROOF MEASUREMENT REPORT</h2>
@@ -494,9 +523,9 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     </div>
     
     <div class="footer">
-      <p><strong>Aroof Roofing</strong></p>
-      <p>📞 (850) 238-9727 | ✉️ contact@aroof.build | 🌐 aroof.build</p>
-      <p>6810 Windrock Rd, Dallas, TX 75252</p>
+      <p><strong>${companyName}</strong></p>
+      <p>📞 ${companyPhone} | ✉️ ${companyEmail}</p>
+      <p>${companyAddress}</p>
       <p style="margin-top: 10px;">Page 1</p>
     </div>
   </div>
@@ -506,8 +535,10 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
   <!-- PAGE 2: MEASUREMENT DIAGRAM -->
   <div class="page">
     <div class="header">
-      <h1>Aroof</h1>
-      <p>Measurement Diagram & Section Analysis</p>
+      <div class="header-left">
+        ${companyLogo ? `<img src="${companyLogo}" alt="${companyName} Logo" class="header-logo" />` : '<h1>' + companyName + '</h1>'}
+        <p>Measurement Diagram & Section Analysis</p>
+      </div>
     </div>
     
     <h2 class="section-title">📐 Roof Sections Measured</h2>
@@ -547,7 +578,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     </div>
     
     <div class="footer">
-      <p>Aroof | (850) 238-9727 | contact@aroof.build | Page 2</p>
+      <p>${companyName} | ${companyPhone} | ${companyEmail} | Page 2</p>
     </div>
   </div>
   
@@ -556,8 +587,10 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
   <!-- PAGE 3: DETAILED MEASUREMENTS -->
   <div class="page">
     <div class="header">
-      <h1>Aroof</h1>
-      <p>Detailed Roof Measurements</p>
+      <div class="header-left">
+        ${companyLogo ? `<img src="${companyLogo}" alt="${companyName} Logo" class="header-logo" />` : '<h1>' + companyName + '</h1>'}
+        <p>Detailed Roof Measurements</p>
+      </div>
     </div>
     
     <h2 class="section-title">📏 Line Measurements</h2>
@@ -631,7 +664,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     </table>
     
     <div class="footer">
-      <p>Aroof | (850) 238-9727 | contact@aroof.build | Page 3</p>
+      <p>${companyName} | ${companyPhone} | ${companyEmail} | Page 3</p>
     </div>
   </div>
   
@@ -640,8 +673,10 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
   <!-- PAGE 4: WASTE & PRICING -->
   <div class="page">
     <div class="header">
-      <h1>Aroof</h1>
-      <p>Material Estimates & Pricing</p>
+      <div class="header-left">
+        ${companyLogo ? `<img src="${companyLogo}" alt="${companyName} Logo" class="header-logo" />` : '<h1>' + companyName + '</h1>'}
+        <p>Material Estimates & Pricing</p>
+      </div>
     </div>
     
     <h2 class="section-title">📦 Material Estimates with Waste Factor</h2>
@@ -713,7 +748,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     </div>
     
     <div class="footer">
-      <p>Aroof | (850) 238-9727 | contact@aroof.build | Page 4</p>
+      <p>${companyName} | ${companyPhone} | ${companyEmail} | Page 4</p>
     </div>
   </div>
   
@@ -723,8 +758,10 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
     <!-- PAGE 5: SITE PHOTOS -->
     <div class="page">
       <div class="header">
-        <h1>Aroof</h1>
-        <p>Site Photos (${photos.length})</p>
+        <div class="header-left">
+          ${companyLogo ? `<img src="${companyLogo}" alt="${companyName} Logo" class="header-logo" />` : '<h1>' + companyName + '</h1>'}
+          <p>Site Photos (${photos.length})</p>
+        </div>
       </div>
       
       <h2 class="section-title">📸 Site Photos</h2>
@@ -741,7 +778,7 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       ${photos.length > 6 ? `<p class="image-caption">Showing first 6 of ${photos.length} photos</p>` : ''}
       
       <div class="footer">
-        <p>Aroof | (850) 238-9727 | contact@aroof.build | Page 5</p>
+        <p>${companyName} | ${companyPhone} | ${companyEmail} | Page 5</p>
       </div>
     </div>
   ` : ''}
@@ -751,8 +788,10 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
   <!-- FINAL PAGE: CONTACT & CTA -->
   <div class="page">
     <div class="header">
-      <h1>Aroof</h1>
-      <p>Ready to Get Started?</p>
+      <div class="header-left">
+        ${companyLogo ? `<img src="${companyLogo}" alt="${companyName} Logo" class="header-logo" />` : '<h1>' + companyName + '</h1>'}
+        <p>Ready to Get Started?</p>
+      </div>
     </div>
     
     <div class="cta-box">
@@ -760,29 +799,30 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       <p style="font-size: 14px; margin-top: 8px;">Our licensed roofing experts are here to help</p>
     </div>
     
-    <h2 class="section-title">📞 Contact Aroof</h2>
+    <h2 class="section-title">📞 Contact ${companyName}</h2>
     
     <div class="contact-grid">
       <div class="contact-item">
         <strong>📞 Phone:</strong><br>
-        (850) 238-9727
+        ${companyPhone}
       </div>
       <div class="contact-item">
         <strong>✉️ Email:</strong><br>
-        contact@aroof.build
-      </div>
-      <div class="contact-item">
-        <strong>🌐 Website:</strong><br>
-        aroof.build
+        ${companyEmail}
       </div>
       <div class="contact-item">
         <strong>📍 Address:</strong><br>
-        6810 Windrock Rd<br>
-        Dallas, TX 75252
+        ${companyAddress}
       </div>
+      ${branding?.website ? `
+      <div class="contact-item">
+        <strong>🌐 Website:</strong><br>
+        ${branding.website}
+      </div>
+      ` : ''}
     </div>
     
-    <h2 class="section-title">⭐ Why Choose Aroof?</h2>
+    <h2 class="section-title">⭐ Why Choose ${companyName}?</h2>
     
     <div class="details-grid">
       <div class="detail-item">
@@ -791,30 +831,23 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
       </div>
       <div class="detail-item">
         <div class="detail-label">Experience</div>
-        <div class="detail-value">Serving DFW Since 2010</div>
+        <div class="detail-value">Trusted in DFW</div>
       </div>
       <div class="detail-item">
-        <div class="detail-label">Rating</div>
-        <div class="detail-value">4.9/5 Stars (500+ Reviews)</div>
+        <div class="detail-label">Quality</div>
+        <div class="detail-value">Premium Materials</div>
       </div>
       <div class="detail-item">
         <div class="detail-label">Warranty</div>
-        <div class="detail-value">10-Year Workmanship</div>
-      </div>
-      <div class="detail-item">
-        <div class="detail-label">BBB Rating</div>
-        <div class="detail-value">A+ Accredited</div>
-      </div>
-      <div class="detail-item">
-        <div class="detail-label">Financing</div>
-        <div class="detail-value">0% Available</div>
+        <div class="detail-value">Workmanship Guarantee</div>
       </div>
     </div>
     
     <div class="footer">
-      <p><strong>This report was generated by Aroof's automated measurement system</strong></p>
-      <p>For questions or to schedule a free inspection, call (850) 238-9727</p>
-      <p style="margin-top: 15px;">© ${new Date().getFullYear()} Aroof. All rights reserved. Licensed & Insured in Texas.</p>
+      <p><strong>This report was generated using ${companyName}'s measurement system</strong></p>
+      <p>For questions or to schedule a free inspection, call ${companyPhone}</p>
+      <p style="margin-top: 15px;">© ${new Date().getFullYear()} ${companyName}. ${footerText}</p>
+      ${branding ? '<p style="margin-top: 10px; font-size: 9px; color: #94a3b8;">Custom branded report powered by Aroof.build</p>' : ''}
     </div>
   </div>
   
@@ -828,4 +861,24 @@ function generatePrintableHTML({ measurement, sections, photos, flatArea, adjust
 </body>
 </html>
   `;
+}
+
+// Helper functions for color manipulation
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function adjustBrightness(hex, percent) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = (num >> 16) + amt;
+  const G = (num >> 8 & 0x00FF) + amt;
+  const B = (num & 0x0000FF) + amt;
+  return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+    (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+    (B < 255 ? B < 1 ? 0 : B : 255))
+    .toString(16).slice(1);
 }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -8,18 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  ArrowLeft, 
-  Building2, 
-  Lock, 
-  CreditCard, 
+import {
+  ArrowLeft,
+  Building2,
+  Lock,
+  CreditCard,
   Palette,
   Save,
   Upload,
   Loader2,
   Crown,
   ExternalLink,
-  AlertCircle
+  AlertCircle,
+  Eye // Added Eye import
 } from "lucide-react";
 
 export default function RooferSettings() {
@@ -27,6 +29,7 @@ export default function RooferSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState(null);
+  const [showPreview, setShowPreview] = useState(false); // New state for preview
 
   const [profile, setProfile] = useState({
     company_name: '',
@@ -58,7 +61,7 @@ export default function RooferSettings() {
   const loadUser = async () => {
     try {
       const currentUser = await base44.auth.me();
-      
+
       if (currentUser.aroof_role !== 'external_roofer') {
         alert('Access denied. External roofer account required.');
         navigate(createPageUrl("Homepage"));
@@ -66,7 +69,7 @@ export default function RooferSettings() {
       }
 
       setUser(currentUser);
-      
+
       setProfile({
         company_name: currentUser.company_name || '',
         full_name: currentUser.full_name || '',
@@ -93,7 +96,7 @@ export default function RooferSettings() {
         full_name: profile.full_name,
         phone: profile.phone
       });
-      
+
       alert('✅ Profile updated successfully!');
       await loadUser();
     } catch (err) {
@@ -115,7 +118,7 @@ export default function RooferSettings() {
       await base44.auth.updateMe({
         custom_branding: branding
       });
-      
+
       alert('✅ Branding settings saved!');
       await loadUser();
     } catch (err) {
@@ -238,7 +241,7 @@ export default function RooferSettings() {
           <Alert className="bg-yellow-50 border-yellow-200">
             <AlertCircle className="h-4 w-4 text-yellow-600" />
             <AlertDescription className="text-yellow-900">
-              <strong>⚠️ Payment Integration Pending:</strong> Your subscription is active but Stripe integration 
+              <strong>⚠️ Payment Integration Pending:</strong> Your subscription is active but Stripe integration
               is not yet configured. Contact support for billing management.
             </AlertDescription>
           </Alert>
@@ -294,7 +297,7 @@ export default function RooferSettings() {
               </div>
             </div>
 
-            <Button 
+            <Button
               className="bg-green-600 hover:bg-green-700"
               onClick={handleSaveProfile}
               disabled={saving}
@@ -309,15 +312,87 @@ export default function RooferSettings() {
         {canCustomizeBranding ? (
           <Card className="shadow-lg border-2 border-purple-200">
             <CardHeader className="bg-gradient-to-r from-purple-50 to-white">
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="w-5 h-5" />
-                Custom Branding (Pro/Unlimited)
-              </CardTitle>
-              <p className="text-sm text-slate-600 mt-1">
-                Customize your PDF reports with your company branding
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Palette className="w-5 h-5" />
+                    Custom Branding ({user.subscription_plan.toUpperCase()})
+                  </CardTitle>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Customize your PDF reports with your company branding
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPreview(!showPreview)}
+                  className="border-purple-600 text-purple-600"
+                >
+                  {showPreview ? 'Hide' : 'Show'} Preview
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
+              {/* Preview Section */}
+              {showPreview && (
+                <div className="bg-gradient-to-br from-slate-50 to-white border-2 border-slate-200 rounded-xl p-6 mb-6">
+                  <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <Eye className="w-5 h-5" />
+                    Branding Preview
+                  </h4>
+
+                  {/* Mock PDF Header Preview */}
+                  <div
+                    className="rounded-lg p-6 mb-4"
+                    style={{
+                      background: `linear-gradient(135deg, ${branding.primary_color} 0%, ${adjustBrightness(branding.primary_color, -15)} 100%)`,
+                      color: 'white'
+                    }}
+                  >
+                    {branding.logo_url && (
+                      <img
+                        src={branding.logo_url}
+                        alt="Company Logo"
+                        className="max-w-[150px] max-h-[60px] mb-3 bg-white/20 p-2 rounded"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.onerror = null; }}
+                      />
+                    )}
+                    <h1 className="text-3xl font-bold mb-2">
+                      {branding.company_name || 'Your Company Name'}
+                    </h1>
+                    <p className="text-sm opacity-90">
+                      {branding.footer_text || 'Professional Roofing Services'}
+                    </p>
+                  </div>
+
+                  {/* Contact Info Preview */}
+                  <div className="bg-white border border-slate-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-slate-700 mb-2">Contact Information on PDF:</h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-slate-500">📞 Phone:</span>
+                        <p className="font-medium">{branding.phone || 'Not set'}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">✉️ Email:</span>
+                        <p className="font-medium">{branding.email || 'Not set'}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-slate-500">📍 Address:</span>
+                        <p className="font-medium">{branding.address || 'Not set'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Alert className="bg-blue-50 border-blue-200 mt-4">
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-900">
+                      This is how your branding will appear on PDF reports.
+                      Make changes below and save to update.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <Label>Company Logo URL</Label>
@@ -327,10 +402,13 @@ export default function RooferSettings() {
                       value={branding.logo_url}
                       onChange={(e) => setBranding({...branding, logo_url: e.target.value})}
                     />
-                    <Button variant="outline" size="icon">
+                    <Button variant="outline" size="icon" title="Upload logo">
                       <Upload className="w-4 h-4" />
                     </Button>
                   </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Max 150x60px, PNG or JPG
+                  </p>
                 </div>
 
                 <div>
@@ -389,6 +467,9 @@ export default function RooferSettings() {
                       placeholder="#3b82f6"
                     />
                   </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Used for headers and accents
+                  </p>
                 </div>
               </div>
 
@@ -402,14 +483,32 @@ export default function RooferSettings() {
                 />
               </div>
 
-              <Button
-                className="bg-purple-600 hover:bg-purple-700"
-                onClick={handleSaveBranding}
-                disabled={saving}
-              >
-                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                Save Branding
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  className="flex-1 bg-purple-600 hover:bg-purple-700"
+                  onClick={handleSaveBranding}
+                  disabled={saving}
+                >
+                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Save Branding
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPreview(!showPreview)}
+                  className="border-purple-600 text-purple-600"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  {showPreview ? 'Hide' : 'Show'} Preview
+                </Button>
+              </div>
+
+              <Alert className="bg-purple-50 border-purple-200">
+                <AlertCircle className="h-4 w-4 text-purple-600" />
+                <AlertDescription className="text-purple-900">
+                  <strong>Pro Tip:</strong> Use high-contrast colors for best readability.
+                  Your logo should have a transparent background for best results.
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
         ) : (
@@ -473,8 +572,8 @@ export default function RooferSettings() {
             {/* Billing Portal Button */}
             {user.subscription_plan !== 'free' && (
               <div className="pt-4 border-t space-y-3">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full"
                   onClick={handleOpenBillingPortal}
                 >
@@ -488,8 +587,8 @@ export default function RooferSettings() {
                       Change Plan
                     </Button>
                   </Link>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="flex-1 text-red-600 hover:bg-red-50"
                     onClick={handleCancelSubscription}
                     disabled={saving}
@@ -567,4 +666,20 @@ export default function RooferSettings() {
       </div>
     </div>
   );
+}
+
+// Helper function for color brightness adjustment
+function adjustBrightness(hex, percent) {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#') || hex.length !== 7) {
+    // Return a default slightly darker color or original if the input is invalid
+    return '#2b72e6'; 
+  }
+  const num = parseInt(hex.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = Math.min(255, Math.max(0, (num >> 16) + amt));
+  const G = Math.min(255, Math.max(0, (num >> 8 & 0x00FF) + amt));
+  const B = Math.min(255, Math.max(0, (num & 0x0000FF) + amt));
+
+  return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B)
+    .toString(16).slice(1);
 }
