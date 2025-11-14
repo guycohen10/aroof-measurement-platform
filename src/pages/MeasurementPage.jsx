@@ -43,8 +43,6 @@ export default function MeasurementPage() {
   const mapInstanceRef = useRef(null);
   const drawingManagerRef = useRef(null);
   const polygonsRef = useRef([]);
-  const magnifierMapRef = useRef(null);
-  const magnifierContainerRef = useRef(null);
   
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
@@ -64,6 +62,7 @@ export default function MeasurementPage() {
   
   const [magnifierEnabled, setMagnifierEnabled] = useState(false);
   const [magnifierPosition, setMagnifierPosition] = useState({ x: 0, y: 0 });
+  const [magnifierCenter, setMagnifierCenter] = useState({ lat: 0, lng: 0 });
   const [magnifierSize, setMagnifierSize] = useState(200);
   const [showMagnifierInstructions, setShowMagnifierInstructions] = useState(true);
   const [capturingImages, setCapturingImages] = useState(false);
@@ -217,34 +216,9 @@ export default function MeasurementPage() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isDrawing, handleZoomIn, handleZoomOut, handleResetZoom]);
 
-  // Create magnifier map ONCE when main map is ready
+  // Track cursor and update magnifier coordinates
   useEffect(() => {
-    if (!mapInstanceRef.current || magnifierMapRef.current || !window.google || !magnifierContainerRef.current) return;
-
-    try {
-      // Create magnifier map at VERY high zoom
-      magnifierMapRef.current = new window.google.maps.Map(magnifierContainerRef.current, {
-        zoom: 23, // FIXED high zoom
-        center: mapInstanceRef.current.getCenter(),
-        mapTypeId: 'satellite',
-        disableDefaultUI: true,
-        draggable: false,
-        scrollwheel: false,
-        disableDoubleClickZoom: true,
-        gestureHandling: 'none',
-        keyboardShortcuts: false,
-        clickableIcons: false
-      });
-
-      console.log("✅ Magnifier map created at fixed zoom 23");
-    } catch (err) {
-      console.error("❌ Error creating magnifier map:", err);
-    }
-  }, [mapInstanceRef.current]);
-
-  // Track cursor and update magnifier center
-  useEffect(() => {
-    if (!magnifierEnabled || !mapRef.current || !mapInstanceRef.current || !magnifierMapRef.current) return;
+    if (!magnifierEnabled || !mapRef.current || !mapInstanceRef.current) return;
 
     const mapElement = mapRef.current;
     
@@ -273,9 +247,7 @@ export default function MeasurementPage() {
         const cursorLat = sw.lat() + (latRange * latPercent);
         const cursorLng = sw.lng() + (lngRange * lngPercent);
         
-        // Update magnifier map center
-        const cursorLatLng = new window.google.maps.LatLng(cursorLat, cursorLng);
-        magnifierMapRef.current.setCenter(cursorLatLng);
+        setMagnifierCenter({ lat: cursorLat, lng: cursorLng });
       } catch (err) {
         // Silent
       }
@@ -1390,18 +1362,6 @@ export default function MeasurementPage() {
 
           <div ref={mapRef} className="w-full h-full" />
 
-          {/* Hidden magnifier map container - ALWAYS RENDERED */}
-          <div
-            ref={magnifierContainerRef}
-            style={{
-              position: 'absolute',
-              left: '-9999px',
-              top: '-9999px',
-              width: `${magnifierSize * 2}px`,
-              height: `${magnifierSize * 2}px`
-            }}
-          />
-
           {/* Capturing Images Overlay */}
           {capturingImages && (
             <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50">
@@ -1420,8 +1380,8 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {/* MAGNIFIER LENS - Shows portion of hidden high-zoom map */}
-          {magnifierEnabled && !capturingImages && magnifierMapRef.current && (
+          {/* MAGNIFIER - Uses Static API with higher zoom */}
+          {magnifierEnabled && !capturingImages && magnifierCenter.lat !== 0 && (
             <div
               style={{
                 position: 'absolute',
@@ -1434,37 +1394,13 @@ export default function MeasurementPage() {
                 overflow: 'hidden',
                 pointerEvents: 'none',
                 zIndex: 1000,
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)'
-              }}
-              onMouseEnter={() => {
-                // Move the hidden map into view
-                if (magnifierContainerRef.current) {
-                  magnifierContainerRef.current.style.left = `${magnifierPosition.x - magnifierSize}px`;
-                  magnifierContainerRef.current.style.top = `${magnifierPosition.y - magnifierSize}px`;
-                }
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+                backgroundImage: `url(https://maps.googleapis.com/maps/api/staticmap?center=${magnifierCenter.lat},${magnifierCenter.lng}&zoom=${Math.min((mapInstanceRef.current?.getZoom() || 20) + 3, 22)}&size=${magnifierSize}x${magnifierSize}&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}&scale=2)`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
               }}
             >
-              {/* This creates a "window" into the magnifier map */}
-              <div
-                style={{
-                  position: 'absolute',
-                  width: magnifierSize * 2,
-                  height: magnifierSize * 2,
-                  left: -magnifierSize / 2,
-                  top: -magnifierSize / 2,
-                  pointerEvents: 'none'
-                }}
-              >
-                {/* Clone the magnifier map view here */}
-                <div 
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    background: `url(https://maps.googleapis.com/maps/api/staticmap?center=${magnifierMapRef.current.getCenter()?.lat()},${magnifierMapRef.current.getCenter()?.lng()}&zoom=23&size=${magnifierSize}x${magnifierSize}&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}&scale=2) center/cover no-repeat`
-                  }}
-                />
-              </div>
-              
               {/* Crosshair */}
               <div
                 style={{
