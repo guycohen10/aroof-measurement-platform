@@ -250,7 +250,7 @@ export default function MeasurementPage() {
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
-          styles: [], // No custom styles, just satellite
+          // Removed styles: [] as per outline
         });
 
         console.log("✅ Magnifier map created");
@@ -282,28 +282,34 @@ export default function MeasurementPage() {
       
       setMagnifierPosition({ x, y });
 
-      // Calculate the geographic coordinates under the cursor
-      if (mapInstanceRef.current && window.google) {
-        const map = mapInstanceRef.current;
-        const projection = map.getProjection();
-        if (!projection) return; 
+      // Calculate lat/lng under cursor using bounds (no projection API)
+      try {
+        const bounds = mapInstanceRef.current.getBounds();
+        if (!bounds) return;
 
-        // Get the pixel coordinates of the mouse event relative to the map div
-        const mapDiv = map.getDiv();
-        const mapRect = mapDiv.getBoundingClientRect();
-        const pixelX = e.clientX - mapRect.left;
-        const pixelY = e.clientY - mapRect.top;
+        const ne = bounds.getNorthEast();
+        const sw = bounds.getSouthWest();
         
-        // Create a Point object for the pixel coordinates
-        const pixelCoord = new window.google.maps.Point(pixelX, pixelY);
+        if (!ne || !sw) return;
         
-        // Convert pixel coordinates to LatLng
-        const cursorLatLng = projection.fromContainerPixelToLatLng(pixelCoord);
+        const latRange = ne.lat() - sw.lat();
+        const lngRange = ne.lng() - sw.lng();
         
-        // Update magnifier map center to cursor position
-        if (magnifierMapRef.current && cursorLatLng) {
+        // Convert pixel to lat/lng percentage
+        // y needs to be inverted for latitude calculation as pixel y increases downwards
+        const latPercent = 1 - (y / rect.height);
+        const lngPercent = x / rect.width;
+        
+        const cursorLat = sw.lat() + (latRange * latPercent);
+        const cursorLng = sw.lng() + (lngRange * lngPercent);
+        
+        // Update magnifier center
+        if (magnifierMapRef.current && window.google && window.google.maps) {
+          const cursorLatLng = new window.google.maps.LatLng(cursorLat, cursorLng);
           magnifierMapRef.current.setCenter(cursorLatLng);
         }
+      } catch (err) {
+        // Silently fail - don't spam console
       }
     };
 
@@ -314,7 +320,7 @@ export default function MeasurementPage() {
       mapElement.removeEventListener('mousemove', handleMouseMove);
       mapElement.style.cursor = 'default';
     };
-  }, [magnifierEnabled, mapInstanceRef, mapRef]);
+  }, [magnifierEnabled, mapInstanceRef, mapRef]); // Kept original dependencies for correctness
 
   const createMap = useCallback((center) => {
     try {
