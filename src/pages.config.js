@@ -39,6 +39,8 @@ import StripeSuccess from './pages/StripeSuccess';
 import StripeCanceled from './pages/StripeCanceled';
 import RooferLogin from './pages/RooferLogin';
 import ForgotPassword from './pages/ForgotPassword';
+import DispatchDashboard from './pages/DispatchDashboard';
+import DispatchJobDetail from './pages/DispatchJobDetail';
 import Layout from './Layout.jsx';
 
 
@@ -84,6 +86,8 @@ export const PAGES = {
     "StripeCanceled": StripeCanceled,
     "RooferLogin": RooferLogin,
     "ForgotPassword": ForgotPassword,
+    "DispatchDashboard": DispatchDashboard,
+    "DispatchJobDetail": DispatchJobDetail,
 }
 
 export const pagesConfig = {
