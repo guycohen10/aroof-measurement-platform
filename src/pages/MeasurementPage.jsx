@@ -37,24 +37,20 @@ const PITCH_OPTIONS = [
 ];
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
-const MAP_ZOOM = 21;
-const MAP_WIDTH = 1200;
-const MAP_HEIGHT = 800;
-const MAP_SCALE = 2;
 
 export default function MeasurementPage() {
   const navigate = useNavigate();
-  const canvasRef = useRef(null);
-  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const polygonsRef = useRef([]);
+  const currentPolygonRef = useRef(null);
+  const markersRef = useRef([]);
   
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [geocodingStatus, setGeocodingStatus] = useState("Initializing...");
   const [error, setError] = useState("");
-  
-  const [baseImageUrl, setBaseImageUrl] = useState(null);
-  const [mapCenter, setMapCenter] = useState(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
   
   const [sections, setSections] = useState([]);
   const [currentSection, setCurrentSection] = useState([]);
@@ -80,206 +76,118 @@ export default function MeasurementPage() {
       setMeasurementId(measurementIdParam);
     }
 
-    const initializeMap = async () => {
+    const loadGoogleMaps = () => {
+      if (window.google && window.google.maps) {
+        initializeMap(decodedAddress, latParam, lngParam);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing`;
+      script.async = true;
+      script.onload = () => initializeMap(decodedAddress, latParam, lngParam);
+      script.onerror = () => {
+        setError("Failed to load Google Maps");
+        setLoading(false);
+      };
+      document.head.appendChild(script);
+    };
+
+    loadGoogleMaps();
+  }, [navigate]);
+
+  const initializeMap = async (address, latParam, lngParam) => {
+    try {
       let lat, lng;
 
       if (latParam && lngParam) {
         lat = parseFloat(latParam);
         lng = parseFloat(lngParam);
+      } else {
+        const geocoder = new window.google.maps.Geocoder();
+        const result = await new Promise((resolve, reject) => {
+          geocoder.geocode({ address }, (results, status) => {
+            if (status === 'OK') resolve(results[0]);
+            else reject(new Error(`Geocoding failed: ${status}`));
+          });
+        });
         
-        if (!isNaN(lat) && !isNaN(lng)) {
-          console.log("✅ Using provided coordinates:", lat, lng);
-          setMapCenter({ lat, lng });
-          const imageUrl = generateStaticMapUrl(lat, lng);
-          console.log("📷 Generated image URL:", imageUrl);
-          setBaseImageUrl(imageUrl);
-          setGeocodingStatus("Ready to measure!");
-          setLoading(false);
-          return;
-        }
+        lat = result.geometry.location.lat();
+        lng = result.geometry.location.lng();
       }
 
-      setGeocodingStatus("Finding address location...");
-      try {
-        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(decodedAddress)}&key=${GOOGLE_MAPS_API_KEY}`;
-        
-        console.log("🔍 Geocoding address...");
-        const response = await fetch(geocodeUrl);
-        const data = await response.json();
-        
-        console.log("📍 Geocode response:", data.status);
-        
-        if (data.status === "OK" && data.results.length > 0) {
-          const location = data.results[0].geometry.location;
-          lat = location.lat;
-          lng = location.lng;
-          
-          console.log("✅ Address geocoded:", lat, lng);
-          setMapCenter({ lat, lng });
-          const imageUrl = generateStaticMapUrl(lat, lng);
-          console.log("📷 Generated image URL:", imageUrl);
-          setBaseImageUrl(imageUrl);
-          setGeocodingStatus("Ready to measure!");
-        } else {
-          console.error("❌ Geocoding failed:", data.status);
-          setError(`Could not find address: ${data.status}`);
-        }
-      } catch (err) {
-        console.error("❌ Geocoding error:", err);
-        setError(`Failed to geocode address: ${err.message}`);
-      } finally {
-        setLoading(false);
-      }
-    };
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: { lat, lng },
+        zoom: 21,
+        mapTypeId: 'satellite',
+        tilt: 0,
+        heading: 0,
+        disableDefaultUI: false,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      });
 
-    initializeMap();
-  }, [navigate]);
+      mapInstanceRef.current = map;
+      setMapLoaded(true);
+      setLoading(false);
 
-  const generateStaticMapUrl = (lat, lng) => {
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${MAP_ZOOM}&size=${MAP_WIDTH}x${MAP_HEIGHT}&scale=${MAP_SCALE}&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}`;
+      map.addListener('click', handleMapClick);
+    } catch (err) {
+      setError(`Failed to initialize map: ${err.message}`);
+      setLoading(false);
+    }
   };
 
-  const pixelToLatLng = useCallback((pixelX, pixelY) => {
-    if (!mapCenter) return null;
+  const handleMapClick = (e) => {
+    if (!isDrawing) return;
 
-    const metersPerPixel = 156543.03392 * Math.cos(mapCenter.lat * Math.PI / 180) / Math.pow(2, MAP_ZOOM);
+    const latLng = { lat: e.latLng.lat(), lng: e.latLng.lng() };
     
-    const centerPixelX = MAP_WIDTH / 2;
-    const centerPixelY = MAP_HEIGHT / 2;
-    
-    const offsetX = (pixelX - centerPixelX) * metersPerPixel;
-    const offsetY = (centerPixelY - pixelY) * metersPerPixel;
-    
-    const lat = mapCenter.lat + (offsetY / 111320);
-    const lng = mapCenter.lng + (offsetX / (111320 * Math.cos(mapCenter.lat * Math.PI / 180)));
-    
-    return { lat, lng };
-  }, [mapCenter]);
-
-  const latLngToPixel = useCallback((lat, lng) => {
-    if (!mapCenter) return null;
-
-    const metersPerPixel = 156543.03392 * Math.cos(mapCenter.lat * Math.PI / 180) / Math.pow(2, MAP_ZOOM);
-    
-    const latDiff = lat - mapCenter.lat;
-    const lngDiff = lng - mapCenter.lng;
-    
-    const offsetY = latDiff * 111320;
-    const offsetX = lngDiff * 111320 * Math.cos(mapCenter.lat * Math.PI / 180);
-    
-    const centerPixelX = MAP_WIDTH / 2;
-    const centerPixelY = MAP_HEIGHT / 2;
-    
-    const pixelX = centerPixelX + (offsetX / metersPerPixel);
-    const pixelY = centerPixelY - (offsetY / metersPerPixel);
-    
-    return { x: pixelX, y: pixelY };
-  }, [mapCenter]);
-
-  const calculatePolygonArea = useCallback((points) => {
-    if (points.length < 3) return 0;
-
-    let area = 0;
-    for (let i = 0; i < points.length; i++) {
-      const j = (i + 1) % points.length;
-      area += points[i].lat * points[j].lng;
-      area -= points[j].lat * points[i].lng;
-    }
-    area = Math.abs(area) / 2;
-
-    const sqMeters = area * 111320 * 111320 * Math.cos(mapCenter.lat * Math.PI / 180);
-    const sqFeet = sqMeters * 10.764;
-    
-    return sqFeet;
-  }, [mapCenter]);
-
-  const redrawCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !baseImageUrl) return;
-
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
-
-    // Draw completed sections
-    sections.forEach((section, idx) => {
-      const color = section.color || SECTION_COLORS[idx % SECTION_COLORS.length].stroke;
-      
-      if (section.coordinates && section.coordinates.length > 0) {
-        const pixels = section.coordinates.map(coord => latLngToPixel(coord.lat, coord.lng)).filter(p => p);
-        
-        if (pixels.length > 2) {
-          ctx.fillStyle = color + '55';
-          ctx.beginPath();
-          ctx.moveTo(pixels[0].x, pixels[0].y);
-          for (let i = 1; i < pixels.length; i++) {
-            ctx.lineTo(pixels[i].x, pixels[i].y);
-          }
-          ctx.closePath();
-          ctx.fill();
-
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 3;
-          ctx.stroke();
-
-          pixels.forEach(pixel => {
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(pixel.x, pixel.y, 6, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-          });
-        }
+    const marker = new window.google.maps.Marker({
+      position: latLng,
+      map: mapInstanceRef.current,
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 6,
+        fillColor: SECTION_COLORS[sections.length % SECTION_COLORS.length].stroke,
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
       }
     });
 
-    // Draw current section being drawn
+    markersRef.current.push(marker);
+    setCurrentSection(prev => [...prev, latLng]);
+
     if (currentSection.length > 0) {
-      const color = SECTION_COLORS[sections.length % SECTION_COLORS.length].stroke;
-      
-      if (currentSection.length > 1) {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(currentSection[0].x, currentSection[0].y);
-        for (let i = 1; i < currentSection.length; i++) {
-          ctx.lineTo(currentSection[i].x, currentSection[i].y);
-        }
-        ctx.stroke();
+      if (currentPolygonRef.current) {
+        currentPolygonRef.current.setMap(null);
       }
 
-      currentSection.forEach(point => {
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(point.x, point.y, 6, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+      const path = [...currentSection, latLng];
+      currentPolygonRef.current = new window.google.maps.Polygon({
+        paths: path,
+        strokeColor: SECTION_COLORS[sections.length % SECTION_COLORS.length].stroke,
+        strokeOpacity: 1,
+        strokeWeight: 3,
+        fillColor: SECTION_COLORS[sections.length % SECTION_COLORS.length].fill,
+        fillOpacity: 0.35,
+        map: mapInstanceRef.current,
       });
     }
-  }, [sections, currentSection, baseImageUrl, latLngToPixel]);
+  };
 
-  useEffect(() => {
-    redrawCanvas();
-  }, [redrawCanvas]);
-
-  const handleCanvasClick = (e) => {
-    if (!isDrawing) return;
-
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = MAP_WIDTH / rect.width;
-    const scaleY = MAP_HEIGHT / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-
-    const latLng = pixelToLatLng(x, y);
-    if (!latLng) return;
-
-    const newPoint = { ...latLng, x, y };
-    setCurrentSection(prev => [...prev, newPoint]);
+  const calculatePolygonArea = (coordinates) => {
+    if (coordinates.length < 3) return 0;
+    
+    const path = coordinates.map(coord => 
+      new window.google.maps.LatLng(coord.lat, coord.lng)
+    );
+    
+    const area = window.google.maps.geometry.spherical.computeArea(path);
+    return area * 10.764;
   };
 
   const completeSection = () => {
@@ -288,33 +196,78 @@ export default function MeasurementPage() {
       return;
     }
 
-    const coordinates = currentSection.map(p => ({ lat: p.lat, lng: p.lng }));
-    const flatArea = calculatePolygonArea(coordinates);
-
+    const flatArea = calculatePolygonArea(currentSection);
     const colorIndex = sections.length % SECTION_COLORS.length;
+
+    const polygon = new window.google.maps.Polygon({
+      paths: currentSection,
+      strokeColor: SECTION_COLORS[colorIndex].stroke,
+      strokeOpacity: 1,
+      strokeWeight: 3,
+      fillColor: SECTION_COLORS[colorIndex].fill,
+      fillOpacity: 0.35,
+      map: mapInstanceRef.current,
+    });
+
+    polygonsRef.current.push(polygon);
+
+    if (currentPolygonRef.current) {
+      currentPolygonRef.current.setMap(null);
+      currentPolygonRef.current = null;
+    }
+
     const newSection = {
       id: `section-${Date.now()}`,
       name: `Section ${sections.length + 1}`,
-      coordinates: coordinates,
+      coordinates: currentSection,
       flat_area_sqft: flatArea,
       pitch: 'flat',
       pitch_multiplier: 1.00,
       adjusted_area_sqft: flatArea,
-      color: SECTION_COLORS[colorIndex].stroke
+      color: SECTION_COLORS[colorIndex].stroke,
+      polygon: polygon
     };
 
     setSections(prev => [...prev, newSection]);
     setCurrentSection([]);
     setIsDrawing(false);
     setError("");
+
+    markersRef.current.forEach(marker => marker.setMap(null));
+    markersRef.current = [];
   };
 
   const undoLastPoint = () => {
-    setCurrentSection(prev => prev.slice(0, -1));
+    if (markersRef.current.length > 0) {
+      const lastMarker = markersRef.current.pop();
+      lastMarker.setMap(null);
+    }
+
+    setCurrentSection(prev => {
+      const newSection = prev.slice(0, -1);
+      
+      if (currentPolygonRef.current) {
+        currentPolygonRef.current.setMap(null);
+      }
+
+      if (newSection.length > 0) {
+        currentPolygonRef.current = new window.google.maps.Polygon({
+          paths: newSection,
+          strokeColor: SECTION_COLORS[sections.length % SECTION_COLORS.length].stroke,
+          strokeOpacity: 1,
+          strokeWeight: 3,
+          fillColor: SECTION_COLORS[sections.length % SECTION_COLORS.length].fill,
+          fillOpacity: 0.35,
+          map: mapInstanceRef.current,
+        });
+      }
+
+      return newSection;
+    });
   };
 
   const startDrawingSection = () => {
-    if (!baseImageUrl) {
+    if (!mapLoaded) {
       setError("Please wait for the map to load");
       return;
     }
@@ -324,6 +277,14 @@ export default function MeasurementPage() {
   };
 
   const deleteSection = (sectionId) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex !== -1) {
+      const section = sections[sectionIndex];
+      if (section.polygon) {
+        section.polygon.setMap(null);
+      }
+      polygonsRef.current = polygonsRef.current.filter(p => p !== section.polygon);
+    }
     setSections(prev => prev.filter(s => s.id !== sectionId));
   };
 
@@ -431,7 +392,6 @@ export default function MeasurementPage() {
 
     try {
       const totalFlat = getTotalFlatArea();
-      const totalAdjusted = getTotalAdjustedArea();
       const sectionsData = sections.map(s => ({
         id: s.id,
         name: s.name,
@@ -444,11 +404,12 @@ export default function MeasurementPage() {
       }));
       const roofComponents = calculateRoofComponents(sections);
 
+      const center = mapInstanceRef.current.getCenter();
+
       const measurementData = {
-        base_image_url: baseImageUrl,
-        map_center_lat: mapCenter.lat,
-        map_center_lng: mapCenter.lng,
-        map_zoom: MAP_ZOOM,
+        map_center_lat: center.lat(),
+        map_center_lng: center.lng(),
+        map_zoom: 21,
         measurement_data: {
           total_flat_sqft: totalFlat,
           total_adjusted_sqft: totalAdjusted,
@@ -464,40 +425,26 @@ export default function MeasurementPage() {
         steps_ft: roofComponents.steps,
         walls_ft: roofComponents.walls,
         pitch_breakdown: roofComponents.pitchBreakdown,
-        status: "completed",
-        completed_at: new Date().toISOString()
       };
 
       let savedMeasurementId = measurementId;
-      let savedMeasurement;
 
       if (measurementId) {
         await base44.entities.Measurement.update(measurementId, measurementData);
-        const updated = await base44.entities.Measurement.filter({ id: measurementId });
-        savedMeasurement = updated[0];
       } else {
-        savedMeasurement = await base44.entities.Measurement.create({
+        const savedMeasurement = await base44.entities.Measurement.create({
           property_address: address,
           user_type: "homeowner",
-          payment_amount: 3,
-          payment_status: "completed",
-          stripe_payment_id: "demo_" + Date.now(),
           ...measurementData
         });
         
         savedMeasurementId = savedMeasurement.id;
       }
 
-      if (!savedMeasurementId) {
-        throw new Error("Failed to get measurement ID");
-      }
-
-      const resultsUrl = createPageUrl(`Results?measurementid=${savedMeasurementId}`);
-      navigate(resultsUrl);
+      navigate(createPageUrl(`Results?measurementid=${savedMeasurementId}`));
       
     } catch (err) {
-      console.error("ERROR SAVING MEASUREMENT:", err);
-      setError(`Failed to save measurement: ${err.message}. Please try again.`);
+      setError(`Failed to save measurement: ${err.message}`);
       setSaving(false);
     }
   };
@@ -507,7 +454,7 @@ export default function MeasurementPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-slate-600">{geocodingStatus}</p>
+          <p className="text-slate-600">Loading map...</p>
         </div>
       </div>
     );
@@ -542,7 +489,7 @@ export default function MeasurementPage() {
           <div className="p-6 border-b border-slate-200">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
             <p className="text-sm text-slate-600 mb-4">
-              Draw sections on the satellite image, then adjust pitch
+              Draw sections on the map, then adjust pitch
             </p>
             <p className="text-sm text-blue-600 font-medium break-words">{address}</p>
           </div>
@@ -558,7 +505,7 @@ export default function MeasurementPage() {
             {!isDrawing && currentSection.length === 0 && (
               <Button
                 onClick={startDrawingSection}
-                disabled={!baseImageUrl}
+                disabled={!mapLoaded}
                 className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-lg"
               >
                 <Edit3 className="w-5 h-5 mr-2" />
@@ -570,7 +517,7 @@ export default function MeasurementPage() {
               <div className="space-y-2">
                 <Alert className="bg-blue-50 border-blue-200">
                   <AlertDescription className="text-sm text-blue-900">
-                    Click on the image to add points. Need at least 3 points.
+                    Click on the map to add points. Need at least 3 points.
                   </AlertDescription>
                 </Alert>
                 <div className="flex gap-2">
@@ -635,7 +582,7 @@ export default function MeasurementPage() {
                       <div className="bg-slate-50 rounded p-3">
                         <p className="text-xs text-slate-600">Flat Area</p>
                         <p className="text-2xl font-bold text-slate-900">
-                          {section.flat_area_sqft.toLocaleString()} sq ft
+                          {Math.round(section.flat_area_sqft).toLocaleString()} sq ft
                         </p>
                       </div>
 
@@ -667,7 +614,7 @@ export default function MeasurementPage() {
                             Actual Surface Area
                           </p>
                           <p className="text-xl font-bold text-green-900">
-                            {section.adjusted_area_sqft.toLocaleString()} sq ft
+                            {Math.round(section.adjusted_area_sqft).toLocaleString()} sq ft
                           </p>
                           <p className="text-xs text-green-600 mt-1">
                             × {section.pitch_multiplier.toFixed(2)} multiplier
@@ -689,7 +636,7 @@ export default function MeasurementPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-slate-600">Flat Area:</span>
                   <span className="text-lg font-bold text-slate-900">
-                    {totalFlat.toLocaleString()} sq ft
+                    {Math.round(totalFlat).toLocaleString()} sq ft
                   </span>
                 </div>
                 
@@ -699,7 +646,7 @@ export default function MeasurementPage() {
                       Adjusted for Pitch:
                     </span>
                     <span className="text-2xl font-bold text-green-900">
-                      {totalAdjusted.toLocaleString()} sq ft
+                      {Math.round(totalAdjusted).toLocaleString()} sq ft
                     </span>
                   </div>
                 )}
@@ -726,16 +673,11 @@ export default function MeasurementPage() {
           )}
         </div>
 
-        <div className="flex-1 relative bg-slate-900 flex items-center justify-center overflow-auto p-8">
-          {!baseImageUrl && (
-            <div className="text-center">
-              <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-              <p className="text-white text-lg">{geocodingStatus}</p>
-            </div>
-          )}
-
-          {isDrawing && baseImageUrl && (
-            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-blue-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
+        <div className="flex-1 relative">
+          <div ref={mapRef} className="w-full h-full" />
+          
+          {isDrawing && mapLoaded && (
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-blue-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
               <p className="text-sm font-bold mb-1">
                 🖱️ Click to Draw Section {sections.length + 1}
               </p>
@@ -745,36 +687,12 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {sections.length > 0 && !isDrawing && baseImageUrl && (
-            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-green-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
+          {sections.length > 0 && !isDrawing && mapLoaded && (
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
               <p className="text-sm font-medium flex items-center gap-2">
                 <CheckCircle className="w-4 h-4" />
-                {sections.length} section{sections.length !== 1 ? 's' : ''} drawn | {totalAdjusted.toLocaleString()} sq ft total
+                {sections.length} section{sections.length !== 1 ? 's' : ''} drawn | {Math.round(totalAdjusted).toLocaleString()} sq ft total
               </p>
-            </div>
-          )}
-
-          {baseImageUrl && (
-            <div 
-              ref={containerRef} 
-              className="relative shadow-2xl rounded-lg overflow-hidden" 
-              style={{ 
-                width: MAP_WIDTH, 
-                height: MAP_HEIGHT,
-                backgroundImage: `url(${baseImageUrl})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
-              }}
-            >
-              <canvas
-                ref={canvasRef}
-                width={MAP_WIDTH}
-                height={MAP_HEIGHT}
-                onClick={handleCanvasClick}
-                className="absolute top-0 left-0 cursor-crosshair"
-                style={{ width: MAP_WIDTH, height: MAP_HEIGHT }}
-              />
             </div>
           )}
         </div>
