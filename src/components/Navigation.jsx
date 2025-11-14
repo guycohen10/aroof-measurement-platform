@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -34,8 +35,6 @@ export default function Navigation() {
     }
   };
 
-  const isExternalRoofer = user?.aroof_role === 'external_roofer';
-
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -50,7 +49,7 @@ export default function Navigation() {
             </div>
           </Link>
           
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-8">
             {/* Services Dropdown */}
             <div 
               className="relative"
@@ -127,61 +126,58 @@ export default function Navigation() {
             <a href="#how-it-works" className="text-slate-600 hover:text-blue-900 font-medium">How It Works</a>
             <a href="#benefits" className="text-slate-600 hover:text-blue-900 font-medium">Why Aroof</a>
             
-            {/* User Menu or Login/Signup */}
-            {!loading && (
-              <>
-                {user ? (
-                  isExternalRoofer ? (
-                    // Roofer is logged in
-                    <div className="flex items-center gap-4">
-                      <Link to={createPageUrl("RooferDashboard")}>
-                        <Button variant="outline" size="sm" className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4" />
-                          <span className="font-semibold">{user.company_name || 'Dashboard'}</span>
-                        </Button>
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleLogout}
-                        className="text-slate-600 hover:text-red-600"
-                      >
-                        <LogOut className="w-4 h-4 mr-1" />
-                        Logout
-                      </Button>
-                    </div>
-                  ) : (
-                    // Other user logged in
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-slate-600">
-                        {user.full_name || user.email}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleLogout}
-                      >
-                        <LogOut className="w-4 h-4 mr-1" />
-                        Logout
-                      </Button>
-                    </div>
-                  )
-                ) : (
-                  // Not logged in
-                  <div className="flex items-center gap-3">
-                    <Link to={createPageUrl("RooferLogin")}>
-                      <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4" />
-                        Contractor Login
-                      </Button>
-                    </Link>
-                    <Link to={createPageUrl("RooferSignup")}>
-                      <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                        Sign Up
-                      </Button>
-                    </Link>
-                  </div>
+            {/* Contractor Links */}
+            <Link to={createPageUrl("RooferLogin")} className="text-blue-600 hover:text-blue-900 font-semibold flex items-center gap-1">
+              <Building2 className="w-4 h-4" />
+              Contractors
+            </Link>
+
+            {/* Show different options based on user role */}
+            {loading ? null : user ? (
+              <div className="flex items-center gap-4">
+                {/* Admin */}
+                {user.role === 'admin' && (
+                  <Link to={createPageUrl("AdminDashboard")} className="text-slate-600 hover:text-blue-900 font-medium">
+                    Admin
+                  </Link>
                 )}
+                
+                {/* Estimator */}
+                {user.aroof_role === 'estimator' && (
+                  <Link to={createPageUrl("EstimatorDashboard")} className="text-slate-600 hover:text-blue-900 font-medium">
+                    Estimator Dashboard
+                  </Link>
+                )}
+
+                {/* Dispatcher */}
+                {user.aroof_role === 'dispatcher' && (
+                  <Link to={createPageUrl("DispatchDashboard")} className="text-slate-600 hover:text-blue-900 font-medium">
+                    Dispatch Dashboard
+                  </Link>
+                )}
+                
+                {/* External Roofer */}
+                {user.aroof_role === 'external_roofer' && (
+                  <Link to={createPageUrl("RooferDashboard")} className="text-slate-600 hover:text-blue-900 font-medium">
+                    Roofer Dashboard
+                  </Link>
+                )}
+                
+                <button 
+                  onClick={handleLogout}
+                  className="text-slate-600 hover:text-blue-900 font-medium"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <>
+                <Link to={createPageUrl("RooferLogin")} className="text-slate-600 hover:text-blue-900 font-medium">
+                  Login
+                </Link>
+                <Link to={createPageUrl("RooferSignup")} className="text-blue-600 hover:text-blue-900 font-semibold">
+                  Sign Up
+                </Link>
               </>
             )}
             
@@ -193,7 +189,7 @@ export default function Navigation() {
 
           {/* Mobile Menu */}
           <div className="md:hidden flex items-center gap-2">
-            {!loading && user && isExternalRoofer && (
+            {!loading && user && user?.aroof_role === 'external_roofer' && (
               <Link to={createPageUrl("RooferDashboard")}>
                 <Button variant="outline" size="sm">
                   <Building2 className="w-4 h-4" />

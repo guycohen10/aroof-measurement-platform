@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -273,6 +274,87 @@ export default function EstimatorLeadDetail() {
 
   const removeAdditionalCost = (id) => {
     setAdditionalCosts(additionalCosts.filter(item => item.id !== id));
+  };
+
+  const handleConvertToJob = async () => {
+    // Check if lead is in appropriate status
+    if (leadStatus !== 'quoted' && leadStatus !== 'booked') {
+      alert('Lead must be in "Quoted" or "Booked" status to convert to job');
+      return;
+    }
+
+    const confirm = window.confirm(
+      '🚀 Convert this lead to a scheduled job?\n\n' +
+      'This will:\n' +
+      '• Create a new job in dispatch system\n' +
+      '• Mark lead as "Booked"\n' +
+      '• Allow dispatchers to assign crews\n\n' +
+      'Continue?'
+    );
+
+    if (!confirm) return;
+
+    setSaving(true);
+    try {
+      // Generate job number
+      const jobNumber = `JOB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+
+      // Create job
+      const newJob = await base44.entities.Job.create({
+        job_number: jobNumber,
+        measurement_id: measurement.id,
+        customer_name: measurement.customer_name,
+        customer_email: measurement.customer_email,
+        customer_phone: measurement.customer_phone,
+        property_address: measurement.property_address,
+        status: 'scheduled',
+        priority: priority === 'urgent' ? 'urgent' : 'normal',
+        total_area_sqft: measurement.total_adjusted_sqft || measurement.total_sqft,
+        job_value: totalEstimate,
+        estimated_duration_days: Math.ceil((measurement.total_adjusted_sqft || measurement.total_sqft) / 2000) || 1,
+        crew_size: 3,
+        materials_ordered: false,
+        materials_delivered: false,
+        permit_required: false,
+        permit_obtained: false,
+        completion_percentage: 0,
+        weather_dependent: true,
+        special_instructions: measurement.roofer_notes || '',
+        checklist: {
+          materials_delivered: false,
+          site_preparation: false,
+          tearoff_complete: false,
+          deck_inspection: false,
+          underlayment_installed: false,
+          shingles_installed: false,
+          ridge_cap_complete: false,
+          cleanup_complete: false,
+          final_inspection: false
+        },
+        timeline: [{
+          action: 'job_created',
+          description: 'Job created from lead by estimator',
+          user: user.email,
+          timestamp: new Date().toISOString()
+        }]
+      });
+
+      // Update lead status
+      await base44.entities.Measurement.update(measurement.id, {
+        lead_status: 'booked'
+      });
+
+      alert(`✅ Job created successfully!\n\nJob Number: ${jobNumber}\n\nRedirecting to dispatch dashboard...`);
+      
+      // Redirect to dispatch dashboard
+      navigate(createPageUrl(`DispatchJobDetail?jobId=${newJob.id}`));
+
+    } catch (err) {
+      console.error('Error converting to job:', err);
+      alert('Failed to convert to job. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -775,11 +857,24 @@ export default function EstimatorLeadDetail() {
                     <Calendar className="w-4 h-4 mr-1" />
                     Schedule
                   </Button>
-                  <Button variant="outline" size="sm">
-                    <CheckCircle className="w-4 h-4 mr-1" />
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleConvertToJob}
+                    disabled={saving || (leadStatus !== 'quoted' && leadStatus !== 'booked')}
+                    className={leadStatus === 'quoted' || leadStatus === 'booked' ? 'border-green-600 text-green-600 hover:bg-green-50' : ''}
+                  >
+                    <Briefcase className="w-4 h-4 mr-1" />
                     Convert to Job
                   </Button>
                 </div>
+
+                {(leadStatus === 'quoted' || leadStatus === 'booked') && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+                    <CheckCircle className="w-4 h-4 inline mr-2" />
+                    Ready to convert to dispatch job
+                  </div>
+                )}
               </CardContent>
             </Card>
 
