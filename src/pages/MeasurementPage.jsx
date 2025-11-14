@@ -46,6 +46,7 @@ export default function MeasurementPage() {
   const navigate = useNavigate();
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+  const imageRef = useRef(null);
   
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
@@ -56,13 +57,13 @@ export default function MeasurementPage() {
   const [baseImageUrl, setBaseImageUrl] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   
   const [sections, setSections] = useState([]);
   const [currentSection, setCurrentSection] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Load URL parameters and geocode address
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const addressParam = urlParams.get('address');
@@ -90,39 +91,44 @@ export default function MeasurementPage() {
         lng = parseFloat(lngParam);
         
         if (!isNaN(lat) && !isNaN(lng)) {
-          console.log("Using provided coordinates:", lat, lng);
+          console.log("✅ Using provided coordinates:", lat, lng);
           setMapCenter({ lat, lng });
           const imageUrl = generateStaticMapUrl(lat, lng);
+          console.log("📷 Generated image URL:", imageUrl);
           setBaseImageUrl(imageUrl);
-          setGeocodingStatus("Location verified!");
+          setGeocodingStatus("Loading satellite image...");
           setLoading(false);
           return;
         }
       }
 
-      // Geocode address
       setGeocodingStatus("Finding address location...");
       try {
         const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(decodedAddress)}&key=${GOOGLE_MAPS_API_KEY}`;
         
+        console.log("🔍 Geocoding address...");
         const response = await fetch(geocodeUrl);
         const data = await response.json();
+        
+        console.log("📍 Geocode response:", data.status);
         
         if (data.status === "OK" && data.results.length > 0) {
           const location = data.results[0].geometry.location;
           lat = location.lat;
           lng = location.lng;
           
-          console.log("Address geocoded:", lat, lng);
+          console.log("✅ Address geocoded:", lat, lng);
           setMapCenter({ lat, lng });
           const imageUrl = generateStaticMapUrl(lat, lng);
+          console.log("📷 Generated image URL:", imageUrl);
           setBaseImageUrl(imageUrl);
-          setGeocodingStatus("Address found!");
+          setGeocodingStatus("Loading satellite image...");
         } else {
+          console.error("❌ Geocoding failed:", data.status);
           setError(`Could not find address: ${data.status}`);
         }
       } catch (err) {
-        console.error("Geocoding error:", err);
+        console.error("❌ Geocoding error:", err);
         setError(`Failed to geocode address: ${err.message}`);
       } finally {
         setLoading(false);
@@ -133,30 +139,36 @@ export default function MeasurementPage() {
   }, [navigate]);
 
   const generateStaticMapUrl = (lat, lng) => {
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${MAP_ZOOM}&size=${MAP_WIDTH}x${MAP_HEIGHT}&scale=${MAP_SCALE}&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}`;
+    const url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${MAP_ZOOM}&size=${MAP_WIDTH}x${MAP_HEIGHT}&scale=${MAP_SCALE}&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}`;
+    return url;
   };
 
-  // Load image when URL is ready
   useEffect(() => {
-    if (!baseImageUrl || !containerRef.current || !canvasRef.current) return;
+    if (!baseImageUrl || !containerRef.current) return;
 
+    console.log("🖼️ Loading image:", baseImageUrl);
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.src = baseImageUrl;
-
+    
     img.onload = () => {
-      console.log("Static map image loaded");
+      console.log("✅ Image loaded successfully!");
+      imageRef.current = img;
       setImageLoaded(true);
+      setImageError(false);
+      setGeocodingStatus("Ready to measure!");
       redrawCanvas();
     };
 
-    img.onerror = () => {
-      console.error("Failed to load static map image");
-      setError("Failed to load satellite image");
+    img.onerror = (e) => {
+      console.error("❌ Failed to load image:", e);
+      console.error("Image URL:", baseImageUrl);
+      setImageError(true);
+      setError("Failed to load satellite image. The image URL may be invalid or blocked by CORS policy.");
     };
+
+    img.src = baseImageUrl;
   }, [baseImageUrl]);
 
-  // Pixel to Lat/Lng conversion
   const pixelToLatLng = useCallback((pixelX, pixelY) => {
     if (!mapCenter) return null;
 
@@ -174,7 +186,6 @@ export default function MeasurementPage() {
     return { lat, lng };
   }, [mapCenter]);
 
-  // Lat/Lng to Pixel conversion
   const latLngToPixel = useCallback((lat, lng) => {
     if (!mapCenter) return null;
 
@@ -195,7 +206,6 @@ export default function MeasurementPage() {
     return { x: pixelX, y: pixelY };
   }, [mapCenter]);
 
-  // Calculate polygon area using coordinates
   const calculatePolygonArea = useCallback((points) => {
     if (points.length < 3) return 0;
 
@@ -207,20 +217,21 @@ export default function MeasurementPage() {
     }
     area = Math.abs(area) / 2;
 
-    // Convert from degrees to square feet (approximate)
     const sqMeters = area * 111320 * 111320 * Math.cos(mapCenter.lat * Math.PI / 180);
     const sqFeet = sqMeters * 10.764;
     
     return sqFeet;
   }, [mapCenter]);
 
-  // Redraw canvas with all sections and current drawing
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !imageLoaded || !baseImageUrl) return;
+    if (!canvas || !imageLoaded || !imageRef.current) return;
 
     const ctx = canvas.getContext('2d');
+    
+    // Draw the satellite image first
     ctx.clearRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+    ctx.drawImage(imageRef.current, 0, 0, MAP_WIDTH, MAP_HEIGHT);
 
     // Draw completed sections
     sections.forEach((section, idx) => {
@@ -230,7 +241,6 @@ export default function MeasurementPage() {
         const pixels = section.coordinates.map(coord => latLngToPixel(coord.lat, coord.lng)).filter(p => p);
         
         if (pixels.length > 2) {
-          // Draw filled polygon
           ctx.fillStyle = color + '55';
           ctx.beginPath();
           ctx.moveTo(pixels[0].x, pixels[0].y);
@@ -240,12 +250,10 @@ export default function MeasurementPage() {
           ctx.closePath();
           ctx.fill();
 
-          // Draw outline
           ctx.strokeStyle = color;
           ctx.lineWidth = 3;
           ctx.stroke();
 
-          // Draw points
           pixels.forEach(pixel => {
             ctx.fillStyle = color;
             ctx.beginPath();
@@ -263,7 +271,6 @@ export default function MeasurementPage() {
     if (currentSection.length > 0) {
       const color = SECTION_COLORS[sections.length % SECTION_COLORS.length].stroke;
       
-      // Draw lines
       if (currentSection.length > 1) {
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
@@ -275,7 +282,6 @@ export default function MeasurementPage() {
         ctx.stroke();
       }
 
-      // Draw points
       currentSection.forEach(point => {
         ctx.fillStyle = color;
         ctx.beginPath();
@@ -286,13 +292,12 @@ export default function MeasurementPage() {
         ctx.stroke();
       });
     }
-  }, [sections, currentSection, imageLoaded, baseImageUrl, latLngToPixel]);
+  }, [sections, currentSection, imageLoaded, latLngToPixel]);
 
   useEffect(() => {
     redrawCanvas();
   }, [redrawCanvas]);
 
-  // Handle canvas click
   const handleCanvasClick = (e) => {
     if (!isDrawing) return;
 
@@ -310,7 +315,6 @@ export default function MeasurementPage() {
     setCurrentSection(prev => [...prev, newPoint]);
   };
 
-  // Complete current section
   const completeSection = () => {
     if (currentSection.length < 3) {
       setError("Please draw at least 3 points");
@@ -338,12 +342,15 @@ export default function MeasurementPage() {
     setError("");
   };
 
-  // Undo last point
   const undoLastPoint = () => {
     setCurrentSection(prev => prev.slice(0, -1));
   };
 
   const startDrawingSection = () => {
+    if (!imageLoaded) {
+      setError("Please wait for the satellite image to load");
+      return;
+    }
     setIsDrawing(true);
     setCurrentSection([]);
     setError("");
@@ -544,7 +551,6 @@ export default function MeasurementPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
-      {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -581,12 +587,31 @@ export default function MeasurementPage() {
               <AlertDescription className="text-sm">{error}</AlertDescription>
             </Alert>
           )}
+          
+          {imageError && (
+            <Alert variant="destructive" className="m-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                Failed to load satellite image. Please try refreshing the page.
+                <br />
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  variant="outline" 
+                  size="sm"
+                  className="mt-2 w-full"
+                >
+                  Refresh Page
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Drawing Controls */}
           <div className="p-4 border-b border-slate-200">
             {!isDrawing && currentSection.length === 0 && (
               <Button
                 onClick={startDrawingSection}
+                disabled={!imageLoaded || imageError}
                 className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-lg"
               >
                 <Edit3 className="w-5 h-5 mr-2" />
@@ -757,17 +782,18 @@ export default function MeasurementPage() {
         </div>
 
         {/* Map Container */}
-        <div className="flex-1 relative bg-slate-900 flex items-center justify-center overflow-auto">
-          {!imageLoaded && baseImageUrl && (
+        <div className="flex-1 relative bg-slate-900 flex items-center justify-center overflow-auto p-8">
+          {!imageLoaded && !imageError && baseImageUrl && (
             <div className="absolute inset-0 flex items-center justify-center z-10">
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-                <p className="text-white text-lg">Loading satellite image...</p>
+                <p className="text-white text-lg">{geocodingStatus}</p>
+                <p className="text-slate-400 text-sm mt-2">Loading satellite image...</p>
               </div>
             </div>
           )}
 
-          {isDrawing && (
+          {isDrawing && imageLoaded && (
             <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-blue-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
               <p className="text-sm font-bold mb-1">
                 🖱️ Click to Draw Section {sections.length + 1}
@@ -778,7 +804,7 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {sections.length > 0 && !isDrawing && (
+          {sections.length > 0 && !isDrawing && imageLoaded && (
             <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-green-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
               <p className="text-sm font-medium flex items-center gap-2">
                 <CheckCircle className="w-4 h-4" />
@@ -787,16 +813,7 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          <div ref={containerRef} className="relative" style={{ width: MAP_WIDTH, height: MAP_HEIGHT }}>
-            {baseImageUrl && (
-              <img
-                src={baseImageUrl}
-                alt="Satellite view"
-                className="absolute top-0 left-0 w-full h-full"
-                style={{ width: MAP_WIDTH, height: MAP_HEIGHT }}
-              />
-            )}
-            
+          <div ref={containerRef} className="relative shadow-2xl rounded-lg overflow-hidden" style={{ width: MAP_WIDTH, height: MAP_HEIGHT }}>
             <canvas
               ref={canvasRef}
               width={MAP_WIDTH}
