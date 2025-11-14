@@ -6,20 +6,21 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Building2, Loader2, Crown, ArrowRight } from "lucide-react"; // Added Crown icon, ArrowRight
+import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Building2, Loader2, Crown, ArrowRight, Box } from "lucide-react"; // Added Box icon
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
 import DetailedMeasurements from "../components/results/DetailedMeasurements";
 import PhotoUpload from "../components/results/PhotoUpload";
 import PDFReportGenerator from "../components/results/PDFReportGenerator";
-import MapImageCapture from "../components/results/MapImageCapture"; // Replaced old capture utilities with a component
+import MapImageCapture from "../components/results/MapImageCapture";
+import Roof3DView from "../components/results/Roof3DView"; // Added Roof3DView import
 
 export default function Results() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [measurement, setMeasurement] = useState(null);
-  const [error, setError] = useState(null); // Changed from "" to null
+  const [error, setError] = useState(null);
   const [materialType, setMaterialType] = useState("asphalt_shingles");
   const [trackingAction, setTrackingAction] = useState(false);
 
@@ -330,6 +331,24 @@ export default function Results() {
               </Card>
             )}
 
+            {/* 3D Visualization Section - NEW */}
+            {sections.length > 0 && (
+              <Card className="shadow-xl border-2 border-purple-200">
+                <CardHeader className="bg-gradient-to-r from-purple-50 to-white">
+                  <CardTitle className="flex items-center gap-2 text-2xl">
+                    <Box className="w-6 h-6 text-purple-600" />
+                    🎨 3D Roof Visualization
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <p className="text-slate-600 mb-4">
+                    Interactive 3D model - drag to rotate and explore your roof from any angle
+                  </p>
+                  <Roof3DView measurement={measurement} sections={sections} />
+                </CardContent>
+              </Card>
+            )}
+
             {/* Fallback if no images */}
             {!measurement.satellite_image && !measurement.measurement_diagram && (
               <Card className="shadow-xl">
@@ -419,6 +438,7 @@ export default function Results() {
                           {[
                             'Satellite imagery of your property',
                             'Detailed measurement diagram',
+                            '3D visualization of your roof', // Added 3D visualization
                             'Section-by-section breakdown',
                             'Line measurements (eaves, ridges, valleys)',
                             'Material estimates with waste factors',
