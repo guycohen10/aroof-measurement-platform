@@ -1,6 +1,33 @@
-// Helper component to capture map screenshots
-// This doesn't render anything visible - just provides capture functions
+import React, { useEffect } from 'react';
 
+// Helper component to capture map screenshots
+export default function MapImageCapture({ measurement, onSatelliteImageCaptured, onDiagramImageCaptured }) {
+  useEffect(() => {
+    // Auto-capture images when component mounts
+    const captureImages = async () => {
+      // Wait for map to render
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Capture satellite image (main map)
+      const satelliteImage = await captureMapImage('interactive-map-container');
+      if (satelliteImage && onSatelliteImageCaptured) {
+        onSatelliteImageCaptured(satelliteImage);
+      }
+
+      // For now, use the same image for diagram (in production, you'd capture a different view)
+      if (satelliteImage && onDiagramImageCaptured) {
+        onDiagramImageCaptured(satelliteImage);
+      }
+    };
+
+    captureImages();
+  }, [measurement, onSatelliteImageCaptured, onDiagramImageCaptured]);
+
+  // This component doesn't render anything
+  return null;
+}
+
+// Export the capture function for use elsewhere
 export async function captureMapImage(mapElementId) {
   const mapContainer = document.getElementById(mapElementId);
   
