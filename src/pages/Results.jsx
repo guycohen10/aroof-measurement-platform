@@ -6,7 +6,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Loader2, Crown, ArrowRight, Box } from "lucide-react";
+import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Loader2, Crown, ArrowRight, Box, Camera } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
@@ -115,6 +115,7 @@ export default function Results() {
   const area = adjustedArea;
   const isHomeowner = measurement.user_type === "homeowner";
   const hasPitchAdjustment = flatArea !== adjustedArea;
+  const capturedImages = measurement?.captured_images || [];
 
   const materialMultipliers = {
     asphalt_shingles: 1.0,
@@ -159,8 +160,7 @@ export default function Results() {
     ? createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&lat=${roofCenter.lat}&lng=${roofCenter.lng}&measurementId=${measurement.id}`)
     : createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&measurementId=${measurement.id}`);
 
-  // Use captured image if available, otherwise generate from center
-  const satelliteUrl = measurement.captured_image_url || (roofCenter 
+  const satelliteUrl = roofCenter 
     ? `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`
     : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`);
   
@@ -221,34 +221,37 @@ export default function Results() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            {/* User-Captured Satellite View */}
-            {measurement.captured_image_url && (
-              <Card className="shadow-xl border-2 border-green-200 bg-gradient-to-r from-green-50 to-white">
-                <CardHeader>
+            {/* User-Captured Images Gallery - ABOVE SATELLITE VIEW */}
+            {capturedImages.length > 0 && (
+              <Card className="shadow-xl border-2 border-green-200">
+                <CardHeader className="bg-gradient-to-r from-green-50 to-white">
                   <CardTitle className="flex items-center gap-2 text-2xl">
-                    <CheckCircle className="w-6 h-6 text-green-600" />
-                    📸 Your Captured View
+                    <Camera className="w-6 h-6 text-green-600" />
+                    📸 Your Captured Views ({capturedImages.length})
                   </CardTitle>
-                  <p className="text-sm text-green-700 mt-1">
-                    Captured at zoom level {measurement.captured_zoom || 21}
-                  </p>
                 </CardHeader>
                 <CardContent className="p-6">
                   <p className="text-slate-600 mb-4">
-                    Your manually captured satellite view - exactly as you positioned it
+                    Static views you captured at different zoom levels
                   </p>
-                  <div className="border-2 border-green-300 rounded-xl overflow-hidden shadow-lg">
-                    <img 
-                      src={measurement.captured_image_url}
-                      alt="User captured satellite view"
-                      className="w-full h-auto"
-                      style={{ maxWidth: '800px', width: '100%' }}
-                      onError={(e) => {
-                        console.error("Captured image failed to load");
-                        e.target.style.display = 'none';
-                        e.target.parentElement.innerHTML = '<div class="p-12 text-center text-slate-500">Unable to load captured image</div>';
-                      }}
-                    />
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {capturedImages.map((img, idx) => (
+                      <div key={img.id} className="border-2 border-green-300 rounded-xl overflow-hidden shadow-lg">
+                        <img 
+                          src={img.url}
+                          alt={`Captured view ${idx + 1}`}
+                          className="w-full h-auto"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = '<div class="p-8 text-center text-slate-500">Failed to load</div>';
+                          }}
+                        />
+                        <div className="bg-green-50 p-3">
+                          <p className="text-sm font-bold text-green-900">Capture #{idx + 1}</p>
+                          <p className="text-xs text-green-700">Zoom level: {img.zoom}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -398,8 +401,9 @@ export default function Results() {
                             'Material estimates',
                             'Cost estimates',
                             measurement.photos?.length > 0 ? `${measurement.photos.length} photos` : 'Site photos',
+                            capturedImages.length > 0 ? `${capturedImages.length} captured views` : null,
                             'Professional formatting'
-                          ].map((item, idx) => (
+                          ].filter(Boolean).map((item, idx) => (
                             <div key={idx} className="flex items-start gap-2">
                               <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                               <span className="text-slate-700">{item}</span>
