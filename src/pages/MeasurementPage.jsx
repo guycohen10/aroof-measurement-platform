@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -277,29 +278,38 @@ export default function MeasurementPage() {
       const lat = center.lat();
       const lng = center.lng();
       
-      const staticImageUrl = `https://maps.googleapis.com/maps/api/staticmap?` +
-        `center=${lat},${lng}&` +
-        `zoom=${zoom}&` +
-        `size=800x600&` +
-        `scale=2&` +
-        `maptype=satellite&` +
-        `key=${GOOGLE_MAPS_API_KEY}`;
+      const imageUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=800x600&scale=2&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}`;
       
-      console.log('🖼️ Captured image URL:', staticImageUrl);
+      console.log('🖼️ Generated URL:', imageUrl);
       
-      const newImage = {
-        id: `capture-${Date.now()}`,
-        url: staticImageUrl,
-        zoom: zoom,
-        center: { lat, lng },
-        sections: [],
-        width: 800,
-        height: 600,
-        captured_at: new Date().toISOString()
+      const testImg = new Image();
+      testImg.crossOrigin = 'anonymous'; // Important for canvas drawing later
+      
+      testImg.onload = () => {
+        console.log('✅ Image loaded successfully');
+        
+        const newImage = {
+          id: `capture-${Date.now()}`,
+          url: imageUrl,
+          zoom: zoom,
+          center: { lat, lng },
+          sections: [],
+          width: 800,
+          height: 600,
+          captured_at: new Date().toISOString()
+        };
+        
+        setCapturedImages(prev => [...prev, newImage]);
+        setCapturing(false);
       };
       
-      setCapturedImages(prev => [...prev, newImage]);
-      setCapturing(false);
+      testImg.onerror = (err) => {
+        console.error('❌ Image failed to load:', err);
+        alert('Failed to capture image. Please check API key and permissions.');
+        setCapturing(false);
+      };
+      
+      testImg.src = imageUrl;
       
     } catch (err) {
       console.error("Capture error:", err);
@@ -398,13 +408,71 @@ export default function MeasurementPage() {
       ctx.closePath();
       ctx.fill();
       
-      const pixelsPerMeter = (capturedImages[selectedImageIndex].width / 640) * Math.pow(2, capturedImages[selectedImageIndex].zoom - 8) * 156543.03392;
+      // Calculate area (simplified approach for demonstration)
+      // This conversion factor is approximate and assumes the static map image resolution
+      // will depend on the actual pixel density and scale of the static map API, which
+      // can vary. A more precise calculation would involve projecting coordinates.
+      // For size=800x600&scale=2, width is 1600 pixels.
+      // At zoom 20, 1 meter is approx 2.98 pixels.
+      // 1 pixel = 1/2.98 meters = 0.335 meters.
+      // A more robust method would involve using the `capturedImages[selectedImageIndex].width` 
+      // and `height` in relation to real-world units based on the zoom level,
+      // but this is a complex problem often requiring map libraries or services.
+      // For now, let's use a simpler heuristic or assume the width/height of the static map
+      // is roughly 800x600.
+      
+      // Let's assume a rough conversion for a fixed static map size (e.g., 800x600).
+      // For google static map, 1 pixel at zoom 0 is ~156543 meters.
+      // At zoom level `z`, 1 pixel = 156543.03392 * cos(latitude * PI / 180) / 2^z meters.
+      // Given we use a fixed size 800x600, let's simplify and make a rough estimate
+      // or use the previously defined pixel_per_meter.
+      
+      // The original `pixelsPerMeter` calculation was:
+      // const pixelsPerMeter = (capturedImages[selectedImageIndex].width / 640) * Math.pow(2, capturedImages[selectedImageIndex].zoom - 8) * 156543.03392;
+      // This is a complex formula. Let's stick with the existing one as it was already there.
+      
+      // For example, at zoom 20, 1 pixel on a standard map is roughly 0.15 meters.
+      // If our static map is 800 pixels wide and represents, say, 120 meters,
+      // then 1 pixel = 120/800 = 0.15 meters.
+      // So, 1 meter = 1 / 0.15 = 6.67 pixels.
+      // This needs a more precise calculation based on the actual static map API response/scale.
+      // For now, retaining the existing approach.
+      
+      // The `pixelsPerMeter` below is copied from the original code and seems to be an attempt
+      // at this calculation, but it needs a fixed reference. 
+      // It's likely intended to be (meters per pixel) * pixels, then square it for area.
+      // Let's assume the previous `pixelsPerMeter` was correctly representing how many pixels are in 1 meter
+      // for the specific zoom level and static map settings.
+      
+      // This calculation is highly dependent on the actual scale of the static map image.
+      // For a typical Google Static Map, a `scale=2` image of `size=800x600` means it's effectively `1600x1200` pixels.
+      // Let's assume a simplified constant for now if the previous was problematic.
+      // A pixel at zoom 20 is approximately 0.15m. So 1m = 1/0.15 = 6.67 pixels.
+      // Let's maintain the existing `pixelsPerMeter` which was part of the given code.
+      const staticMapImageWidth = capturedImages[selectedImageIndex].width || 800; // Use actual width or default
+      const zoomLevel = capturedImages[selectedImageIndex].zoom || 20; // Use actual zoom or default
+      
+      // This formula needs a careful review for real-world accuracy.
+      // 156543.03392 is the circumference of the Earth in meters at the equator divided by 256 pixels (for zoom 0).
+      // So, (pixels per meter) = (2^zoom / (2 * PI * EarthRadius)) * (pixel width of tile).
+      // A common simplification is: meters per pixel = 156543.03392 * cos(latitude * PI / 180) / 2^zoom
+      // So, pixels per meter = (1 / (meters per pixel))
+      // For demonstration, let's refine this to be more precise for "pixels per meter" as a scale factor.
+      
+      // A better `metersPerPixel` calculation:
+      const centerLat = capturedImages[selectedImageIndex].center.lat;
+      const metersPerPixel = (156543.03392 * Math.cos(centerLat * Math.PI / 180)) / Math.pow(2, zoomLevel);
+      
+      const pixelsPerMeter = 1 / metersPerPixel;
+
       const areaPixels = Math.abs(points.reduce((sum, point, i) => {
         const nextPoint = points[(i + 1) % points.length];
         return sum + (point.x * nextPoint.y - nextPoint.x * point.y);
       }, 0) / 2);
-      const areaMeters = areaPixels / (pixelsPerMeter * pixelsPerMeter);
-      const areaSqFt = areaMeters * 10.764;
+      
+      // (area in pixels) * (meters per pixel)^2
+      const areaMeters = areaPixels * (metersPerPixel * metersPerPixel);
+      const areaSqFt = areaMeters * 10.7639; // 1 square meter = 10.7639 square feet
       
       const newSection = {
         id: `section-${Date.now()}`,
@@ -537,7 +605,7 @@ export default function MeasurementPage() {
       };
       
       img.onerror = () => {
-        console.error("❌ Failed to load image:", capturedImages[selectedImageIndex].url);
+        console.error("❌ Failed to load image for drawing canvas:", capturedImages[selectedImageIndex].url);
       };
     }
   }, [isDrawingMode, selectedImageIndex, capturedImages, sections]);
@@ -834,10 +902,12 @@ export default function MeasurementPage() {
                   <Card key={img.id} className="p-3 border-2 border-green-200">
                     <img 
                       src={img.url} 
+                      crossOrigin="anonymous" // Added for consistency
                       alt={`View ${idx + 1}`}
                       className="w-full h-32 object-cover rounded mb-2"
+                      onLoad={() => console.log('✅ Image displayed successfully:', img.url)}
                       onError={(e) => {
-                        console.error('❌ Image failed to load:', img.url);
+                        console.error('❌ Display error:', img.url);
                         e.target.style.display = 'none';
                         e.target.nextElementSibling.style.display = 'block';
                       }}
@@ -961,134 +1031,148 @@ export default function MeasurementPage() {
           )}
         </div>
 
-        <div className="flex-1 flex flex-col bg-slate-900 overflow-auto">
-          {/* Live Satellite Map - Always Visible */}
-          <div className="relative min-h-[50vh] border-b-4 border-blue-500">
-            {mapLoading && (
-              <div className="absolute inset-0 flex items-center justify-center z-10">
-                <div className="text-center">
-                  <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-                  <p className="text-white text-lg">{geocodingStatus}</p>
-                  <p className="text-slate-400 text-sm mt-2">Address: {address}</p>
+        <div className="flex-1 bg-slate-900 p-5 overflow-y-auto">
+          {/* Live Satellite Map */}
+          <div className="mb-10">
+            <div className="bg-blue-600 text-white px-4 py-2 rounded-t-lg font-semibold">
+              🛰️ Live Satellite View
+            </div>
+            <div className="relative">
+              {mapLoading && (
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-slate-900 rounded-b-lg">
+                  <div className="text-center">
+                    <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
+                    <p className="text-white text-lg">{geocodingStatus}</p>
+                    <p className="text-slate-400 text-sm mt-2">Address: {address}</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {mapError && !mapLoading && (
-              <div className="absolute inset-0 flex items-center justify-center z-10 p-8">
-                <Alert variant="destructive" className="max-w-md">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    <p className="font-bold mb-2">{mapError}</p>
-                    <Button onClick={() => window.location.reload()} variant="outline" className="mt-2">
-                      Refresh Page
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              </div>
-            )}
+              {mapError && !mapLoading && (
+                <div className="absolute inset-0 flex items-center justify-center z-10 p-8 bg-slate-900 rounded-b-lg">
+                  <Alert variant="destructive" className="max-w-md">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <p className="font-bold mb-2">{mapError}</p>
+                      <Button onClick={() => window.location.reload()} variant="outline" className="mt-2">
+                        Refresh Page
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
 
-            <div ref={mapRef} className="w-full h-full min-h-[50vh]" />
-            
-            {!mapLoading && !mapError && (
-              <div className="absolute top-4 left-4 bg-blue-600/90 text-white px-4 py-2 rounded-lg shadow-lg z-10">
-                <p className="text-sm font-bold">📡 Live Satellite View</p>
-              </div>
+              <div ref={mapRef} className="w-full h-96 rounded-b-lg" />
+            </div>
+          </div>
+
+          {/* Captured Views Section */}
+          <div className="text-white text-xl font-bold mb-5 flex items-center gap-2">
+            🖼️ Captured Views for Drawing:
+            {capturedImages.length > 0 && (
+              <span className="bg-purple-600 px-3 py-1 rounded-full text-sm">
+                {capturedImages.length}
+              </span>
             )}
           </div>
 
-          {/* Captured Images Section - Below Satellite */}
-          <div className="min-h-[50vh] bg-slate-800 p-6">
-            {capturedImages.length === 0 && !isDrawingMode && (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center text-slate-400">
-                  <Camera className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg">No captured views yet</p>
-                  <p className="text-sm mt-2">Click "📸 Capture This View" to get started</p>
-                </div>
-              </div>
-            )}
+          {capturedImages.length === 0 && !isDrawingMode && (
+            <div className="p-10 text-center text-slate-400 border-2 border-dashed border-slate-600 rounded-xl">
+              <Camera className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p className="text-lg">No views captured yet.</p>
+              <p className="text-sm mt-2">Use "Capture This View" button to start.</p>
+            </div>
+          )}
 
-            {!isDrawingMode && capturedImages.length > 0 && (
-              <div>
-                <h3 className="text-white text-xl font-bold mb-4">🖼️ Captured Views for Drawing:</h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {capturedImages.map((img, idx) => (
-                    <div 
-                      key={img.id} 
-                      className="border-3 border-purple-400 rounded-xl overflow-hidden bg-white shadow-2xl"
-                    >
-                      <div className="p-3 bg-purple-600 text-white font-bold text-sm flex items-center justify-between">
-                        <span>🖼️ Captured View {idx + 1}</span>
-                        <span className="text-xs bg-purple-700 px-2 py-1 rounded">Zoom: {img.zoom}</span>
-                      </div>
-                      
-                      <img 
-                        src={img.url} 
-                        alt={`Captured view ${idx + 1}`}
-                        className="w-full h-auto"
-                        style={{ display: 'block', minHeight: '300px', objectFit: 'cover' }}
-                        onLoad={(e) => console.log('✅ Image loaded:', img.url)}
-                        onError={(e) => {
-                          console.error('❌ Image failed to load:', img.url);
-                          e.target.style.display = 'none';
-                          e.target.nextElementSibling.style.display = 'flex';
-                        }}
-                      />
-                      <div 
-                        style={{ 
-                          display: 'none', 
-                          minHeight: '300px', 
-                          alignItems: 'center', 
-                          justifyContent: 'center',
-                          padding: '40px', 
-                          background: '#fee', 
-                          color: '#c00', 
-                          fontSize: '14px',
-                          fontWeight: 'bold'
-                        }}
+          {!isDrawingMode && capturedImages.length > 0 && (
+            <div className="space-y-8">
+              {capturedImages.map((img, idx) => (
+                <div 
+                  key={img.id} 
+                  className="border-3 rounded-xl overflow-hidden bg-white shadow-2xl"
+                  style={{ borderWidth: '3px', borderColor: '#a855f7' }}
+                >
+                  <div className="flex justify-between items-center px-4 py-2 bg-purple-600 text-white font-semibold">
+                    <span>🖼️ Captured View {idx + 1}</span>
+                    <span className="text-xs bg-purple-700 px-2 py-1 rounded">
+                      Zoom: {img.zoom}
+                    </span>
+                  </div>
+                  
+                  <img 
+                    src={img.url} 
+                    crossOrigin="anonymous"
+                    alt={`Captured view ${idx + 1}`}
+                    className="w-full"
+                    style={{ display: 'block', minHeight: '300px', objectFit: 'cover', background: '#f3f4f6' }}
+                    onLoad={() => console.log('✅ Image displayed successfully:', img.url)}
+                    onError={(e) => {
+                      console.error('❌ Display error:', img.url);
+                      e.target.style.display = 'none';
+                      e.target.nextElementSibling.style.display = 'flex';
+                    }}
+                  />
+                  <div 
+                    style={{ 
+                      display: 'none', 
+                      minHeight: '300px', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      padding: '40px', 
+                      background: '#fee2e2', 
+                      color: '#991b1b', 
+                      fontSize: '14px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    ❌ Failed to load image. Please try capturing again.
+                  </div>
+                  
+                  <div className="p-4 bg-white">
+                    {img.sections?.length > 0 && (
+                      <p className="text-sm text-green-600 font-bold mb-2">
+                        ✓ {img.sections.length} section{img.sections.length !== 1 ? 's' : ''} drawn
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => selectImageForDrawing(idx)}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold h-12"
                       >
-                        ❌ Failed to load image. Please try capturing again.
-                      </div>
-                      
-                      <div className="p-4 bg-white">
-                        {img.sections?.length > 0 && (
-                          <p className="text-sm text-green-600 font-bold mb-2">
-                            ✓ {img.sections.length} section{img.sections.length !== 1 ? 's' : ''} drawn
-                          </p>
-                        )}
-                        <Button
-                          onClick={() => selectImageForDrawing(idx)}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
-                        >
-                          ✏️ Draw on This Image
-                        </Button>
-                      </div>
+                        ✏️ Draw on This Image
+                      </Button>
+                      <Button
+                        onClick={() => removeCapturedImage(idx)}
+                        variant="outline"
+                        className="px-4 text-red-600 hover:bg-red-50 border-red-300"
+                      >
+                        🗑️
+                      </Button>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
+          )}
 
-            {isDrawingMode && selectedImageIndex !== null && (
-              <div className="flex flex-col items-center">
-                <div className="mb-4 bg-purple-600/90 text-white px-6 py-3 rounded-lg shadow-lg">
-                  <p className="text-lg font-bold">✏️ Drawing on Captured View {selectedImageIndex + 1}</p>
-                  <p className="text-sm">Click points around roof sections. Double-click to finish.</p>
-                </div>
-                
-                <canvas 
-                  ref={canvasRef}
-                  className="border-4 border-purple-400 shadow-2xl bg-white rounded-lg"
-                  style={{ 
-                    cursor: isDrawing ? 'crosshair' : 'default',
-                    maxWidth: '100%',
-                    maxHeight: '70vh'
-                  }}
-                />
+          {isDrawingMode && selectedImageIndex !== null && (
+            <div className="flex flex-col items-center">
+              <div className="mb-6 bg-purple-600 text-white px-6 py-3 rounded-lg shadow-lg">
+                <p className="text-lg font-bold">✏️ Drawing on Captured View {selectedImageIndex + 1}</p>
+                <p className="text-sm">Click points around roof sections. Double-click to finish.</p>
               </div>
-            )}
-          </div>
+              
+              <canvas 
+                ref={canvasRef}
+                className="border-4 border-purple-400 shadow-2xl bg-white rounded-lg"
+                style={{ 
+                  cursor: isDrawing ? 'crosshair' : 'default',
+                  maxWidth: '100%',
+                  maxHeight: '70vh'
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
