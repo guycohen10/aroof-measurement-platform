@@ -282,8 +282,8 @@ export default function MeasurementPage() {
       
       console.log('🖼️ Generated URL:', imageUrl);
       
+      // Test image load WITHOUT crossOrigin (Google Static Maps doesn't support CORS)
       const testImg = new Image();
-      testImg.crossOrigin = 'anonymous'; // Important for canvas drawing later
       
       testImg.onload = () => {
         console.log('✅ Image loaded successfully');
@@ -305,7 +305,7 @@ export default function MeasurementPage() {
       
       testImg.onerror = (err) => {
         console.error('❌ Image failed to load:', err);
-        alert('Failed to capture image. Please check API key and permissions.');
+        alert('Failed to capture image. The Google Maps Static API might not be enabled for this API key.');
         setCapturing(false);
       };
       
@@ -512,7 +512,6 @@ export default function MeasurementPage() {
       if (canvas) {
         const ctx = canvas.getContext('2d');
         const img = new Image();
-        img.crossOrigin = 'anonymous';
         img.src = capturedImages[selectedImageIndex].url;
         img.onload = () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -579,7 +578,6 @@ export default function MeasurementPage() {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       const img = new Image();
-      img.crossOrigin = 'anonymous';
       img.src = capturedImages[selectedImageIndex].url;
       
       img.onload = () => {
@@ -902,7 +900,6 @@ export default function MeasurementPage() {
                   <Card key={img.id} className="p-3 border-2 border-green-200">
                     <img 
                       src={img.url} 
-                      crossOrigin="anonymous" // Added for consistency
                       alt={`View ${idx + 1}`}
                       className="w-full h-32 object-cover rounded mb-2"
                       onLoad={() => console.log('✅ Image displayed successfully:', img.url)}
@@ -1101,11 +1098,10 @@ export default function MeasurementPage() {
                   
                   <img 
                     src={img.url} 
-                    crossOrigin="anonymous"
                     alt={`Captured view ${idx + 1}`}
                     className="w-full"
                     style={{ display: 'block', minHeight: '300px', objectFit: 'cover', background: '#f3f4f6' }}
-                    onLoad={() => console.log('✅ Image displayed successfully:', img.url)}
+                    onLoad={() => console.log('✅ Image displayed successfully')}
                     onError={(e) => {
                       console.error('❌ Display error:', img.url);
                       e.target.style.display = 'none';
