@@ -2,7 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, Loader2 } from "lucide-react";
 
-export default function PDFReportGenerator({ measurement, satelliteImageUrl, diagramImageUrl, userBranding, onGenerate }) {
+export default function PDFReportGenerator({ measurement, satelliteImageData, diagramImageData, userBranding, onGenerate }) {
   const [generating, setGenerating] = React.useState(false);
 
   const generatePrintableHTML = () => {
@@ -29,8 +29,8 @@ export default function PDFReportGenerator({ measurement, satelliteImageUrl, dia
     const primaryColor = branding?.primary_color || '#1e40af';
     const footerText = branding?.footer_text || "DFW's #1 Roofing Company - Licensed & Insured";
 
-    const satelliteSrc = satelliteImageUrl || measurement.satellite_image || measurement.base_image_url;
-    const diagramSrc = diagramImageUrl || measurement.measurement_diagram;
+    const satelliteImageSrc = measurement.satellite_image || satelliteImageData;
+    const diagramImageSrc = measurement.measurement_diagram || diagramImageData;
 
     const logoHtml = companyLogo ? `<img src="${companyLogo}" alt="${companyName} Logo" style="max-width: 150px; max-height: 60px; margin-bottom: 10px;" />` : '';
 
@@ -245,10 +245,10 @@ export default function PDFReportGenerator({ measurement, satelliteImageUrl, dia
     <p class="property-address">${measurement.property_address}</p>
     <p style="text-align: center; color: #64748b; font-size: 13px; margin-bottom: 25px;">Measured on ${today}</p>
     
-    ${satelliteSrc ? `
+    ${satelliteImageSrc ? `
       <div style="border: 3px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px;">
         <img 
-          src="${satelliteSrc}" 
+          src="${satelliteImageSrc}" 
           alt="Satellite view"
           style="width: 100%; height: auto; display: block;"
         />
@@ -310,10 +310,10 @@ export default function PDFReportGenerator({ measurement, satelliteImageUrl, dia
       Color-coded sections showing measured roof areas
     </p>
     
-    ${diagramSrc ? `
+    ${diagramImageSrc ? `
       <div style="border: 3px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 24px;">
         <img 
-          src="${diagramSrc}" 
+          src="${diagramImageSrc}" 
           alt="Measurement diagram"
           style="width: 100%; height: auto; display: block;"
         />
