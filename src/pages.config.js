@@ -41,7 +41,7 @@ import RooferLogin from './pages/RooferLogin';
 import ForgotPassword from './pages/ForgotPassword';
 import DispatchDashboard from './pages/DispatchDashboard';
 import DispatchJobDetail from './pages/DispatchJobDetail';
-import Layout from './Layout.jsx';
+import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
@@ -93,5 +93,5 @@ export const PAGES = {
 export const pagesConfig = {
     mainPage: "Homepage",
     Pages: PAGES,
-    Layout: Layout,
+    Layout: __Layout,
 };

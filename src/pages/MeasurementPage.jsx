@@ -537,6 +537,10 @@ export default function MeasurementPage() {
           }
         });
       };
+      
+      img.onerror = () => {
+        console.error("Failed to load image:", capturedImages[selectedImageIndex].url);
+      };
     }
   }, [isDrawingMode, selectedImageIndex, capturedImages, sections]);
 
@@ -951,40 +955,79 @@ export default function MeasurementPage() {
           )}
         </div>
 
-        <div className="flex-1 relative bg-slate-900">
-          {mapLoading && (
-            <div className="absolute inset-0 flex items-center justify-center z-10">
-              <div className="text-center">
-                <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-                <p className="text-white text-lg">{geocodingStatus}</p>
-                <p className="text-slate-400 text-sm mt-2">Address: {address}</p>
+        <div className="flex-1 flex flex-col bg-slate-900 overflow-auto">
+          {/* Live Satellite Map - Always Visible */}
+          <div className="relative h-1/2 min-h-[400px] border-b-4 border-blue-500">
+            {mapLoading && (
+              <div className="absolute inset-0 flex items-center justify-center z-10">
+                <div className="text-center">
+                  <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
+                  <p className="text-white text-lg">{geocodingStatus}</p>
+                  <p className="text-slate-400 text-sm mt-2">Address: {address}</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {mapError && !mapLoading && (
-            <div className="absolute inset-0 flex items-center justify-center z-10 p-8">
-              <Alert variant="destructive" className="max-w-md">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <p className="font-bold mb-2">{mapError}</p>
-                  <Button onClick={() => window.location.reload()} variant="outline" className="mt-2">
-                    Refresh Page
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            </div>
-          )}
+            {mapError && !mapLoading && (
+              <div className="absolute inset-0 flex items-center justify-center z-10 p-8">
+                <Alert variant="destructive" className="max-w-md">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <p className="font-bold mb-2">{mapError}</p>
+                    <Button onClick={() => window.location.reload()} variant="outline" className="mt-2">
+                      Refresh Page
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
 
-          {!isDrawingMode && <div ref={mapRef} className="w-full h-full" />}
-          
+            <div ref={mapRef} className="w-full h-full" />
+            
+            {!mapLoading && !mapError && (
+              <div className="absolute top-4 left-4 bg-blue-600/90 text-white px-4 py-2 rounded-lg shadow-lg z-10">
+                <p className="text-sm font-bold">📡 Live Satellite View</p>
+              </div>
+            )}
+          </div>
+
+          {/* Captured Image for Drawing - Below Satellite */}
           {isDrawingMode && selectedImageIndex !== null && (
-            <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
+            <div className="relative h-1/2 min-h-[400px] bg-slate-800 flex items-center justify-center p-4">
+              <div className="absolute top-4 left-4 bg-purple-600/90 text-white px-4 py-2 rounded-lg shadow-lg z-10">
+                <p className="text-sm font-bold">✏️ Drawing on Captured View {selectedImageIndex + 1}</p>
+              </div>
+              
               <canvas 
                 ref={canvasRef}
-                className="max-w-full max-h-full border-4 border-blue-400 shadow-2xl"
+                className="max-w-full max-h-full border-4 border-purple-400 shadow-2xl bg-white"
                 style={{ cursor: isDrawing ? 'crosshair' : 'default' }}
               />
+            </div>
+          )}
+          
+          {!isDrawingMode && capturedImages.length > 0 && (
+            <div className="h-1/2 min-h-[400px] bg-slate-800 p-4 overflow-auto">
+              <h3 className="text-white text-xl font-bold mb-4">Captured Views:</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {capturedImages.map((img, idx) => (
+                  <div key={img.id} className="border-2 border-green-400 rounded-lg overflow-hidden">
+                    <img 
+                      src={img.url} 
+                      alt={`Captured view ${idx + 1}`}
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="bg-slate-700 p-2 text-white text-sm">
+                      View {idx + 1} - Zoom: {img.zoom}
+                      {img.sections?.length > 0 && (
+                        <span className="ml-2 text-green-400 font-bold">
+                          ({img.sections.length} sections)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
