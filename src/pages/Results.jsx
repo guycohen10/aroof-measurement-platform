@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -162,7 +161,7 @@ export default function Results() {
 
   const satelliteUrl = roofCenter 
     ? `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`
-    : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`);
+    : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
   
   const diagramUrl = (() => {
     if (sections.length === 0 || !roofCenter) return null;
@@ -221,7 +220,6 @@ export default function Results() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            {/* User-Captured Images Gallery - ABOVE SATELLITE VIEW */}
             {capturedImages.length > 0 && (
               <Card className="shadow-xl border-2 border-green-200">
                 <CardHeader className="bg-gradient-to-r from-green-50 to-white">
@@ -257,7 +255,6 @@ export default function Results() {
               </Card>
             )}
 
-            {/* Satellite View */}
             <Card className="shadow-xl border-2 border-blue-200">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
                 <CardTitle className="flex items-center gap-2 text-2xl">
@@ -285,7 +282,6 @@ export default function Results() {
               </CardContent>
             </Card>
 
-            {/* Measurement Diagram */}
             {diagramUrl && (
               <Card className="shadow-xl border-2 border-green-200">
                 <CardHeader className="bg-gradient-to-r from-green-50 to-white">
@@ -331,7 +327,6 @@ export default function Results() {
               </Card>
             )}
 
-            {/* 3D Visualization */}
             {sections.length > 0 && (
               <Card className="shadow-xl border-2 border-purple-200">
                 <CardHeader className="bg-gradient-to-r from-purple-50 to-white">
@@ -349,7 +344,6 @@ export default function Results() {
               </Card>
             )}
 
-            {/* Interactive Map */}
             <Card className="shadow-xl">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -367,7 +361,6 @@ export default function Results() {
 
             <PhotoUpload measurement={measurement} onPhotosUpdate={handlePhotosUpdate} />
 
-            {/* PDF Section */}
             <section className="py-16 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl shadow-xl">
               <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-12">
