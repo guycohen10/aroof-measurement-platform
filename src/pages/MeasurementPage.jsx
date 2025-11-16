@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -40,6 +39,7 @@ const PITCH_OPTIONS = [
 export default function MeasurementPage() {
   const navigate = useNavigate();
   const mapRef = useRef(null);
+  const canvasRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const drawingManagerRef = useRef(null);
   const polygonsRef = useRef([]);
@@ -53,15 +53,14 @@ export default function MeasurementPage() {
   const [mapError, setMapError] = useState("");
   const [coordinates, setCoordinates] = useState(null);
   
+  const [capturedImages, setCapturedImages] = useState([]);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [sections, setSections] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [saving, setSaving] = useState(false);
   
   const [currentZoom, setCurrentZoom] = useState(20);
-  const [showZoomTutorial, setShowZoomTutorial] = useState(true);
-  const [capturingImages, setCapturingImages] = useState(false);
-
-  const [capturedImages, setCapturedImages] = useState([]);
   const [capturing, setCapturing] = useState(false);
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
@@ -164,26 +163,6 @@ export default function MeasurementPage() {
     if (mapInstanceRef.current) mapInstanceRef.current.setZoom(20);
   }, []);
 
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (!mapInstanceRef.current || isDrawing) return;
-      
-      if (e.key === '+' || e.key === '=') {
-        e.preventDefault();
-        handleZoomIn();
-      } else if (e.key === '-' || e.key === '_') {
-        e.preventDefault();
-        handleZoomOut();
-      } else if (e.key === '0') {
-        e.preventDefault();
-        handleResetZoom();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isDrawing, handleZoomIn, handleZoomOut, handleResetZoom]);
-
   const createMap = useCallback((center) => {
     try {
       const map = new window.google.maps.Map(mapRef.current, {
@@ -284,7 +263,7 @@ export default function MeasurementPage() {
     }
   }, [address, coordinates, createMap]);
 
-  const captureCurrentMapView = useCallback(async () => {
+  const handleCaptureView = useCallback(async () => {
     if (!mapInstanceRef.current) {
       alert('Map not loaded yet');
       return;
@@ -313,9 +292,11 @@ export default function MeasurementPage() {
       const newImage = {
         id: `capture-${Date.now()}`,
         url: staticImageUrl,
-        center_lat: lat,
-        center_lng: lng,
         zoom: zoom,
+        center: { lat, lng },
+        sections: [],
+        width,
+        height,
         captured_at: new Date().toISOString()
       };
       
@@ -323,145 +304,177 @@ export default function MeasurementPage() {
       setCapturing(false);
       
     } catch (err) {
-      console.error("❌ Capture error:", err);
+      console.error("Capture error:", err);
       alert('Failed to capture image');
       setCapturing(false);
     }
   }, [GOOGLE_MAPS_API_KEY]);
 
-  const deleteCapturedImage = useCallback((imageId) => {
-    setCapturedImages(prev => prev.filter(img => img.id !== imageId));
-  }, []);
+  const selectImageForDrawing = useCallback((index) => {
+    setSelectedImageIndex(index);
+    setIsDrawingMode(true);
+    setSections(capturedImages[index].sections || []);
+  }, [capturedImages]);
 
-  const getZoomLevelAdvice = () => {
-    if (currentZoom >= 21) {
-      return { type: 'success', message: 'Perfect zoom level for accurate measurements', icon: '✓' };
-    } else if (currentZoom >= 20) {
-      return { type: 'success', message: 'Good zoom level - ready to measure', icon: '✓' };
-    } else if (currentZoom >= 19) {
-      return { type: 'warning', message: 'Consider zooming in for better accuracy', icon: '⚠️' };
-    } else {
-      return { type: 'error', message: 'Zoom in closer to see roof details clearly', icon: '❌' };
+  const removeCapturedImage = useCallback((index) => {
+    if (confirm('Remove this captured view?')) {
+      setCapturedImages(prev => prev.filter((_, i) => i !== index));
+      if (selectedImageIndex === index) {
+        setSelectedImageIndex(null);
+        setIsDrawingMode(false);
+      }
     }
-  };
+  }, [selectedImageIndex]);
 
-  const calculateArea = useCallback((polygon) => {
-    if (!polygon || !window.google || !window.google.maps.geometry) return 0;
-    try {
-      const areaInSquareMeters = window.google.maps.geometry.spherical.computeArea(polygon.getPath());
-      return Math.round(areaInSquareMeters * 10.764 * 100) / 100;
-    } catch (err) {
-      return 0;
-    }
+  const exitDrawingMode = useCallback(() => {
+    setSelectedImageIndex(null);
+    setIsDrawingMode(false);
+    setSections([]);
+    setIsDrawing(false);
   }, []);
 
   const startDrawingSection = useCallback(() => {
-    if (!mapInstanceRef.current) {
-      setError("Map not initialized. Please wait for the map to load.");
-      return;
-    }
-
-    if (!window.google || !window.google.maps || !window.google.maps.drawing) {
-      setError("Drawing tools not available. Please refresh the page.");
+    if (!canvasRef.current || selectedImageIndex === null) {
+      setError("Please select a captured image first");
       return;
     }
     
     setIsDrawing(true);
     setError("");
     
-    if (drawingManagerRef.current) {
-      drawingManagerRef.current.setMap(null);
-    }
-
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const points = [];
     const colorIndex = sections.length % SECTION_COLORS.length;
     const sectionColor = SECTION_COLORS[colorIndex];
 
-    try {
-      const drawingManager = new window.google.maps.drawing.DrawingManager({
-        drawingMode: window.google.maps.drawing.OverlayType.POLYGON,
-        drawingControl: false,
-        polygonOptions: {
-          fillColor: sectionColor.fill,
-          fillOpacity: 0.35,
-          strokeWeight: 3,
-          strokeColor: sectionColor.stroke,
-          editable: true,
-          draggable: false,
-          clickable: true
-        }
-      });
+    let isDrawingActive = true;
 
-      drawingManagerRef.current = drawingManager;
-      drawingManager.setMap(mapInstanceRef.current);
+    const handleClick = (e) => {
+      if (!isDrawingActive) return;
+      
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      points.push({ x, y });
+      
+      ctx.fillStyle = sectionColor.stroke;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, 2 * Math.PI);
+      ctx.fill();
+      
+      if (points.length > 1) {
+        ctx.strokeStyle = sectionColor.stroke;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(points[points.length - 2].x, points[points.length - 2].y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+    };
 
-      window.google.maps.event.addListener(drawingManager, 'polygoncomplete', function(polygon) {
-        polygonsRef.current.push(polygon);
-        
-        const path = polygon.getPath();
-        const coordinates = [];
-        for (let i = 0; i < path.getLength(); i++) {
-          const point = path.getAt(i);
-          coordinates.push({ lat: point.lat(), lng: point.lng() });
-        }
-        
-        const flatArea = calculateArea(polygon);
-        
-        const newSection = {
-          id: `section-${Date.now()}`,
-          name: `Section ${sections.length + 1}`,
-          flat_area_sqft: flatArea,
-          pitch: 'flat',
-          pitch_multiplier: 1.00,
-          adjusted_area_sqft: flatArea,
-          color: sectionColor.stroke,
-          coordinates: coordinates,
-          polygon: polygon
-        };
+    const handleDblClick = () => {
+      if (points.length < 3) {
+        alert('Please click at least 3 points');
+        return;
+      }
+      
+      isDrawingActive = false;
+      canvas.removeEventListener('click', handleClick);
+      canvas.removeEventListener('dblclick', handleDblClick);
+      
+      ctx.strokeStyle = sectionColor.stroke;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(points[points.length - 1].x, points[points.length - 1].y);
+      ctx.lineTo(points[0].x, points[0].y);
+      ctx.stroke();
+      
+      ctx.fillStyle = sectionColor.fill + '55';
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      
+      const pixelsPerMeter = (capturedImages[selectedImageIndex].width / 640) * Math.pow(2, capturedImages[selectedImageIndex].zoom - 8) * 156543.03392;
+      const areaPixels = Math.abs(points.reduce((sum, point, i) => {
+        const nextPoint = points[(i + 1) % points.length];
+        return sum + (point.x * nextPoint.y - nextPoint.x * point.y);
+      }, 0) / 2);
+      const areaMeters = areaPixels / (pixelsPerMeter * pixelsPerMeter);
+      const areaSqFt = areaMeters * 10.764;
+      
+      const newSection = {
+        id: `section-${Date.now()}`,
+        name: `Section ${sections.length + 1}`,
+        flat_area_sqft: Math.round(areaSqFt * 100) / 100,
+        pitch: 'flat',
+        pitch_multiplier: 1.00,
+        adjusted_area_sqft: Math.round(areaSqFt * 100) / 100,
+        color: sectionColor.stroke,
+        points: points
+      };
 
-        setSections(prev => [...prev, newSection]);
-        drawingManager.setDrawingMode(null);
-        setIsDrawing(false);
-        
-        const updateSection = () => {
-          const newArea = calculateArea(polygon);
-          const newCoords = [];
-          const path = polygon.getPath();
-          for (let i = 0; i < path.getLength(); i++) {
-            const point = path.getAt(i);
-            newCoords.push({ lat: point.lat(), lng: point.lng() });
-          }
-          
-          setSections(prev => prev.map(s => 
-            s.id === newSection.id
-              ? { ...s, flat_area_sqft: newArea, adjusted_area_sqft: newArea * s.pitch_multiplier, coordinates: newCoords }
-              : s
-          ));
-        };
-
-        window.google.maps.event.addListener(path, 'set_at', updateSection);
-        window.google.maps.event.addListener(path, 'insert_at', updateSection);
-        window.google.maps.event.addListener(path, 'remove_at', updateSection);
-      });
-    } catch (err) {
-      setError(`Failed to start drawing: ${err.message}`);
+      const updatedSections = [...sections, newSection];
+      setSections(updatedSections);
+      
+      setCapturedImages(prev => prev.map((img, i) => 
+        i === selectedImageIndex ? { ...img, sections: updatedSections } : img
+      ));
+      
       setIsDrawing(false);
-    }
-  }, [sections, calculateArea]);
+    };
+
+    canvas.addEventListener('click', handleClick);
+    canvas.addEventListener('dblclick', handleDblClick);
+  }, [sections, selectedImageIndex, capturedImages]);
 
   const deleteSection = useCallback((sectionId) => {
-    const section = sections.find(s => s.id === sectionId);
-    if (section && section.polygon) {
-      section.polygon.setMap(null);
-      polygonsRef.current = polygonsRef.current.filter(p => p !== section.polygon);
+    const updatedSections = sections.filter(s => s.id !== sectionId);
+    setSections(updatedSections);
+    
+    if (selectedImageIndex !== null) {
+      setCapturedImages(prev => prev.map((img, i) => 
+        i === selectedImageIndex ? { ...img, sections: updatedSections } : img
+      ));
+      
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = capturedImages[selectedImageIndex].url;
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          updatedSections.forEach(section => {
+            ctx.fillStyle = section.color + '55';
+            ctx.strokeStyle = section.color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(section.points[0].x, section.points[0].y);
+            for (let i = 1; i < section.points.length; i++) {
+              ctx.lineTo(section.points[i].x, section.points[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          });
+        };
+      }
     }
-    setSections(prev => prev.filter(s => s.id !== sectionId));
-  }, [sections]);
+  }, [sections, selectedImageIndex, capturedImages]);
 
   const updateSectionPitch = useCallback((sectionId, pitchValue) => {
     const pitchOption = PITCH_OPTIONS.find(p => p.value === pitchValue);
     if (!pitchOption) return;
 
-    setSections(prev => prev.map(section => 
+    const updatedSections = sections.map(section => 
       section.id === sectionId
         ? {
             ...section,
@@ -470,245 +483,121 @@ export default function MeasurementPage() {
             adjusted_area_sqft: Math.round(section.flat_area_sqft * pitchOption.multiplier * 100) / 100
           }
         : section
-    ));
-  }, []);
+    );
+    
+    setSections(updatedSections);
+    
+    if (selectedImageIndex !== null) {
+      setCapturedImages(prev => prev.map((img, i) => 
+        i === selectedImageIndex ? { ...img, sections: updatedSections } : img
+      ));
+    }
+  }, [sections, selectedImageIndex]);
 
   const updateSectionName = useCallback((sectionId, name) => {
-    setSections(prev => prev.map(section => 
+    const updatedSections = sections.map(section => 
       section.id === sectionId ? { ...section, name } : section
-    ));
-  }, []);
-
-  const getTotalFlatArea = () => sections.reduce((sum, section) => sum + section.flat_area_sqft, 0);
-  const getTotalAdjustedArea = () => sections.reduce((sum, section) => sum + section.adjusted_area_sqft, 0);
-
-  const calculateRoofComponents = useCallback((sections) => {
-    let totalFlatArea = 0, totalActualArea = 0;
-    let totalEaves = 0, totalRakes = 0, totalRidges = 0, totalHips = 0, totalValleys = 0, totalSteps = 0;
-    const pitchBreakdown = {};
+    );
     
-    sections.forEach(section => {
-      const flatArea = section.flat_area_sqft;
-      const pitchMultiplier = section.pitch_multiplier;
-      const actualArea = section.adjusted_area_sqft;
-      
-      totalFlatArea += flatArea;
-      totalActualArea += actualArea;
-      
-      const pitchKey = section.pitch || "flat";
-      if (!pitchBreakdown[pitchKey]) pitchBreakdown[pitchKey] = 0;
-      pitchBreakdown[pitchKey] += actualArea / 100;
-      
-      const avgDimension = Math.sqrt(flatArea);
-      const perimeter = avgDimension * 4;
-      
-      totalEaves += perimeter * 0.4;
-      totalRakes += (perimeter * 0.3) * pitchMultiplier;
-      totalRidges += avgDimension * 0.5;
-      totalHips += avgDimension * 0.3 * pitchMultiplier;
-      totalValleys += avgDimension * 0.2 * pitchMultiplier;
-      totalSteps += perimeter * 0.15;
-    });
+    setSections(updatedSections);
     
-    return {
-      totalFlatArea: Math.round(totalFlatArea * 100) / 100,
-      totalActualArea: Math.round(totalActualArea * 100) / 100,
-      totalSquares: Math.round((totalActualArea / 100) * 100) / 100,
-      eaves: Math.round(totalEaves * 10) / 10,
-      rakes: Math.round(totalRakes * 10) / 10,
-      ridges: Math.round(totalRidges * 10) / 10,
-      hips: Math.round(totalHips * 10) / 10,
-      valleys: Math.round(totalValleys * 10) / 10,
-      steps: Math.round(totalSteps * 10) / 10,
-      walls: 0,
-      pitchBreakdown
-    };
-  }, []);
-
-  const captureSatelliteView = async () => {
-    const mapContainer = mapRef.current;
-    if (!mapContainer || !mapInstanceRef.current) return null;
-    
-    const originalZoom = mapInstanceRef.current.getZoom();
-    const originalCenter = mapInstanceRef.current.getCenter();
-
-    try {
-      if (sections.length > 0 && window.google?.maps?.LatLngBounds) {
-        const bounds = new window.google.maps.LatLngBounds();
-        sections.forEach(section => {
-          section.coordinates.forEach(coord => bounds.extend({ lat: coord.lat, lng: coord.lng }));
-        });
-        mapInstanceRef.current.fitBounds(bounds);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-      
-      const uiElements = document.querySelectorAll('.gmnoprint, .gm-style-cc, .gm-bundled-control, .gm-svpc, .gm-control-active');
-      const originalDisplays = Array.from(uiElements).map(el => el.style.display);
-      uiElements.forEach(el => el.style.display = 'none');
-      
-      const customUI = document.querySelectorAll('[style*="z-index: 10"], [style*="z-index: 1000"]');
-      const originalCustomDisplays = Array.from(customUI).map(el => el.style.display);
-      customUI.forEach(el => el.style.display = 'none');
-      
-      polygonsRef.current.forEach(polygon => {
-        if (polygon.setVisible) polygon.setVisible(false);
-      });
-      
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(mapContainer, {
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        scale: 2,
-        logging: false,
-        width: mapContainer.offsetWidth,
-        height: mapContainer.offsetHeight
-      });
-      
-      uiElements.forEach((el, i) => el.style.display = originalDisplays[i]);
-      customUI.forEach((el, i) => el.style.display = originalCustomDisplays[i]);
-      polygonsRef.current.forEach(polygon => {
-        if (polygon.setVisible) polygon.setVisible(true);
-      });
-
-      if (sections.length > 0) {
-        mapInstanceRef.current.setZoom(originalZoom);
-        mapInstanceRef.current.setCenter(originalCenter);
-      }
-      
-      return canvas.toDataURL('image/jpeg', 0.9);
-    } catch (error) {
-      return null;
+    if (selectedImageIndex !== null) {
+      setCapturedImages(prev => prev.map((img, i) => 
+        i === selectedImageIndex ? { ...img, sections: updatedSections } : img
+      ));
     }
-  };
+  }, [sections, selectedImageIndex]);
 
-  const captureMeasurementDiagram = async () => {
-    const mapContainer = mapRef.current;
-    if (!mapContainer || !mapInstanceRef.current) return null;
-
-    const originalZoom = mapInstanceRef.current.getZoom();
-    const originalCenter = mapInstanceRef.current.getCenter();
-    
-    try {
-      if (sections.length > 0 && window.google?.maps?.LatLngBounds) {
-        const bounds = new window.google.maps.LatLngBounds();
+  useEffect(() => {
+    if (isDrawingMode && selectedImageIndex !== null && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = capturedImages[selectedImageIndex].url;
+      
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        
         sections.forEach(section => {
-          section.coordinates.forEach(coord => bounds.extend({ lat: coord.lat, lng: coord.lng }));
+          if (section.points) {
+            ctx.fillStyle = section.color + '55';
+            ctx.strokeStyle = section.color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(section.points[0].x, section.points[0].y);
+            for (let i = 1; i < section.points.length; i++) {
+              ctx.lineTo(section.points[i].x, section.points[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          }
         });
-        mapInstanceRef.current.fitBounds(bounds);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-      
-      const uiElements = document.querySelectorAll('.gmnoprint, .gm-style-cc, .gm-bundled-control, .gm-svpc, .gm-control-active');
-      const originalDisplays = Array.from(uiElements).map(el => el.style.display);
-      uiElements.forEach(el => el.style.display = 'none');
-      
-      const customUI = document.querySelectorAll('[style*="z-index: 10"], [style*="z-index: 1000"]');
-      const originalCustomDisplays = Array.from(customUI).map(el => el.style.display);
-      customUI.forEach(el => el.style.display = 'none');
-      
-      polygonsRef.current.forEach(polygon => {
-        if (polygon.setVisible) polygon.setVisible(true);
-      });
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(mapContainer, {
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        scale: 2,
-        logging: false,
-        width: mapContainer.offsetWidth,
-        height: mapContainer.offsetHeight
-      });
-      
-      uiElements.forEach((el, i) => el.style.display = originalDisplays[i]);
-      customUI.forEach((el, i) => el.style.display = originalCustomDisplays[i]);
-
-      if (sections.length > 0) {
-        mapInstanceRef.current.setZoom(originalZoom);
-        mapInstanceRef.current.setCenter(originalCenter);
-      }
-      
-      return canvas.toDataURL('image/jpeg', 0.9);
-    } catch (error) {
-      return null;
+      };
     }
+  }, [isDrawingMode, selectedImageIndex, capturedImages, sections]);
+
+  const getTotalArea = () => {
+    return capturedImages.reduce((total, img) => {
+      return total + (img.sections || []).reduce((sum, section) => sum + section.adjusted_area_sqft, 0);
+    }, 0);
   };
 
   const handleCompleteMeasurement = useCallback(async () => {
-    if (sections.length === 0) {
-      setError("Please draw at least one section");
+    if (capturedImages.length === 0) {
+      setError("Please capture at least one view");
       return;
     }
 
-    const totalAdjusted = getTotalAdjustedArea();
+    const totalAdjusted = getTotalArea();
     
     if (totalAdjusted < 100) {
-      setError("Total area seems too small. Please verify your measurement.");
+      setError("Total area seems too small. Please verify your measurements.");
       return;
     }
 
     if (totalAdjusted > 50000) {
-      setError("Total area seems unusually large. Please verify your measurement.");
+      setError("Total area seems unusually large. Please verify your measurements.");
       return;
     }
 
     setSaving(true);
-    setCapturingImages(true);
     setError("");
 
     try {
-      const totalFlat = getTotalFlatArea();
-      const sectionsData = sections.map(({ polygon, ...section }) => section);
-      const roofComponents = calculateRoofComponents(sections);
-
-      const satelliteImage = await captureSatelliteView();
-      const measurementDiagram = await captureMeasurementDiagram();
+      const allSections = capturedImages.flatMap((img, imgIndex) => 
+        (img.sections || []).map(section => ({
+          ...section,
+          imageIndex: imgIndex
+        }))
+      );
 
       const measurementData = {
-        measurement_data: {
-          total_flat_sqft: totalFlat,
-          total_adjusted_sqft: totalAdjusted,
-          sections: sectionsData
-        },
-        total_sqft: totalFlat, 
-        total_adjusted_sqft: totalAdjusted,
-        eaves_ft: roofComponents.eaves,
-        rakes_ft: roofComponents.rakes,
-        ridges_ft: roofComponents.ridges,
-        hips_ft: roofComponents.hips,
-        valleys_ft: roofComponents.valleys,
-        steps_ft: roofComponents.steps,
-        walls_ft: roofComponents.walls,
-        pitch_breakdown: roofComponents.pitchBreakdown,
-        satellite_image: satelliteImage,
-        measurement_diagram: measurementDiagram,
+        property_address: address,
+        user_type: "homeowner",
         captured_images: capturedImages,
+        measurement_data: {
+          total_adjusted_sqft: totalAdjusted,
+          sections: allSections
+        },
+        total_sqft: totalAdjusted,
+        total_adjusted_sqft: totalAdjusted,
+        payment_amount: 3,
+        payment_status: "completed",
+        stripe_payment_id: "demo_" + Date.now(),
         status: "completed",
         completed_at: new Date().toISOString()
       };
 
       let savedMeasurementId = measurementId;
-      let savedMeasurement;
 
       if (measurementId) {
         await base44.entities.Measurement.update(measurementId, measurementData);
-        const updated = await base44.entities.Measurement.filter({ id: measurementId });
-        savedMeasurement = updated[0];
       } else {
-        savedMeasurement = await base44.entities.Measurement.create({
-          property_address: address,
-          user_type: "homeowner",
-          payment_amount: 3,
-          payment_status: "completed",
-          stripe_payment_id: "demo_" + Date.now(),
-          ...measurementData
-        });
+        const savedMeasurement = await base44.entities.Measurement.create(measurementData);
         savedMeasurementId = savedMeasurement.id;
       }
 
@@ -721,9 +610,8 @@ export default function MeasurementPage() {
     } catch (err) {
       setError(`Failed to save measurement: ${err.message}. Please try again.`);
       setSaving(false);
-      setCapturingImages(false);
     }
-  }, [sections, address, measurementId, navigate, calculateRoofComponents, capturedImages]);
+  }, [capturedImages, address, measurementId, navigate]);
 
   if (loading) {
     return (
@@ -736,9 +624,19 @@ export default function MeasurementPage() {
     );
   }
 
-  const totalFlat = getTotalFlatArea();
-  const totalAdjusted = getTotalAdjustedArea();
-  const zoomAdvice = getZoomLevelAdvice();
+  const totalArea = getTotalArea();
+  const getZoomAdvice = () => {
+    if (currentZoom >= 21) {
+      return { type: 'success', message: 'Perfect zoom - ready to capture', icon: '✓' };
+    } else if (currentZoom >= 20) {
+      return { type: 'success', message: 'Good zoom level', icon: '✓' };
+    } else if (currentZoom >= 19) {
+      return { type: 'warning', message: 'Zoom in more for better detail', icon: '⚠️' };
+    } else {
+      return { type: 'error', message: 'Zoom in closer', icon: '❌' };
+    }
+  };
+  const zoomAdvice = getZoomAdvice();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
@@ -765,9 +663,7 @@ export default function MeasurementPage() {
         <div className="w-96 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
           <div className="p-6 border-b border-slate-200">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
-            <p className="text-sm text-slate-600">
-              Follow the steps below to measure your roof accurately
-            </p>
+            <p className="text-sm text-slate-600">Follow the steps below</p>
           </div>
 
           <div className="p-4 bg-blue-50 border-b border-blue-200">
@@ -797,9 +693,7 @@ export default function MeasurementPage() {
             {mapLoading && (
               <Alert className="bg-blue-50 border-blue-200">
                 <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                <AlertDescription className="text-sm text-blue-900">
-                  Loading map...
-                </AlertDescription>
+                <AlertDescription className="text-sm text-blue-900">Loading map...</AlertDescription>
               </Alert>
             )}
 
@@ -808,19 +702,14 @@ export default function MeasurementPage() {
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-sm">
                   {mapError}
-                  <Button 
-                    onClick={() => window.location.reload()} 
-                    variant="outline" 
-                    size="sm"
-                    className="mt-2 w-full"
-                  >
+                  <Button onClick={() => window.location.reload()} variant="outline" size="sm" className="mt-2 w-full">
                     Refresh Page
                   </Button>
                 </AlertDescription>
               </Alert>
             )}
 
-            {!mapLoading && !mapError && (
+            {!mapLoading && !mapError && !isDrawingMode && (
               <>
                 <Alert className="bg-blue-50 border-blue-200">
                   <Info className="h-4 w-4 text-blue-600" />
@@ -832,60 +721,140 @@ export default function MeasurementPage() {
                 <Alert className="bg-green-50 border-green-200">
                   <Info className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-xs text-green-900">
-                    <strong>Step 2:</strong> Once satisfied with views, click "Start Drawing" to outline roof sections.
+                    <strong>Step 2:</strong> Once satisfied with views, click "Draw on this image" for any captured view.
                   </AlertDescription>
                 </Alert>
+
+                <Card className="p-3 bg-white border-2 border-slate-200">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-2 pb-2 border-b">
+                      <span className="text-xs font-bold text-slate-700">Zoom Level</span>
+                      <span className={`text-xs font-bold px-2 py-1 rounded ${
+                        zoomAdvice.type === 'success' ? 'bg-green-100 text-green-800' :
+                        zoomAdvice.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {zoomAdvice.icon} {currentZoom}
+                      </span>
+                    </div>
+                    
+                    <p className="text-xs text-slate-600 mb-2">{zoomAdvice.message}</p>
+                    
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={handleZoomOut} disabled={currentZoom <= 18} className="flex-1">
+                        <ZoomOut className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={handleOptimalZoom} className="flex-1">
+                        <Maximize2 className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={handleZoomIn} disabled={currentZoom >= 22} className="flex-1">
+                        <ZoomIn className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    <Button size="sm" variant="outline" onClick={handleResetZoom} className="w-full">
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Reset View
+                    </Button>
+                  </div>
+                </Card>
+
+                <Button
+                  onClick={handleCaptureView}
+                  disabled={capturing}
+                  className="w-full h-14 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold"
+                >
+                  {capturing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Capturing...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-5 h-5 mr-2" />
+                      📸 Capture This View
+                    </>
+                  )}
+                </Button>
               </>
             )}
-            
-            <Button
-              onClick={startDrawingSection}
-              className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold shadow-md"
-              disabled={isDrawing || mapLoading || !!mapError}
-            >
-              {isDrawing ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Drawing Section {sections.length + 1}...
-                </>
-              ) : sections.length === 0 ? (
-                <>
-                  <Edit3 className="w-5 h-5 mr-2" />
-                  Start Drawing Section 1
-                </>
-              ) : (
-                <>
-                  <Plus className="w-5 h-5 mr-2" />
-                  Add Section {sections.length + 1}
-                </>
-              )}
-            </Button>
+
+            {isDrawingMode && (
+              <>
+                <Alert className="bg-purple-50 border-purple-200">
+                  <Info className="h-4 w-4 text-purple-600" />
+                  <AlertDescription className="text-xs text-purple-900">
+                    <strong>Drawing Mode:</strong> Click points around roof sections. Double-click to finish.
+                  </AlertDescription>
+                </Alert>
+
+                <Button
+                  onClick={startDrawingSection}
+                  disabled={isDrawing}
+                  className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold"
+                >
+                  {isDrawing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Drawing Section {sections.length + 1}...
+                    </>
+                  ) : sections.length === 0 ? (
+                    <>
+                      <Edit3 className="w-5 h-5 mr-2" />
+                      Start Drawing Section 1
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5 mr-2" />
+                      Add Section {sections.length + 1}
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={exitDrawingMode}
+                  variant="outline"
+                  className="w-full"
+                >
+                  ← Back to Live Map
+                </Button>
+              </>
+            )}
           </div>
 
-          {capturedImages.length > 0 && (
+          {capturedImages.length > 0 && !isDrawingMode && (
             <div className="p-4 border-t border-slate-200">
-              <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                <Camera className="w-4 h-4 text-green-600" />
-                Captured Views ({capturedImages.length})
+              <h3 className="text-sm font-bold text-slate-900 mb-3">
+                📸 Captured Views ({capturedImages.length})
               </h3>
               <div className="space-y-3">
                 {capturedImages.map((img, idx) => (
                   <Card key={img.id} className="p-3 border-2 border-green-200">
-                    <div className="flex items-start gap-3">
-                      <img 
-                        src={img.url} 
-                        alt={`Capture ${idx + 1}`}
-                        className="w-20 h-20 object-cover rounded border-2 border-slate-200"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-900">View #{idx + 1}</p>
-                        <p className="text-xs text-slate-600">Zoom: {img.zoom}</p>
-                        <p className="text-xs text-slate-500">{new Date(img.captured_at).toLocaleTimeString()}</p>
-                      </div>
+                    <img 
+                      src={img.url} 
+                      alt={`View ${idx + 1}`}
+                      className="w-full h-32 object-cover rounded mb-2"
+                    />
+                    <div className="text-xs text-slate-600 mb-2">
+                      View {idx + 1} - Zoom: {img.zoom}
+                      {img.sections?.length > 0 && (
+                        <span className="ml-2 text-green-600 font-bold">
+                          ({img.sections.length} section{img.sections.length !== 1 ? 's' : ''})
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteCapturedImage(img.id)}
+                        size="sm"
+                        onClick={() => selectImageForDrawing(idx)}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700"
+                      >
+                        Draw on this image
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => removeCapturedImage(idx)}
                         className="text-red-600 hover:bg-red-50"
                       >
                         <X className="w-4 h-4" />
@@ -897,96 +866,76 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {sections.length > 0 && (
-            <div className="p-6 space-y-4 border-t border-slate-200">
-              <div className="flex items-center gap-2">
-                <Layers className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-bold text-slate-900">
-                  Roof Sections ({sections.length})
-                </h3>
-              </div>
+          {isDrawingMode && sections.length > 0 && (
+            <div className="p-4 border-t border-slate-200">
+              <h3 className="text-sm font-bold text-slate-900 mb-3">
+                <Layers className="w-4 h-4 inline mr-1" />
+                Sections ({sections.length})
+              </h3>
+              <div className="space-y-3">
+                {sections.map((section) => (
+                  <Card key={section.id} className="p-3 border-2" style={{ borderColor: section.color }}>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: section.color }} />
+                        <Input
+                          value={section.name}
+                          onChange={(e) => updateSectionName(section.id, e.target.value)}
+                          className="flex-1 text-sm"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteSection(section.id)}
+                          className="text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
 
-              {sections.map((section, index) => (
-                <Card key={section.id} className="p-4 border-2" style={{ borderColor: section.color }}>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: section.color }} />
-                      <Input
-                        value={section.name}
-                        onChange={(e) => updateSectionName(section.id, e.target.value)}
-                        className="flex-1 font-semibold"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteSection(section.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                      <div className="text-xs">
+                        <span className="text-slate-600">Area: </span>
+                        <span className="font-bold">{section.flat_area_sqft.toLocaleString()} sq ft</span>
+                      </div>
 
-                    <div className="bg-slate-50 rounded p-3">
-                      <p className="text-xs text-slate-600">Flat Area</p>
-                      <p className="text-2xl font-bold text-slate-900">
-                        {section.flat_area_sqft.toLocaleString()} sq ft
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-medium text-slate-700 mb-1 block">Roof Pitch:</label>
                       <Select value={section.pitch} onValueChange={(value) => updateSectionPitch(section.id, value)}>
-                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="w-full text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           {PITCH_OPTIONS.map(option => (
                             <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
 
-                    {section.pitch !== 'flat' && (
-                      <div className="bg-green-50 border border-green-200 rounded p-3">
-                        <p className="text-xs text-green-700 flex items-center gap-1">
-                          <TrendingUp className="w-3 h-3" />
-                          Actual Surface Area
-                        </p>
-                        <p className="text-xl font-bold text-green-900">
-                          {section.adjusted_area_sqft.toLocaleString()} sq ft
-                        </p>
-                        <p className="text-xs text-green-600 mt-1">× {section.pitch_multiplier.toFixed(2)} multiplier</p>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              ))}
+                      {section.pitch !== 'flat' && (
+                        <div className="bg-green-50 rounded p-2">
+                          <p className="text-xs text-green-700">
+                            Adjusted: <strong>{section.adjusted_area_sqft.toLocaleString()} sq ft</strong>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
             </div>
           )}
 
-          {sections.length > 0 && (
-            <div className="sticky bottom-0 p-6 border-t border-slate-200 bg-gradient-to-br from-green-50 to-blue-50 shadow-lg">
-              <h3 className="text-sm font-bold text-slate-700 mb-3">Total Roof Area</h3>
-              
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Flat Area:</span>
-                  <span className="text-lg font-bold text-slate-900">{totalFlat.toLocaleString()} sq ft</span>
-                </div>
-                
-                {totalAdjusted !== totalFlat && (
-                  <div className="flex justify-between items-center pt-2 border-t border-green-200">
-                    <span className="text-sm font-semibold text-green-700">Adjusted for Pitch:</span>
-                    <span className="text-2xl font-bold text-green-900">{totalAdjusted.toLocaleString()} sq ft</span>
-                  </div>
-                )}
+          {capturedImages.length > 0 && (
+            <div className="sticky bottom-0 p-6 border-t border-slate-200 bg-gradient-to-br from-green-50 to-blue-50">
+              <h3 className="text-sm font-bold text-slate-700 mb-2">Total Roof Area</h3>
+              <div className="text-3xl font-bold text-green-900 mb-4">
+                {totalArea.toLocaleString()} sq ft
               </div>
 
               <Button
                 onClick={handleCompleteMeasurement}
-                disabled={sections.length === 0 || saving || capturingImages}
+                disabled={saving}
                 className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white"
               >
-                {saving || capturingImages ? (
+                {saving ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     Saving...
@@ -1002,9 +951,9 @@ export default function MeasurementPage() {
           )}
         </div>
 
-        <div className="flex-1 relative">
+        <div className="flex-1 relative bg-slate-900">
           {mapLoading && (
-            <div className="absolute inset-0 bg-slate-900 flex items-center justify-center z-10">
+            <div className="absolute inset-0 flex items-center justify-center z-10">
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
                 <p className="text-white text-lg">{geocodingStatus}</p>
@@ -1014,7 +963,7 @@ export default function MeasurementPage() {
           )}
 
           {mapError && !mapLoading && (
-            <div className="absolute inset-0 bg-slate-900 flex items-center justify-center z-10 p-8">
+            <div className="absolute inset-0 flex items-center justify-center z-10 p-8">
               <Alert variant="destructive" className="max-w-md">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
@@ -1027,117 +976,15 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          <div ref={mapRef} className="w-full h-full" />
-
-          {/* Zoom Controls + Capture Button */}
-          {!mapLoading && !mapError && (
-            <div className="absolute bottom-8 left-8 z-10 space-y-3">
-              <Card className="p-3 bg-white/95 backdrop-blur-sm shadow-xl border-2 border-blue-300">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b">
-                    <span className="text-xs font-bold text-slate-700">Zoom Level</span>
-                    <span className={`text-xs font-bold px-2 py-1 rounded ${
-                      zoomAdvice.type === 'success' ? 'bg-green-100 text-green-800' :
-                      zoomAdvice.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {zoomAdvice.icon} {currentZoom}
-                    </span>
-                  </div>
-                  
-                  <p className="text-xs text-slate-600 mb-2">{zoomAdvice.message}</p>
-                  
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleZoomOut}
-                      disabled={currentZoom <= 18}
-                      className="flex-1"
-                    >
-                      <ZoomOut className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleOptimalZoom}
-                      className="flex-1"
-                      title="Optimal Zoom (20)"
-                    >
-                      <Maximize2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleZoomIn}
-                      disabled={currentZoom >= 22}
-                      className="flex-1"
-                    >
-                      <ZoomIn className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleResetZoom}
-                    className="w-full"
-                  >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Reset View
-                  </Button>
-                </div>
-              </Card>
-
-              {/* Capture Button Below Zoom Controls */}
-              <Card className="p-3 bg-gradient-to-r from-green-500 to-green-600 shadow-xl border-2 border-green-300">
-                <Button
-                  onClick={captureCurrentMapView}
-                  disabled={capturing}
-                  className="w-full bg-white text-green-700 hover:bg-green-50 font-bold shadow-md"
-                >
-                  {capturing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Capturing...
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="w-4 h-4 mr-2" />
-                      📸 Capture This View
-                    </>
-                  )}
-                </Button>
-                <p className="text-xs text-white mt-2 text-center">
-                  Save different zoom levels for your report
-                </p>
-              </Card>
-            </div>
-          )}
-
-          {capturingImages && (
-            <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="text-center bg-white rounded-2xl p-8 shadow-2xl max-w-md">
-                <Loader2 className="w-16 h-16 animate-spin text-blue-600 mx-auto mb-4" />
-                <h3 className="text-2xl font-bold text-slate-900 mb-2">Saving Measurement...</h3>
-                <p className="text-slate-600">Creating your report</p>
-              </div>
-            </div>
-          )}
-
-          {isDrawing && (
-            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-blue-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10 max-w-md text-center">
-              <p className="text-sm font-bold mb-1">🖱️ Click on Map to Draw Section {sections.length + 1}</p>
-              <p className="text-xs">Click points around the roof. Double-click to close.</p>
-            </div>
-          )}
-
-          {sections.length > 0 && !isDrawing && (
-            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-green-600/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg z-10">
-              <p className="text-sm font-medium flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" />
-                {sections.length} section{sections.length !== 1 ? 's' : ''} | {capturedImages.length} capture{capturedImages.length !== 1 ? 's' : ''}
-              </p>
+          {!isDrawingMode && <div ref={mapRef} className="w-full h-full" />}
+          
+          {isDrawingMode && selectedImageIndex !== null && (
+            <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
+              <canvas 
+                ref={canvasRef}
+                className="max-w-full max-h-full border-4 border-blue-400 shadow-2xl"
+                style={{ cursor: isDrawing ? 'crosshair' : 'default' }}
+              />
             </div>
           )}
         </div>
