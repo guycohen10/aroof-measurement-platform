@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera, X } from "lucide-react";
+import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera, X, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SECTION_COLORS = [
@@ -192,8 +193,7 @@ export default function MeasurementPage() {
         maxZoom: 22,
         mapTypeId: "satellite",
         tilt: 0,
-        zoomControl: true,
-        zoomControlOptions: { position: window.google.maps.ControlPosition.RIGHT_CENTER },
+        zoomControl: false,
         scrollwheel: true,
         gestureHandling: 'greedy',
         disableDoubleClickZoom: false,
@@ -766,7 +766,7 @@ export default function MeasurementPage() {
           <div className="p-6 border-b border-slate-200">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
             <p className="text-sm text-slate-600">
-              Zoom to different views, capture images, then draw
+              Follow the steps below to measure your roof accurately
             </p>
           </div>
 
@@ -821,23 +821,21 @@ export default function MeasurementPage() {
             )}
 
             {!mapLoading && !mapError && (
-              <Button
-                onClick={captureCurrentMapView}
-                disabled={capturing}
-                className="w-full h-14 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold shadow-md"
-              >
-                {capturing ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Capturing...
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-5 h-5 mr-2" />
-                    📸 Capture View (Zoom {currentZoom})
-                  </>
-                )}
-              </Button>
+              <>
+                <Alert className="bg-blue-50 border-blue-200">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-xs text-blue-900">
+                    <strong>Step 1:</strong> Use zoom controls or scroll wheel to find best view. Capture as many angles as needed.
+                  </AlertDescription>
+                </Alert>
+
+                <Alert className="bg-green-50 border-green-200">
+                  <Info className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-xs text-green-900">
+                    <strong>Step 2:</strong> Once satisfied with views, click "Start Drawing" to outline roof sections.
+                  </AlertDescription>
+                </Alert>
+              </>
             )}
             
             <Button
@@ -866,8 +864,9 @@ export default function MeasurementPage() {
 
           {capturedImages.length > 0 && (
             <div className="p-4 border-t border-slate-200">
-              <h3 className="text-sm font-bold text-slate-900 mb-3">
-                📸 Captured Views ({capturedImages.length})
+              <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                <Camera className="w-4 h-4 text-green-600" />
+                Captured Views ({capturedImages.length})
               </h3>
               <div className="space-y-3">
                 {capturedImages.map((img, idx) => (
@@ -879,7 +878,7 @@ export default function MeasurementPage() {
                         className="w-20 h-20 object-cover rounded border-2 border-slate-200"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-900">Capture #{idx + 1}</p>
+                        <p className="text-xs font-bold text-slate-900">View #{idx + 1}</p>
                         <p className="text-xs text-slate-600">Zoom: {img.zoom}</p>
                         <p className="text-xs text-slate-500">{new Date(img.captured_at).toLocaleTimeString()}</p>
                       </div>
@@ -1029,6 +1028,92 @@ export default function MeasurementPage() {
           )}
 
           <div ref={mapRef} className="w-full h-full" />
+
+          {/* Zoom Controls + Capture Button */}
+          {!mapLoading && !mapError && (
+            <div className="absolute bottom-8 left-8 z-10 space-y-3">
+              <Card className="p-3 bg-white/95 backdrop-blur-sm shadow-xl border-2 border-blue-300">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b">
+                    <span className="text-xs font-bold text-slate-700">Zoom Level</span>
+                    <span className={`text-xs font-bold px-2 py-1 rounded ${
+                      zoomAdvice.type === 'success' ? 'bg-green-100 text-green-800' :
+                      zoomAdvice.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {zoomAdvice.icon} {currentZoom}
+                    </span>
+                  </div>
+                  
+                  <p className="text-xs text-slate-600 mb-2">{zoomAdvice.message}</p>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleZoomOut}
+                      disabled={currentZoom <= 18}
+                      className="flex-1"
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleOptimalZoom}
+                      className="flex-1"
+                      title="Optimal Zoom (20)"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleZoomIn}
+                      disabled={currentZoom >= 22}
+                      className="flex-1"
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleResetZoom}
+                    className="w-full"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Reset View
+                  </Button>
+                </div>
+              </Card>
+
+              {/* Capture Button Below Zoom Controls */}
+              <Card className="p-3 bg-gradient-to-r from-green-500 to-green-600 shadow-xl border-2 border-green-300">
+                <Button
+                  onClick={captureCurrentMapView}
+                  disabled={capturing}
+                  className="w-full bg-white text-green-700 hover:bg-green-50 font-bold shadow-md"
+                >
+                  {capturing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Capturing...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-4 h-4 mr-2" />
+                      📸 Capture This View
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-white mt-2 text-center">
+                  Save different zoom levels for your report
+                </p>
+              </Card>
+            </div>
+          )}
 
           {capturingImages && (
             <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50">
