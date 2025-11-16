@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -131,11 +132,8 @@ export default function Results() {
   const lowEstimate = Math.round(subtotal * 0.90);
   const highEstimate = Math.round(subtotal * 1.10);
 
-  // Calculate center from drawn sections
   const calculateRoofCenter = () => {
-    if (!sections || sections.length === 0) {
-      return null;
-    }
+    if (!sections || sections.length === 0) return null;
 
     let minLat = Infinity, maxLat = -Infinity;
     let minLng = Infinity, maxLng = -Infinity;
@@ -152,24 +150,19 @@ export default function Results() {
     });
 
     if (minLat === Infinity) return null;
-
-    const centerLat = (minLat + maxLat) / 2;
-    const centerLng = (minLng + maxLng) / 2;
-
-    return { lat: centerLat, lng: centerLng };
+    return { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
   };
 
   const roofCenter = calculateRoofCenter();
 
-  // Generate edit measurement URL
   const editMeasurementUrl = roofCenter 
     ? createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&lat=${roofCenter.lat}&lng=${roofCenter.lng}&measurementId=${measurement.id}`)
     : createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&measurementId=${measurement.id}`);
 
-  // Generate static map URLs
-  const satelliteUrl = roofCenter 
+  // Use captured image if available, otherwise generate from center
+  const satelliteUrl = measurement.captured_image_url || (roofCenter 
     ? `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`
-    : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
+    : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`);
   
   const diagramUrl = (() => {
     if (sections.length === 0 || !roofCenter) return null;
@@ -228,6 +221,39 @@ export default function Results() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
+            {/* User-Captured Satellite View */}
+            {measurement.captured_image_url && (
+              <Card className="shadow-xl border-2 border-green-200 bg-gradient-to-r from-green-50 to-white">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-2xl">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                    📸 Your Captured View
+                  </CardTitle>
+                  <p className="text-sm text-green-700 mt-1">
+                    Captured at zoom level {measurement.captured_zoom || 21}
+                  </p>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <p className="text-slate-600 mb-4">
+                    Your manually captured satellite view - exactly as you positioned it
+                  </p>
+                  <div className="border-2 border-green-300 rounded-xl overflow-hidden shadow-lg">
+                    <img 
+                      src={measurement.captured_image_url}
+                      alt="User captured satellite view"
+                      className="w-full h-auto"
+                      style={{ maxWidth: '800px', width: '100%' }}
+                      onError={(e) => {
+                        console.error("Captured image failed to load");
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = '<div class="p-12 text-center text-slate-500">Unable to load captured image</div>';
+                      }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Satellite View */}
             <Card className="shadow-xl border-2 border-blue-200">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
