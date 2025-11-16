@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -41,6 +40,7 @@ export default function MeasurementPage() {
   const navigate = useNavigate();
   const mapRef = useRef(null);
   const canvasRef = useRef(null);
+  const imageRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const drawingManagerRef = useRef(null);
   const polygonsRef = useRef([]);
@@ -349,6 +349,45 @@ export default function MeasurementPage() {
     setIsDrawing(false);
   }, []);
 
+  const setupDrawingCanvas = useCallback(() => {
+    if (!imageRef.current || !canvasRef.current) return;
+    
+    const img = imageRef.current;
+    const canvas = canvasRef.current;
+    const rect = img.getBoundingClientRect();
+    
+    // Set canvas size to match displayed image EXACTLY
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
+    
+    console.log('✅ Canvas setup:', {
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      imageWidth: rect.width,
+      imageHeight: rect.height
+    });
+    
+    // Redraw existing sections
+    const ctx = canvas.getContext('2d');
+    sections.forEach(section => {
+      if (section.points && section.points.length > 0) {
+        ctx.fillStyle = section.color + '55';
+        ctx.strokeStyle = section.color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(section.points[0].x, section.points[0].y);
+        for (let i = 1; i < section.points.length; i++) {
+          ctx.lineTo(section.points[i].x, section.points[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+    });
+  }, [sections]);
+
   const startDrawingSection = useCallback(() => {
     if (!canvasRef.current || selectedImageIndex === null) {
       setError("Please select a captured image first");
@@ -370,8 +409,24 @@ export default function MeasurementPage() {
       if (!isDrawingActive) return;
       
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      
+      // FIXED: Calculate exact position accounting for scale
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      
+      console.log('Click:', { 
+        clientX: e.clientX, 
+        clientY: e.clientY,
+        rectLeft: rect.left,
+        rectTop: rect.top,
+        canvasX: x, 
+        canvasY: y,
+        scaleX,
+        scaleY
+      });
       
       points.push({ x, y });
       
@@ -416,21 +471,20 @@ export default function MeasurementPage() {
       ctx.closePath();
       ctx.fill();
       
-      const staticMapImageWidth = capturedImages[selectedImageIndex].width || 800; // Use actual width or default
-      const zoomLevel = capturedImages[selectedImageIndex].zoom || 20; // Use actual zoom or default
+      // Calculate area based on canvas coordinates
+      const staticMapImageWidth = capturedImages[selectedImageIndex].width || 800;
+      const zoomLevel = capturedImages[selectedImageIndex].zoom || 20;
       
       const centerLat = capturedImages[selectedImageIndex].center.lat;
       const metersPerPixel = (156543.03392 * Math.cos(centerLat * Math.PI / 180)) / Math.pow(2, zoomLevel);
       
-      const pixelsPerMeter = 1 / metersPerPixel;
-
       const areaPixels = Math.abs(points.reduce((sum, point, i) => {
         const nextPoint = points[(i + 1) % points.length];
         return sum + (point.x * nextPoint.y - nextPoint.x * point.y);
       }, 0) / 2);
       
       const areaMeters = areaPixels * (metersPerPixel * metersPerPixel);
-      const areaSqFt = areaMeters * 10.7639; // 1 square meter = 10.7639 square feet
+      const areaSqFt = areaMeters * 10.7639;
       
       const newSection = {
         id: `section-${Date.now()}`,
@@ -466,16 +520,14 @@ export default function MeasurementPage() {
         i === selectedImageIndex ? { ...img, sections: updatedSections } : img
       ));
       
-      const canvas = canvasRef.current;
-      if (canvas) {
+      // Redraw canvas
+      if (canvasRef.current) {
+        const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
-        const img = new Image();
-        img.src = capturedImages[selectedImageIndex].url;
-        img.onload = () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          
-          updatedSections.forEach(section => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        updatedSections.forEach(section => {
+          if (section.points) {
             ctx.fillStyle = section.color + '55';
             ctx.strokeStyle = section.color;
             ctx.lineWidth = 3;
@@ -487,11 +539,11 @@ export default function MeasurementPage() {
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
-          });
-        };
+          }
+        });
       }
     }
-  }, [sections, selectedImageIndex, capturedImages]);
+  }, [sections, selectedImageIndex]);
 
   const updateSectionPitch = useCallback((sectionId, pitchValue) => {
     const pitchOption = PITCH_OPTIONS.find(p => p.value === pitchValue);
@@ -532,39 +584,10 @@ export default function MeasurementPage() {
   }, [sections, selectedImageIndex]);
 
   useEffect(() => {
-    if (isDrawingMode && selectedImageIndex !== null && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      img.src = capturedImages[selectedImageIndex].url;
-      
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        
-        sections.forEach(section => {
-          if (section.points) {
-            ctx.fillStyle = section.color + '55';
-            ctx.strokeStyle = section.color;
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(section.points[0].x, section.points[0].y);
-            for (let i = 1; i < section.points.length; i++) {
-              ctx.lineTo(section.points[i].x, section.points[i].y);
-            }
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-          }
-        });
-      };
-      
-      img.onerror = () => {
-        console.error("❌ Failed to load image for drawing canvas:", capturedImages[selectedImageIndex].url);
-      };
+    if (isDrawingMode && selectedImageIndex !== null && imageRef.current) {
+      setupDrawingCanvas();
     }
-  }, [isDrawingMode, selectedImageIndex, capturedImages, sections]);
+  }, [isDrawingMode, selectedImageIndex, setupDrawingCanvas]);
 
   const getTotalArea = () => {
     return capturedImages.reduce((total, img) => {
@@ -987,7 +1010,7 @@ export default function MeasurementPage() {
         </div>
 
         <div className="flex-1 bg-slate-900 p-6 overflow-y-auto">
-          {/* Live Satellite Map - LARGER SIZE */}
+          {/* Live Satellite Map */}
           <div style={{ marginBottom: '50px' }}>
             <div style={{
               background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
@@ -1234,18 +1257,33 @@ export default function MeasurementPage() {
                 </p>
               </div>
               
-              <canvas 
-                ref={canvasRef}
-                style={{
-                  border: '4px solid #a855f7',
-                  boxShadow: '0 12px 40px rgba(168, 85, 247, 0.4)',
-                  background: 'white',
-                  borderRadius: '16px',
-                  cursor: isDrawing ? 'crosshair' : 'default',
-                  maxWidth: '100%',
-                  maxHeight: '70vh'
-                }}
-              />
+              {/* FIXED: Canvas overlay with proper alignment */}
+              <div style={{ position: 'relative', width: '100%', maxWidth: '1200px' }}>
+                <img 
+                  ref={imageRef}
+                  src={capturedImages[selectedImageIndex]?.url}
+                  alt="Drawing surface"
+                  style={{
+                    width: '100%',
+                    height: 'auto',
+                    display: 'block',
+                    borderRadius: '16px',
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.3)'
+                  }}
+                  onLoad={setupDrawingCanvas}
+                />
+                <canvas
+                  ref={canvasRef}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    cursor: isDrawing ? 'crosshair' : 'default',
+                    pointerEvents: 'all',
+                    borderRadius: '16px'
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>
