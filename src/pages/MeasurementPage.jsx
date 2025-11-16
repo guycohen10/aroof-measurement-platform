@@ -277,17 +277,15 @@ export default function MeasurementPage() {
       const lat = center.lat();
       const lng = center.lng();
       
-      const mapContainer = mapRef.current;
-      const width = Math.min(mapContainer.offsetWidth, 640);
-      const height = Math.min(mapContainer.offsetHeight, 640);
-      
       const staticImageUrl = `https://maps.googleapis.com/maps/api/staticmap?` +
         `center=${lat},${lng}&` +
         `zoom=${zoom}&` +
-        `size=${width}x${height}&` +
+        `size=800x600&` +
         `scale=2&` +
         `maptype=satellite&` +
         `key=${GOOGLE_MAPS_API_KEY}`;
+      
+      console.log('🖼️ Captured image URL:', staticImageUrl);
       
       const newImage = {
         id: `capture-${Date.now()}`,
@@ -295,8 +293,8 @@ export default function MeasurementPage() {
         zoom: zoom,
         center: { lat, lng },
         sections: [],
-        width,
-        height,
+        width: 800,
+        height: 600,
         captured_at: new Date().toISOString()
       };
       
@@ -539,7 +537,7 @@ export default function MeasurementPage() {
       };
       
       img.onerror = () => {
-        console.error("Failed to load image:", capturedImages[selectedImageIndex].url);
+        console.error("❌ Failed to load image:", capturedImages[selectedImageIndex].url);
       };
     }
   }, [isDrawingMode, selectedImageIndex, capturedImages, sections]);
@@ -838,7 +836,15 @@ export default function MeasurementPage() {
                       src={img.url} 
                       alt={`View ${idx + 1}`}
                       className="w-full h-32 object-cover rounded mb-2"
+                      onError={(e) => {
+                        console.error('❌ Image failed to load:', img.url);
+                        e.target.style.display = 'none';
+                        e.target.nextElementSibling.style.display = 'block';
+                      }}
                     />
+                    <div style={{ display: 'none', padding: '20px', background: '#fee', color: '#c00', borderRadius: '4px', fontSize: '12px' }}>
+                      Failed to load image
+                    </div>
                     <div className="text-xs text-slate-600 mb-2">
                       View {idx + 1} - Zoom: {img.zoom}
                       {img.sections?.length > 0 && (
@@ -957,7 +963,7 @@ export default function MeasurementPage() {
 
         <div className="flex-1 flex flex-col bg-slate-900 overflow-auto">
           {/* Live Satellite Map - Always Visible */}
-          <div className="relative h-1/2 min-h-[400px] border-b-4 border-blue-500">
+          <div className="relative min-h-[50vh] border-b-4 border-blue-500">
             {mapLoading && (
               <div className="absolute inset-0 flex items-center justify-center z-10">
                 <div className="text-center">
@@ -982,7 +988,7 @@ export default function MeasurementPage() {
               </div>
             )}
 
-            <div ref={mapRef} className="w-full h-full" />
+            <div ref={mapRef} className="w-full h-full min-h-[50vh]" />
             
             {!mapLoading && !mapError && (
               <div className="absolute top-4 left-4 bg-blue-600/90 text-white px-4 py-2 rounded-lg shadow-lg z-10">
@@ -991,45 +997,98 @@ export default function MeasurementPage() {
             )}
           </div>
 
-          {/* Captured Image for Drawing - Below Satellite */}
-          {isDrawingMode && selectedImageIndex !== null && (
-            <div className="relative h-1/2 min-h-[400px] bg-slate-800 flex items-center justify-center p-4">
-              <div className="absolute top-4 left-4 bg-purple-600/90 text-white px-4 py-2 rounded-lg shadow-lg z-10">
-                <p className="text-sm font-bold">✏️ Drawing on Captured View {selectedImageIndex + 1}</p>
+          {/* Captured Images Section - Below Satellite */}
+          <div className="min-h-[50vh] bg-slate-800 p-6">
+            {capturedImages.length === 0 && !isDrawingMode && (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-slate-400">
+                  <Camera className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg">No captured views yet</p>
+                  <p className="text-sm mt-2">Click "📸 Capture This View" to get started</p>
+                </div>
               </div>
-              
-              <canvas 
-                ref={canvasRef}
-                className="max-w-full max-h-full border-4 border-purple-400 shadow-2xl bg-white"
-                style={{ cursor: isDrawing ? 'crosshair' : 'default' }}
-              />
-            </div>
-          )}
-          
-          {!isDrawingMode && capturedImages.length > 0 && (
-            <div className="h-1/2 min-h-[400px] bg-slate-800 p-4 overflow-auto">
-              <h3 className="text-white text-xl font-bold mb-4">Captured Views:</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {capturedImages.map((img, idx) => (
-                  <div key={img.id} className="border-2 border-green-400 rounded-lg overflow-hidden">
-                    <img 
-                      src={img.url} 
-                      alt={`Captured view ${idx + 1}`}
-                      className="w-full h-48 object-cover"
-                    />
-                    <div className="bg-slate-700 p-2 text-white text-sm">
-                      View {idx + 1} - Zoom: {img.zoom}
-                      {img.sections?.length > 0 && (
-                        <span className="ml-2 text-green-400 font-bold">
-                          ({img.sections.length} sections)
-                        </span>
-                      )}
+            )}
+
+            {!isDrawingMode && capturedImages.length > 0 && (
+              <div>
+                <h3 className="text-white text-xl font-bold mb-4">🖼️ Captured Views for Drawing:</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {capturedImages.map((img, idx) => (
+                    <div 
+                      key={img.id} 
+                      className="border-3 border-purple-400 rounded-xl overflow-hidden bg-white shadow-2xl"
+                    >
+                      <div className="p-3 bg-purple-600 text-white font-bold text-sm flex items-center justify-between">
+                        <span>🖼️ Captured View {idx + 1}</span>
+                        <span className="text-xs bg-purple-700 px-2 py-1 rounded">Zoom: {img.zoom}</span>
+                      </div>
+                      
+                      <img 
+                        src={img.url} 
+                        alt={`Captured view ${idx + 1}`}
+                        className="w-full h-auto"
+                        style={{ display: 'block', minHeight: '300px', objectFit: 'cover' }}
+                        onLoad={(e) => console.log('✅ Image loaded:', img.url)}
+                        onError={(e) => {
+                          console.error('❌ Image failed to load:', img.url);
+                          e.target.style.display = 'none';
+                          e.target.nextElementSibling.style.display = 'flex';
+                        }}
+                      />
+                      <div 
+                        style={{ 
+                          display: 'none', 
+                          minHeight: '300px', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          padding: '40px', 
+                          background: '#fee', 
+                          color: '#c00', 
+                          fontSize: '14px',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        ❌ Failed to load image. Please try capturing again.
+                      </div>
+                      
+                      <div className="p-4 bg-white">
+                        {img.sections?.length > 0 && (
+                          <p className="text-sm text-green-600 font-bold mb-2">
+                            ✓ {img.sections.length} section{img.sections.length !== 1 ? 's' : ''} drawn
+                          </p>
+                        )}
+                        <Button
+                          onClick={() => selectImageForDrawing(idx)}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
+                        >
+                          ✏️ Draw on This Image
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {isDrawingMode && selectedImageIndex !== null && (
+              <div className="flex flex-col items-center">
+                <div className="mb-4 bg-purple-600/90 text-white px-6 py-3 rounded-lg shadow-lg">
+                  <p className="text-lg font-bold">✏️ Drawing on Captured View {selectedImageIndex + 1}</p>
+                  <p className="text-sm">Click points around roof sections. Double-click to finish.</p>
+                </div>
+                
+                <canvas 
+                  ref={canvasRef}
+                  className="border-4 border-purple-400 shadow-2xl bg-white rounded-lg"
+                  style={{ 
+                    cursor: isDrawing ? 'crosshair' : 'default',
+                    maxWidth: '100%',
+                    maxHeight: '70vh'
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
