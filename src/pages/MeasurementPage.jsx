@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera, X, Info } from "lucide-react";
+import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera, X, Info, Square, Circle as CircleIcon, Pentagon, Eraser } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SECTION_COLORS = [
@@ -18,6 +19,8 @@ const SECTION_COLORS = [
   { stroke: '#06b6d4', fill: '#06b6d4', name: 'Cyan' },
   { stroke: '#f59e0b', fill: '#f59e0b', name: 'Amber' },
   { stroke: '#ec4899', fill: '#ec4899', name: 'Pink' },
+  { stroke: '#8b5cf6', fill: '#8b5cf6', name: 'Violet' },
+  { stroke: '#14b8a6', fill: '#14b8a6', name: 'Teal' },
 ];
 
 const PITCH_OPTIONS = [
@@ -42,8 +45,9 @@ export default function MeasurementPage() {
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const drawingManagerRef = useRef(null);
-  const polygonsRef = useRef([]);
+  const drawingManagerRef = useRef(null); // This is not used in the provided code, can be removed if not needed.
+  const polygonsRef = useRef([]); // This is not used in the provided code, can be removed if not needed.
+  const containerRef = useRef(null); // For canvas pan/zoom container
   
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
@@ -63,6 +67,15 @@ export default function MeasurementPage() {
   
   const [currentZoom, setCurrentZoom] = useState(20);
   const [capturing, setCapturing] = useState(false);
+  
+  // Drawing tools state
+  const [drawingShape, setDrawingShape] = useState('polygon'); // 'polygon', 'rectangle', 'circle'
+  const [lineThickness, setLineThickness] = useState(3);
+  const [selectedColor, setSelectedColor] = useState(SECTION_COLORS[0]);
+  const [canvasZoom, setCanvasZoom] = useState(1);
+  const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
@@ -137,7 +150,7 @@ export default function MeasurementPage() {
     };
 
     loadGoogleMaps();
-  }, [address, coordinates]);
+  }, [address, coordinates, GOOGLE_MAPS_API_KEY, initializeMap]);
 
   const handleZoomIn = useCallback(() => {
     if (mapInstanceRef.current) {
@@ -280,13 +293,9 @@ export default function MeasurementPage() {
       
       const imageUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=800x600&scale=2&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}`;
       
-      console.log('🖼️ Testing image URL:', imageUrl);
-      
       const testImg = new Image();
       
       testImg.onload = () => {
-        console.log('✅ Image loaded successfully');
-        
         const newImage = {
           id: `capture-${Date.now()}`,
           url: imageUrl,
@@ -302,25 +311,14 @@ export default function MeasurementPage() {
         setCapturing(false);
       };
       
-      testImg.onerror = (err) => {
-        console.error('❌ Static Maps API error:', err);
+      testImg.onerror = () => {
         setCapturing(false);
-        
-        alert(
-          '⚠️ GOOGLE MAPS STATIC API NOT ENABLED\n\n' +
-          'To fix this:\n' +
-          '1. Go to: https://console.cloud.google.com/apis/library\n' +
-          '2. Search "Maps Static API"\n' +
-          '3. Click "Enable"\n' +
-          '4. Wait 2-3 minutes and try again\n\n' +
-          'Contact support if you need help: contact@aroof.build'
-        );
+        alert('⚠️ GOOGLE MAPS STATIC API NOT ENABLED\n\nTo fix: Enable "Maps Static API" in Google Cloud Console');
       };
       
       testImg.src = imageUrl;
       
     } catch (err) {
-      console.error("Capture error:", err);
       alert('Failed to capture image: ' + err.message);
       setCapturing(false);
     }
@@ -330,6 +328,8 @@ export default function MeasurementPage() {
     setSelectedImageIndex(index);
     setIsDrawingMode(true);
     setSections(capturedImages[index].sections || []);
+    setCanvasZoom(1); // Reset canvas zoom
+    setCanvasPan({ x: 0, y: 0 }); // Reset canvas pan
   }, [capturedImages]);
 
   const removeCapturedImage = useCallback((index) => {
@@ -347,7 +347,39 @@ export default function MeasurementPage() {
     setIsDrawingMode(false);
     setSections([]);
     setIsDrawing(false);
+    setCanvasZoom(1); // Reset canvas zoom
+    setCanvasPan({ x: 0, y: 0 }); // Reset canvas pan
   }, []);
+
+  const handleCanvasZoomIn = useCallback(() => {
+    setCanvasZoom(prev => Math.min(prev + 0.25, 3));
+  }, []);
+
+  const handleCanvasZoomOut = useCallback(() => {
+    setCanvasZoom(prev => Math.max(prev - 0.25, 0.5));
+  }, []);
+
+  const handleCanvasResetZoom = useCallback(() => {
+    setCanvasZoom(1);
+    setCanvasPan({ x: 0, y: 0 });
+  }, []);
+
+  const clearAllSections = useCallback(() => {
+    if (confirm('Clear all sections from this image?')) {
+      setSections([]);
+      if (selectedImageIndex !== null) {
+        setCapturedImages(prev => prev.map((img, i) => 
+          i === selectedImageIndex ? { ...img, sections: [] } : img
+        ));
+      }
+      
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+    }
+  }, [selectedImageIndex]);
+
 
   const setupDrawingCanvas = useCallback(() => {
     if (!imageRef.current || !canvasRef.current) return;
@@ -362,130 +394,149 @@ export default function MeasurementPage() {
     canvas.style.width = rect.width + 'px';
     canvas.style.height = rect.height + 'px';
     
-    console.log('✅ Canvas setup:', {
-      canvasWidth: canvas.width,
-      canvasHeight: canvas.height,
-      imageWidth: rect.width,
-      imageHeight: rect.height
-    });
-    
     // Redraw existing sections
     const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear before redrawing
+
     sections.forEach(section => {
       if (section.points && section.points.length > 0) {
-        ctx.fillStyle = section.color + '55';
+        ctx.fillStyle = (section.fillColor || section.color) + '55'; // Use stored fill color or stroke
         ctx.strokeStyle = section.color;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = section.lineThickness || 3;
         ctx.beginPath();
-        ctx.moveTo(section.points[0].x, section.points[0].y);
-        for (let i = 1; i < section.points.length; i++) {
-          ctx.lineTo(section.points[i].x, section.points[i].y);
+        if (section.shape === 'polygon' || !section.shape) { // Default to polygon if shape not defined
+          ctx.moveTo(section.points[0].x, section.points[0].y);
+          for (let i = 1; i < section.points.length; i++) {
+            ctx.lineTo(section.points[i].x, section.points[i].y);
+          }
+          ctx.closePath();
+        } else if (section.shape === 'rectangle' && section.points.length === 4) {
+          const [p1, p2, p3, p4] = section.points;
+          ctx.rect(p1.x, p1.y, p2.x - p1.x, p4.y - p1.y);
+        } else if (section.shape === 'circle') {
+          // Circles are approximated as polygons during saving, so draw as polygon
+          ctx.moveTo(section.points[0].x, section.points[0].y);
+          for (let i = 1; i < section.points.length; i++) {
+            ctx.lineTo(section.points[i].x, section.points[i].y);
+          }
+          ctx.closePath();
         }
-        ctx.closePath();
         ctx.fill();
         ctx.stroke();
       }
     });
-  }, [sections]);
+  }, [sections, lineThickness]); // Added lineThickness to dependency for dynamic redraw
 
   const startDrawingSection = useCallback(() => {
     if (!canvasRef.current || selectedImageIndex === null) {
       setError("Please select a captured image first");
       return;
     }
-    
+    if (isDrawing) return; // Prevent multiple drawing sessions
+
     setIsDrawing(true);
     setError("");
-    
+
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    const points = [];
-    const colorIndex = sections.length % SECTION_COLORS.length;
-    const sectionColor = SECTION_COLORS[colorIndex];
+    const tempPoints = []; // Stores points for current polygon being drawn
+    let startPoint = null; // Stores mouse down point for rect/circle
+    let isDrawingShapeActive = true; // Controls lifecycle of current drawing operation
 
-    let isDrawingActive = true;
-
-    const handleClick = (e) => {
-      if (!isDrawingActive) return;
-      
+    const getScaledCoords = (e) => {
       const rect = canvas.getBoundingClientRect();
-      
-      // FIXED: Calculate exact position accounting for scale
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
-      
-      console.log('Click:', { 
-        clientX: e.clientX, 
-        clientY: e.clientY,
-        rectLeft: rect.left,
-        rectTop: rect.top,
-        canvasX: x, 
-        canvasY: y,
-        scaleX,
-        scaleY
-      });
-      
-      points.push({ x, y });
-      
-      ctx.fillStyle = sectionColor.stroke;
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, 2 * Math.PI);
-      ctx.fill();
-      
-      if (points.length > 1) {
-        ctx.strokeStyle = sectionColor.stroke;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(points[points.length - 2].x, points[points.length - 2].y);
-        ctx.lineTo(x, y);
-        ctx.stroke();
-      }
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+      };
     };
 
-    const handleDblClick = () => {
-      if (points.length < 3) {
-        alert('Please click at least 3 points');
-        return;
-      }
-      
-      isDrawingActive = false;
-      canvas.removeEventListener('click', handleClick);
-      canvas.removeEventListener('dblclick', handleDblClick);
-      
-      ctx.strokeStyle = sectionColor.stroke;
-      ctx.lineWidth = 3;
+    const redrawAllSections = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      sections.forEach(section => {
+        if (section.points && section.points.length > 0) {
+          ctx.fillStyle = (section.fillColor || section.color) + '55'; // Use stored fill color or stroke
+          ctx.strokeStyle = section.color;
+          ctx.lineWidth = section.lineThickness || 3;
+          ctx.beginPath();
+          if (section.shape === 'polygon' || !section.shape) {
+            ctx.moveTo(section.points[0].x, section.points[0].y);
+            for (let i = 1; i < section.points.length; i++) {
+              ctx.lineTo(section.points[i].x, section.points[i].y);
+            }
+            ctx.closePath();
+          } else if (section.shape === 'rectangle' && section.points.length === 4) {
+            const [p1, p2, p3, p4] = section.points;
+            ctx.rect(p1.x, p1.y, p2.x - p1.x, p4.y - p1.y);
+          } else if (section.shape === 'circle') {
+            ctx.moveTo(section.points[0].x, section.points[0].y);
+            for (let i = 1; i < section.points.length; i++) {
+              ctx.lineTo(section.points[i].x, section.points[i].y);
+            }
+            ctx.closePath();
+          }
+          ctx.fill();
+          ctx.stroke();
+        }
+      });
+    };
+
+    redrawAllSections(); // Initial redraw
+
+    const cleanupListeners = () => {
+      canvas.removeEventListener('click', handlePolygonClick);
+      canvas.removeEventListener('dblclick', handlePolygonDblClick);
+      canvas.removeEventListener('mousedown', handleShapeMouseDown);
+      canvas.removeEventListener('mousemove', handleShapeMouseMove);
+      canvas.removeEventListener('mouseup', handleShapeMouseUp);
+    };
+
+    const finalizeSection = (pointsToSave, shapeType) => {
+      if (!isDrawingShapeActive) return;
+      isDrawingShapeActive = false;
+      cleanupListeners();
+
+      redrawAllSections(); // Redraw all existing sections
+      // Then draw the new one fully
+      ctx.strokeStyle = selectedColor.stroke;
+      ctx.lineWidth = lineThickness;
+      ctx.fillStyle = selectedColor.fill + '55';
       ctx.beginPath();
-      ctx.moveTo(points[points.length - 1].x, points[points.length - 1].y);
-      ctx.lineTo(points[0].x, points[0].y);
-      ctx.stroke();
-      
-      ctx.fillStyle = sectionColor.fill + '55';
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i].x, points[i].y);
+      if (shapeType === 'polygon' || !shapeType) {
+        ctx.moveTo(pointsToSave[0].x, pointsToSave[0].y);
+        for (let i = 1; i < pointsToSave.length; i++) {
+          ctx.lineTo(pointsToSave[i].x, pointsToSave[i].y);
+        }
+        ctx.closePath();
+      } else if (shapeType === 'rectangle' && pointsToSave.length === 4) {
+        const [p1, p2, p3, p4] = pointsToSave;
+        ctx.rect(p1.x, p1.y, p2.x - p1.x, p4.y - p1.y);
+      } else if (shapeType === 'circle') {
+        ctx.moveTo(pointsToSave[0].x, pointsToSave[0].y);
+        for (let i = 1; i < pointsToSave.length; i++) {
+          ctx.lineTo(pointsToSave[i].x, pointsToSave[i].y);
+        }
+        ctx.closePath();
       }
-      ctx.closePath();
       ctx.fill();
-      
-      // Calculate area based on canvas coordinates
-      const staticMapImageWidth = capturedImages[selectedImageIndex].width || 800;
-      const zoomLevel = capturedImages[selectedImageIndex].zoom || 20;
-      
-      const centerLat = capturedImages[selectedImageIndex].center.lat;
-      const metersPerPixel = (156543.03392 * Math.cos(centerLat * Math.PI / 180)) / Math.pow(2, zoomLevel);
-      
-      const areaPixels = Math.abs(points.reduce((sum, point, i) => {
-        const nextPoint = points[(i + 1) % points.length];
+      ctx.stroke();
+
+      const staticMapImage = capturedImages[selectedImageIndex];
+      const zoomLevel = staticMapImage.zoom || 20;
+      const centerLat = staticMapImage.center.lat;
+      const metersPerPixelAtEquator = 156543.03392; // Google Maps constant
+      const metersPerPixel = (metersPerPixelAtEquator * Math.cos(centerLat * Math.PI / 180)) / Math.pow(2, zoomLevel);
+
+      let areaPixels = Math.abs(pointsToSave.reduce((sum, point, i) => {
+        const nextPoint = pointsToSave[(i + 1) % pointsToSave.length];
         return sum + (point.x * nextPoint.y - nextPoint.x * point.y);
       }, 0) / 2);
-      
+
       const areaMeters = areaPixels * (metersPerPixel * metersPerPixel);
       const areaSqFt = areaMeters * 10.7639;
-      
+
       const newSection = {
         id: `section-${Date.now()}`,
         name: `Section ${sections.length + 1}`,
@@ -493,23 +544,150 @@ export default function MeasurementPage() {
         pitch: 'flat',
         pitch_multiplier: 1.00,
         adjusted_area_sqft: Math.round(areaSqFt * 100) / 100,
-        color: sectionColor.stroke,
-        points: points
+        color: selectedColor.stroke,
+        fillColor: selectedColor.fill,
+        lineThickness: lineThickness,
+        shape: shapeType,
+        points: pointsToSave
       };
 
       const updatedSections = [...sections, newSection];
       setSections(updatedSections);
-      
-      setCapturedImages(prev => prev.map((img, i) => 
+      setCapturedImages(prev => prev.map((img, i) =>
         i === selectedImageIndex ? { ...img, sections: updatedSections } : img
       ));
-      
       setIsDrawing(false);
     };
 
-    canvas.addEventListener('click', handleClick);
-    canvas.addEventListener('dblclick', handleDblClick);
-  }, [sections, selectedImageIndex, capturedImages]);
+    // Polygon drawing handlers
+    const handlePolygonClick = (e) => {
+      if (!isDrawingShapeActive) return;
+      const { x, y } = getScaledCoords(e);
+      tempPoints.push({ x, y });
+
+      redrawAllSections(); // Redraw existing sections
+      // Draw temp points and lines
+      ctx.fillStyle = selectedColor.stroke;
+      ctx.strokeStyle = selectedColor.stroke;
+      ctx.lineWidth = lineThickness;
+      for (let i = 0; i < tempPoints.length; i++) {
+        ctx.beginPath();
+        ctx.arc(tempPoints[i].x, tempPoints[i].y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        if (i > 0) {
+          ctx.beginPath();
+          ctx.moveTo(tempPoints[i - 1].x, tempPoints[i - 1].y);
+          ctx.lineTo(tempPoints[i].x, tempPoints[i].y);
+          ctx.stroke();
+        }
+      }
+    };
+
+    const handlePolygonDblClick = () => {
+      if (!isDrawingShapeActive || tempPoints.length < 3) {
+        alert('Please click at least 3 points to form a polygon.');
+        return;
+      }
+      finalizeSection(tempPoints, 'polygon');
+    };
+
+    // Rectangle & Circle drawing handlers
+    const handleShapeMouseDown = (e) => {
+      if (!isDrawingShapeActive) return;
+      startPoint = getScaledCoords(e);
+      canvas.addEventListener('mousemove', handleShapeMouseMove);
+      canvas.addEventListener('mouseup', handleShapeMouseUp);
+    };
+
+    const handleShapeMouseMove = (e) => {
+      if (!isDrawingShapeActive || !startPoint) return;
+      const { x, y } = getScaledCoords(e);
+
+      redrawAllSections(); // Clear and redraw existing sections
+      ctx.strokeStyle = selectedColor.stroke;
+      ctx.lineWidth = lineThickness;
+      ctx.fillStyle = selectedColor.fill + '55';
+
+      if (drawingShape === 'rectangle') {
+        const width = x - startPoint.x;
+        const height = y - startPoint.y;
+        ctx.beginPath();
+        ctx.rect(startPoint.x, startPoint.y, width, height);
+        ctx.fill();
+        ctx.stroke();
+      } else if (drawingShape === 'circle') {
+        const radius = Math.sqrt(Math.pow(x - startPoint.x, 2) + Math.pow(y - startPoint.y, 2));
+        ctx.beginPath();
+        ctx.arc(startPoint.x, startPoint.y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+      }
+    };
+
+    const handleShapeMouseUp = (e) => {
+      if (!isDrawingShapeActive || !startPoint) return;
+      canvas.removeEventListener('mousemove', handleShapeMouseMove);
+      canvas.removeEventListener('mouseup', handleShapeMouseUp);
+
+      const endPoint = getScaledCoords(e);
+      let finalPoints = [];
+
+      if (drawingShape === 'rectangle') {
+        const minX = Math.min(startPoint.x, endPoint.x);
+        const maxX = Math.max(startPoint.x, endPoint.x);
+        const minY = Math.min(startPoint.y, endPoint.y);
+        const maxY = Math.max(startPoint.y, endPoint.y);
+        finalPoints = [
+          { x: minX, y: minY },
+          { x: maxX, y: minY },
+          { x: maxX, y: maxY },
+          { x: minX, y: maxY }
+        ];
+        if (Math.abs(minX - maxX) < 5 || Math.abs(minY - maxY) < 5) { // Prevent tiny shapes
+          alert('Rectangle is too small. Please draw a larger shape.');
+          setIsDrawing(false);
+          redrawAllSections(); // Clear temporary drawing
+          return;
+        }
+      } else if (drawingShape === 'circle') {
+        const radius = Math.sqrt(Math.pow(endPoint.x - startPoint.x, 2) + Math.pow(endPoint.y - startPoint.y, 2));
+        if (radius < 5) { // Prevent tiny shapes
+          alert('Circle is too small. Please draw a larger shape.');
+          setIsDrawing(false);
+          redrawAllSections(); // Clear temporary drawing
+          return;
+        }
+        const numSegments = 32; // Approximate circle with a polygon
+        for (let i = 0; i < numSegments; i++) {
+          const angle = (i / numSegments) * 2 * Math.PI;
+          finalPoints.push({
+            x: startPoint.x + radius * Math.cos(angle),
+            y: startPoint.y + radius * Math.sin(angle)
+          });
+        }
+      }
+
+      if (finalPoints.length > 0) {
+        finalizeSection(finalPoints, drawingShape);
+      } else {
+        setIsDrawing(false);
+        redrawAllSections(); // Clear temporary drawing if no points
+      }
+      startPoint = null;
+    };
+
+    // Attach listeners based on selected drawing shape
+    if (drawingShape === 'polygon') {
+      canvas.addEventListener('click', handlePolygonClick);
+      canvas.addEventListener('dblclick', handlePolygonDblClick);
+    } else { // rectangle or circle
+      canvas.addEventListener('mousedown', handleShapeMouseDown);
+    }
+
+    // Return a cleanup function for when drawing is canceled or a new section is started
+    return cleanupListeners;
+
+  }, [sections, selectedImageIndex, capturedImages, drawingShape, lineThickness, selectedColor, PITCH_OPTIONS]);
 
   const deleteSection = useCallback((sectionId) => {
     const updatedSections = sections.filter(s => s.id !== sectionId);
@@ -528,15 +706,26 @@ export default function MeasurementPage() {
         
         updatedSections.forEach(section => {
           if (section.points) {
-            ctx.fillStyle = section.color + '55';
+            ctx.fillStyle = (section.fillColor || section.color) + '55';
             ctx.strokeStyle = section.color;
-            ctx.lineWidth = 3;
+            ctx.lineWidth = section.lineThickness || 3;
             ctx.beginPath();
-            ctx.moveTo(section.points[0].x, section.points[0].y);
-            for (let i = 1; i < section.points.length; i++) {
-              ctx.lineTo(section.points[i].x, section.points[i].y);
+            if (section.shape === 'polygon' || !section.shape) {
+              ctx.moveTo(section.points[0].x, section.points[0].y);
+              for (let i = 1; i < section.points.length; i++) {
+                ctx.lineTo(section.points[i].x, section.points[i].y);
+              }
+              ctx.closePath();
+            } else if (section.shape === 'rectangle' && section.points.length === 4) {
+              const [p1, p2, p3, p4] = section.points;
+              ctx.rect(p1.x, p1.y, p2.x - p1.x, p4.y - p1.y);
+            } else if (section.shape === 'circle') {
+              ctx.moveTo(section.points[0].x, section.points[0].y);
+              for (let i = 1; i < section.points.length; i++) {
+                ctx.lineTo(section.points[i].x, section.points[i].y);
+              }
+              ctx.closePath();
             }
-            ctx.closePath();
             ctx.fill();
             ctx.stroke();
           }
@@ -594,6 +783,57 @@ export default function MeasurementPage() {
       return total + (img.sections || []).reduce((sum, section) => sum + section.adjusted_area_sqft, 0);
     }, 0);
   };
+
+  const handlePanStart = useCallback((e) => {
+    // Only pan with left click (button 0) and not while drawing or if mouse is over canvas
+    if (isDrawing || e.button !== 0 || !canvasRef.current || e.target === canvasRef.current) return;
+    setIsPanning(true);
+    setPanStart({ x: e.clientX, y: e.clientY });
+  }, [isDrawing]);
+
+  const handlePanMove = useCallback((e) => {
+    if (!isPanning) return;
+    const dx = e.clientX - panStart.x;
+    const dy = e.clientY - panStart.y;
+    setCanvasPan(prev => ({
+      x: prev.x + dx / canvasZoom, // Adjust pan amount by zoom level
+      y: prev.y + dy / canvasZoom
+    }));
+    setPanStart({ x: e.clientX, y: e.clientY });
+  }, [isPanning, panStart, canvasZoom]);
+
+  const handlePanEnd = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  // Attach/detach pan listeners
+  useEffect(() => {
+    const container = containerRef.current;
+    if (isDrawingMode && selectedImageIndex !== null && container) {
+      container.addEventListener('mousedown', handlePanStart);
+      window.addEventListener('mousemove', handlePanMove); // Listen on window for dragging outside container
+      window.addEventListener('mouseup', handlePanEnd);
+
+      return () => {
+        container.removeEventListener('mousedown', handlePanStart);
+        window.removeEventListener('mousemove', handlePanMove);
+        window.removeEventListener('mouseup', handlePanEnd);
+      };
+    }
+  }, [isDrawingMode, selectedImageIndex, handlePanStart, handlePanMove, handlePanEnd]);
+
+  // Update canvas cursor based on drawing/panning state
+  useEffect(() => {
+    if (canvasRef.current) {
+      if (isDrawing) {
+        canvasRef.current.style.cursor = 'crosshair';
+      } else if (isPanning) {
+        canvasRef.current.style.cursor = 'grabbing';
+      } else {
+        canvasRef.current.style.cursor = 'grab';
+      }
+    }
+  }, [isDrawing, isPanning]);
 
   const handleCompleteMeasurement = useCallback(async () => {
     if (capturedImages.length === 0) {
@@ -660,7 +900,7 @@ export default function MeasurementPage() {
       setError(`Failed to save measurement: ${err.message}. Please try again.`);
       setSaving(false);
     }
-  }, [capturedImages, address, measurementId, navigate]);
+  }, [capturedImages, address, measurementId, navigate, getTotalArea]);
 
   if (loading) {
     return (
@@ -763,14 +1003,14 @@ export default function MeasurementPage() {
                 <Alert className="bg-blue-50 border-blue-200">
                   <Info className="h-4 w-4 text-blue-600" />
                   <AlertDescription className="text-xs text-blue-900">
-                    <strong>Step 1:</strong> Use zoom controls or scroll wheel to find best view. Capture as many angles as needed.
+                    <strong>Step 1:</strong> Use zoom controls to find best view. Capture as many angles as needed.
                   </AlertDescription>
                 </Alert>
 
                 <Alert className="bg-green-50 border-green-200">
                   <Info className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-xs text-green-900">
-                    <strong>Step 2:</strong> Once satisfied with views, click "Draw on this image" for any captured view.
+                    <strong>Step 2:</strong> Click "Draw on this image" for any captured view.
                   </AlertDescription>
                 </Alert>
 
@@ -833,9 +1073,83 @@ export default function MeasurementPage() {
                 <Alert className="bg-purple-50 border-purple-200">
                   <Info className="h-4 w-4 text-purple-600" />
                   <AlertDescription className="text-xs text-purple-900">
-                    <strong>Drawing Mode:</strong> Click points around roof sections. Double-click to finish.
+                    <strong>Drawing Tools:</strong> Select shape, color, and line thickness. Click to draw.
                   </AlertDescription>
                 </Alert>
+
+                {/* Drawing Tools */}
+                <Card className="p-3 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 mb-2 block">Shape</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <Button
+                          size="sm"
+                          variant={drawingShape === 'polygon' ? 'default' : 'outline'}
+                          onClick={() => setDrawingShape('polygon')}
+                          className="w-full"
+                          disabled={isDrawing}
+                        >
+                          <Pentagon className="w-4 h-4 mr-1" />
+                          Polygon
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={drawingShape === 'rectangle' ? 'default' : 'outline'}
+                          onClick={() => setDrawingShape('rectangle')}
+                          className="w-full"
+                          disabled={isDrawing}
+                        >
+                          <Square className="w-4 h-4 mr-1" />
+                          Box
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={drawingShape === 'circle' ? 'default' : 'outline'}
+                          onClick={() => setDrawingShape('circle')}
+                          className="w-full"
+                          disabled={isDrawing}
+                        >
+                          <CircleIcon className="w-4 h-4 mr-1" />
+                          Circle
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 mb-2 block">Color</label>
+                      <div className="grid grid-cols-5 gap-2">
+                        {SECTION_COLORS.map((color) => (
+                          <button
+                            key={color.stroke}
+                            onClick={() => setSelectedColor(color)}
+                            className={`w-8 h-8 rounded-full border-2 ${
+                              selectedColor.stroke === color.stroke ? 'border-slate-900 scale-110' : 'border-slate-300'
+                            } transition-all`}
+                            style={{ backgroundColor: color.stroke }}
+                            title={color.name}
+                            disabled={isDrawing}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 mb-2 block">
+                        Line Thickness: {lineThickness}px
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="8"
+                        value={lineThickness}
+                        onChange={(e) => setLineThickness(parseInt(e.target.value))}
+                        className="w-full"
+                        disabled={isDrawing}
+                      />
+                    </div>
+                  </div>
+                </Card>
 
                 <Button
                   onClick={startDrawingSection}
@@ -845,7 +1159,7 @@ export default function MeasurementPage() {
                   {isDrawing ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Drawing Section {sections.length + 1}...
+                      Drawing... (Double-click to finish polygon)
                     </>
                   ) : sections.length === 0 ? (
                     <>
@@ -860,10 +1174,23 @@ export default function MeasurementPage() {
                   )}
                 </Button>
 
+                {sections.length > 0 && (
+                  <Button
+                    onClick={clearAllSections}
+                    variant="outline"
+                    className="w-full text-red-600 border-red-300 hover:bg-red-50"
+                    disabled={isDrawing}
+                  >
+                    <Eraser className="w-4 h-4 mr-2" />
+                    Clear All Sections
+                  </Button>
+                )}
+
                 <Button
                   onClick={exitDrawingMode}
                   variant="outline"
                   className="w-full"
+                  disabled={isDrawing}
                 >
                   ← Back to Live Map
                 </Button>
@@ -1068,7 +1395,6 @@ export default function MeasurementPage() {
             </div>
           </div>
 
-          {/* VISUAL SEPARATOR */}
           <div style={{
             height: '3px',
             background: 'linear-gradient(to right, transparent, #64748b, transparent)',
@@ -1076,7 +1402,6 @@ export default function MeasurementPage() {
             borderRadius: '2px'
           }} />
 
-          {/* Captured Views Section Header */}
           <div style={{
             fontSize: '22px',
             fontWeight: '700',
@@ -1247,42 +1572,93 @@ export default function MeasurementPage() {
                 padding: '20px 32px',
                 borderRadius: '16px',
                 boxShadow: '0 8px 24px rgba(168, 85, 247, 0.5)',
-                textAlign: 'center'
+                textAlign: 'center',
+                width: '100%',
+                maxWidth: '1200px'
               }}>
-                <p style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>
-                  ✏️ Drawing on Captured View {selectedImageIndex + 1}
-                </p>
-                <p style={{ fontSize: '15px', opacity: 0.95 }}>
-                  Click points around roof sections. Double-click to finish.
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <p style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>
+                      ✏️ Drawing on Captured View {selectedImageIndex + 1}
+                    </p>
+                    <p style={{ fontSize: '15px', opacity: 0.95 }}>
+                      {drawingShape === 'polygon' && 'Click points around roof sections. Double-click to finish.'}
+                      {drawingShape === 'rectangle' && 'Click and drag to draw a rectangle.'}
+                      {drawingShape === 'circle' && 'Click and drag to set center and radius.'}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={handleCanvasZoomOut}
+                      disabled={canvasZoom <= 0.5 || isDrawing}
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={handleCanvasResetZoom}
+                      disabled={isDrawing}
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={handleCanvasZoomIn}
+                      disabled={canvasZoom >= 3 || isDrawing}
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
               
-              {/* FIXED: Canvas overlay with proper alignment */}
-              <div style={{ position: 'relative', width: '100%', maxWidth: '1200px' }}>
-                <img 
-                  ref={imageRef}
-                  src={capturedImages[selectedImageIndex]?.url}
-                  alt="Drawing surface"
-                  style={{
-                    width: '100%',
-                    height: 'auto',
-                    display: 'block',
-                    borderRadius: '16px',
-                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.3)'
-                  }}
-                  onLoad={setupDrawingCanvas}
-                />
-                <canvas
-                  ref={canvasRef}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    cursor: isDrawing ? 'crosshair' : 'default',
-                    pointerEvents: 'all',
-                    borderRadius: '16px'
-                  }}
-                />
+              <div 
+                ref={containerRef}
+                style={{ 
+                  position: 'relative', 
+                  width: '100%', 
+                  maxWidth: '1200px',
+                  overflow: 'hidden', // Changed from auto to hidden for manual pan
+                  border: '4px solid #a855f7',
+                  borderRadius: '16px',
+                  boxShadow: '0 12px 40px rgba(168, 85, 247, 0.4)',
+                  background: '#1e293b',
+                  cursor: isDrawing ? 'crosshair' : (isPanning ? 'grabbing' : 'grab')
+                }}
+              >
+                <div style={{
+                  transform: `scale(${canvasZoom}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
+                  transformOrigin: 'top left',
+                  transition: isPanning ? 'none' : 'transform 0.2s ease-out' // No transition during active pan
+                }}>
+                  <div style={{ position: 'relative' }}>
+                    <img 
+                      ref={imageRef}
+                      src={capturedImages[selectedImageIndex]?.url}
+                      alt="Drawing surface"
+                      style={{
+                        width: '100%',
+                        height: 'auto',
+                        display: 'block'
+                      }}
+                      onLoad={setupDrawingCanvas}
+                    />
+                    <canvas
+                      ref={canvasRef}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        // Cursor set by useEffect
+                        pointerEvents: isDrawing || isPanning ? 'all' : 'none' // Only react to mouse events when drawing or panning
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           )}
