@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp, ZoomIn, ZoomOut, Maximize2, RotateCcw } from "lucide-react";
+import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, TrendingUp, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SECTION_COLORS = [
@@ -60,6 +60,13 @@ export default function MeasurementPage() {
   const [currentZoom, setCurrentZoom] = useState(20);
   const [showZoomTutorial, setShowZoomTutorial] = useState(true);
   const [capturingImages, setCapturingImages] = useState(false);
+
+  // NEW: Static image capture state
+  const [capturedImageUrl, setCapturedImageUrl] = useState(null);
+  const [useStaticImage, setUseStaticImage] = useState(false);
+  const [capturedCenter, setCapturedCenter] = useState(null);
+  const [capturedZoom, setCapturedZoom] = useState(null);
+  const [capturing, setCapturing] = useState(false);
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
@@ -327,6 +334,54 @@ export default function MeasurementPage() {
     }
   }, [address, coordinates, createMap]);
 
+  // NEW: Capture current map view as static image
+  const captureCurrentMapView = useCallback(async () => {
+    if (!mapInstanceRef.current) {
+      alert('Map not loaded yet');
+      return;
+    }
+
+    setCapturing(true);
+
+    try {
+      const center = mapInstanceRef.current.getCenter();
+      const zoom = mapInstanceRef.current.getZoom();
+      const lat = center.lat();
+      const lng = center.lng();
+      
+      const mapContainer = mapRef.current;
+      const width = Math.min(mapContainer.offsetWidth, 640);
+      const height = Math.min(mapContainer.offsetHeight, 640);
+      
+      const staticImageUrl = `https://maps.googleapis.com/maps/api/staticmap?` +
+        `center=${lat},${lng}&` +
+        `zoom=${zoom}&` +
+        `size=${width}x${height}&` +
+        `scale=2&` +
+        `maptype=satellite&` +
+        `key=${GOOGLE_MAPS_API_KEY}`;
+      
+      console.log("📸 Captured static image:", { lat, lng, zoom });
+      
+      setCapturedImageUrl(staticImageUrl);
+      setCapturedCenter({ lat, lng });
+      setCapturedZoom(zoom);
+      setUseStaticImage(true);
+      
+      setCapturing(false);
+      
+    } catch (err) {
+      console.error("❌ Capture error:", err);
+      alert('Failed to capture image');
+      setCapturing(false);
+    }
+  }, [GOOGLE_MAPS_API_KEY]);
+
+  // NEW: Switch back to live map
+  const switchToLiveMap = useCallback(() => {
+    setUseStaticImage(false);
+  }, []);
+
   const getZoomLevelAdvice = () => {
     if (currentZoom >= 21) {
       return { type: 'success', message: 'Perfect zoom level for accurate measurements', icon: '✓' };
@@ -370,6 +425,12 @@ export default function MeasurementPage() {
       return;
     }
     
+    // If we're in static image mode, disable drawing.
+    if (useStaticImage) {
+      setError("Cannot draw polygons while in static image view. Switch to 'Live Map' to draw.");
+      return;
+    }
+
     console.log("✅ All checks passed, starting drawing mode");
     setIsDrawing(true);
     setError("");
@@ -469,7 +530,7 @@ export default function MeasurementPage() {
       setError(`Failed to start drawing: ${err.message}`);
       setIsDrawing(false);
     }
-  }, [sections, calculateArea]);
+  }, [sections, calculateArea, useStaticImage]); // Added useStaticImage to dependencies
 
   const deleteSection = useCallback((sectionId) => {
     const section = sections.find(s => s.id === sectionId);
@@ -574,6 +635,15 @@ export default function MeasurementPage() {
   const captureSatelliteView = async () => {
     const mapContainer = mapRef.current;
     
+    // If in static image mode, the mapRef container might not be the visible one.
+    // However, mapInstanceRef.current should still point to the map object.
+    // We assume here that if `useStaticImage` is true, the `capturedImageUrl` should be used as the satellite image,
+    // otherwise capture from the live map.
+    if (useStaticImage && capturedImageUrl) {
+      console.log('📸 Using pre-captured static image for satellite view report.');
+      return capturedImageUrl;
+    }
+
     if (!mapContainer || !mapInstanceRef.current) {
       console.error('Map not ready for satellite capture');
       return null;
@@ -585,7 +655,6 @@ export default function MeasurementPage() {
     try {
       console.log('📸 Capturing satellite view focused on roof...');
       
-      // Calculate bounds from sections
       if (sections.length > 0 && window.google?.maps?.LatLngBounds) {
         const bounds = new window.google.maps.LatLngBounds();
         sections.forEach(section => {
@@ -594,9 +663,8 @@ export default function MeasurementPage() {
           });
         });
         
-        // Temporarily fit to bounds for capture
         mapInstanceRef.current.fitBounds(bounds);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for map to re-render after fitBounds
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
       
       const uiElements = document.querySelectorAll(
@@ -609,7 +677,6 @@ export default function MeasurementPage() {
       const originalCustomDisplays = Array.from(customUI).map(el => el.style.display);
       customUI.forEach(el => el.style.display = 'none');
       
-      // Hide all polygons temporarily for clean satellite view
       polygonsRef.current.forEach(polygon => {
         if (polygon.setVisible) polygon.setVisible(false);
       });
@@ -628,14 +695,12 @@ export default function MeasurementPage() {
         height: mapContainer.offsetHeight
       });
       
-      // Restore everything
       uiElements.forEach((el, i) => el.style.display = originalDisplays[i]);
       customUI.forEach((el, i) => el.style.display = originalCustomDisplays[i]);
       polygonsRef.current.forEach(polygon => {
         if (polygon.setVisible) polygon.setVisible(true);
       });
 
-      // Restore original map view
       if (sections.length > 0) {
         mapInstanceRef.current.setZoom(originalZoom);
         mapInstanceRef.current.setCenter(originalCenter);
@@ -655,9 +720,27 @@ export default function MeasurementPage() {
   const captureMeasurementDiagram = async () => {
     const mapContainer = mapRef.current;
     
-    if (!mapContainer || !mapInstanceRef.current) {
-      console.error('Map not ready for diagram capture');
-      return null;
+    // If in static image mode, the mapRef container might not be the visible one.
+    // We need to capture from the underlying mapInstanceRef.current if it's the drawing source.
+    // If `useStaticImage` is true, the `mapRef` element is not rendered, thus html2canvas won't work on it.
+    // This implies that for `captureMeasurementDiagram`, we must be on the live map or revert to it temporarily.
+    // Given the JSX below, if `useStaticImage` is true, `mapRef` is not in the DOM.
+    // This function will fail if `mapRef` is null.
+    // For a functional approach, if `useStaticImage` is true, we would need to switch back to live map temporarily for capture.
+    // But strictly following the outline, `mapRef` will be null if `useStaticImage` is true.
+    // This implies this capture should only happen when `useStaticImage` is false.
+    // Or, more simply, if `useStaticImage` is true, the drawing is effectively frozen and we'd be capturing what was drawn *before* entering static mode.
+    // Let's ensure this capture only attempts to use the actual mapRef when it's present.
+
+    // If mapRef is null, and we are in static mode, we cannot take a screenshot with html2canvas.
+    // This implies the final capture must happen on the actual map, or the process must transition out of static mode.
+    // For now, I will assume that the user will be in "live map" mode when completing the measurement for this capture to work.
+    // If `useStaticImage` is true, mapRef.current will be null based on the JSX.
+    // This means this part of the outline is implicitly stating `useStaticImage` must be false for `handleCompleteMeasurement` to take true screenshots.
+
+    if (!mapRef.current || !mapInstanceRef.current) {
+      console.error('Map not ready for diagram capture. Are we in static image mode?');
+      return null; // Return null if mapRef is not mounted (e.g., if useStaticImage is true)
     }
 
     const originalZoom = mapInstanceRef.current.getZoom();
@@ -666,7 +749,6 @@ export default function MeasurementPage() {
     try {
       console.log('📸 Capturing measurement diagram with polygons...');
       
-      // Ensure map is focused on roof
       if (sections.length > 0 && window.google?.maps?.LatLngBounds) {
         const bounds = new window.google.maps.LatLngBounds();
         sections.forEach(section => {
@@ -676,10 +758,9 @@ export default function MeasurementPage() {
         });
         
         mapInstanceRef.current.fitBounds(bounds);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for map to re-render after fitBounds
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
       
-      // Hide UI but KEEP polygons visible
       const uiElements = document.querySelectorAll(
         '.gmnoprint, .gm-style-cc, .gm-bundled-control, .gm-svpc, .gm-control-active'
       );
@@ -690,7 +771,6 @@ export default function MeasurementPage() {
       const originalCustomDisplays = Array.from(customUI).map(el => el.style.display);
       customUI.forEach(el => el.style.display = 'none');
       
-      // Ensure polygons are visible
       polygonsRef.current.forEach(polygon => {
         if (polygon.setVisible) polygon.setVisible(true);
       });
@@ -709,11 +789,9 @@ export default function MeasurementPage() {
         height: mapContainer.offsetHeight
       });
       
-      // Restore UI
       uiElements.forEach((el, i) => el.style.display = originalDisplays[i]);
       customUI.forEach((el, i) => el.style.display = originalCustomDisplays[i]);
 
-      // Restore original map view
       if (sections.length > 0) {
         mapInstanceRef.current.setZoom(originalZoom);
         mapInstanceRef.current.setCenter(originalCenter);
@@ -758,6 +836,13 @@ export default function MeasurementPage() {
       const sectionsData = sections.map(({ polygon, ...section }) => section);
       const roofComponents = calculateRoofComponents(sections);
 
+      // Ensure we are in live map mode for capture if currently in static mode
+      if (useStaticImage) {
+        console.log("Switching to live map temporarily for final image capture.");
+        setUseStaticImage(false);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Give map time to re-render
+      }
+
       console.log('📸 Starting image capture...');
       
       const satelliteImage = await captureSatelliteView();
@@ -787,6 +872,12 @@ export default function MeasurementPage() {
         
         satellite_image: satelliteImage,
         measurement_diagram: measurementDiagram,
+        
+        // NEW: Save captured static image data
+        captured_image_url: capturedImageUrl,
+        captured_center_lat: capturedCenter?.lat,
+        captured_center_lng: capturedCenter?.lng,
+        captured_zoom: capturedZoom,
         
         status: "completed",
         completed_at: new Date().toISOString()
@@ -832,8 +923,11 @@ export default function MeasurementPage() {
       setError(`Failed to save measurement: ${err.message}. Please try again.`);
       setSaving(false);
       setCapturingImages(false);
+    } finally {
+      setCapturingImages(false);
+      setSaving(false);
     }
-  }, [sections, address, measurementId, navigate, calculateRoofComponents]);
+  }, [sections, address, measurementId, navigate, calculateRoofComponents, capturedImageUrl, capturedCenter, capturedZoom, useStaticImage]);
 
   if (loading) {
     return (
@@ -943,7 +1037,7 @@ export default function MeasurementPage() {
                 <Button
                   onClick={startDrawingSection}
                   className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isDrawing || mapLoading || !!mapError}
+                  disabled={isDrawing || mapLoading || !!mapError || useStaticImage}
                 >
                   {isDrawing ? (
                     <>
@@ -954,6 +1048,11 @@ export default function MeasurementPage() {
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                       Loading Map...
+                    </>
+                  ) : useStaticImage ? (
+                    <>
+                      <ArrowLeft className="w-5 h-5 mr-2" />
+                      Back to Live Map to Draw
                     </>
                   ) : sections.length === 0 ? (
                     <>
@@ -968,9 +1067,14 @@ export default function MeasurementPage() {
                   )}
                 </Button>
                 
-                {!mapLoading && !mapError && (
+                {!mapLoading && !mapError && !useStaticImage && (
                   <p className="text-xs text-slate-500 mt-2 text-center">
                     Click button, then click points on the map to draw
+                  </p>
+                )}
+                 {!mapLoading && !mapError && useStaticImage && (
+                  <p className="text-xs text-slate-500 mt-2 text-center">
+                    Switch back to live map to draw new sections.
                   </p>
                 )}
               </div>
@@ -1136,7 +1240,7 @@ export default function MeasurementPage() {
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <Button
                   onClick={handleZoomIn}
-                  disabled={currentZoom >= 22}
+                  disabled={currentZoom >= 22 || useStaticImage}
                   className="h-12 bg-blue-600 hover:bg-blue-700 text-white"
                   size="lg"
                 >
@@ -1146,7 +1250,7 @@ export default function MeasurementPage() {
                 
                 <Button
                   onClick={handleZoomOut}
-                  disabled={currentZoom <= 18}
+                  disabled={currentZoom <= 18 || useStaticImage}
                   className="h-12 bg-blue-600 hover:bg-blue-700 text-white"
                   size="lg"
                 >
@@ -1161,6 +1265,7 @@ export default function MeasurementPage() {
                   variant="outline"
                   className="w-full h-10"
                   size="sm"
+                  disabled={useStaticImage}
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
                   Reset View
@@ -1171,6 +1276,7 @@ export default function MeasurementPage() {
                     onClick={handleOptimalZoom}
                     className="w-full h-10 bg-green-600 hover:bg-green-700 text-white"
                     size="sm"
+                    disabled={useStaticImage}
                   >
                     <Maximize2 className="w-4 h-4 mr-2" />
                     Auto-Zoom to Optimal
@@ -1189,6 +1295,7 @@ export default function MeasurementPage() {
                   value={currentZoom}
                   onChange={(e) => mapInstanceRef.current?.setZoom(Number(e.target.value))}
                   className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  disabled={useStaticImage}
                 />
                 <div className="flex justify-between text-xs text-slate-500 mt-1">
                   <span>Far (18)</span>
@@ -1260,7 +1367,61 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          <div ref={mapRef} className="w-full h-full" />
+          {/* NEW: Capture Static Image Button */}
+          {!mapLoading && !mapError && !useStaticImage && (
+            <Button
+              onClick={captureCurrentMapView}
+              disabled={capturing}
+              className="absolute top-4 right-4 z-[1000] bg-green-600 hover:bg-green-700 text-white shadow-2xl"
+              size="lg"
+            >
+              {capturing ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Capturing...
+                </>
+              ) : (
+                <>
+                  <Camera className="w-5 h-5 mr-2" />
+                  📸 Capture Static Image
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* NEW: Back to Live Map Button */}
+          {useStaticImage && (
+            <Button
+              onClick={switchToLiveMap}
+              className="absolute top-4 right-4 z-[1000] bg-blue-600 hover:bg-blue-700 text-white shadow-2xl"
+              size="lg"
+            >
+              <ArrowLeft className="w-5 h-5 mr-2" />
+              ↩️ Back to Live Map
+            </Button>
+          )}
+
+          {/* NEW: Show static image when captured */}
+          {useStaticImage && capturedImageUrl ? (
+            <div className="absolute inset-0 bg-slate-100 flex items-center justify-center p-8">
+              <div className="max-w-full max-h-full relative">
+                <img 
+                  src={capturedImageUrl}
+                  alt="Captured satellite view"
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-2xl border-4 border-green-500"
+                />
+                {/* When showing static image, we also want to overlay polygons if any exist */}
+                {/* This requires custom SVG rendering of polygons, which is outside the scope of merely swapping mapRef */}
+                {/* For now, polygons will only be visible on the live map because DrawingManager draws on mapInstanceRef */}
+                <div className="mt-4 text-center bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg">
+                  <p className="font-bold text-lg">✓ Static View Captured!</p>
+                  <p className="text-sm">Click "Back to Live Map" to enable drawing and map interaction.</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div ref={mapRef} className="w-full h-full" />
+          )}
 
           {/* Capturing Images Overlay */}
           {capturingImages && (
@@ -1303,10 +1464,11 @@ export default function MeasurementPage() {
           )}
 
           {/* Mobile Zoom Controls */}
+          {/* These controls should be disabled if in static image mode */}
           <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col gap-2 lg:hidden z-10">
             <Button
               onClick={handleZoomIn}
-              disabled={currentZoom >= 22}
+              disabled={currentZoom >= 22 || useStaticImage}
               className="h-14 w-14 bg-white hover:bg-slate-50 text-blue-600 shadow-lg rounded-full"
               size="icon"
             >
@@ -1314,11 +1476,11 @@ export default function MeasurementPage() {
             </Button>
             <Button
               onClick={handleZoomOut}
-              disabled={currentZoom <= 18}
+              disabled={currentZoom <= 18 || useStaticImage}
               className="h-14 w-14 bg-white hover:bg-slate-50 text-blue-600 shadow-lg rounded-full"
               size="icon"
             >
-              <ZoomOut className="w-6 h-6" />
+            <ZoomOut className="w-6 h-6" />
             </Button>
           </div>
         </div>
