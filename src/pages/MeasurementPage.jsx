@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -45,7 +44,9 @@ export default function MeasurementPage() {
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const containerRef = useRef(null); // For canvas pan/zoom container
+  const drawingManagerRef = useRef(null);
+  const polygonsRef = useRef([]);
+  const containerRef = useRef(null);
   
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
@@ -67,24 +68,19 @@ export default function MeasurementPage() {
   const [capturing, setCapturing] = useState(false);
   
   // Drawing tools state
-  const [drawingShape, setDrawingShape] = useState('polygon'); // 'polygon', 'rectangle', 'circle'
+  const [drawingShape, setDrawingShape] = useState('polygon');
   const [lineThickness, setLineThickness] = useState(3);
   const [selectedColor, setSelectedColor] = useState(SECTION_COLORS[0]);
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 }); // clientX, clientY for pan calculations
-
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  
   // Edit mode state
   const [editMode, setEditMode] = useState(false);
   const [selectedSection, setSelectedSection] = useState(null);
   const [draggedPointIndex, setDraggedPointIndex] = useState(null);
   const [shapeOpacity, setShapeOpacity] = useState(0.5);
-
-  // Refs for managing mutable drawing state without re-renders
-  const drawingPointsRef = useRef([]); // For polygon points
-  const startPointRef = useRef(null); // For rectangle/circle initial click or center
-  const mouseCoordsRef = useRef({x:0, y:0}); // For dynamic preview drawing (rect/circle/polygon line)
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
@@ -118,73 +114,6 @@ export default function MeasurementPage() {
 
     setLoading(false);
   }, [navigate]);
-
-  useEffect(() => {
-    if (!address) return;
-
-    const loadGoogleMaps = () => {
-      if (window.google && window.google.maps && window.google.maps.drawing) {
-        initializeMap();
-        return;
-      }
-
-      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
-        let attempts = 0;
-        const maxAttempts = 50;
-        
-        const checkGoogle = setInterval(() => {
-          attempts++;
-          if (window.google && window.google.maps && window.google.maps.drawing) {
-            clearInterval(checkGoogle);
-            initializeMap();
-          } else if (attempts >= maxAttempts) {
-            clearInterval(checkGoogle);
-            setMapError("Google Maps failed to load. Please refresh the page.");
-            setMapLoading(false);
-          }
-        }, 100);
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => initializeMap();
-      script.onerror = () => {
-        setMapError("Failed to load Google Maps. Please check your internet connection.");
-        setMapLoading(false);
-      };
-      document.head.appendChild(script);
-    };
-
-    loadGoogleMaps();
-  }, [address, coordinates, initializeMap, GOOGLE_MAPS_API_KEY]);
-
-  const handleZoomIn = useCallback(() => {
-    if (mapInstanceRef.current) {
-      const currentZoom = mapInstanceRef.current.getZoom();
-      if (currentZoom < 22) mapInstanceRef.current.setZoom(currentZoom + 1);
-    }
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    if (mapInstanceRef.current) {
-      const currentZoom = mapInstanceRef.current.getZoom();
-      if (currentZoom > 18) mapInstanceRef.current.setZoom(currentZoom - 1);
-    }
-  }, []);
-
-  const handleResetZoom = useCallback(() => {
-    if (mapInstanceRef.current && coordinates) {
-      mapInstanceRef.current.setZoom(20);
-      mapInstanceRef.current.setCenter(coordinates);
-    }
-  }, [coordinates]);
-
-  const handleOptimalZoom = useCallback(() => {
-    if (mapInstanceRef.current) mapInstanceRef.current.setZoom(20);
-  }, []);
 
   const createMap = useCallback((center) => {
     try {
@@ -286,6 +215,73 @@ export default function MeasurementPage() {
     }
   }, [address, coordinates, createMap]);
 
+  useEffect(() => {
+    if (!address) return;
+
+    const loadGoogleMaps = () => {
+      if (window.google && window.google.maps && window.google.maps.drawing) {
+        initializeMap();
+        return;
+      }
+
+      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+        let attempts = 0;
+        const maxAttempts = 50;
+        
+        const checkGoogle = setInterval(() => {
+          attempts++;
+          if (window.google && window.google.maps && window.google.maps.drawing) {
+            clearInterval(checkGoogle);
+            initializeMap();
+          } else if (attempts >= maxAttempts) {
+            clearInterval(checkGoogle);
+            setMapError("Google Maps failed to load. Please refresh the page.");
+            setMapLoading(false);
+          }
+        }, 100);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => initializeMap();
+      script.onerror = () => {
+        setMapError("Failed to load Google Maps. Please check your internet connection.");
+        setMapLoading(false);
+      };
+      document.head.appendChild(script);
+    };
+
+    loadGoogleMaps();
+  }, [address, coordinates, initializeMap]);
+
+  const handleZoomIn = useCallback(() => {
+    if (mapInstanceRef.current) {
+      const currentZoom = mapInstanceRef.current.getZoom();
+      if (currentZoom < 22) mapInstanceRef.current.setZoom(currentZoom + 1);
+    }
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    if (mapInstanceRef.current) {
+      const currentZoom = mapInstanceRef.current.getZoom();
+      if (currentZoom > 18) mapInstanceRef.current.setZoom(currentZoom - 1);
+    }
+  }, []);
+
+  const handleResetZoom = useCallback(() => {
+    if (mapInstanceRef.current && coordinates) {
+      mapInstanceRef.current.setZoom(20);
+      mapInstanceRef.current.setCenter(coordinates);
+    }
+  }, [coordinates]);
+
+  const handleOptimalZoom = useCallback(() => {
+    if (mapInstanceRef.current) mapInstanceRef.current.setZoom(20);
+  }, []);
+
   const handleCaptureView = useCallback(async () => {
     if (!mapInstanceRef.current) {
       alert('Map not loaded yet');
@@ -362,91 +358,51 @@ export default function MeasurementPage() {
     setCanvasPan({ x: 0, y: 0 });
     setEditMode(false);
     setSelectedSection(null);
-    drawingPointsRef.current = [];
-    startPointRef.current = null;
   }, []);
 
-  const getScaledCoords = useCallback((e) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    const rawX = e.clientX - rect.left;
-    const rawY = e.clientY - rect.top;
-    // Apply reverse transform for mouse coords to match untransformed canvas coordinates
-    const zoomedX = rawX / canvasZoom - canvasPan.x;
-    const zoomedY = rawY / canvasZoom - canvasPan.y;
-    return { x: zoomedX, y: zoomedY };
-  }, [canvasZoom, canvasPan]);
+  const handleCanvasZoomIn = useCallback(() => {
+    setCanvasZoom(prev => Math.min(prev + 0.25, 3));
+  }, []);
 
-  const calculateSectionArea = useCallback((pointsToSave) => {
-    if (selectedImageIndex === null || !capturedImages[selectedImageIndex]) return 0;
+  const handleCanvasZoomOut = useCallback(() => {
+    setCanvasZoom(prev => Math.max(prev - 0.25, 0.5));
+  }, []);
 
-    const staticMapImage = capturedImages[selectedImageIndex];
-    const zoomLevel = staticMapImage.zoom || 20;
-    const centerLat = staticMapImage.center.lat;
-    const metersPerPixelAtEquator = 156543.03392; // Google Maps constant
-    const metersPerPixel = (metersPerPixelAtEquator * Math.cos(centerLat * Math.PI / 180)) / Math.pow(2, zoomLevel);
+  const handleCanvasResetZoom = useCallback(() => {
+    setCanvasZoom(1);
+    setCanvasPan({ x: 0, y: 0 });
+  }, []);
 
-    let areaPixels = Math.abs(pointsToSave.reduce((sum, point, i) => {
-      const nextPoint = pointsToSave[(i + 1) % pointsToSave.length];
-      return sum + (point.x * nextPoint.y - nextPoint.x * point.y);
-    }, 0) / 2);
-
-    const areaMeters = areaPixels * (metersPerPixel * metersPerPixel);
-    return areaMeters * 10.7639; // Convert to sq ft
-  }, [capturedImages, selectedImageIndex]);
-
-  const completeSection = useCallback((sectionPoints, shapeType) => {
-    const flatAreaSqFt = Math.round(calculateSectionArea(sectionPoints) * 100) / 100;
-    const pitchOption = PITCH_OPTIONS.find(p => p.value === 'flat'); // Default pitch
-
-    const newSection = {
-      id: `section-${Date.now()}`,
-      name: `Section ${sections.length + 1}`,
-      flat_area_sqft: flatAreaSqFt,
-      pitch: pitchOption.value,
-      pitch_multiplier: pitchOption.multiplier,
-      adjusted_area_sqft: Math.round(flatAreaSqFt * pitchOption.multiplier * 100) / 100,
-      color: selectedColor.stroke,
-      fill: selectedColor.fill,
-      lineThickness: lineThickness,
-      opacity: shapeOpacity,
-      shape: shapeType,
-      points: sectionPoints
-    };
-
-    const updatedSections = [...sections, newSection];
-    setSections(updatedSections);
-    
-    if (selectedImageIndex !== null) {
-      setCapturedImages(prev => prev.map((img, i) => 
-        i === selectedImageIndex ? { ...img, sections: updatedSections } : img
-      ));
+  const clearAllSections = useCallback(() => {
+    if (confirm('Clear all sections from this image?')) {
+      setSections([]);
+      setSelectedSection(null);
+      if (selectedImageIndex !== null) {
+        setCapturedImages(prev => prev.map((img, i) => 
+          i === selectedImageIndex ? { ...img, sections: [] } : img
+        ));
+      }
+      
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
     }
-    setIsDrawing(false);
-    drawingPointsRef.current = [];
-    startPointRef.current = null;
-    setError(""); // Clear error on successful drawing
-  }, [calculateSectionArea, sections, selectedImageIndex, capturedImages, selectedColor, lineThickness, shapeOpacity, PITCH_OPTIONS]);
+  }, [selectedImageIndex]);
 
   const redrawCanvas = useCallback(() => {
     if (!canvasRef.current) return;
     
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-
-    // Clear and apply canvas pan and zoom transform
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset current transform
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the entire canvas
-    ctx.translate(canvasPan.x * canvasZoom, canvasPan.y * canvasZoom);
-    ctx.scale(canvasZoom, canvasZoom);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     sections.forEach(section => {
       if (section.points && section.points.length > 0) {
         const isSelected = selectedSection?.id === section.id;
         const opacity = section.opacity !== undefined ? section.opacity : shapeOpacity;
         
-        ctx.fillStyle = section.fill + Math.round(opacity * 255).toString(16).padStart(2, '0');
+        ctx.fillStyle = section.color + Math.round(opacity * 255).toString(16).padStart(2, '0');
         ctx.strokeStyle = section.color;
         ctx.lineWidth = section.lineThickness || 3;
         
@@ -466,68 +422,22 @@ export default function MeasurementPage() {
         ctx.fill();
         ctx.stroke();
         
-        // Draw edit handles if selected and in edit mode, and not currently drawing
-        if (isSelected && editMode && !isDrawing) {
-          section.points.forEach((point) => {
+        // Draw edit handles if selected
+        if (isSelected && editMode) {
+          section.points.forEach((point, idx) => {
             ctx.fillStyle = '#fff';
             ctx.strokeStyle = section.color;
             ctx.lineWidth = 2;
             ctx.setLineDash([]);
             ctx.beginPath();
-            ctx.arc(point.x, point.y, 6 / canvasZoom, 0, 2 * Math.PI); // Scale handle size
+            ctx.arc(point.x, point.y, 6, 0, 2 * Math.PI);
             ctx.fill();
             ctx.stroke();
           });
         }
       }
     });
-
-    // Temporary drawing for current session (polygon points or rect/circle preview)
-    if (isDrawing && !editMode) {
-      ctx.strokeStyle = selectedColor.stroke;
-      ctx.lineWidth = lineThickness;
-      ctx.fillStyle = selectedColor.fill + Math.round(shapeOpacity * 255).toString(16).padStart(2, '0');
-      ctx.setLineDash([]); // Ensure no dashed line for temporary drawing
-
-      if (drawingShape === 'polygon' && drawingPointsRef.current.length > 0) {
-        ctx.beginPath();
-        ctx.moveTo(drawingPointsRef.current[0].x, drawingPointsRef.current[0].y);
-        for (let i = 1; i < drawingPointsRef.current.length; i++) {
-          ctx.lineTo(drawingPointsRef.current[i].x, drawingPointsRef.current[i].y);
-        }
-        // Draw connecting line to mouse if moving
-        ctx.lineTo(mouseCoordsRef.current.x, mouseCoordsRef.current.y);
-        ctx.stroke();
-
-        // Draw temporary points
-        drawingPointsRef.current.forEach(point => {
-          ctx.beginPath();
-          ctx.arc(point.x, point.y, 4 / canvasZoom, 0, 2 * Math.PI); // Scale point size
-          ctx.fill();
-        });
-
-      } else if ((drawingShape === 'rectangle' || drawingShape === 'circle') && startPointRef.current) {
-        const currentMouseCoords = mouseCoordsRef.current;
-        if (drawingShape === 'rectangle') {
-          const width = currentMouseCoords.x - startPointRef.current.x;
-          const height = currentMouseCoords.y - startPointRef.current.y;
-          ctx.beginPath();
-          ctx.rect(startPointRef.current.x, startPointRef.current.y, width, height);
-          ctx.fill();
-          ctx.stroke();
-        } else if (drawingShape === 'circle') {
-          const radius = Math.sqrt(
-              Math.pow(currentMouseCoords.x - startPointRef.current.x, 2) +
-              Math.pow(currentMouseCoords.y - startPointRef.current.y, 2)
-          );
-          ctx.beginPath();
-          ctx.arc(startPointRef.current.x, startPointRef.current.y, radius, 0, 2 * Math.PI);
-          ctx.fill();
-          ctx.stroke();
-        }
-      }
-    }
-  }, [sections, selectedSection, editMode, shapeOpacity, lineThickness, isDrawing, drawingShape, canvasZoom, canvasPan, selectedColor, drawingPointsRef, startPointRef, mouseCoordsRef]);
+  }, [sections, selectedSection, editMode, shapeOpacity]);
 
   const setupDrawingCanvas = useCallback(() => {
     if (!imageRef.current || !canvasRef.current) return;
@@ -536,7 +446,6 @@ export default function MeasurementPage() {
     const canvas = canvasRef.current;
     const rect = img.getBoundingClientRect();
     
-    // Set canvas size to match displayed image EXACTLY
     canvas.width = rect.width;
     canvas.height = rect.height;
     canvas.style.width = rect.width + 'px';
@@ -545,153 +454,40 @@ export default function MeasurementPage() {
     redrawCanvas();
   }, [redrawCanvas]);
 
-  // Effect to re-draw canvas when relevant states change
   useEffect(() => {
-    if (isDrawingMode && selectedImageIndex !== null && imageRef.current && canvasRef.current) {
-      redrawCanvas();
-    }
-  }, [sections, selectedSection, editMode, shapeOpacity, lineThickness, isDrawing, drawingShape, canvasZoom, canvasPan, selectedColor, isDrawingMode, selectedImageIndex, redrawCanvas]);
-
-
-  const handleCanvasMouseDown = useCallback((e) => {
-    if (!canvasRef.current || e.button !== 0) return; // Only allow left-click
-    e.preventDefault(); // Prevent default browser drag behavior (e.g., image dragging)
-    const coords = getScaledCoords(e);
-    setError(""); // Clear any previous error
-
-    if (editMode && selectedSection) {
-      // Check if clicking on a point handle of the selected section
-      for (let i = 0; i < selectedSection.points.length; i++) {
-        const point = selectedSection.points[i];
-        const distance = Math.sqrt(Math.pow(coords.x - point.x, 2) + Math.pow(coords.y - point.y, 2));
-        if (distance < 10 / canvasZoom) { // Adjust click radius by zoom
-          setDraggedPointIndex(i);
-          return;
-        }
-      }
-    } else if (isDrawing && (drawingShape === 'rectangle' || drawingShape === 'circle')) {
-      startPointRef.current = coords;
-    } else if (!isDrawing && !editMode) { // Only pan if not drawing and not editing
-      setIsPanning(true);
-      setPanStart({ x: e.clientX, y: e.clientY });
-    }
-  }, [getScaledCoords, editMode, selectedSection, isDrawing, drawingShape, canvasZoom]);
-
-  const handleCanvasMouseMove = useCallback((e) => {
-    if (!canvasRef.current) return;
-    const coords = getScaledCoords(e);
-    mouseCoordsRef.current = coords; // Update current mouse position for previews
-
-    if (draggedPointIndex !== null && selectedSection) { // Editing a point
-      const updatedPoints = [...selectedSection.points];
-      updatedPoints[draggedPointIndex] = coords;
-
-      // Recalculate area for the edited section
-      const flatAreaSqFt = Math.round(calculateSectionArea(updatedPoints) * 100) / 100;
-      const pitchOption = PITCH_OPTIONS.find(p => p.value === selectedSection.pitch) || PITCH_OPTIONS[0];
-
-      const updatedSection = {
-        ...selectedSection,
-        points: updatedPoints,
-        flat_area_sqft: flatAreaSqFt,
-        adjusted_area_sqft: Math.round(flatAreaSqFt * pitchOption.multiplier * 100) / 100
-      };
-      setSelectedSection(updatedSection);
-
-      const updatedSections = sections.map(s => s.id === selectedSection.id ? updatedSection : s);
-      setSections(updatedSections);
-
-      if (selectedImageIndex !== null) {
-        setCapturedImages(prev => prev.map((img, i) =>
-          i === selectedImageIndex ? { ...img, sections: updatedSections } : img
-        ));
-      }
-      redrawCanvas();
-
-    } else if (isPanning) {
-      const dx = e.clientX - panStart.x;
-      const dy = e.clientY - panStart.y;
-      setCanvasPan(prev => ({
-        x: prev.x + dx / canvasZoom,
-        y: prev.y + dy / canvasZoom
-      }));
-      setPanStart({ x: e.clientX, y: e.clientY }); // Update panStart for next move
-      redrawCanvas();
-    } else if (isDrawing && (drawingShape === 'rectangle' || drawingShape === 'circle' || drawingShape === 'polygon')) {
-      redrawCanvas(); // Trigger redraw for temporary drawing based on mouseCoordsRef
-    }
-  }, [draggedPointIndex, selectedSection, getScaledCoords, calculateSectionArea, sections, selectedImageIndex, redrawCanvas, isPanning, panStart, canvasZoom, isDrawing, drawingShape, PITCH_OPTIONS]);
-
-
-  const handleCanvasMouseUp = useCallback((e) => {
-    if (draggedPointIndex !== null) {
-      setDraggedPointIndex(null); // Stop dragging a point
-    } else if (isPanning) {
-      setIsPanning(false); // Stop panning
-    } else if (isDrawing && (drawingShape === 'rectangle' || drawingShape === 'circle') && startPointRef.current) {
-      // Finalize rectangle or circle drawing
-      const coords = getScaledCoords(e);
-      let finalPoints = [];
-
-      if (drawingShape === 'rectangle') {
-        const minX = Math.min(startPointRef.current.x, coords.x);
-        const maxX = Math.max(startPointRef.current.x, coords.x);
-        const minY = Math.min(startPointRef.current.y, coords.y);
-        const maxY = Math.max(startPointRef.current.y, coords.y);
-        finalPoints = [
-          { x: minX, y: minY },
-          { x: maxX, y: minY },
-          { x: maxX, y: maxY },
-          { x: minX, y: maxY }
-        ];
-        if (Math.abs(minX - maxX) < 5 / canvasZoom || Math.abs(minY - maxY) < 5 / canvasZoom) {
-          setError('Shape is too small. Please draw a larger shape.');
-          setIsDrawing(false);
-          startPointRef.current = null;
-          redrawCanvas();
-          return;
-        }
-      } else if (drawingShape === 'circle') {
-        const radius = Math.sqrt(Math.pow(coords.x - startPointRef.current.x, 2) + Math.pow(coords.y - startPointRef.current.y, 2));
-        if (radius < 5 / canvasZoom) {
-          setError('Shape is too small. Please draw a larger shape.');
-          setIsDrawing(false);
-          startPointRef.current = null;
-          redrawCanvas();
-          return;
-        }
-        const numSegments = 32;
-        for (let i = 0; i < numSegments; i++) {
-          const angle = (i / numSegments) * 2 * Math.PI;
-          finalPoints.push({
-            x: startPointRef.current.x + radius * Math.cos(angle),
-            y: startPointRef.current.y + radius * Math.sin(angle)
-          });
-        }
-      }
-      if (finalPoints.length > 0) {
-        completeSection(finalPoints, drawingShape);
-      } else {
-        setIsDrawing(false);
-        startPointRef.current = null;
-        redrawCanvas();
-      }
-    }
-  }, [draggedPointIndex, isPanning, isDrawing, drawingShape, getScaledCoords, completeSection, redrawCanvas, canvasZoom]);
+    redrawCanvas();
+  }, [redrawCanvas]);
 
   const handleCanvasClick = useCallback((e) => {
-    e.preventDefault(); // Prevent double-click from zooming
-    const coords = getScaledCoords(e);
-
-    if (editMode && draggedPointIndex === null) { // Selecting a section in edit mode
-      let sectionClicked = null;
-      const canvas = canvasRef.current;
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    // Edit mode - select section or point
+    if (editMode && !isDrawing) {
+      // Check if clicking on a point handle
+      if (selectedSection) {
+        for (let i = 0; i < selectedSection.points.length; i++) {
+          const point = selectedSection.points[i];
+          const distance = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2));
+          if (distance < 10) {
+            setDraggedPointIndex(i);
+            return;
+          }
+        }
+      }
+      
+      // Check if clicking inside a section
       const ctx = canvas.getContext('2d');
-
-      // Check sections from last drawn to first to select the topmost
       for (let i = sections.length - 1; i >= 0; i--) {
         const section = sections[i];
-        if (section.points && section.points.length > 0) {
+        if (section.points) {
           ctx.beginPath();
           ctx.moveTo(section.points[0].x, section.points[0].y);
           for (let j = 1; j < section.points.length; j++) {
@@ -699,63 +495,243 @@ export default function MeasurementPage() {
           }
           ctx.closePath();
           
-          if (ctx.isPointInPath(coords.x, coords.y)) {
-            sectionClicked = section;
-            break;
+          if (ctx.isPointInPath(x, y)) {
+            setSelectedSection(section);
+            redrawCanvas();
+            return;
           }
         }
       }
-      setSelectedSection(sectionClicked);
-    } else if (isDrawing && drawingShape === 'polygon') {
-      // Add point for polygon drawing
-      drawingPointsRef.current.push(coords);
-    }
-    redrawCanvas(); // Re-draw to reflect selection or new polygon point
-  }, [getScaledCoords, editMode, draggedPointIndex, sections, redrawCanvas, isDrawing, drawingShape]);
-
-  const handleCanvasDblClick = useCallback((e) => {
-    e.preventDefault();
-    if (isDrawing && drawingShape === 'polygon') {
-      if (drawingPointsRef.current.length >= 3) {
-        completeSection(drawingPointsRef.current, 'polygon');
-        drawingPointsRef.current = [];
-      } else {
-        setError('A polygon needs at least 3 points. Double-click to finish.');
-      }
-    }
-  }, [isDrawing, drawingShape, completeSection, drawingPointsRef]);
-
-  const clearAllSections = useCallback(() => {
-    if (confirm('Clear all sections from this image?')) {
-      setSections([]);
+      
+      // Clicked outside - deselect
       setSelectedSection(null);
-      if (selectedImageIndex !== null) {
-        setCapturedImages(prev => prev.map((img, i) => 
-          i === selectedImageIndex ? { ...img, sections: [] } : img
-        ));
-      }
-      drawingPointsRef.current = [];
-      startPointRef.current = null;
       redrawCanvas();
     }
-  }, [selectedImageIndex, redrawCanvas]);
+  }, [editMode, isDrawing, selectedSection, sections, redrawCanvas]);
+
+  const handleCanvasMouseMove = useCallback((e) => {
+    if (!canvasRef.current || !editMode || draggedPointIndex === null || !selectedSection) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    const updatedPoints = [...selectedSection.points];
+    updatedPoints[draggedPointIndex] = { x, y };
+    
+    const updatedSection = { ...selectedSection, points: updatedPoints };
+    const updatedSections = sections.map(s => s.id === selectedSection.id ? updatedSection : s);
+    
+    setSections(updatedSections);
+    setSelectedSection(updatedSection);
+    
+    if (selectedImageIndex !== null) {
+      setCapturedImages(prev => prev.map((img, i) => 
+        i === selectedImageIndex ? { ...img, sections: updatedSections } : img
+      ));
+    }
+  }, [editMode, draggedPointIndex, selectedSection, sections, selectedImageIndex]);
+
+  const handleCanvasMouseUp = useCallback(() => {
+    setDraggedPointIndex(null);
+  }, []);
 
   const startDrawingSection = useCallback(() => {
     if (!canvasRef.current || selectedImageIndex === null) {
       setError("Please select a captured image first");
       return;
     }
+    
     if (editMode) {
       setError("Exit edit mode to draw new sections");
       return;
     }
+    
     setIsDrawing(true);
     setError("");
-    drawingPointsRef.current = []; // Clear any previous polygon points
-    startPointRef.current = null; // Clear any previous rect/circle start point
-    setSelectedSection(null); // Deselect any active section
-    redrawCanvas(); // Ensure canvas is clean before drawing
-  }, [editMode, selectedImageIndex, redrawCanvas]);
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const points = [];
+    let startPoint = null;
+
+    let isDrawingActive = true;
+
+    const handleClick = (e) => {
+      if (!isDrawingActive) return;
+      
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      
+      if (drawingShape === 'polygon') {
+        points.push({ x, y });
+        
+        ctx.fillStyle = selectedColor.stroke;
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        if (points.length > 1) {
+          ctx.strokeStyle = selectedColor.stroke;
+          ctx.lineWidth = lineThickness;
+          ctx.beginPath();
+          ctx.moveTo(points[points.length - 2].x, points[points.length - 2].y);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
+      } else if (drawingShape === 'rectangle' || drawingShape === 'circle') {
+        if (!startPoint) {
+          startPoint = { x, y };
+          ctx.fillStyle = selectedColor.stroke;
+          ctx.beginPath();
+          ctx.arc(x, y, 4, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+    };
+
+    const handleMouseMove = (e) => {
+      if (!isDrawingActive || !startPoint) return;
+      if (drawingShape !== 'rectangle' && drawingShape !== 'circle') return;
+      
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      
+      redrawCanvas();
+      
+      ctx.strokeStyle = selectedColor.stroke;
+      ctx.lineWidth = lineThickness;
+      const opacity = shapeOpacity;
+      ctx.fillStyle = selectedColor.fill + Math.round(opacity * 255).toString(16).padStart(2, '0');
+      
+      if (drawingShape === 'rectangle') {
+        const width = x - startPoint.x;
+        const height = y - startPoint.y;
+        ctx.beginPath();
+        ctx.rect(startPoint.x, startPoint.y, width, height);
+        ctx.fill();
+        ctx.stroke();
+      } else if (drawingShape === 'circle') {
+        const radius = Math.sqrt(Math.pow(x - startPoint.x, 2) + Math.pow(y - startPoint.y, 2));
+        ctx.beginPath();
+        ctx.arc(startPoint.x, startPoint.y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+      }
+    };
+
+    const finishDrawing = (e) => {
+      if (!isDrawingActive) return;
+      
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      
+      let finalPoints = [];
+      
+      if (drawingShape === 'rectangle' && startPoint) {
+        const width = x - startPoint.x;
+        const height = y - startPoint.y;
+        finalPoints = [
+          startPoint,
+          { x: startPoint.x + width, y: startPoint.y },
+          { x: startPoint.x + width, y: startPoint.y + height },
+          { x: startPoint.x, y: startPoint.y + height }
+        ];
+      } else if (drawingShape === 'circle' && startPoint) {
+        const radius = Math.sqrt(Math.pow(x - startPoint.x, 2) + Math.pow(y - startPoint.y, 2));
+        const numPoints = 32;
+        for (let i = 0; i < numPoints; i++) {
+          const angle = (i / numPoints) * 2 * Math.PI;
+          finalPoints.push({
+            x: startPoint.x + radius * Math.cos(angle),
+            y: startPoint.y + radius * Math.sin(angle)
+          });
+        }
+      }
+      
+      if (finalPoints.length > 0) {
+        completeSection(finalPoints);
+      }
+    };
+
+    const handleDblClick = () => {
+      if (drawingShape !== 'polygon') return;
+      if (points.length < 3) {
+        alert('Please click at least 3 points');
+        return;
+      }
+      
+      completeSection(points);
+    };
+
+    const completeSection = (sectionPoints) => {
+      isDrawingActive = false;
+      canvas.removeEventListener('click', handleClick);
+      canvas.removeEventListener('dblclick', handleDblClick);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      
+      const staticMapImageWidth = capturedImages[selectedImageIndex].width || 800;
+      const zoomLevel = capturedImages[selectedImageIndex].zoom || 20;
+      const centerLat = capturedImages[selectedImageIndex].center.lat;
+      const metersPerPixel = (156543.03392 * Math.cos(centerLat * Math.PI / 180)) / Math.pow(2, zoomLevel);
+      
+      const areaPixels = Math.abs(sectionPoints.reduce((sum, point, i) => {
+        const nextPoint = sectionPoints[(i + 1) % sectionPoints.length];
+        return sum + (point.x * nextPoint.y - nextPoint.x * point.y);
+      }, 0) / 2);
+      
+      const areaMeters = areaPixels * (metersPerPixel * metersPerPixel);
+      const areaSqFt = areaMeters * 10.7639;
+      
+      const newSection = {
+        id: `section-${Date.now()}`,
+        name: `Section ${sections.length + 1}`,
+        flat_area_sqft: Math.round(areaSqFt * 100) / 100,
+        pitch: 'flat',
+        pitch_multiplier: 1.00,
+        adjusted_area_sqft: Math.round(areaSqFt * 100) / 100,
+        color: selectedColor.stroke,
+        lineThickness: lineThickness,
+        opacity: shapeOpacity,
+        shape: drawingShape,
+        points: sectionPoints
+      };
+
+      const updatedSections = [...sections, newSection];
+      setSections(updatedSections);
+      
+      setCapturedImages(prev => prev.map((img, i) => 
+        i === selectedImageIndex ? { ...img, sections: updatedSections } : img
+      ));
+      
+      setIsDrawing(false);
+      redrawCanvas();
+    };
+
+    canvas.addEventListener('click', handleClick);
+    canvas.addEventListener('dblclick', handleDblClick);
+    
+    if (drawingShape === 'rectangle' || drawingShape === 'circle') {
+      canvas.addEventListener('mousemove', handleMouseMove);
+      canvas.addEventListener('click', finishDrawing);
+    }
+  }, [sections, selectedImageIndex, capturedImages, drawingShape, lineThickness, selectedColor, shapeOpacity, editMode, redrawCanvas]);
 
   const deleteSection = useCallback((sectionId) => {
     const updatedSections = sections.filter(s => s.id !== sectionId);
@@ -770,6 +746,7 @@ export default function MeasurementPage() {
         i === selectedImageIndex ? { ...img, sections: updatedSections } : img
       ));
     }
+    
     redrawCanvas();
   }, [sections, selectedSection, selectedImageIndex, redrawCanvas]);
 
@@ -795,8 +772,7 @@ export default function MeasurementPage() {
         i === selectedImageIndex ? { ...img, sections: updatedSections } : img
       ));
     }
-    redrawCanvas();
-  }, [sections, selectedImageIndex, redrawCanvas, PITCH_OPTIONS]);
+  }, [sections, selectedImageIndex]);
 
   const updateSectionName = useCallback((sectionId, name) => {
     const updatedSections = sections.map(section => 
@@ -810,21 +786,13 @@ export default function MeasurementPage() {
         i === selectedImageIndex ? { ...img, sections: updatedSections } : img
       ));
     }
-    redrawCanvas();
-  }, [sections, selectedImageIndex, redrawCanvas]);
+  }, [sections, selectedImageIndex]);
 
-  const handleCanvasZoomIn = useCallback(() => {
-    setCanvasZoom(prev => Math.min(prev + 0.25, 3));
-  }, []);
-
-  const handleCanvasZoomOut = useCallback(() => {
-    setCanvasZoom(prev => Math.max(prev - 0.25, 0.5));
-  }, []);
-
-  const handleCanvasResetZoom = useCallback(() => {
-    setCanvasZoom(1);
-    setCanvasPan({ x: 0, y: 0 });
-  }, []);
+  useEffect(() => {
+    if (isDrawingMode && selectedImageIndex !== null && imageRef.current) {
+      setupDrawingCanvas();
+    }
+  }, [isDrawingMode, selectedImageIndex, setupDrawingCanvas]);
 
   const getTotalArea = () => {
     return capturedImages.reduce((total, img) => {
@@ -897,7 +865,7 @@ export default function MeasurementPage() {
       setError(`Failed to save measurement: ${err.message}. Please try again.`);
       setSaving(false);
     }
-  }, [capturedImages, address, measurementId, navigate, getTotalArea]);
+  }, [capturedImages, address, measurementId, navigate]);
 
   if (loading) {
     return (
@@ -923,23 +891,6 @@ export default function MeasurementPage() {
     }
   };
   const zoomAdvice = getZoomAdvice();
-
-  // Determine canvas cursor based on current mode
-  const getCanvasCursor = () => {
-    if (isDrawing) {
-      return 'crosshair';
-    }
-    if (editMode) {
-      if (draggedPointIndex !== null) {
-        return 'grabbing';
-      }
-      return 'pointer'; // For selecting sections
-    }
-    if (isPanning) {
-      return 'grabbing';
-    }
-    return 'grab';
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
@@ -993,25 +944,6 @@ export default function MeasurementPage() {
               </Alert>
             )}
             
-            {mapLoading && (
-              <Alert className="bg-blue-50 border-blue-200">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                <AlertDescription className="text-sm text-blue-900">Loading map...</AlertDescription>
-              </Alert>
-            )}
-
-            {mapError && !mapLoading && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm">
-                  {mapError}
-                  <Button onClick={() => window.location.reload()} variant="outline" size="sm" className="mt-2 w-full">
-                    Refresh Page
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
-
             {!mapLoading && !mapError && !isDrawingMode && (
               <>
                 <Alert className="bg-blue-50 border-blue-200">
@@ -1033,8 +965,6 @@ export default function MeasurementPage() {
                         {zoomAdvice.icon} {currentZoom}
                       </span>
                     </div>
-                    
-                    <p className="text-xs text-slate-600 mb-2">{zoomAdvice.message}</p>
                     
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={handleZoomOut} disabled={currentZoom <= 18} className="flex-1">
@@ -1084,7 +1014,6 @@ export default function MeasurementPage() {
                   </AlertDescription>
                 </Alert>
 
-                {/* Mode Toggle */}
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -1092,12 +1021,9 @@ export default function MeasurementPage() {
                     onClick={() => {
                       setEditMode(false);
                       setSelectedSection(null);
-                      setIsDrawing(false); // Make sure drawing state is off
-                      drawingPointsRef.current = [];
-                      startPointRef.current = null;
+                      redrawCanvas();
                     }}
                     className="flex-1"
-                    disabled={isDrawing}
                   >
                     <Edit3 className="w-4 h-4 mr-1" />
                     Draw
@@ -1107,12 +1033,9 @@ export default function MeasurementPage() {
                     variant={editMode ? 'default' : 'outline'}
                     onClick={() => {
                       setEditMode(true);
-                      setIsDrawing(false); // Make sure drawing state is off
-                      drawingPointsRef.current = [];
-                      startPointRef.current = null;
+                      setIsDrawing(false);
                     }}
                     className="flex-1"
-                    disabled={isDrawing}
                   >
                     <MousePointer className="w-4 h-4 mr-1" />
                     Edit
@@ -1130,7 +1053,6 @@ export default function MeasurementPage() {
                             variant={drawingShape === 'polygon' ? 'default' : 'outline'}
                             onClick={() => setDrawingShape('polygon')}
                             className="w-full"
-                            disabled={isDrawing}
                           >
                             <Pentagon className="w-4 h-4 mr-1" />
                             Polygon
@@ -1140,7 +1062,6 @@ export default function MeasurementPage() {
                             variant={drawingShape === 'rectangle' ? 'default' : 'outline'}
                             onClick={() => setDrawingShape('rectangle')}
                             className="w-full"
-                            disabled={isDrawing}
                           >
                             <Square className="w-4 h-4 mr-1" />
                             Box
@@ -1150,7 +1071,6 @@ export default function MeasurementPage() {
                             variant={drawingShape === 'circle' ? 'default' : 'outline'}
                             onClick={() => setDrawingShape('circle')}
                             className="w-full"
-                            disabled={isDrawing}
                           >
                             <CircleIcon className="w-4 h-4 mr-1" />
                             Circle
@@ -1170,7 +1090,6 @@ export default function MeasurementPage() {
                               } transition-all`}
                               style={{ backgroundColor: color.stroke }}
                               title={color.name}
-                              disabled={isDrawing}
                             />
                           ))}
                         </div>
@@ -1187,7 +1106,6 @@ export default function MeasurementPage() {
                           value={lineThickness}
                           onChange={(e) => setLineThickness(parseInt(e.target.value))}
                           className="w-full"
-                          disabled={isDrawing}
                         />
                       </div>
 
@@ -1205,7 +1123,6 @@ export default function MeasurementPage() {
                             setShapeOpacity(newOpacity);
                           }}
                           className="w-full"
-                          disabled={isDrawing}
                         />
                       </div>
                     </div>
@@ -1224,7 +1141,7 @@ export default function MeasurementPage() {
                           type="range"
                           min="0"
                           max="100"
-                          value={Math.round((selectedSection.opacity || shapeOpacity) * 100)}
+                          value={(selectedSection.opacity || shapeOpacity) * 100}
                           onChange={(e) => {
                             const newOpacity = parseInt(e.target.value) / 100;
                             const updatedSections = sections.map(s => 
@@ -1285,7 +1202,6 @@ export default function MeasurementPage() {
                     onClick={clearAllSections}
                     variant="outline"
                     className="w-full text-red-600 border-red-300 hover:bg-red-50"
-                    disabled={isDrawing}
                   >
                     <Eraser className="w-4 h-4 mr-2" />
                     Clear All Sections
@@ -1296,7 +1212,6 @@ export default function MeasurementPage() {
                   onClick={exitDrawingMode}
                   variant="outline"
                   className="w-full"
-                  disabled={isDrawing}
                 >
                   ← Back to Live Map
                 </Button>
@@ -1316,16 +1231,7 @@ export default function MeasurementPage() {
                       src={img.url} 
                       alt={`View ${idx + 1}`}
                       className="w-full h-32 object-cover rounded mb-2"
-                      onLoad={() => console.log('✅ Image displayed successfully:', img.url)}
-                      onError={(e) => {
-                        console.error('❌ Display error:', img.url);
-                        e.target.style.display = 'none';
-                        e.target.nextElementSibling.style.display = 'block';
-                      }}
                     />
-                    <div style={{ display: 'none', padding: '20px', background: '#fee', color: '#c00', borderRadius: '4px', fontSize: '12px' }}>
-                      Failed to load image
-                    </div>
                     <div className="text-xs text-slate-600 mb-2">
                       View {idx + 1} - Zoom: {img.zoom}
                       {img.sections?.length > 0 && (
@@ -1370,8 +1276,9 @@ export default function MeasurementPage() {
                     className={`p-3 border-2 ${selectedSection?.id === section.id ? 'ring-2 ring-amber-400' : ''}`}
                     style={{ borderColor: section.color }}
                     onClick={() => {
-                      if (editMode && !isDrawing) {
+                      if (editMode) {
                         setSelectedSection(section);
+                        redrawCanvas();
                       }
                     }}
                   >
@@ -1455,7 +1362,6 @@ export default function MeasurementPage() {
         </div>
 
         <div className="flex-1 bg-slate-900 p-6 overflow-y-auto">
-          {/* Live Satellite Map */}
           <div style={{ marginBottom: '50px' }}>
             <div style={{
               background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
@@ -1471,35 +1377,8 @@ export default function MeasurementPage() {
             }}>
               <span style={{ fontSize: '24px' }}>🛰️</span>
               Live Satellite View
-              <span style={{ fontSize: '13px', opacity: 0.9, fontWeight: '400', marginLeft: 'auto' }}>
-                Pan and zoom to frame roof perfectly
-              </span>
             </div>
             <div className="relative">
-              {mapLoading && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-slate-900 rounded-b-2xl" style={{ minHeight: '700px' }}>
-                  <div className="text-center">
-                    <Loader2 className="w-16 h-16 animate-spin text-blue-500 mx-auto mb-4" />
-                    <p className="text-white text-xl font-semibold">{geocodingStatus}</p>
-                    <p className="text-slate-300 text-sm mt-3 max-w-md">Address: {address}</p>
-                  </div>
-                </div>
-              )}
-
-              {mapError && !mapLoading && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 p-8 bg-slate-900 rounded-b-2xl" style={{ minHeight: '700px' }}>
-                  <Alert variant="destructive" className="max-w-lg">
-                    <AlertCircle className="h-5 w-5" />
-                    <AlertDescription className="text-base">
-                      <p className="font-bold mb-3">{mapError}</p>
-                      <Button onClick={() => window.location.reload()} variant="outline" size="lg" className="mt-2 w-full">
-                        Refresh Page
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                </div>
-              )}
-
               <div 
                 ref={mapRef} 
                 style={{ 
@@ -1601,7 +1480,6 @@ export default function MeasurementPage() {
                   </div>
                   
                   <img 
-                    ref={imageRef} // Assuming this imageRef was meant to be dynamic per image, but it's a single ref. Not an issue here as we only use one image at a time for drawing
                     src={img.url} 
                     alt={`Captured view ${idx + 1}`}
                     style={{ 
@@ -1613,29 +1491,7 @@ export default function MeasurementPage() {
                       borderRadius: '12px',
                       marginBottom: '16px'
                     }}
-                    onLoad={() => console.log('✅ Image displayed successfully')}
-                    onError={(e) => {
-                      console.error('❌ Display error:', img.url);
-                      e.target.style.display = 'none';
-                      e.target.nextElementSibling.style.display = 'flex';
-                    }}
                   />
-                  <div 
-                    style={{ 
-                      display: 'none', 
-                      minHeight: '400px', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      padding: '60px', 
-                      background: '#fee2e2', 
-                      color: '#991b1b', 
-                      fontSize: '16px',
-                      fontWeight: 'bold',
-                      borderRadius: '12px'
-                    }}
-                  >
-                    ❌ Failed to load image. Please try capturing again.
-                  </div>
                   
                   <div style={{ padding: '4px 0' }}>
                     {img.sections?.length > 0 && (
@@ -1704,7 +1560,7 @@ export default function MeasurementPage() {
                       {editMode ? 'Click shape to select, drag points to modify' : 
                        drawingShape === 'polygon' ? 'Click points around roof sections. Double-click to finish.' :
                        drawingShape === 'rectangle' ? 'Click and drag to draw a rectangle.' :
-                       'Click and drag to set center and radius.'}
+                       'Click center, then click edge to set radius.'}
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -1712,7 +1568,7 @@ export default function MeasurementPage() {
                       size="sm"
                       variant="secondary"
                       onClick={handleCanvasZoomOut}
-                      disabled={canvasZoom <= 0.5 || isDrawing || editMode && draggedPointIndex !== null}
+                      disabled={canvasZoom <= 0.5}
                     >
                       <ZoomOut className="w-4 h-4" />
                     </Button>
@@ -1720,7 +1576,6 @@ export default function MeasurementPage() {
                       size="sm"
                       variant="secondary"
                       onClick={handleCanvasResetZoom}
-                      disabled={isDrawing || editMode && draggedPointIndex !== null}
                     >
                       <Maximize2 className="w-4 h-4" />
                     </Button>
@@ -1728,7 +1583,7 @@ export default function MeasurementPage() {
                       size="sm"
                       variant="secondary"
                       onClick={handleCanvasZoomIn}
-                      disabled={canvasZoom >= 3 || isDrawing || editMode && draggedPointIndex !== null}
+                      disabled={canvasZoom >= 3}
                     >
                       <ZoomIn className="w-4 h-4" />
                     </Button>
@@ -1742,7 +1597,7 @@ export default function MeasurementPage() {
                   position: 'relative', 
                   width: '100%', 
                   maxWidth: '1200px',
-                  overflow: 'hidden',
+                  overflow: 'auto',
                   border: '4px solid #a855f7',
                   borderRadius: '16px',
                   boxShadow: '0 12px 40px rgba(168, 85, 247, 0.4)',
@@ -1752,7 +1607,7 @@ export default function MeasurementPage() {
                 <div style={{
                   transform: `scale(${canvasZoom}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
                   transformOrigin: 'top left',
-                  transition: isPanning ? 'none' : 'transform 0.2s ease-out'
+                  transition: 'transform 0.2s ease-out'
                 }}>
                   <div style={{ position: 'relative' }}>
                     <img 
@@ -1768,17 +1623,15 @@ export default function MeasurementPage() {
                     />
                     <canvas
                       ref={canvasRef}
-                      onMouseDown={handleCanvasMouseDown}
+                      onClick={handleCanvasClick}
                       onMouseMove={handleCanvasMouseMove}
                       onMouseUp={handleCanvasMouseUp}
-                      onClick={handleCanvasClick}
-                      onDoubleClick={handleCanvasDblClick}
                       style={{
                         position: 'absolute',
                         top: 0,
                         left: 0,
-                        cursor: getCanvasCursor(),
-                        pointerEvents: 'all' // Always capture mouse events
+                        cursor: editMode ? (draggedPointIndex !== null ? 'grabbing' : 'pointer') : (isDrawing ? 'crosshair' : 'default'),
+                        pointerEvents: 'all'
                       }}
                     />
                   </div>
