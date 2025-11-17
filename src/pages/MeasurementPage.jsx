@@ -118,14 +118,13 @@ export default function MeasurementPage() {
 
   const createMap = useCallback((center) => {
     if (!mapRef.current) {
-      console.error("Map container not ready, cannot create map.");
-      setMapError("Map container not ready.");
-      setMapLoading(false);
+      console.error("❌ Map container ref is null");
+      setTimeout(() => createMap(center), 200);
       return;
     }
 
     try {
-      console.log("Attempting to create map with center:", center);
+      console.log("✅ Creating Google Map with center:", center);
       
       const map = new window.google.maps.Map(mapRef.current, {
         center: center,
@@ -151,9 +150,10 @@ export default function MeasurementPage() {
       });
 
       mapInstanceRef.current = map;
-
+      console.log("✅ Map instance created");
+      
       window.google.maps.event.addListenerOnce(map, 'tilesloaded', () => {
-        console.log("Google Map tiles loaded successfully.");
+        console.log("✅ Google Map tiles loaded successfully.");
         setMapLoading(false);
         setMapError("");
       });
@@ -175,47 +175,50 @@ export default function MeasurementPage() {
         }
       });
 
-      console.log("Google Map instance created.");
     } catch (err) {
-      console.error("Error creating map instance:", err);
+      console.error("❌ Error creating map instance:", err);
       setMapError(`Error creating map: ${err.message}`);
       setMapLoading(false);
     }
   }, [address]);
 
   const initializeMap = useCallback(async () => {
+    console.log("🔄 initializeMap called");
+    
     if (!mapRef.current) {
-      console.log("Map container reference is not yet available, retrying initialization...");
-      setTimeout(initializeMap, 100); // Retry after a short delay
+      console.log("⏳ Map ref not ready, retrying in 100ms...");
+      setTimeout(initializeMap, 100); 
       return;
     }
 
     try {
       if (!window.google || !window.google.maps) {
-        throw new Error("Google Maps API is not loaded or available.");
+        throw new Error("Google Maps API not loaded");
       }
 
-      console.log("Starting map initialization process.");
-      const defaultCenter = { lat: 32.7767, lng: -96.7970 }; // Default to Dallas, TX
+      console.log("✅ Google Maps API available");
+      const defaultCenter = { lat: 32.7767, lng: -96.7970 };
 
       if (coordinates) {
-        console.log("Using pre-existing coordinates:", coordinates);
+        console.log("✅ Using provided coordinates:", coordinates);
         createMap(coordinates);
         return;
       }
 
       setGeocodingStatus("Finding address location...");
+      console.log("🔄 Geocoding address:", address);
+      
       const geocoder = new window.google.maps.Geocoder();
       let geocodingCompleted = false;
       
       const geocodeTimeout = setTimeout(() => {
         if (!geocodingCompleted) {
-          console.warn("Geocoding timed out after 10 seconds. Using default map center.");
+          console.warn("⚠️ Geocoding timed out after 10 seconds. Using default map center.");
           setMapError("Could not find address location. Using default map center.");
           setGeocodingStatus("Using default location");
           createMap(defaultCenter);
         }
-      }, 10000); // 10 seconds timeout for geocoding
+      }, 10000);
 
       geocoder.geocode({ address: address }, (results, status) => {
         geocodingCompleted = true;
@@ -224,76 +227,87 @@ export default function MeasurementPage() {
         if (status === "OK" && results[0]) {
           const location = results[0].geometry.location;
           const geocodedCenter = { lat: location.lat(), lng: location.lng() };
-          console.log("Address successfully geocoded:", geocodedCenter);
+          console.log("✅ Address successfully geocoded:", geocodedCenter);
           setCoordinates(geocodedCenter);
           setGeocodingStatus("Address found!");
           createMap(geocodedCenter);
         } else {
-          console.error(`Geocoding failed for address "${address}" with status: ${status}.`);
+          console.error("❌ Geocoding failed:", status);
           setMapError(`Could not find address (${status}). Showing default location.`);
           setGeocodingStatus("Using default location");
           createMap(defaultCenter);
         }
       });
     } catch (err) {
-      console.error("Failed to initialize map (catch block):", err);
+      console.error("❌ Failed to initialize map (catch block):", err);
       setMapError(`Failed to initialize map: ${err.message}`);
       setMapLoading(false);
     }
   }, [address, coordinates, createMap]);
 
   useEffect(() => {
-    if (!address) return;
+    if (!address) {
+      console.log("⏳ Waiting for address...");
+      return;
+    }
+
+    console.log("🚀 Starting Google Maps load process");
 
     const loadGoogleMaps = () => {
-      if (window.google && window.google.maps && window.google.maps.drawing) {
-        console.log("Google Maps API already loaded.");
-        // Ensure mapRef.current is available when initializeMap is called.
-        // It's possible the component rendered, script loaded, but mapRef.current is not yet set.
-        setTimeout(initializeMap, 100); 
+      // Check if already loaded
+      if (window.google && window.google.maps) {
+        console.log("✅ Google Maps already loaded");
+        setTimeout(initializeMap, 300); 
         return;
       }
 
-      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
-        console.log("Google Maps script already present in DOM. Waiting for it to execute.");
+      // Check if script tag exists
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        console.log("⏳ Script tag exists, waiting for load...");
         let attempts = 0;
-        const maxAttempts = 50; // Max 5 seconds waiting
+        const maxAttempts = 30; 
         
-        const checkGoogle = setInterval(() => {
+        const checkInterval = setInterval(() => {
           attempts++;
-          if (window.google && window.google.maps && window.google.maps.drawing) {
-            clearInterval(checkGoogle);
-            console.log("Google Maps API detected after waiting.");
-            setTimeout(initializeMap, 100);
+          if (window.google && window.google.maps) {
+            clearInterval(checkInterval);
+            console.log("✅ Google Maps API detected after waiting.");
+            setTimeout(initializeMap, 300);
           } else if (attempts >= maxAttempts) {
-            clearInterval(checkGoogle);
-            console.error("Google Maps API did not load within expected time.");
+            clearInterval(checkInterval);
+            console.error("❌ Google Maps API did not load within expected time.");
             setMapError("Google Maps failed to load. Please refresh the page.");
             setMapLoading(false);
           }
-        }, 100);
+        }, 200);
         return;
       }
 
-      console.log("Appending Google Maps API script to document head.");
+      // Create new script
+      console.log("📥 Loading Google Maps script...");
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places&callback=initGoogleMapsCallback`;
       script.async = true;
       script.defer = true;
-      script.onload = () => {
-        console.log("Google Maps API script loaded successfully via new script tag.");
-        setTimeout(initializeMap, 100);
+      
+      window.initGoogleMapsCallback = () => {
+        console.log("✅ Google Maps callback fired");
+        delete window.initGoogleMapsCallback; 
+        setTimeout(initializeMap, 300);
       };
-      script.onerror = () => {
-        console.error("Failed to load Google Maps API script.");
+      
+      script.onerror = (e) => {
+        console.error("❌ Script load error:", e);
         setMapError("Failed to load Google Maps. Please check your internet connection.");
         setMapLoading(false);
       };
+      
       document.head.appendChild(script);
     };
 
     loadGoogleMaps();
-  }, [address, coordinates, initializeMap]);
+  }, [address, initializeMap, GOOGLE_MAPS_API_KEY]);
 
   const handleZoomIn = useCallback(() => {
     if (mapInstanceRef.current) {
@@ -1441,7 +1455,7 @@ export default function MeasurementPage() {
                   borderRadius: '0 0 16px 16px',
                   border: '3px solid #3b82f6',
                   boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-                  backgroundColor: '#1e293b' // Placeholder background
+                  backgroundColor: '#1e293b' 
                 }} 
               />
               {mapLoading && (
@@ -1451,7 +1465,7 @@ export default function MeasurementPage() {
                   left: '0',
                   width: '100%',
                   height: '100%',
-                  backgroundColor: 'rgba(30, 41, 59, 0.8)', // Dark overlay
+                  backgroundColor: 'rgba(30, 41, 59, 0.8)', 
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -1554,7 +1568,8 @@ export default function MeasurementPage() {
                   </div>
                   
                   <img 
-                    src={img.url} 
+                    ref={imageRef} 
+                    src={capturedImages[selectedImageIndex]?.url}
                     alt={`Captured view ${idx + 1}`}
                     style={{ 
                       width: '100%', 
