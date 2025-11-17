@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -116,7 +117,16 @@ export default function MeasurementPage() {
   }, [navigate]);
 
   const createMap = useCallback((center) => {
+    if (!mapRef.current) {
+      console.error("Map container not ready, cannot create map.");
+      setMapError("Map container not ready.");
+      setMapLoading(false);
+      return;
+    }
+
     try {
+      console.log("Attempting to create map with center:", center);
+      
       const map = new window.google.maps.Map(mapRef.current, {
         center: center,
         zoom: 20,
@@ -142,6 +152,11 @@ export default function MeasurementPage() {
 
       mapInstanceRef.current = map;
 
+      window.google.maps.event.addListenerOnce(map, 'tilesloaded', () => {
+        console.log("Google Map tiles loaded successfully.");
+        setMapLoading(false);
+        setMapError("");
+      });
       window.google.maps.event.addListener(map, 'zoom_changed', () => {
         setCurrentZoom(map.getZoom());
       });
@@ -160,23 +175,31 @@ export default function MeasurementPage() {
         }
       });
 
-      setMapError("");
-      setMapLoading(false);
+      console.log("Google Map instance created.");
     } catch (err) {
+      console.error("Error creating map instance:", err);
       setMapError(`Error creating map: ${err.message}`);
       setMapLoading(false);
     }
   }, [address]);
 
   const initializeMap = useCallback(async () => {
+    if (!mapRef.current) {
+      console.log("Map container reference is not yet available, retrying initialization...");
+      setTimeout(initializeMap, 100); // Retry after a short delay
+      return;
+    }
+
     try {
       if (!window.google || !window.google.maps) {
-        throw new Error("Google Maps not available");
+        throw new Error("Google Maps API is not loaded or available.");
       }
 
-      const defaultCenter = { lat: 32.7767, lng: -96.7970 };
+      console.log("Starting map initialization process.");
+      const defaultCenter = { lat: 32.7767, lng: -96.7970 }; // Default to Dallas, TX
 
       if (coordinates) {
+        console.log("Using pre-existing coordinates:", coordinates);
         createMap(coordinates);
         return;
       }
@@ -187,11 +210,12 @@ export default function MeasurementPage() {
       
       const geocodeTimeout = setTimeout(() => {
         if (!geocodingCompleted) {
+          console.warn("Geocoding timed out after 10 seconds. Using default map center.");
           setMapError("Could not find address location. Using default map center.");
           setGeocodingStatus("Using default location");
           createMap(defaultCenter);
         }
-      }, 10000);
+      }, 10000); // 10 seconds timeout for geocoding
 
       geocoder.geocode({ address: address }, (results, status) => {
         geocodingCompleted = true;
@@ -200,16 +224,19 @@ export default function MeasurementPage() {
         if (status === "OK" && results[0]) {
           const location = results[0].geometry.location;
           const geocodedCenter = { lat: location.lat(), lng: location.lng() };
+          console.log("Address successfully geocoded:", geocodedCenter);
           setCoordinates(geocodedCenter);
           setGeocodingStatus("Address found!");
           createMap(geocodedCenter);
         } else {
+          console.error(`Geocoding failed for address "${address}" with status: ${status}.`);
           setMapError(`Could not find address (${status}). Showing default location.`);
           setGeocodingStatus("Using default location");
           createMap(defaultCenter);
         }
       });
     } catch (err) {
+      console.error("Failed to initialize map (catch block):", err);
       setMapError(`Failed to initialize map: ${err.message}`);
       setMapLoading(false);
     }
@@ -220,21 +247,27 @@ export default function MeasurementPage() {
 
     const loadGoogleMaps = () => {
       if (window.google && window.google.maps && window.google.maps.drawing) {
-        initializeMap();
+        console.log("Google Maps API already loaded.");
+        // Ensure mapRef.current is available when initializeMap is called.
+        // It's possible the component rendered, script loaded, but mapRef.current is not yet set.
+        setTimeout(initializeMap, 100); 
         return;
       }
 
       if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+        console.log("Google Maps script already present in DOM. Waiting for it to execute.");
         let attempts = 0;
-        const maxAttempts = 50;
+        const maxAttempts = 50; // Max 5 seconds waiting
         
         const checkGoogle = setInterval(() => {
           attempts++;
           if (window.google && window.google.maps && window.google.maps.drawing) {
             clearInterval(checkGoogle);
-            initializeMap();
+            console.log("Google Maps API detected after waiting.");
+            setTimeout(initializeMap, 100);
           } else if (attempts >= maxAttempts) {
             clearInterval(checkGoogle);
+            console.error("Google Maps API did not load within expected time.");
             setMapError("Google Maps failed to load. Please refresh the page.");
             setMapLoading(false);
           }
@@ -242,12 +275,17 @@ export default function MeasurementPage() {
         return;
       }
 
+      console.log("Appending Google Maps API script to document head.");
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places`;
       script.async = true;
       script.defer = true;
-      script.onload = () => initializeMap();
+      script.onload = () => {
+        console.log("Google Maps API script loaded successfully via new script tag.");
+        setTimeout(initializeMap, 100);
+      };
       script.onerror = () => {
+        console.error("Failed to load Google Maps API script.");
         setMapError("Failed to load Google Maps. Please check your internet connection.");
         setMapLoading(false);
       };
@@ -943,6 +981,22 @@ export default function MeasurementPage() {
                 <AlertDescription className="text-sm">{error}</AlertDescription>
               </Alert>
             )}
+
+            {mapError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">{mapError}</AlertDescription>
+              </Alert>
+            )}
+
+            {mapLoading && (
+              <Alert className="bg-blue-50 border-blue-200">
+                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                <AlertDescription className="text-xs text-blue-900">
+                  {geocodingStatus}
+                </AlertDescription>
+              </Alert>
+            )}
             
             {!mapLoading && !mapError && !isDrawingMode && (
               <>
@@ -1386,9 +1440,29 @@ export default function MeasurementPage() {
                   height: '700px',
                   borderRadius: '0 0 16px 16px',
                   border: '3px solid #3b82f6',
-                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)'
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+                  backgroundColor: '#1e293b' // Placeholder background
                 }} 
               />
+              {mapLoading && (
+                <div style={{
+                  position: 'absolute',
+                  top: '0',
+                  left: '0',
+                  width: '100%',
+                  height: '100%',
+                  backgroundColor: 'rgba(30, 41, 59, 0.8)', // Dark overlay
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '0 0 16px 16px',
+                  zIndex: 10
+                }}>
+                  <Loader2 className="w-16 h-16 animate-spin text-blue-400 mx-auto mb-4" />
+                  <p className="text-xl font-semibold text-white">{geocodingStatus}</p>
+                </div>
+              )}
             </div>
           </div>
 
