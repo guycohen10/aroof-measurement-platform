@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera, X, Info, Square, Circle as CircleIcon, Pentagon, Eraser } from "lucide-react";
+import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera, X, Info, Square, Circle as CircleIcon, Pentagon, Eraser, MousePointer } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SECTION_COLORS = [
@@ -45,8 +45,6 @@ export default function MeasurementPage() {
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const drawingManagerRef = useRef(null); // This is not used in the provided code, can be removed if not needed.
-  const polygonsRef = useRef([]); // This is not used in the provided code, can be removed if not needed.
   const containerRef = useRef(null); // For canvas pan/zoom container
   
   const [address, setAddress] = useState("");
@@ -75,7 +73,18 @@ export default function MeasurementPage() {
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 }); // clientX, clientY for pan calculations
+
+  // Edit mode state
+  const [editMode, setEditMode] = useState(false);
+  const [selectedSection, setSelectedSection] = useState(null);
+  const [draggedPointIndex, setDraggedPointIndex] = useState(null);
+  const [shapeOpacity, setShapeOpacity] = useState(0.5);
+
+  // Refs for managing mutable drawing state without re-renders
+  const drawingPointsRef = useRef([]); // For polygon points
+  const startPointRef = useRef(null); // For rectangle/circle initial click or center
+  const mouseCoordsRef = useRef({x:0, y:0}); // For dynamic preview drawing (rect/circle/polygon line)
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
@@ -150,7 +159,7 @@ export default function MeasurementPage() {
     };
 
     loadGoogleMaps();
-  }, [address, coordinates, GOOGLE_MAPS_API_KEY, initializeMap]);
+  }, [address, coordinates, initializeMap, GOOGLE_MAPS_API_KEY]);
 
   const handleZoomIn = useCallback(() => {
     if (mapInstanceRef.current) {
@@ -328,8 +337,10 @@ export default function MeasurementPage() {
     setSelectedImageIndex(index);
     setIsDrawingMode(true);
     setSections(capturedImages[index].sections || []);
-    setCanvasZoom(1); // Reset canvas zoom
-    setCanvasPan({ x: 0, y: 0 }); // Reset canvas pan
+    setCanvasZoom(1);
+    setCanvasPan({ x: 0, y: 0 });
+    setEditMode(false);
+    setSelectedSection(null);
   }, [capturedImages]);
 
   const removeCapturedImage = useCallback((index) => {
@@ -347,39 +358,176 @@ export default function MeasurementPage() {
     setIsDrawingMode(false);
     setSections([]);
     setIsDrawing(false);
-    setCanvasZoom(1); // Reset canvas zoom
-    setCanvasPan({ x: 0, y: 0 }); // Reset canvas pan
-  }, []);
-
-  const handleCanvasZoomIn = useCallback(() => {
-    setCanvasZoom(prev => Math.min(prev + 0.25, 3));
-  }, []);
-
-  const handleCanvasZoomOut = useCallback(() => {
-    setCanvasZoom(prev => Math.max(prev - 0.25, 0.5));
-  }, []);
-
-  const handleCanvasResetZoom = useCallback(() => {
     setCanvasZoom(1);
     setCanvasPan({ x: 0, y: 0 });
+    setEditMode(false);
+    setSelectedSection(null);
+    drawingPointsRef.current = [];
+    startPointRef.current = null;
   }, []);
 
-  const clearAllSections = useCallback(() => {
-    if (confirm('Clear all sections from this image?')) {
-      setSections([]);
-      if (selectedImageIndex !== null) {
-        setCapturedImages(prev => prev.map((img, i) => 
-          i === selectedImageIndex ? { ...img, sections: [] } : img
-        ));
+  const getScaledCoords = useCallback((e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const rawX = e.clientX - rect.left;
+    const rawY = e.clientY - rect.top;
+    // Apply reverse transform for mouse coords to match untransformed canvas coordinates
+    const zoomedX = rawX / canvasZoom - canvasPan.x;
+    const zoomedY = rawY / canvasZoom - canvasPan.y;
+    return { x: zoomedX, y: zoomedY };
+  }, [canvasZoom, canvasPan]);
+
+  const calculateSectionArea = useCallback((pointsToSave) => {
+    if (selectedImageIndex === null || !capturedImages[selectedImageIndex]) return 0;
+
+    const staticMapImage = capturedImages[selectedImageIndex];
+    const zoomLevel = staticMapImage.zoom || 20;
+    const centerLat = staticMapImage.center.lat;
+    const metersPerPixelAtEquator = 156543.03392; // Google Maps constant
+    const metersPerPixel = (metersPerPixelAtEquator * Math.cos(centerLat * Math.PI / 180)) / Math.pow(2, zoomLevel);
+
+    let areaPixels = Math.abs(pointsToSave.reduce((sum, point, i) => {
+      const nextPoint = pointsToSave[(i + 1) % pointsToSave.length];
+      return sum + (point.x * nextPoint.y - nextPoint.x * point.y);
+    }, 0) / 2);
+
+    const areaMeters = areaPixels * (metersPerPixel * metersPerPixel);
+    return areaMeters * 10.7639; // Convert to sq ft
+  }, [capturedImages, selectedImageIndex]);
+
+  const completeSection = useCallback((sectionPoints, shapeType) => {
+    const flatAreaSqFt = Math.round(calculateSectionArea(sectionPoints) * 100) / 100;
+    const pitchOption = PITCH_OPTIONS.find(p => p.value === 'flat'); // Default pitch
+
+    const newSection = {
+      id: `section-${Date.now()}`,
+      name: `Section ${sections.length + 1}`,
+      flat_area_sqft: flatAreaSqFt,
+      pitch: pitchOption.value,
+      pitch_multiplier: pitchOption.multiplier,
+      adjusted_area_sqft: Math.round(flatAreaSqFt * pitchOption.multiplier * 100) / 100,
+      color: selectedColor.stroke,
+      fill: selectedColor.fill,
+      lineThickness: lineThickness,
+      opacity: shapeOpacity,
+      shape: shapeType,
+      points: sectionPoints
+    };
+
+    const updatedSections = [...sections, newSection];
+    setSections(updatedSections);
+    
+    if (selectedImageIndex !== null) {
+      setCapturedImages(prev => prev.map((img, i) => 
+        i === selectedImageIndex ? { ...img, sections: updatedSections } : img
+      ));
+    }
+    setIsDrawing(false);
+    drawingPointsRef.current = [];
+    startPointRef.current = null;
+    setError(""); // Clear error on successful drawing
+  }, [calculateSectionArea, sections, selectedImageIndex, capturedImages, selectedColor, lineThickness, shapeOpacity, PITCH_OPTIONS]);
+
+  const redrawCanvas = useCallback(() => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    // Clear and apply canvas pan and zoom transform
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset current transform
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the entire canvas
+    ctx.translate(canvasPan.x * canvasZoom, canvasPan.y * canvasZoom);
+    ctx.scale(canvasZoom, canvasZoom);
+    
+    sections.forEach(section => {
+      if (section.points && section.points.length > 0) {
+        const isSelected = selectedSection?.id === section.id;
+        const opacity = section.opacity !== undefined ? section.opacity : shapeOpacity;
+        
+        ctx.fillStyle = section.fill + Math.round(opacity * 255).toString(16).padStart(2, '0');
+        ctx.strokeStyle = section.color;
+        ctx.lineWidth = section.lineThickness || 3;
+        
+        if (isSelected) {
+          ctx.lineWidth = (section.lineThickness || 3) + 2;
+          ctx.setLineDash([5, 5]);
+        } else {
+          ctx.setLineDash([]);
+        }
+        
+        ctx.beginPath();
+        ctx.moveTo(section.points[0].x, section.points[0].y);
+        for (let i = 1; i < section.points.length; i++) {
+          ctx.lineTo(section.points[i].x, section.points[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Draw edit handles if selected and in edit mode, and not currently drawing
+        if (isSelected && editMode && !isDrawing) {
+          section.points.forEach((point) => {
+            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = section.color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 6 / canvasZoom, 0, 2 * Math.PI); // Scale handle size
+            ctx.fill();
+            ctx.stroke();
+          });
+        }
       }
-      
-      if (canvasRef.current) {
-        const ctx = canvasRef.current.getContext('2d');
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    });
+
+    // Temporary drawing for current session (polygon points or rect/circle preview)
+    if (isDrawing && !editMode) {
+      ctx.strokeStyle = selectedColor.stroke;
+      ctx.lineWidth = lineThickness;
+      ctx.fillStyle = selectedColor.fill + Math.round(shapeOpacity * 255).toString(16).padStart(2, '0');
+      ctx.setLineDash([]); // Ensure no dashed line for temporary drawing
+
+      if (drawingShape === 'polygon' && drawingPointsRef.current.length > 0) {
+        ctx.beginPath();
+        ctx.moveTo(drawingPointsRef.current[0].x, drawingPointsRef.current[0].y);
+        for (let i = 1; i < drawingPointsRef.current.length; i++) {
+          ctx.lineTo(drawingPointsRef.current[i].x, drawingPointsRef.current[i].y);
+        }
+        // Draw connecting line to mouse if moving
+        ctx.lineTo(mouseCoordsRef.current.x, mouseCoordsRef.current.y);
+        ctx.stroke();
+
+        // Draw temporary points
+        drawingPointsRef.current.forEach(point => {
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 4 / canvasZoom, 0, 2 * Math.PI); // Scale point size
+          ctx.fill();
+        });
+
+      } else if ((drawingShape === 'rectangle' || drawingShape === 'circle') && startPointRef.current) {
+        const currentMouseCoords = mouseCoordsRef.current;
+        if (drawingShape === 'rectangle') {
+          const width = currentMouseCoords.x - startPointRef.current.x;
+          const height = currentMouseCoords.y - startPointRef.current.y;
+          ctx.beginPath();
+          ctx.rect(startPointRef.current.x, startPointRef.current.y, width, height);
+          ctx.fill();
+          ctx.stroke();
+        } else if (drawingShape === 'circle') {
+          const radius = Math.sqrt(
+              Math.pow(currentMouseCoords.x - startPointRef.current.x, 2) +
+              Math.pow(currentMouseCoords.y - startPointRef.current.y, 2)
+          );
+          ctx.beginPath();
+          ctx.arc(startPointRef.current.x, startPointRef.current.y, radius, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+        }
       }
     }
-  }, [selectedImageIndex]);
-
+  }, [sections, selectedSection, editMode, shapeOpacity, lineThickness, isDrawing, drawingShape, canvasZoom, canvasPan, selectedColor, drawingPointsRef, startPointRef, mouseCoordsRef]);
 
   const setupDrawingCanvas = useCallback(() => {
     if (!imageRef.current || !canvasRef.current) return;
@@ -394,345 +542,236 @@ export default function MeasurementPage() {
     canvas.style.width = rect.width + 'px';
     canvas.style.height = rect.height + 'px';
     
-    // Redraw existing sections
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear before redrawing
+    redrawCanvas();
+  }, [redrawCanvas]);
 
-    sections.forEach(section => {
-      if (section.points && section.points.length > 0) {
-        ctx.fillStyle = (section.fillColor || section.color) + '55'; // Use stored fill color or stroke
-        ctx.strokeStyle = section.color;
-        ctx.lineWidth = section.lineThickness || 3;
-        ctx.beginPath();
-        if (section.shape === 'polygon' || !section.shape) { // Default to polygon if shape not defined
-          ctx.moveTo(section.points[0].x, section.points[0].y);
-          for (let i = 1; i < section.points.length; i++) {
-            ctx.lineTo(section.points[i].x, section.points[i].y);
-          }
-          ctx.closePath();
-        } else if (section.shape === 'rectangle' && section.points.length === 4) {
-          const [p1, p2, p3, p4] = section.points;
-          ctx.rect(p1.x, p1.y, p2.x - p1.x, p4.y - p1.y);
-        } else if (section.shape === 'circle') {
-          // Circles are approximated as polygons during saving, so draw as polygon
-          ctx.moveTo(section.points[0].x, section.points[0].y);
-          for (let i = 1; i < section.points.length; i++) {
-            ctx.lineTo(section.points[i].x, section.points[i].y);
-          }
-          ctx.closePath();
-        }
-        ctx.fill();
-        ctx.stroke();
-      }
-    });
-  }, [sections, lineThickness]); // Added lineThickness to dependency for dynamic redraw
-
-  const startDrawingSection = useCallback(() => {
-    if (!canvasRef.current || selectedImageIndex === null) {
-      setError("Please select a captured image first");
-      return;
+  // Effect to re-draw canvas when relevant states change
+  useEffect(() => {
+    if (isDrawingMode && selectedImageIndex !== null && imageRef.current && canvasRef.current) {
+      redrawCanvas();
     }
-    if (isDrawing) return; // Prevent multiple drawing sessions
+  }, [sections, selectedSection, editMode, shapeOpacity, lineThickness, isDrawing, drawingShape, canvasZoom, canvasPan, selectedColor, isDrawingMode, selectedImageIndex, redrawCanvas]);
 
-    setIsDrawing(true);
-    setError("");
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const tempPoints = []; // Stores points for current polygon being drawn
-    let startPoint = null; // Stores mouse down point for rect/circle
-    let isDrawingShapeActive = true; // Controls lifecycle of current drawing operation
+  const handleCanvasMouseDown = useCallback((e) => {
+    if (!canvasRef.current || e.button !== 0) return; // Only allow left-click
+    e.preventDefault(); // Prevent default browser drag behavior (e.g., image dragging)
+    const coords = getScaledCoords(e);
+    setError(""); // Clear any previous error
 
-    const getScaledCoords = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
-      };
-    };
-
-    const redrawAllSections = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      sections.forEach(section => {
-        if (section.points && section.points.length > 0) {
-          ctx.fillStyle = (section.fillColor || section.color) + '55'; // Use stored fill color or stroke
-          ctx.strokeStyle = section.color;
-          ctx.lineWidth = section.lineThickness || 3;
-          ctx.beginPath();
-          if (section.shape === 'polygon' || !section.shape) {
-            ctx.moveTo(section.points[0].x, section.points[0].y);
-            for (let i = 1; i < section.points.length; i++) {
-              ctx.lineTo(section.points[i].x, section.points[i].y);
-            }
-            ctx.closePath();
-          } else if (section.shape === 'rectangle' && section.points.length === 4) {
-            const [p1, p2, p3, p4] = section.points;
-            ctx.rect(p1.x, p1.y, p2.x - p1.x, p4.y - p1.y);
-          } else if (section.shape === 'circle') {
-            ctx.moveTo(section.points[0].x, section.points[0].y);
-            for (let i = 1; i < section.points.length; i++) {
-              ctx.lineTo(section.points[i].x, section.points[i].y);
-            }
-            ctx.closePath();
-          }
-          ctx.fill();
-          ctx.stroke();
+    if (editMode && selectedSection) {
+      // Check if clicking on a point handle of the selected section
+      for (let i = 0; i < selectedSection.points.length; i++) {
+        const point = selectedSection.points[i];
+        const distance = Math.sqrt(Math.pow(coords.x - point.x, 2) + Math.pow(coords.y - point.y, 2));
+        if (distance < 10 / canvasZoom) { // Adjust click radius by zoom
+          setDraggedPointIndex(i);
+          return;
         }
-      });
-    };
-
-    redrawAllSections(); // Initial redraw
-
-    const cleanupListeners = () => {
-      canvas.removeEventListener('click', handlePolygonClick);
-      canvas.removeEventListener('dblclick', handlePolygonDblClick);
-      canvas.removeEventListener('mousedown', handleShapeMouseDown);
-      canvas.removeEventListener('mousemove', handleShapeMouseMove);
-      canvas.removeEventListener('mouseup', handleShapeMouseUp);
-    };
-
-    const finalizeSection = (pointsToSave, shapeType) => {
-      if (!isDrawingShapeActive) return;
-      isDrawingShapeActive = false;
-      cleanupListeners();
-
-      redrawAllSections(); // Redraw all existing sections
-      // Then draw the new one fully
-      ctx.strokeStyle = selectedColor.stroke;
-      ctx.lineWidth = lineThickness;
-      ctx.fillStyle = selectedColor.fill + '55';
-      ctx.beginPath();
-      if (shapeType === 'polygon' || !shapeType) {
-        ctx.moveTo(pointsToSave[0].x, pointsToSave[0].y);
-        for (let i = 1; i < pointsToSave.length; i++) {
-          ctx.lineTo(pointsToSave[i].x, pointsToSave[i].y);
-        }
-        ctx.closePath();
-      } else if (shapeType === 'rectangle' && pointsToSave.length === 4) {
-        const [p1, p2, p3, p4] = pointsToSave;
-        ctx.rect(p1.x, p1.y, p2.x - p1.x, p4.y - p1.y);
-      } else if (shapeType === 'circle') {
-        ctx.moveTo(pointsToSave[0].x, pointsToSave[0].y);
-        for (let i = 1; i < pointsToSave.length; i++) {
-          ctx.lineTo(pointsToSave[i].x, pointsToSave[i].y);
-        }
-        ctx.closePath();
       }
-      ctx.fill();
-      ctx.stroke();
+    } else if (isDrawing && (drawingShape === 'rectangle' || drawingShape === 'circle')) {
+      startPointRef.current = coords;
+    } else if (!isDrawing && !editMode) { // Only pan if not drawing and not editing
+      setIsPanning(true);
+      setPanStart({ x: e.clientX, y: e.clientY });
+    }
+  }, [getScaledCoords, editMode, selectedSection, isDrawing, drawingShape, canvasZoom]);
 
-      const staticMapImage = capturedImages[selectedImageIndex];
-      const zoomLevel = staticMapImage.zoom || 20;
-      const centerLat = staticMapImage.center.lat;
-      const metersPerPixelAtEquator = 156543.03392; // Google Maps constant
-      const metersPerPixel = (metersPerPixelAtEquator * Math.cos(centerLat * Math.PI / 180)) / Math.pow(2, zoomLevel);
+  const handleCanvasMouseMove = useCallback((e) => {
+    if (!canvasRef.current) return;
+    const coords = getScaledCoords(e);
+    mouseCoordsRef.current = coords; // Update current mouse position for previews
 
-      let areaPixels = Math.abs(pointsToSave.reduce((sum, point, i) => {
-        const nextPoint = pointsToSave[(i + 1) % pointsToSave.length];
-        return sum + (point.x * nextPoint.y - nextPoint.x * point.y);
-      }, 0) / 2);
+    if (draggedPointIndex !== null && selectedSection) { // Editing a point
+      const updatedPoints = [...selectedSection.points];
+      updatedPoints[draggedPointIndex] = coords;
 
-      const areaMeters = areaPixels * (metersPerPixel * metersPerPixel);
-      const areaSqFt = areaMeters * 10.7639;
+      // Recalculate area for the edited section
+      const flatAreaSqFt = Math.round(calculateSectionArea(updatedPoints) * 100) / 100;
+      const pitchOption = PITCH_OPTIONS.find(p => p.value === selectedSection.pitch) || PITCH_OPTIONS[0];
 
-      const newSection = {
-        id: `section-${Date.now()}`,
-        name: `Section ${sections.length + 1}`,
-        flat_area_sqft: Math.round(areaSqFt * 100) / 100,
-        pitch: 'flat',
-        pitch_multiplier: 1.00,
-        adjusted_area_sqft: Math.round(areaSqFt * 100) / 100,
-        color: selectedColor.stroke,
-        fillColor: selectedColor.fill,
-        lineThickness: lineThickness,
-        shape: shapeType,
-        points: pointsToSave
+      const updatedSection = {
+        ...selectedSection,
+        points: updatedPoints,
+        flat_area_sqft: flatAreaSqFt,
+        adjusted_area_sqft: Math.round(flatAreaSqFt * pitchOption.multiplier * 100) / 100
       };
+      setSelectedSection(updatedSection);
 
-      const updatedSections = [...sections, newSection];
+      const updatedSections = sections.map(s => s.id === selectedSection.id ? updatedSection : s);
       setSections(updatedSections);
-      setCapturedImages(prev => prev.map((img, i) =>
-        i === selectedImageIndex ? { ...img, sections: updatedSections } : img
-      ));
-      setIsDrawing(false);
-    };
 
-    // Polygon drawing handlers
-    const handlePolygonClick = (e) => {
-      if (!isDrawingShapeActive) return;
-      const { x, y } = getScaledCoords(e);
-      tempPoints.push({ x, y });
-
-      redrawAllSections(); // Redraw existing sections
-      // Draw temp points and lines
-      ctx.fillStyle = selectedColor.stroke;
-      ctx.strokeStyle = selectedColor.stroke;
-      ctx.lineWidth = lineThickness;
-      for (let i = 0; i < tempPoints.length; i++) {
-        ctx.beginPath();
-        ctx.arc(tempPoints[i].x, tempPoints[i].y, 4, 0, 2 * Math.PI);
-        ctx.fill();
-        if (i > 0) {
-          ctx.beginPath();
-          ctx.moveTo(tempPoints[i - 1].x, tempPoints[i - 1].y);
-          ctx.lineTo(tempPoints[i].x, tempPoints[i].y);
-          ctx.stroke();
-        }
+      if (selectedImageIndex !== null) {
+        setCapturedImages(prev => prev.map((img, i) =>
+          i === selectedImageIndex ? { ...img, sections: updatedSections } : img
+        ));
       }
-    };
+      redrawCanvas();
 
-    const handlePolygonDblClick = () => {
-      if (!isDrawingShapeActive || tempPoints.length < 3) {
-        alert('Please click at least 3 points to form a polygon.');
-        return;
-      }
-      finalizeSection(tempPoints, 'polygon');
-    };
+    } else if (isPanning) {
+      const dx = e.clientX - panStart.x;
+      const dy = e.clientY - panStart.y;
+      setCanvasPan(prev => ({
+        x: prev.x + dx / canvasZoom,
+        y: prev.y + dy / canvasZoom
+      }));
+      setPanStart({ x: e.clientX, y: e.clientY }); // Update panStart for next move
+      redrawCanvas();
+    } else if (isDrawing && (drawingShape === 'rectangle' || drawingShape === 'circle' || drawingShape === 'polygon')) {
+      redrawCanvas(); // Trigger redraw for temporary drawing based on mouseCoordsRef
+    }
+  }, [draggedPointIndex, selectedSection, getScaledCoords, calculateSectionArea, sections, selectedImageIndex, redrawCanvas, isPanning, panStart, canvasZoom, isDrawing, drawingShape, PITCH_OPTIONS]);
 
-    // Rectangle & Circle drawing handlers
-    const handleShapeMouseDown = (e) => {
-      if (!isDrawingShapeActive) return;
-      startPoint = getScaledCoords(e);
-      canvas.addEventListener('mousemove', handleShapeMouseMove);
-      canvas.addEventListener('mouseup', handleShapeMouseUp);
-    };
 
-    const handleShapeMouseMove = (e) => {
-      if (!isDrawingShapeActive || !startPoint) return;
-      const { x, y } = getScaledCoords(e);
-
-      redrawAllSections(); // Clear and redraw existing sections
-      ctx.strokeStyle = selectedColor.stroke;
-      ctx.lineWidth = lineThickness;
-      ctx.fillStyle = selectedColor.fill + '55';
-
-      if (drawingShape === 'rectangle') {
-        const width = x - startPoint.x;
-        const height = y - startPoint.y;
-        ctx.beginPath();
-        ctx.rect(startPoint.x, startPoint.y, width, height);
-        ctx.fill();
-        ctx.stroke();
-      } else if (drawingShape === 'circle') {
-        const radius = Math.sqrt(Math.pow(x - startPoint.x, 2) + Math.pow(y - startPoint.y, 2));
-        ctx.beginPath();
-        ctx.arc(startPoint.x, startPoint.y, radius, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.stroke();
-      }
-    };
-
-    const handleShapeMouseUp = (e) => {
-      if (!isDrawingShapeActive || !startPoint) return;
-      canvas.removeEventListener('mousemove', handleShapeMouseMove);
-      canvas.removeEventListener('mouseup', handleShapeMouseUp);
-
-      const endPoint = getScaledCoords(e);
+  const handleCanvasMouseUp = useCallback((e) => {
+    if (draggedPointIndex !== null) {
+      setDraggedPointIndex(null); // Stop dragging a point
+    } else if (isPanning) {
+      setIsPanning(false); // Stop panning
+    } else if (isDrawing && (drawingShape === 'rectangle' || drawingShape === 'circle') && startPointRef.current) {
+      // Finalize rectangle or circle drawing
+      const coords = getScaledCoords(e);
       let finalPoints = [];
 
       if (drawingShape === 'rectangle') {
-        const minX = Math.min(startPoint.x, endPoint.x);
-        const maxX = Math.max(startPoint.x, endPoint.x);
-        const minY = Math.min(startPoint.y, endPoint.y);
-        const maxY = Math.max(startPoint.y, endPoint.y);
+        const minX = Math.min(startPointRef.current.x, coords.x);
+        const maxX = Math.max(startPointRef.current.x, coords.x);
+        const minY = Math.min(startPointRef.current.y, coords.y);
+        const maxY = Math.max(startPointRef.current.y, coords.y);
         finalPoints = [
           { x: minX, y: minY },
           { x: maxX, y: minY },
           { x: maxX, y: maxY },
           { x: minX, y: maxY }
         ];
-        if (Math.abs(minX - maxX) < 5 || Math.abs(minY - maxY) < 5) { // Prevent tiny shapes
-          alert('Rectangle is too small. Please draw a larger shape.');
+        if (Math.abs(minX - maxX) < 5 / canvasZoom || Math.abs(minY - maxY) < 5 / canvasZoom) {
+          setError('Shape is too small. Please draw a larger shape.');
           setIsDrawing(false);
-          redrawAllSections(); // Clear temporary drawing
+          startPointRef.current = null;
+          redrawCanvas();
           return;
         }
       } else if (drawingShape === 'circle') {
-        const radius = Math.sqrt(Math.pow(endPoint.x - startPoint.x, 2) + Math.pow(endPoint.y - startPoint.y, 2));
-        if (radius < 5) { // Prevent tiny shapes
-          alert('Circle is too small. Please draw a larger shape.');
+        const radius = Math.sqrt(Math.pow(coords.x - startPointRef.current.x, 2) + Math.pow(coords.y - startPointRef.current.y, 2));
+        if (radius < 5 / canvasZoom) {
+          setError('Shape is too small. Please draw a larger shape.');
           setIsDrawing(false);
-          redrawAllSections(); // Clear temporary drawing
+          startPointRef.current = null;
+          redrawCanvas();
           return;
         }
-        const numSegments = 32; // Approximate circle with a polygon
+        const numSegments = 32;
         for (let i = 0; i < numSegments; i++) {
           const angle = (i / numSegments) * 2 * Math.PI;
           finalPoints.push({
-            x: startPoint.x + radius * Math.cos(angle),
-            y: startPoint.y + radius * Math.sin(angle)
+            x: startPointRef.current.x + radius * Math.cos(angle),
+            y: startPointRef.current.y + radius * Math.sin(angle)
           });
         }
       }
-
       if (finalPoints.length > 0) {
-        finalizeSection(finalPoints, drawingShape);
+        completeSection(finalPoints, drawingShape);
       } else {
         setIsDrawing(false);
-        redrawAllSections(); // Clear temporary drawing if no points
+        startPointRef.current = null;
+        redrawCanvas();
       }
-      startPoint = null;
-    };
-
-    // Attach listeners based on selected drawing shape
-    if (drawingShape === 'polygon') {
-      canvas.addEventListener('click', handlePolygonClick);
-      canvas.addEventListener('dblclick', handlePolygonDblClick);
-    } else { // rectangle or circle
-      canvas.addEventListener('mousedown', handleShapeMouseDown);
     }
+  }, [draggedPointIndex, isPanning, isDrawing, drawingShape, getScaledCoords, completeSection, redrawCanvas, canvasZoom]);
 
-    // Return a cleanup function for when drawing is canceled or a new section is started
-    return cleanupListeners;
+  const handleCanvasClick = useCallback((e) => {
+    e.preventDefault(); // Prevent double-click from zooming
+    const coords = getScaledCoords(e);
 
-  }, [sections, selectedImageIndex, capturedImages, drawingShape, lineThickness, selectedColor, PITCH_OPTIONS]);
+    if (editMode && draggedPointIndex === null) { // Selecting a section in edit mode
+      let sectionClicked = null;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+
+      // Check sections from last drawn to first to select the topmost
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const section = sections[i];
+        if (section.points && section.points.length > 0) {
+          ctx.beginPath();
+          ctx.moveTo(section.points[0].x, section.points[0].y);
+          for (let j = 1; j < section.points.length; j++) {
+            ctx.lineTo(section.points[j].x, section.points[j].y);
+          }
+          ctx.closePath();
+          
+          if (ctx.isPointInPath(coords.x, coords.y)) {
+            sectionClicked = section;
+            break;
+          }
+        }
+      }
+      setSelectedSection(sectionClicked);
+    } else if (isDrawing && drawingShape === 'polygon') {
+      // Add point for polygon drawing
+      drawingPointsRef.current.push(coords);
+    }
+    redrawCanvas(); // Re-draw to reflect selection or new polygon point
+  }, [getScaledCoords, editMode, draggedPointIndex, sections, redrawCanvas, isDrawing, drawingShape]);
+
+  const handleCanvasDblClick = useCallback((e) => {
+    e.preventDefault();
+    if (isDrawing && drawingShape === 'polygon') {
+      if (drawingPointsRef.current.length >= 3) {
+        completeSection(drawingPointsRef.current, 'polygon');
+        drawingPointsRef.current = [];
+      } else {
+        setError('A polygon needs at least 3 points. Double-click to finish.');
+      }
+    }
+  }, [isDrawing, drawingShape, completeSection, drawingPointsRef]);
+
+  const clearAllSections = useCallback(() => {
+    if (confirm('Clear all sections from this image?')) {
+      setSections([]);
+      setSelectedSection(null);
+      if (selectedImageIndex !== null) {
+        setCapturedImages(prev => prev.map((img, i) => 
+          i === selectedImageIndex ? { ...img, sections: [] } : img
+        ));
+      }
+      drawingPointsRef.current = [];
+      startPointRef.current = null;
+      redrawCanvas();
+    }
+  }, [selectedImageIndex, redrawCanvas]);
+
+  const startDrawingSection = useCallback(() => {
+    if (!canvasRef.current || selectedImageIndex === null) {
+      setError("Please select a captured image first");
+      return;
+    }
+    if (editMode) {
+      setError("Exit edit mode to draw new sections");
+      return;
+    }
+    setIsDrawing(true);
+    setError("");
+    drawingPointsRef.current = []; // Clear any previous polygon points
+    startPointRef.current = null; // Clear any previous rect/circle start point
+    setSelectedSection(null); // Deselect any active section
+    redrawCanvas(); // Ensure canvas is clean before drawing
+  }, [editMode, selectedImageIndex, redrawCanvas]);
 
   const deleteSection = useCallback((sectionId) => {
     const updatedSections = sections.filter(s => s.id !== sectionId);
     setSections(updatedSections);
     
+    if (selectedSection?.id === sectionId) {
+      setSelectedSection(null);
+    }
+    
     if (selectedImageIndex !== null) {
       setCapturedImages(prev => prev.map((img, i) => 
         i === selectedImageIndex ? { ...img, sections: updatedSections } : img
       ));
-      
-      // Redraw canvas
-      if (canvasRef.current) {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        updatedSections.forEach(section => {
-          if (section.points) {
-            ctx.fillStyle = (section.fillColor || section.color) + '55';
-            ctx.strokeStyle = section.color;
-            ctx.lineWidth = section.lineThickness || 3;
-            ctx.beginPath();
-            if (section.shape === 'polygon' || !section.shape) {
-              ctx.moveTo(section.points[0].x, section.points[0].y);
-              for (let i = 1; i < section.points.length; i++) {
-                ctx.lineTo(section.points[i].x, section.points[i].y);
-              }
-              ctx.closePath();
-            } else if (section.shape === 'rectangle' && section.points.length === 4) {
-              const [p1, p2, p3, p4] = section.points;
-              ctx.rect(p1.x, p1.y, p2.x - p1.x, p4.y - p1.y);
-            } else if (section.shape === 'circle') {
-              ctx.moveTo(section.points[0].x, section.points[0].y);
-              for (let i = 1; i < section.points.length; i++) {
-                ctx.lineTo(section.points[i].x, section.points[i].y);
-              }
-              ctx.closePath();
-            }
-            ctx.fill();
-            ctx.stroke();
-          }
-        });
-      }
     }
-  }, [sections, selectedImageIndex]);
+    redrawCanvas();
+  }, [sections, selectedSection, selectedImageIndex, redrawCanvas]);
 
   const updateSectionPitch = useCallback((sectionId, pitchValue) => {
     const pitchOption = PITCH_OPTIONS.find(p => p.value === pitchValue);
@@ -756,7 +795,8 @@ export default function MeasurementPage() {
         i === selectedImageIndex ? { ...img, sections: updatedSections } : img
       ));
     }
-  }, [sections, selectedImageIndex]);
+    redrawCanvas();
+  }, [sections, selectedImageIndex, redrawCanvas, PITCH_OPTIONS]);
 
   const updateSectionName = useCallback((sectionId, name) => {
     const updatedSections = sections.map(section => 
@@ -770,70 +810,27 @@ export default function MeasurementPage() {
         i === selectedImageIndex ? { ...img, sections: updatedSections } : img
       ));
     }
-  }, [sections, selectedImageIndex]);
+    redrawCanvas();
+  }, [sections, selectedImageIndex, redrawCanvas]);
 
-  useEffect(() => {
-    if (isDrawingMode && selectedImageIndex !== null && imageRef.current) {
-      setupDrawingCanvas();
-    }
-  }, [isDrawingMode, selectedImageIndex, setupDrawingCanvas]);
+  const handleCanvasZoomIn = useCallback(() => {
+    setCanvasZoom(prev => Math.min(prev + 0.25, 3));
+  }, []);
+
+  const handleCanvasZoomOut = useCallback(() => {
+    setCanvasZoom(prev => Math.max(prev - 0.25, 0.5));
+  }, []);
+
+  const handleCanvasResetZoom = useCallback(() => {
+    setCanvasZoom(1);
+    setCanvasPan({ x: 0, y: 0 });
+  }, []);
 
   const getTotalArea = () => {
     return capturedImages.reduce((total, img) => {
       return total + (img.sections || []).reduce((sum, section) => sum + section.adjusted_area_sqft, 0);
     }, 0);
   };
-
-  const handlePanStart = useCallback((e) => {
-    // Only pan with left click (button 0) and not while drawing or if mouse is over canvas
-    if (isDrawing || e.button !== 0 || !canvasRef.current || e.target === canvasRef.current) return;
-    setIsPanning(true);
-    setPanStart({ x: e.clientX, y: e.clientY });
-  }, [isDrawing]);
-
-  const handlePanMove = useCallback((e) => {
-    if (!isPanning) return;
-    const dx = e.clientX - panStart.x;
-    const dy = e.clientY - panStart.y;
-    setCanvasPan(prev => ({
-      x: prev.x + dx / canvasZoom, // Adjust pan amount by zoom level
-      y: prev.y + dy / canvasZoom
-    }));
-    setPanStart({ x: e.clientX, y: e.clientY });
-  }, [isPanning, panStart, canvasZoom]);
-
-  const handlePanEnd = useCallback(() => {
-    setIsPanning(false);
-  }, []);
-
-  // Attach/detach pan listeners
-  useEffect(() => {
-    const container = containerRef.current;
-    if (isDrawingMode && selectedImageIndex !== null && container) {
-      container.addEventListener('mousedown', handlePanStart);
-      window.addEventListener('mousemove', handlePanMove); // Listen on window for dragging outside container
-      window.addEventListener('mouseup', handlePanEnd);
-
-      return () => {
-        container.removeEventListener('mousedown', handlePanStart);
-        window.removeEventListener('mousemove', handlePanMove);
-        window.removeEventListener('mouseup', handlePanEnd);
-      };
-    }
-  }, [isDrawingMode, selectedImageIndex, handlePanStart, handlePanMove, handlePanEnd]);
-
-  // Update canvas cursor based on drawing/panning state
-  useEffect(() => {
-    if (canvasRef.current) {
-      if (isDrawing) {
-        canvasRef.current.style.cursor = 'crosshair';
-      } else if (isPanning) {
-        canvasRef.current.style.cursor = 'grabbing';
-      } else {
-        canvasRef.current.style.cursor = 'grab';
-      }
-    }
-  }, [isDrawing, isPanning]);
 
   const handleCompleteMeasurement = useCallback(async () => {
     if (capturedImages.length === 0) {
@@ -927,6 +924,23 @@ export default function MeasurementPage() {
   };
   const zoomAdvice = getZoomAdvice();
 
+  // Determine canvas cursor based on current mode
+  const getCanvasCursor = () => {
+    if (isDrawing) {
+      return 'crosshair';
+    }
+    if (editMode) {
+      if (draggedPointIndex !== null) {
+        return 'grabbing';
+      }
+      return 'pointer'; // For selecting sections
+    }
+    if (isPanning) {
+      return 'grabbing';
+    }
+    return 'grab';
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
       <header className="border-b bg-white/80 backdrop-blur-sm">
@@ -986,7 +1000,7 @@ export default function MeasurementPage() {
               </Alert>
             )}
 
-            {mapError && (
+            {mapError && !mapLoading && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-sm">
@@ -1004,13 +1018,6 @@ export default function MeasurementPage() {
                   <Info className="h-4 w-4 text-blue-600" />
                   <AlertDescription className="text-xs text-blue-900">
                     <strong>Step 1:</strong> Use zoom controls to find best view. Capture as many angles as needed.
-                  </AlertDescription>
-                </Alert>
-
-                <Alert className="bg-green-50 border-green-200">
-                  <Info className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-xs text-green-900">
-                    <strong>Step 2:</strong> Click "Draw on this image" for any captured view.
                   </AlertDescription>
                 </Alert>
 
@@ -1070,109 +1077,208 @@ export default function MeasurementPage() {
 
             {isDrawingMode && (
               <>
-                <Alert className="bg-purple-50 border-purple-200">
-                  <Info className="h-4 w-4 text-purple-600" />
-                  <AlertDescription className="text-xs text-purple-900">
-                    <strong>Drawing Tools:</strong> Select shape, color, and line thickness. Click to draw.
+                <Alert className={editMode ? "bg-amber-50 border-amber-200" : "bg-purple-50 border-purple-200"}>
+                  <Info className={`h-4 w-4 ${editMode ? 'text-amber-600' : 'text-purple-600'}`} />
+                  <AlertDescription className={`text-xs ${editMode ? 'text-amber-900' : 'text-purple-900'}`}>
+                    <strong>{editMode ? 'Edit Mode:' : 'Drawing Tools:'}</strong> {editMode ? 'Click shape to select, drag points to edit' : 'Select shape, color, thickness and opacity'}
                   </AlertDescription>
                 </Alert>
 
-                {/* Drawing Tools */}
-                <Card className="p-3 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200">
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 mb-2 block">Shape</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        <Button
-                          size="sm"
-                          variant={drawingShape === 'polygon' ? 'default' : 'outline'}
-                          onClick={() => setDrawingShape('polygon')}
-                          className="w-full"
-                          disabled={isDrawing}
-                        >
-                          <Pentagon className="w-4 h-4 mr-1" />
-                          Polygon
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={drawingShape === 'rectangle' ? 'default' : 'outline'}
-                          onClick={() => setDrawingShape('rectangle')}
-                          className="w-full"
-                          disabled={isDrawing}
-                        >
-                          <Square className="w-4 h-4 mr-1" />
-                          Box
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={drawingShape === 'circle' ? 'default' : 'outline'}
-                          onClick={() => setDrawingShape('circle')}
-                          className="w-full"
-                          disabled={isDrawing}
-                        >
-                          <CircleIcon className="w-4 h-4 mr-1" />
-                          Circle
-                        </Button>
-                      </div>
-                    </div>
+                {/* Mode Toggle */}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={!editMode ? 'default' : 'outline'}
+                    onClick={() => {
+                      setEditMode(false);
+                      setSelectedSection(null);
+                      setIsDrawing(false); // Make sure drawing state is off
+                      drawingPointsRef.current = [];
+                      startPointRef.current = null;
+                    }}
+                    className="flex-1"
+                    disabled={isDrawing}
+                  >
+                    <Edit3 className="w-4 h-4 mr-1" />
+                    Draw
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={editMode ? 'default' : 'outline'}
+                    onClick={() => {
+                      setEditMode(true);
+                      setIsDrawing(false); // Make sure drawing state is off
+                      drawingPointsRef.current = [];
+                      startPointRef.current = null;
+                    }}
+                    className="flex-1"
+                    disabled={isDrawing}
+                  >
+                    <MousePointer className="w-4 h-4 mr-1" />
+                    Edit
+                  </Button>
+                </div>
 
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 mb-2 block">Color</label>
-                      <div className="grid grid-cols-5 gap-2">
-                        {SECTION_COLORS.map((color) => (
-                          <button
-                            key={color.stroke}
-                            onClick={() => setSelectedColor(color)}
-                            className={`w-8 h-8 rounded-full border-2 ${
-                              selectedColor.stroke === color.stroke ? 'border-slate-900 scale-110' : 'border-slate-300'
-                            } transition-all`}
-                            style={{ backgroundColor: color.stroke }}
-                            title={color.name}
+                {!editMode && (
+                  <Card className="p-3 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200">
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 mb-2 block">Shape</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <Button
+                            size="sm"
+                            variant={drawingShape === 'polygon' ? 'default' : 'outline'}
+                            onClick={() => setDrawingShape('polygon')}
+                            className="w-full"
                             disabled={isDrawing}
-                          />
-                        ))}
+                          >
+                            <Pentagon className="w-4 h-4 mr-1" />
+                            Polygon
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={drawingShape === 'rectangle' ? 'default' : 'outline'}
+                            onClick={() => setDrawingShape('rectangle')}
+                            className="w-full"
+                            disabled={isDrawing}
+                          >
+                            <Square className="w-4 h-4 mr-1" />
+                            Box
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={drawingShape === 'circle' ? 'default' : 'outline'}
+                            onClick={() => setDrawingShape('circle')}
+                            className="w-full"
+                            disabled={isDrawing}
+                          >
+                            <CircleIcon className="w-4 h-4 mr-1" />
+                            Circle
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 mb-2 block">Color</label>
+                        <div className="grid grid-cols-5 gap-2">
+                          {SECTION_COLORS.map((color) => (
+                            <button
+                              key={color.stroke}
+                              onClick={() => setSelectedColor(color)}
+                              className={`w-8 h-8 rounded-full border-2 ${
+                                selectedColor.stroke === color.stroke ? 'border-slate-900 scale-110' : 'border-slate-300'
+                              } transition-all`}
+                              style={{ backgroundColor: color.stroke }}
+                              title={color.name}
+                              disabled={isDrawing}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 mb-2 block">
+                          Line Thickness: {lineThickness}px
+                        </label>
+                        <input
+                          type="range"
+                          min="1"
+                          max="8"
+                          value={lineThickness}
+                          onChange={(e) => setLineThickness(parseInt(e.target.value))}
+                          className="w-full"
+                          disabled={isDrawing}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 mb-2 block">
+                          Opacity: {Math.round(shapeOpacity * 100)}%
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={shapeOpacity * 100}
+                          onChange={(e) => {
+                            const newOpacity = parseInt(e.target.value) / 100;
+                            setShapeOpacity(newOpacity);
+                          }}
+                          className="w-full"
+                          disabled={isDrawing}
+                        />
                       </div>
                     </div>
+                  </Card>
+                )}
 
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 mb-2 block">
-                        Line Thickness: {lineThickness}px
-                      </label>
-                      <input
-                        type="range"
-                        min="1"
-                        max="8"
-                        value={lineThickness}
-                        onChange={(e) => setLineThickness(parseInt(e.target.value))}
-                        className="w-full"
-                        disabled={isDrawing}
-                      />
+                {editMode && selectedSection && (
+                  <Card className="p-3 bg-amber-50 border-2 border-amber-200">
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold text-amber-900">Selected: {selectedSection.name}</p>
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 mb-2 block">
+                          Adjust Opacity: {Math.round((selectedSection.opacity || shapeOpacity) * 100)}%
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={Math.round((selectedSection.opacity || shapeOpacity) * 100)}
+                          onChange={(e) => {
+                            const newOpacity = parseInt(e.target.value) / 100;
+                            const updatedSections = sections.map(s => 
+                              s.id === selectedSection.id ? { ...s, opacity: newOpacity } : s
+                            );
+                            setSections(updatedSections);
+                            setSelectedSection({ ...selectedSection, opacity: newOpacity });
+                            
+                            if (selectedImageIndex !== null) {
+                              setCapturedImages(prev => prev.map((img, i) => 
+                                i === selectedImageIndex ? { ...img, sections: updatedSections } : img
+                              ));
+                            }
+                          }}
+                          className="w-full"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => deleteSection(selectedSection.id)}
+                        className="w-full text-red-600 border-red-300"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Selected
+                      </Button>
                     </div>
-                  </div>
-                </Card>
+                  </Card>
+                )}
 
-                <Button
-                  onClick={startDrawingSection}
-                  disabled={isDrawing}
-                  className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold"
-                >
-                  {isDrawing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Drawing... (Double-click to finish polygon)
-                    </>
-                  ) : sections.length === 0 ? (
-                    <>
-                      <Edit3 className="w-5 h-5 mr-2" />
-                      Start Drawing Section 1
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-5 h-5 mr-2" />
-                      Add Section {sections.length + 1}
-                    </>
-                  )}
-                </Button>
+                {!editMode && (
+                  <Button
+                    onClick={startDrawingSection}
+                    disabled={isDrawing}
+                    className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold"
+                  >
+                    {isDrawing ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Drawing Section {sections.length + 1}...
+                      </>
+                    ) : sections.length === 0 ? (
+                      <>
+                        <Edit3 className="w-5 h-5 mr-2" />
+                        Start Drawing Section 1
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-5 h-5 mr-2" />
+                        Add Section {sections.length + 1}
+                      </>
+                    )}
+                  </Button>
+                )}
 
                 {sections.length > 0 && (
                   <Button
@@ -1259,7 +1365,16 @@ export default function MeasurementPage() {
               </h3>
               <div className="space-y-3">
                 {sections.map((section) => (
-                  <Card key={section.id} className="p-3 border-2" style={{ borderColor: section.color }}>
+                  <Card 
+                    key={section.id} 
+                    className={`p-3 border-2 ${selectedSection?.id === section.id ? 'ring-2 ring-amber-400' : ''}`}
+                    style={{ borderColor: section.color }}
+                    onClick={() => {
+                      if (editMode && !isDrawing) {
+                        setSelectedSection(section);
+                      }
+                    }}
+                  >
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: section.color }} />
@@ -1271,7 +1386,10 @@ export default function MeasurementPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => deleteSection(section.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSection(section.id);
+                          }}
                           className="text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1483,6 +1601,7 @@ export default function MeasurementPage() {
                   </div>
                   
                   <img 
+                    ref={imageRef} // Assuming this imageRef was meant to be dynamic per image, but it's a single ref. Not an issue here as we only use one image at a time for drawing
                     src={img.url} 
                     alt={`Captured view ${idx + 1}`}
                     style={{ 
@@ -1579,12 +1698,13 @@ export default function MeasurementPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <p style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>
-                      ✏️ Drawing on Captured View {selectedImageIndex + 1}
+                      {editMode ? '✏️ Edit Mode' : '🎨 Drawing Mode'} - View {selectedImageIndex + 1}
                     </p>
                     <p style={{ fontSize: '15px', opacity: 0.95 }}>
-                      {drawingShape === 'polygon' && 'Click points around roof sections. Double-click to finish.'}
-                      {drawingShape === 'rectangle' && 'Click and drag to draw a rectangle.'}
-                      {drawingShape === 'circle' && 'Click and drag to set center and radius.'}
+                      {editMode ? 'Click shape to select, drag points to modify' : 
+                       drawingShape === 'polygon' ? 'Click points around roof sections. Double-click to finish.' :
+                       drawingShape === 'rectangle' ? 'Click and drag to draw a rectangle.' :
+                       'Click and drag to set center and radius.'}
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -1592,7 +1712,7 @@ export default function MeasurementPage() {
                       size="sm"
                       variant="secondary"
                       onClick={handleCanvasZoomOut}
-                      disabled={canvasZoom <= 0.5 || isDrawing}
+                      disabled={canvasZoom <= 0.5 || isDrawing || editMode && draggedPointIndex !== null}
                     >
                       <ZoomOut className="w-4 h-4" />
                     </Button>
@@ -1600,7 +1720,7 @@ export default function MeasurementPage() {
                       size="sm"
                       variant="secondary"
                       onClick={handleCanvasResetZoom}
-                      disabled={isDrawing}
+                      disabled={isDrawing || editMode && draggedPointIndex !== null}
                     >
                       <Maximize2 className="w-4 h-4" />
                     </Button>
@@ -1608,7 +1728,7 @@ export default function MeasurementPage() {
                       size="sm"
                       variant="secondary"
                       onClick={handleCanvasZoomIn}
-                      disabled={canvasZoom >= 3 || isDrawing}
+                      disabled={canvasZoom >= 3 || isDrawing || editMode && draggedPointIndex !== null}
                     >
                       <ZoomIn className="w-4 h-4" />
                     </Button>
@@ -1622,18 +1742,17 @@ export default function MeasurementPage() {
                   position: 'relative', 
                   width: '100%', 
                   maxWidth: '1200px',
-                  overflow: 'hidden', // Changed from auto to hidden for manual pan
+                  overflow: 'hidden',
                   border: '4px solid #a855f7',
                   borderRadius: '16px',
                   boxShadow: '0 12px 40px rgba(168, 85, 247, 0.4)',
-                  background: '#1e293b',
-                  cursor: isDrawing ? 'crosshair' : (isPanning ? 'grabbing' : 'grab')
+                  background: '#1e293b'
                 }}
               >
                 <div style={{
                   transform: `scale(${canvasZoom}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
                   transformOrigin: 'top left',
-                  transition: isPanning ? 'none' : 'transform 0.2s ease-out' // No transition during active pan
+                  transition: isPanning ? 'none' : 'transform 0.2s ease-out'
                 }}>
                   <div style={{ position: 'relative' }}>
                     <img 
@@ -1649,12 +1768,17 @@ export default function MeasurementPage() {
                     />
                     <canvas
                       ref={canvasRef}
+                      onMouseDown={handleCanvasMouseDown}
+                      onMouseMove={handleCanvasMouseMove}
+                      onMouseUp={handleCanvasMouseUp}
+                      onClick={handleCanvasClick}
+                      onDoubleClick={handleCanvasDblClick}
                       style={{
                         position: 'absolute',
                         top: 0,
                         left: 0,
-                        // Cursor set by useEffect
-                        pointerEvents: isDrawing || isPanning ? 'all' : 'none' // Only react to mouse events when drawing or panning
+                        cursor: getCanvasCursor(),
+                        pointerEvents: 'all' // Always capture mouse events
                       }}
                     />
                   </div>
