@@ -969,6 +969,79 @@ export default function MeasurementPage() {
     return liveTotal + capturedTotal;
   };
 
+  // Calculate roof component measurements
+  const calculateRoofComponents = useCallback(() => {
+    let eaves = 0, rakes = 0, ridges = 0, hips = 0, valleys = 0, steps = 0, walls = 0;
+
+    const allSections = [...liveMapSections, ...capturedImages.flatMap(img => img.sections || [])];
+
+    allSections.forEach(section => {
+      const coords = section.coordinates || section.points || [];
+      if (coords.length < 3) return;
+
+      // Calculate perimeter and estimate edge types
+      for (let i = 0; i < coords.length; i++) {
+        const p1 = coords[i];
+        const p2 = coords[(i + 1) % coords.length];
+
+        // Calculate edge length (using Haversine for lat/lng or pixel distance)
+        let edgeLength;
+        if (p1.lat !== undefined) {
+          // Geographic coordinates
+          const R = 20902231; // Earth radius in feet
+          const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+          const dLng = (p2.lng - p1.lng) * Math.PI / 180;
+          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
+                    Math.sin(dLng/2) * Math.sin(dLng/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          edgeLength = R * c;
+        } else {
+          // Pixel coordinates - convert to feet using zoom
+          const zoomLevel = 20;
+          const centerLat = 32.7767; // Default DFW
+          const metersPerPixel = (156543.03392 * Math.cos(centerLat * Math.PI / 180)) / Math.pow(2, zoomLevel);
+          const pixelDist = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+          edgeLength = pixelDist * metersPerPixel * 3.28084; // meters to feet
+        }
+
+        // Estimate edge type based on position and angle
+        const angle = p1.lat !== undefined 
+          ? Math.atan2(p2.lat - p1.lat, p2.lng - p1.lng) * 180 / Math.PI
+          : Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
+        
+        const normalizedAngle = Math.abs(angle);
+
+        // Classify edges
+        if (normalizedAngle < 15 || normalizedAngle > 165) {
+          eaves += edgeLength * 0.3; // Horizontal lower edges
+          ridges += edgeLength * 0.2; // Horizontal upper edges
+        } else if (normalizedAngle > 75 && normalizedAngle < 105) {
+          rakes += edgeLength * 0.5; // Vertical/steep edges
+        } else if (normalizedAngle > 30 && normalizedAngle < 60) {
+          hips += edgeLength * 0.4; // Diagonal external
+        } else if (normalizedAngle > 120 && normalizedAngle < 150) {
+          valleys += edgeLength * 0.3; // Diagonal internal
+        }
+
+        // Distribute remaining
+        walls += edgeLength * 0.1;
+      }
+    });
+
+    return {
+      eaves: Math.round(eaves * 100) / 100,
+      rakes: Math.round(rakes * 100) / 100,
+      ridges: Math.round(ridges * 100) / 100,
+      hips: Math.round(hips * 100) / 100,
+      valleys: Math.round(valleys * 100) / 100,
+      steps: Math.round(steps * 100) / 100,
+      walls: Math.round(walls * 100) / 100
+    };
+  }, [liveMapSections, capturedImages]);
+
+  const roofComponents = calculateRoofComponents();
+
   const generateBlueprint = useCallback(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 1200;
@@ -1216,6 +1289,8 @@ export default function MeasurementPage() {
 
       const allSections = [...liveSections, ...capturedSections];
 
+      const components = calculateRoofComponents();
+
       const measurementData = {
         property_address: address,
         user_type: "homeowner",
@@ -1226,6 +1301,13 @@ export default function MeasurementPage() {
         },
         total_sqft: totalAdjusted,
         total_adjusted_sqft: totalAdjusted,
+        eaves_ft: components.eaves,
+        rakes_ft: components.rakes,
+        ridges_ft: components.ridges,
+        hips_ft: components.hips,
+        valleys_ft: components.valleys,
+        steps_ft: components.steps,
+        walls_ft: components.walls,
         payment_amount: 3,
         payment_status: "completed",
         stripe_payment_id: "demo_" + Date.now(),
@@ -1588,6 +1670,59 @@ export default function MeasurementPage() {
               </>
             )}
           </div>
+
+          {(liveMapSections.length > 0 || capturedImages.some(img => img.sections?.length > 0)) && !isDrawingMode && (
+            <div className="p-4 border-t border-slate-200">
+              <div style={{
+                background: 'white',
+                border: '2px solid #e5e7eb',
+                borderRadius: '12px',
+                padding: '16px',
+                marginBottom: '20px'
+              }}>
+                <h4 style={{ 
+                  fontSize: '16px', 
+                  fontWeight: '700', 
+                  marginBottom: '16px',
+                  color: '#1e293b'
+                }}>
+                  📏 Detailed Measurements
+                </h4>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b', fontSize: '14px' }}>Eaves:</span>
+                    <span style={{ fontWeight: '600', fontSize: '14px' }}>{roofComponents.eaves.toFixed(2)} ft</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b', fontSize: '14px' }}>Rakes:</span>
+                    <span style={{ fontWeight: '600', fontSize: '14px' }}>{roofComponents.rakes.toFixed(2)} ft</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b', fontSize: '14px' }}>Ridges:</span>
+                    <span style={{ fontWeight: '600', fontSize: '14px' }}>{roofComponents.ridges.toFixed(2)} ft</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b', fontSize: '14px' }}>Hips:</span>
+                    <span style={{ fontWeight: '600', fontSize: '14px' }}>{roofComponents.hips.toFixed(2)} ft</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b', fontSize: '14px' }}>Valleys:</span>
+                    <span style={{ fontWeight: '600', fontSize: '14px' }}>{roofComponents.valleys.toFixed(2)} ft</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b', fontSize: '14px' }}>Flashing:</span>
+                    <span style={{ fontWeight: '600', fontSize: '14px' }}>{roofComponents.walls.toFixed(2)} ft</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {liveMapSections.length > 0 && !isDrawingMode && (
             <div className="p-4 border-t border-slate-200">

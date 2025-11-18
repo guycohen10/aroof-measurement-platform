@@ -12,6 +12,7 @@ import InteractiveMapView from "../components/results/InteractiveMapView";
 import DetailedMeasurements from "../components/results/DetailedMeasurements";
 import PhotoUpload from "../components/results/PhotoUpload";
 import PDFReportGenerator from "../components/results/PDFReportGenerator";
+import RoofDiagram from "../components/results/RoofDiagram";
 
 
 export default function Results() {
@@ -528,6 +529,8 @@ export default function Results() {
                 <InteractiveMapView measurement={measurement} sections={sections} />
               </CardContent>
             </Card>
+
+            <RoofDiagram measurement={measurement} />
 
             <DetailedMeasurements measurement={measurement} />
 
