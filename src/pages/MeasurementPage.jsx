@@ -217,6 +217,8 @@ export default function MeasurementPage() {
       drawingManagerRef.current = drawingManager;
 
       window.google.maps.event.addListener(drawingManager, 'polygoncomplete', (polygon) => {
+        console.log("Polygon drawing complete");
+        
         const path = polygon.getPath();
         const coordinates = [];
         
@@ -228,9 +230,10 @@ export default function MeasurementPage() {
         const area = window.google.maps.geometry.spherical.computeArea(path);
         const areaSqFt = area * 10.7639;
 
-        const colorIndex = liveMapSections.length % SECTION_COLORS.length;
+        const colorIndex = polygonsRef.current.length % SECTION_COLORS.length;
         const sectionColor = SECTION_COLORS[colorIndex];
 
+        // Set all polygon options BEFORE adding to map
         polygon.setOptions({
           fillColor: sectionColor.fill,
           strokeColor: sectionColor.stroke,
@@ -239,15 +242,60 @@ export default function MeasurementPage() {
           clickable: true,
           editable: true,
           draggable: false,
-          zIndex: 100
+          zIndex: 100,
+          map: map // Explicitly set the map here
         });
 
-        // Keep polygon on map explicitly
-        polygon.setMap(map);
+        const sectionId = `section-${Date.now()}`;
+
+        // Listen for path changes to update coordinates
+        window.google.maps.event.addListener(path, 'set_at', () => {
+          console.log("Path updated");
+          const newCoords = [];
+          for (let i = 0; i < path.getLength(); i++) {
+            const point = path.getAt(i);
+            newCoords.push({ lat: point.lat(), lng: point.lng() });
+          }
+          const newArea = window.google.maps.geometry.spherical.computeArea(path);
+          const newAreaSqFt = Math.round((newArea * 10.7639) * 100) / 100;
+          
+          setLiveMapSections(prev => prev.map(section => 
+            section.id === sectionId 
+              ? { 
+                  ...section, 
+                  coordinates: newCoords,
+                  flat_area_sqft: newAreaSqFt,
+                  adjusted_area_sqft: Math.round(newAreaSqFt * section.pitch_multiplier * 100) / 100
+                }
+              : section
+          ));
+        });
+
+        window.google.maps.event.addListener(path, 'insert_at', () => {
+          console.log("Point inserted");
+          const newCoords = [];
+          for (let i = 0; i < path.getLength(); i++) {
+            const point = path.getAt(i);
+            newCoords.push({ lat: point.lat(), lng: point.lng() });
+          }
+          const newArea = window.google.maps.geometry.spherical.computeArea(path);
+          const newAreaSqFt = Math.round((newArea * 10.7639) * 100) / 100;
+          
+          setLiveMapSections(prev => prev.map(section => 
+            section.id === sectionId 
+              ? { 
+                  ...section, 
+                  coordinates: newCoords,
+                  flat_area_sqft: newAreaSqFt,
+                  adjusted_area_sqft: Math.round(newAreaSqFt * section.pitch_multiplier * 100) / 100
+                }
+              : section
+          ));
+        });
 
         const newSection = {
-          id: `section-${Date.now()}`,
-          name: `Section ${liveMapSections.length + 1}`,
+          id: sectionId,
+          name: `Section ${polygonsRef.current.length + 1}`,
           flat_area_sqft: Math.round(areaSqFt * 100) / 100,
           pitch: 'flat',
           pitch_multiplier: 1.00,
@@ -257,12 +305,20 @@ export default function MeasurementPage() {
           polygon: polygon
         };
 
-        setLiveMapSections(prev => [...prev, newSection]);
+        // Store polygon reference FIRST
         polygonsRef.current.push(polygon);
+        
+        // Then update state
+        setLiveMapSections(prev => {
+          console.log("Adding section to state, polygon visible:", polygon.getMap() !== null);
+          return [...prev, newSection];
+        });
 
-        // Turn off drawing mode but keep polygon visible and editable
+        // Turn off drawing mode
         drawingManager.setDrawingMode(null);
         setIsDrawing(false);
+        
+        console.log("Polygon should now be visible on map");
       });
 
     } catch (err) {
