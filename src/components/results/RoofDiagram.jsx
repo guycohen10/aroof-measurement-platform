@@ -1,16 +1,65 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { base44 } from "@/api/base44Client";
+import { Pencil, Save, X } from "lucide-react";
 
 export default function RoofDiagram({ measurement }) {
   const canvasRef = useRef(null);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const eavesFt = measurement?.eaves_ft || 0;
-  const rakesFt = measurement?.rakes_ft || 0;
-  const ridgesFt = measurement?.ridges_ft || 0;
-  const hipsFt = measurement?.hips_ft || 0;
-  const valleysFt = measurement?.valleys_ft || 0;
-  const stepsFt = measurement?.steps_ft || 0;
-  const wallsFt = measurement?.walls_ft || 0;
+  const [values, setValues] = useState({
+    eaves: measurement?.eaves_ft || 0,
+    rakes: measurement?.rakes_ft || 0,
+    ridges: measurement?.ridges_ft || 0,
+    hips: measurement?.hips_ft || 0,
+    valleys: measurement?.valleys_ft || 0,
+    steps: measurement?.steps_ft || 0,
+    walls: measurement?.walls_ft || 0,
+  });
+
+  const eavesFt = values.eaves;
+  const rakesFt = values.rakes;
+  const ridgesFt = values.ridges;
+  const hipsFt = values.hips;
+  const valleysFt = values.valleys;
+  const stepsFt = values.steps;
+  const wallsFt = values.walls;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await base44.entities.Measurement.update(measurement.id, {
+        eaves_ft: values.eaves,
+        rakes_ft: values.rakes,
+        ridges_ft: values.ridges,
+        hips_ft: values.hips,
+        valleys_ft: values.valleys,
+        steps_ft: values.steps,
+        walls_ft: values.walls,
+      });
+      setEditMode(false);
+    } catch (err) {
+      alert('Failed to save: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setValues({
+      eaves: measurement?.eaves_ft || 0,
+      rakes: measurement?.rakes_ft || 0,
+      ridges: measurement?.ridges_ft || 0,
+      hips: measurement?.hips_ft || 0,
+      valleys: measurement?.valleys_ft || 0,
+      steps: measurement?.steps_ft || 0,
+      walls: measurement?.walls_ft || 0,
+    });
+    setEditMode(false);
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -183,10 +232,31 @@ export default function RoofDiagram({ measurement }) {
   return (
     <Card className="shadow-xl border-2 border-blue-200">
       <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
-        <CardTitle className="flex items-center gap-2 text-2xl">
-          🏗️ Roof Components Diagram
-        </CardTitle>
-        <p className="text-sm text-slate-600 mt-1">Illustrated breakdown of your roof's components</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-2xl">
+              🏗️ Roof Components Diagram
+            </CardTitle>
+            <p className="text-sm text-slate-600 mt-1">Illustrated breakdown of your roof's components</p>
+          </div>
+          {!editMode ? (
+            <Button onClick={() => setEditMode(true)} variant="outline" size="sm">
+              <Pencil className="w-4 h-4 mr-2" />
+              Edit Measurements
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button onClick={handleSave} disabled={saving} size="sm" className="bg-green-600 hover:bg-green-700">
+                <Save className="w-4 h-4 mr-2" />
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+              <Button onClick={handleCancel} variant="outline" size="sm">
+                <X className="w-4 h-4 mr-2" />
+                Cancel
+              </Button>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="p-6">
         {/* 3D Diagram */}
@@ -214,34 +284,47 @@ export default function RoofDiagram({ measurement }) {
           gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
           gap: '16px'
         }}>
-          {components.map(item => (
-            <div
-              key={item.label}
-              style={{
-                background: 'white',
-                padding: '16px',
-                borderRadius: '12px',
-                border: `3px solid ${item.color}`,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-              }}
-            >
-              <span style={{ fontSize: '36px' }}>{item.icon}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>
-                  {item.label}
-                </div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#1e293b', marginBottom: '2px' }}>
-                  {item.value.toFixed(2)} ft
-                </div>
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                  {item.description}
+          {components.map(item => {
+            const fieldName = item.label.toLowerCase();
+            return (
+              <div
+                key={item.label}
+                style={{
+                  background: 'white',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: `3px solid ${item.color}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}
+              >
+                <span style={{ fontSize: '36px' }}>{item.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>
+                    {item.label}
+                  </div>
+                  {editMode ? (
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={values[fieldName]}
+                      onChange={(e) => setValues({ ...values, [fieldName]: parseFloat(e.target.value) || 0 })}
+                      className="h-8 text-lg font-bold my-1"
+                    />
+                  ) : (
+                    <div style={{ fontSize: '20px', fontWeight: '700', color: '#1e293b', marginBottom: '2px' }}>
+                      {item.value.toFixed(2)} ft
+                    </div>
+                  )}
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    {item.description}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Total Linear Feet */}
