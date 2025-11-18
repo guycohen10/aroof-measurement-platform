@@ -203,11 +203,11 @@ export default function MeasurementPage() {
         drawingControl: false,
         polygonOptions: {
           fillColor: SECTION_COLORS[0].fill,
-          fillOpacity: 0.3,
+          fillOpacity: 0.35,
           strokeWeight: 3,
           strokeColor: SECTION_COLORS[0].stroke,
           clickable: true,
-          editable: false,
+          editable: true,
           draggable: false,
           zIndex: 100
         }
@@ -234,10 +234,10 @@ export default function MeasurementPage() {
         polygon.setOptions({
           fillColor: sectionColor.fill,
           strokeColor: sectionColor.stroke,
-          fillOpacity: 0.3,
+          fillOpacity: 0.35,
           strokeWeight: 3,
           clickable: true,
-          editable: false,
+          editable: true,
           draggable: false,
           zIndex: 100
         });
