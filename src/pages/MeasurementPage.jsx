@@ -903,6 +903,206 @@ export default function MeasurementPage() {
     return liveTotal + capturedTotal;
   };
 
+  const generateBlueprint = useCallback(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1000;
+    const ctx = canvas.getContext('2d');
+    
+    // White background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Title section
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 32px Arial';
+    ctx.fillText('ROOF MEASUREMENT BLUEPRINT', 50, 50);
+    ctx.font = '16px Arial';
+    ctx.fillStyle = '#475569';
+    ctx.fillText(address, 50, 80);
+    ctx.fillText(`Generated: ${new Date().toLocaleDateString()}`, 50, 105);
+    
+    // Draw border
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+    
+    // Collect all sections with their coordinates
+    const allSections = [];
+    
+    // Add live map sections
+    liveMapSections.forEach((section, idx) => {
+      if (section.coordinates && section.coordinates.length > 0) {
+        allSections.push({
+          ...section,
+          points: section.coordinates.map(coord => ({ lat: coord.lat, lng: coord.lng })),
+          source: 'live'
+        });
+      }
+    });
+    
+    // Add captured image sections (convert pixel coordinates to lat/lng approximation)
+    capturedImages.forEach((img, imgIdx) => {
+      if (img.sections && img.sections.length > 0) {
+        img.sections.forEach((section, sectionIdx) => {
+          if (section.points && section.points.length > 0) {
+            // For captured sections, we'll use normalized coordinates
+            allSections.push({
+              ...section,
+              points: section.points.map(p => ({ 
+                lat: p.y / 600, // Normalize to 0-1 range
+                lng: p.x / 800 
+              })),
+              source: 'captured'
+            });
+          }
+        });
+      }
+    });
+    
+    if (allSections.length === 0) {
+      alert('No sections to display in blueprint');
+      return;
+    }
+    
+    // Find bounds of all sections
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+    
+    allSections.forEach(section => {
+      section.points.forEach(point => {
+        minLat = Math.min(minLat, point.lat);
+        maxLat = Math.max(maxLat, point.lat);
+        minLng = Math.min(minLng, point.lng);
+        maxLng = Math.max(maxLng, point.lng);
+      });
+    });
+    
+    // Add padding
+    const latRange = maxLat - minLat;
+    const lngRange = maxLng - minLng;
+    const padding = Math.max(latRange, lngRange) * 0.1;
+    
+    minLat -= padding;
+    maxLat += padding;
+    minLng -= padding;
+    maxLng += padding;
+    
+    // Scale to fit canvas
+    const drawPadding = 80;
+    const drawWidth = canvas.width - drawPadding * 2;
+    const drawHeight = canvas.height - 300; // Leave space for legend at bottom
+    const drawTop = 140;
+    
+    function scalePoint(lat, lng) {
+      const x = drawPadding + ((lng - minLng) / (maxLng - minLng)) * drawWidth;
+      const y = drawTop + ((maxLat - lat) / (maxLat - minLat)) * drawHeight;
+      return { x, y };
+    }
+    
+    // Draw each section
+    allSections.forEach((section, index) => {
+      const color = section.color || SECTION_COLORS[index % SECTION_COLORS.length].stroke;
+      
+      // Draw polygon
+      ctx.fillStyle = color + '33'; // 20% opacity
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      
+      ctx.beginPath();
+      section.points.forEach((point, i) => {
+        const scaled = scalePoint(point.lat, point.lng);
+        if (i === 0) ctx.moveTo(scaled.x, scaled.y);
+        else ctx.lineTo(scaled.x, scaled.y);
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      
+      // Calculate center for label
+      let centerLat = 0, centerLng = 0;
+      section.points.forEach(p => {
+        centerLat += p.lat;
+        centerLng += p.lng;
+      });
+      centerLat /= section.points.length;
+      centerLng /= section.points.length;
+      
+      const centerScaled = scalePoint(centerLat, centerLng);
+      
+      // Draw label background
+      const labelLines = [
+        section.name || `Section ${index + 1}`,
+        `${Math.round(section.flat_area_sqft || section.adjusted_area_sqft).toLocaleString()} sq ft`,
+        `Pitch: ${section.pitch || 'flat'}`
+      ];
+      
+      const lineHeight = 18;
+      const labelHeight = labelLines.length * lineHeight + 10;
+      const labelWidth = 140;
+      
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.fillRect(centerScaled.x - labelWidth/2, centerScaled.y - labelHeight/2, labelWidth, labelHeight);
+      ctx.strokeRect(centerScaled.x - labelWidth/2, centerScaled.y - labelHeight/2, labelWidth, labelHeight);
+      
+      // Draw label text
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      labelLines.forEach((line, i) => {
+        const y = centerScaled.y - labelHeight/2 + 15 + (i * lineHeight);
+        if (i === 0) {
+          ctx.font = 'bold 14px Arial';
+        } else {
+          ctx.font = '12px Arial';
+        }
+        ctx.fillText(line, centerScaled.x, y);
+      });
+    });
+    
+    // Legend at bottom
+    const legendTop = drawTop + drawHeight + 40;
+    const totalArea = getTotalArea();
+    const totalSquares = (totalArea / 100).toFixed(2);
+    
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(50, legendTop, canvas.width - 100, 150);
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(50, legendTop, canvas.width - 100, 150);
+    
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('MEASUREMENT SUMMARY', 70, legendTop + 35);
+    
+    ctx.font = '18px Arial';
+    ctx.fillStyle = '#475569';
+    ctx.fillText(`Total Sections: ${allSections.length}`, 70, legendTop + 70);
+    ctx.fillText(`Total Area: ${totalArea.toLocaleString()} sq ft`, 70, legendTop + 100);
+    ctx.fillText(`Total Squares: ${totalSquares}`, 70, legendTop + 130);
+    
+    const liveCount = liveMapSections.length;
+    const capturedCount = allSections.length - liveCount;
+    if (capturedCount > 0) {
+      ctx.font = '14px Arial';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(`(${liveCount} from live map, ${capturedCount} from captured views)`, 450, legendTop + 70);
+    }
+    
+    // Convert to image and download
+    const dataUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = `roof-blueprint-${address.replace(/[^a-z0-9]/gi, '-')}.png`;
+    link.href = dataUrl;
+    link.click();
+    
+  }, [liveMapSections, capturedImages, address, getTotalArea]);
+
   const handleCompleteMeasurement = useCallback(async () => {
     const totalAdjusted = getTotalArea();
     
@@ -1497,23 +1697,33 @@ export default function MeasurementPage() {
                 {totalArea.toLocaleString()} sq ft
               </div>
 
-              <Button
-                onClick={handleCompleteMeasurement}
-                disabled={saving}
-                className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    Complete Measurement
-                  </>
-                )}
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  onClick={generateBlueprint}
+                  variant="outline"
+                  className="w-full h-12 border-2 border-blue-600 text-blue-600 hover:bg-blue-50"
+                >
+                  📐 Download Blueprint Diagram
+                </Button>
+
+                <Button
+                  onClick={handleCompleteMeasurement}
+                  disabled={saving}
+                  className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-5 h-5 mr-2" />
+                      Complete Measurement
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </div>
