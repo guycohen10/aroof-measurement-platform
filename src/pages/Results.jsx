@@ -130,7 +130,7 @@ export default function Results() {
     { stroke: '#14b8a6', fill: '#14b8a6', name: 'Teal' },
   ];
 
-  const generateBlueprint = () => {
+  const generateBlueprint = async (saveToMeasurement = false) => {
     const canvas = document.createElement('canvas');
     canvas.width = 1200;
     canvas.height = 1000;
@@ -277,10 +277,23 @@ export default function Results() {
     ctx.fillText(`Total Squares: ${totalSquares}`, 70, legendTop + 130);
     
     const dataUrl = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.download = `roof-blueprint-${measurement.property_address.replace(/[^a-z0-9]/gi, '-')}.png`;
-    link.href = dataUrl;
-    link.click();
+    
+    if (saveToMeasurement) {
+      try {
+        await base44.entities.Measurement.update(measurement.id, {
+          measurement_diagram: dataUrl
+        });
+        setMeasurement({ ...measurement, measurement_diagram: dataUrl });
+        alert('Blueprint saved to results page!');
+      } catch (err) {
+        alert('Failed to save blueprint: ' + err.message);
+      }
+    } else {
+      const link = document.createElement('a');
+      link.download = `roof-blueprint-${measurement.property_address.replace(/[^a-z0-9]/gi, '-')}.png`;
+      link.href = dataUrl;
+      link.click();
+    }
   };
 
   const materialMultipliers = {
@@ -503,16 +516,58 @@ export default function Results() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <p className="text-slate-600 mb-4">
-                    Scaled blueprint showing all measured sections with labels
-                  </p>
-                  <Button
-                    onClick={() => generateBlueprint()}
-                    className="w-full h-16 bg-purple-600 hover:bg-purple-700 text-white text-lg"
-                  >
-                    <Download className="w-5 h-5 mr-2" />
-                    Download Blueprint Image
-                  </Button>
+                  {measurement.measurement_diagram ? (
+                    <>
+                      <p className="text-slate-600 mb-4">
+                        Blueprint saved to results page
+                      </p>
+                      <img 
+                        src={measurement.measurement_diagram} 
+                        alt="Roof Blueprint"
+                        className="w-full h-auto border-2 border-slate-200 rounded-lg mb-4"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => generateBlueprint(false)}
+                          variant="outline"
+                          className="flex-1 h-12 border-2 border-purple-600 text-purple-600"
+                        >
+                          <Download className="w-5 h-5 mr-2" />
+                          Download
+                        </Button>
+                        <Button
+                          onClick={() => generateBlueprint(true)}
+                          className="flex-1 h-12 bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                          <CheckCircle className="w-5 h-5 mr-2" />
+                          Regenerate
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-slate-600 mb-4">
+                        Scaled blueprint showing all measured sections with labels
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => generateBlueprint(false)}
+                          variant="outline"
+                          className="flex-1 h-16 border-2 border-purple-600 text-purple-600 text-lg"
+                        >
+                          <Download className="w-5 h-5 mr-2" />
+                          Download
+                        </Button>
+                        <Button
+                          onClick={() => generateBlueprint(true)}
+                          className="flex-1 h-16 bg-purple-600 hover:bg-purple-700 text-white text-lg"
+                        >
+                          <CheckCircle className="w-5 h-5 mr-2" />
+                          Add to Results
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             )}
