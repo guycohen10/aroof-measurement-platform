@@ -1205,10 +1205,14 @@ export default function MeasurementPage() {
         }))
       );
 
-      const liveSections = liveMapSections.map(section => ({
-        ...section,
-        source: 'live_map'
-      }));
+      const liveSections = liveMapSections.map(section => {
+        // Remove polygon object and any circular references
+        const { polygon, ...sectionData } = section;
+        return {
+          ...sectionData,
+          source: 'live_map'
+        };
+      });
 
       const allSections = [...liveSections, ...capturedSections];
 
