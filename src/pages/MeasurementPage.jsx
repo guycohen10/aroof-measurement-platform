@@ -47,6 +47,7 @@ export default function MeasurementPage() {
   const drawingManagerRef = useRef(null);
   const polygonsRef = useRef([]);
   const containerRef = useRef(null);
+  const initAttemptRef = useRef(0);
   
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
@@ -68,14 +69,12 @@ export default function MeasurementPage() {
   const [currentZoom, setCurrentZoom] = useState(20);
   const [capturing, setCapturing] = useState(false);
   
-  // Drawing tools state
   const [drawingShape, setDrawingShape] = useState('polygon');
   const [lineThickness, setLineThickness] = useState(3);
   const [selectedColor, setSelectedColor] = useState(SECTION_COLORS[0]);
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
   
-  // Edit mode state (for captured images)
   const [editMode, setEditMode] = useState(false);
   const [selectedSection, setSelectedSection] = useState(null);
   const [draggedPointIndex, setDraggedPointIndex] = useState(null);
@@ -83,6 +82,7 @@ export default function MeasurementPage() {
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
+  // Load address from URL or localStorage
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const addressParam = urlParams.get('address');
@@ -90,13 +90,22 @@ export default function MeasurementPage() {
     const lngParam = urlParams.get('lng');
     const measurementIdParam = urlParams.get('measurementId');
     
-    if (!addressParam) {
-      navigate(createPageUrl("FormPage"));
-      return;
-    }
+    // Get address from URL or localStorage
+    const storedAddress = localStorage.getItem('measurementAddress');
+    const storedLat = localStorage.getItem('measurementLat');
+    const storedLng = localStorage.getItem('measurementLng');
     
-    const decodedAddress = decodeURIComponent(addressParam);
-    setAddress(decodedAddress);
+    if (addressParam) {
+      const decodedAddress = decodeURIComponent(addressParam);
+      setAddress(decodedAddress);
+      localStorage.setItem('measurementAddress', decodedAddress);
+    } else if (storedAddress) {
+      setAddress(storedAddress);
+      // Add to URL for consistency
+      const url = new URL(window.location.href);
+      url.searchParams.set('address', storedAddress);
+      window.history.replaceState({}, '', url);
+    }
 
     if (measurementIdParam) {
       setMeasurementId(measurementIdParam);
@@ -107,17 +116,31 @@ export default function MeasurementPage() {
       const lng = parseFloat(lngParam);
       if (!isNaN(lat) && !isNaN(lng)) {
         setCoordinates({ lat, lng });
+        localStorage.setItem('measurementLat', lat.toString());
+        localStorage.setItem('measurementLng', lng.toString());
         setGeocodingStatus("Location verified!");
+      }
+    } else if (storedLat && storedLng) {
+      const lat = parseFloat(storedLat);
+      const lng = parseFloat(storedLng);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setCoordinates({ lat, lng });
       }
     }
 
     setLoading(false);
-  }, [navigate]);
+  }, []);
 
   const createMap = useCallback((center) => {
     if (!mapRef.current) {
       console.error("❌ Map container ref is null");
-      setTimeout(() => createMap(center), 200);
+      if (initAttemptRef.current < 5) {
+        initAttemptRef.current++;
+        setTimeout(() => createMap(center), 300);
+      } else {
+        setMapError("Map container not available after multiple attempts");
+        setMapLoading(false);
+      }
       return;
     }
 
@@ -131,7 +154,7 @@ export default function MeasurementPage() {
         maxZoom: 22,
         mapTypeId: "satellite",
         tilt: 0,
-        zoomControl: false,
+        zoomControl: true,
         scrollwheel: true,
         gestureHandling: 'greedy',
         disableDoubleClickZoom: false,
@@ -174,7 +197,7 @@ export default function MeasurementPage() {
         }
       });
 
-      // Initialize Drawing Manager for live map
+      // Initialize Drawing Manager
       const drawingManager = new window.google.maps.drawing.DrawingManager({
         drawingMode: null,
         drawingControl: false,
@@ -250,8 +273,8 @@ export default function MeasurementPage() {
     }
 
     try {
-      if (!window.google || !window.google.maps) {
-        throw new Error("Google Maps API not loaded");
+      if (!window.google || !window.google.maps || !window.google.maps.drawing) {
+        throw new Error("Google Maps API not fully loaded");
       }
 
       console.log("✅ Google Maps API available");
@@ -263,33 +286,30 @@ export default function MeasurementPage() {
         return;
       }
 
+      if (!address) {
+        console.log("⏳ No address yet, waiting...");
+        setMapLoading(false);
+        return;
+      }
+
       setGeocodingStatus("Finding address location...");
       console.log("🔄 Geocoding address:", address);
       
       const geocoder = new window.google.maps.Geocoder();
-      let geocodingCompleted = false;
       
-      const geocodeTimeout = setTimeout(() => {
-        if (!geocodingCompleted) {
-          console.warn("⚠️ Geocoding timeout");
-          setGeocodingStatus("Using default location");
-          createMap(defaultCenter);
-        }
-      }, 10000);
-
       geocoder.geocode({ address: address }, (results, status) => {
-        geocodingCompleted = true;
-        clearTimeout(geocodeTimeout);
-        
         if (status === "OK" && results[0]) {
           const location = results[0].geometry.location;
           const geocodedCenter = { lat: location.lat(), lng: location.lng() };
           console.log("✅ Geocoded:", geocodedCenter);
           setCoordinates(geocodedCenter);
+          localStorage.setItem('measurementLat', geocodedCenter.lat.toString());
+          localStorage.setItem('measurementLng', geocodedCenter.lng.toString());
           setGeocodingStatus("Address found!");
           createMap(geocodedCenter);
         } else {
           console.error("❌ Geocoding failed:", status);
+          setMapError(`Could not find address (${status})`);
           setGeocodingStatus("Using default location");
           createMap(defaultCenter);
         }
@@ -301,28 +321,40 @@ export default function MeasurementPage() {
     }
   }, [address, coordinates, createMap]);
 
+  // Load Google Maps with robust error handling
   useEffect(() => {
-    if (!address) return;
+    if (!address && !coordinates) {
+      console.log("⏳ Waiting for address or coordinates...");
+      setMapLoading(false);
+      return;
+    }
+
+    console.log("🚀 Starting Google Maps load process");
 
     const loadGoogleMaps = () => {
+      // Check if already loaded
       if (window.google && window.google.maps && window.google.maps.drawing) {
         console.log("✅ Google Maps already loaded");
-        setTimeout(initializeMap, 300);
+        setTimeout(initializeMap, 100);
         return;
       }
 
+      // Check if script tag exists
       const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
       if (existingScript) {
-        console.log("⏳ Script exists, waiting...");
+        console.log("⏳ Script exists, waiting for Google Maps to load...");
         let attempts = 0;
+        const maxAttempts = 50;
+        
         const checkInterval = setInterval(() => {
           attempts++;
           if (window.google && window.google.maps && window.google.maps.drawing) {
             clearInterval(checkInterval);
             console.log("✅ Google Maps loaded");
-            setTimeout(initializeMap, 300);
-          } else if (attempts >= 30) {
+            setTimeout(initializeMap, 100);
+          } else if (attempts >= maxAttempts) {
             clearInterval(checkInterval);
+            console.error("❌ Google Maps load timeout");
             setMapError("Google Maps failed to load. Please refresh the page.");
             setMapLoading(false);
           }
@@ -330,20 +362,33 @@ export default function MeasurementPage() {
         return;
       }
 
-      console.log("📥 Loading Google Maps...");
+      // Create new script
+      console.log("📥 Loading Google Maps script...");
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places&callback=initGoogleMapsCallback`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places`;
       script.async = true;
       script.defer = true;
       
-      window.initGoogleMapsCallback = () => {
-        console.log("✅ Callback fired");
-        delete window.initGoogleMapsCallback;
-        setTimeout(initializeMap, 300);
+      script.onload = () => {
+        console.log("✅ Script loaded, waiting for API...");
+        let attempts = 0;
+        const checkInterval = setInterval(() => {
+          attempts++;
+          if (window.google && window.google.maps && window.google.maps.drawing) {
+            clearInterval(checkInterval);
+            console.log("✅ Google Maps API ready");
+            setTimeout(initializeMap, 100);
+          } else if (attempts >= 30) {
+            clearInterval(checkInterval);
+            setMapError("Google Maps API not available after script load");
+            setMapLoading(false);
+          }
+        }, 100);
       };
       
-      script.onerror = () => {
-        setMapError("Failed to load Google Maps.");
+      script.onerror = (e) => {
+        console.error("❌ Script load error:", e);
+        setMapError("Failed to load Google Maps. Please check your internet connection.");
         setMapLoading(false);
       };
       
@@ -351,7 +396,14 @@ export default function MeasurementPage() {
     };
 
     loadGoogleMaps();
-  }, [address, initializeMap, GOOGLE_MAPS_API_KEY]);
+  }, [address, coordinates, initializeMap, GOOGLE_MAPS_API_KEY]);
+
+  const handleRetryMap = () => {
+    setMapError("");
+    setMapLoading(true);
+    initAttemptRef.current = 0;
+    window.location.reload();
+  };
 
   const startDrawingOnLiveMap = useCallback(() => {
     if (!drawingManagerRef.current) {
@@ -694,7 +746,6 @@ export default function MeasurementPage() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const points = [];
-    let startPoint = null;
     let isDrawingActive = true;
 
     const colorIndex = sections.length % SECTION_COLORS.length;
@@ -975,7 +1026,7 @@ export default function MeasurementPage() {
               <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-blue-600 font-medium">Property:</p>
-                <p className="text-sm font-bold text-blue-900 break-words">{address}</p>
+                <p className="text-sm font-bold text-blue-900 break-words">{address || 'Enter address to start'}</p>
                 {coordinates && (
                   <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                     <CheckCircle className="w-3 h-3" />
@@ -997,7 +1048,12 @@ export default function MeasurementPage() {
             {mapError && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm">{mapError}</AlertDescription>
+                <AlertDescription className="text-sm">
+                  {mapError}
+                  <Button size="sm" onClick={handleRetryMap} className="ml-2 mt-2">
+                    Retry
+                  </Button>
+                </AlertDescription>
               </Alert>
             )}
 
@@ -1053,7 +1109,7 @@ export default function MeasurementPage() {
 
                 <Button
                   onClick={startDrawingOnLiveMap}
-                  disabled={isDrawing}
+                  disabled={isDrawing || !mapInstanceRef.current}
                   className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold"
                 >
                   {isDrawing ? (
@@ -1393,7 +1449,7 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {(liveMapSections.length > 0 || capturedImages.length > 0) && (
+          {(liveMapSections.length > 0 || capturedImages.some(img => img.sections?.length > 0)) && (
             <div className="sticky bottom-0 p-6 border-t border-slate-200 bg-gradient-to-br from-green-50 to-blue-50">
               <h3 className="text-sm font-bold text-slate-700 mb-2">Total Roof Area</h3>
               <div className="text-3xl font-bold text-green-900 mb-4">
@@ -1440,35 +1496,67 @@ export default function MeasurementPage() {
                 Live Satellite View
               </div>
               <div className="relative">
-                <div 
-                  ref={mapRef} 
-                  style={{ 
-                    width: '100%', 
-                    height: '700px',
-                    borderRadius: '0 0 16px 16px',
-                    border: '3px solid #3b82f6',
-                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-                    backgroundColor: '#1e293b'
-                  }} 
-                />
-                {mapLoading && (
+                {mapError ? (
                   <div style={{
-                    position: 'absolute',
-                    top: '0',
-                    left: '0',
                     width: '100%',
-                    height: '100%',
-                    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                    height: '700px',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    background: '#1e293b',
                     borderRadius: '0 0 16px 16px',
-                    zIndex: 10
+                    border: '3px solid #ef4444'
                   }}>
-                    <Loader2 className="w-16 h-16 animate-spin text-blue-400 mx-auto mb-4" />
-                    <p className="text-xl font-semibold text-white">{geocodingStatus}</p>
+                    <div style={{ fontSize: '64px', marginBottom: '20px' }}>⚠️</div>
+                    <div style={{ color: '#ef4444', fontSize: '22px', fontWeight: '700', marginBottom: '12px' }}>
+                      Google Maps Failed to Load
+                    </div>
+                    <div style={{ color: '#94a3b8', fontSize: '15px', marginBottom: '24px', textAlign: 'center', maxWidth: '500px', lineHeight: '1.6' }}>
+                      There was an error loading the map. This may be due to network issues or API configuration.
+                    </div>
+                    <Button
+                      onClick={handleRetryMap}
+                      size="lg"
+                      className="bg-blue-600 hover:bg-blue-700 h-14 px-8 text-lg"
+                    >
+                      <RotateCcw className="w-5 h-5 mr-2" />
+                      Retry Loading Map
+                    </Button>
                   </div>
+                ) : (
+                  <>
+                    <div 
+                      ref={mapRef} 
+                      style={{ 
+                        width: '100%', 
+                        height: '700px',
+                        borderRadius: '0 0 16px 16px',
+                        border: '3px solid #3b82f6',
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+                        backgroundColor: '#1e293b'
+                      }} 
+                    />
+                    {mapLoading && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '0',
+                        left: '0',
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '0 0 16px 16px',
+                        zIndex: 10
+                      }}>
+                        <Loader2 className="w-16 h-16 animate-spin text-blue-400 mx-auto mb-4" />
+                        <p className="text-xl font-semibold text-white">{geocodingStatus}</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
