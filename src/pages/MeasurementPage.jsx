@@ -1068,12 +1068,37 @@ export default function MeasurementPage() {
             
             {!mapLoading && !mapError && !isDrawingMode && (
               <>
-                <Alert className="bg-green-50 border-green-200">
-                  <Info className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-xs text-green-900">
-                    <strong>How to measure:</strong> Click "Start Drawing" button, then click points around your roof. Each section will automatically get a new color. Double-click to finish each section.
-                  </AlertDescription>
-                </Alert>
+                <Card className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-300">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Info className="w-5 h-5 text-blue-600" />
+                      <h3 className="font-bold text-blue-900 text-sm">📋 How to Use:</h3>
+                    </div>
+                    
+                    <div className="space-y-2 text-xs text-blue-900">
+                      <div className="flex items-start gap-2">
+                        <span className="font-bold text-blue-700 min-w-[60px]">Step 1:</span>
+                        <span>Use zoom controls to get the best view of your roof</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="font-bold text-blue-700 min-w-[60px]">Step 2:</span>
+                        <span>Click "Start Drawing" below, then click points around roof sections</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="font-bold text-blue-700 min-w-[60px]">Step 3:</span>
+                        <span>Double-click to finish each section - it will change color automatically</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="font-bold text-blue-700 min-w-[60px]">Step 4:</span>
+                        <span>Repeat for all roof sections. Each gets a unique color.</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="font-bold text-green-700 min-w-[60px]">Optional:</span>
+                        <span>Capture different angles and draw on them separately</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
 
                 <Card className="p-3 bg-white border-2 border-slate-200">
                   <div className="space-y-2">
