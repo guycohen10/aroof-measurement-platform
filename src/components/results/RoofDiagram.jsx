@@ -66,158 +66,174 @@ export default function RoofDiagram({ measurement }) {
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
+    const w = 1200;
+    const h = 600;
 
     // Clear canvas
-    ctx.clearRect(0, 0, width, height);
+    ctx.clearRect(0, 0, w, h);
 
-    // Draw 3D isometric roof
-    ctx.save();
+    // Define roof geometry (isometric 3D perspective)
+    const roofPoints = {
+      topLeft: [320, 150],
+      topRight: [880, 150],
+      centerTop: [600, 150],
+      bottomLeft: [220, 410],
+      bottomRight: [980, 410],
+      centerBottom: [600, 410],
+      valleyTop: [600, 150],
+      valleyBottom: [600, 410]
+    };
 
-    // Ridge line (top horizontal)
+    // LEFT ROOF FACE (darker shade)
+    ctx.fillStyle = '#6b7280';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 15;
+    ctx.shadowOffsetX = -5;
+    ctx.shadowOffsetY = 5;
+
+    ctx.beginPath();
+    ctx.moveTo(...roofPoints.topLeft);
+    ctx.lineTo(...roofPoints.bottomLeft);
+    ctx.lineTo(...roofPoints.centerBottom);
+    ctx.lineTo(...roofPoints.centerTop);
+    ctx.closePath();
+    ctx.fill();
+
+    // RIGHT ROOF FACE (lighter shade)
+    ctx.fillStyle = '#9ca3af';
+    ctx.shadowOffsetX = 5;
+
+    ctx.beginPath();
+    ctx.moveTo(...roofPoints.centerTop);
+    ctx.lineTo(...roofPoints.centerBottom);
+    ctx.lineTo(...roofPoints.bottomRight);
+    ctx.lineTo(...roofPoints.topRight);
+    ctx.closePath();
+    ctx.fill();
+
+    // Reset shadow
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+
+    // DRAW COMPONENTS WITH BOLD LINES
+
+    // Ridge (top horizontal)
     ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 6;
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(400, 180);
-    ctx.lineTo(800, 180);
+    ctx.moveTo(...roofPoints.topLeft);
+    ctx.lineTo(...roofPoints.topRight);
     ctx.stroke();
 
-    // Ridge label
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 18px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('Ridge', 600, 160);
-
-    // Draw pointer line
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(600, 165);
-    ctx.lineTo(600, 180);
-    ctx.stroke();
-
-    // Left hip (diagonal)
+    // Hips (external diagonals)
     ctx.strokeStyle = '#ec4899';
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 8;
+
     ctx.beginPath();
-    ctx.moveTo(400, 180);
-    ctx.lineTo(250, 380);
+    ctx.moveTo(...roofPoints.topLeft);
+    ctx.lineTo(...roofPoints.bottomLeft);
     ctx.stroke();
 
-    ctx.fillText('Hip', 280, 260);
     ctx.beginPath();
-    ctx.moveTo(300, 270);
-    ctx.lineTo(315, 270);
+    ctx.moveTo(...roofPoints.topRight);
+    ctx.lineTo(...roofPoints.bottomRight);
     ctx.stroke();
 
-    // Right hip (diagonal)
-    ctx.beginPath();
-    ctx.moveTo(800, 180);
-    ctx.lineTo(950, 380);
-    ctx.stroke();
-
-    ctx.fillText('Hip', 920, 260);
-    ctx.beginPath();
-    ctx.moveTo(900, 270);
-    ctx.lineTo(885, 270);
-    ctx.stroke();
-
-    // Left roof face
-    ctx.fillStyle = 'rgba(234, 88, 12, 0.5)';
-    ctx.beginPath();
-    ctx.moveTo(400, 180);
-    ctx.lineTo(250, 380);
-    ctx.lineTo(200, 440);
-    ctx.lineTo(600, 440);
-    ctx.closePath();
-    ctx.fill();
-
-    // Right roof face
-    ctx.fillStyle = 'rgba(251, 146, 60, 0.4)';
-    ctx.beginPath();
-    ctx.moveTo(800, 180);
-    ctx.lineTo(600, 440);
-    ctx.lineTo(1000, 440);
-    ctx.lineTo(950, 380);
-    ctx.closePath();
-    ctx.fill();
-
-    // Valley (if exists)
+    // Valley (internal diagonal)
     if (valleysFt > 0) {
       ctx.strokeStyle = '#8b5cf6';
-      ctx.lineWidth = 4;
-      ctx.setLineDash([8, 4]);
+      ctx.lineWidth = 8;
+      ctx.setLineDash([20, 10]);
       ctx.beginPath();
-      ctx.moveTo(600, 180);
-      ctx.lineTo(600, 440);
+      ctx.moveTo(...roofPoints.valleyTop);
+      ctx.lineTo(...roofPoints.valleyBottom);
       ctx.stroke();
       ctx.setLineDash([]);
-
-      ctx.fillText('Valley', 640, 300);
-      ctx.beginPath();
-      ctx.moveTo(625, 300);
-      ctx.lineTo(600, 300);
-      ctx.stroke();
     }
 
-    // Eave (bottom edge)
+    // Eave (bottom horizontal)
     ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = 6;
+    ctx.lineWidth = 10;
     ctx.beginPath();
-    ctx.moveTo(200, 440);
-    ctx.lineTo(1000, 440);
+    ctx.moveTo(...roofPoints.bottomLeft);
+    ctx.lineTo(...roofPoints.bottomRight);
     ctx.stroke();
 
-    ctx.fillText('Eave', 600, 480);
-    ctx.beginPath();
-    ctx.moveTo(600, 465);
-    ctx.lineTo(600, 440);
-    ctx.stroke();
-
-    // Left rake
+    // Rakes (gable edges)
     ctx.strokeStyle = '#06b6d4';
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 7;
+
     ctx.beginPath();
-    ctx.moveTo(250, 380);
-    ctx.lineTo(200, 440);
+    ctx.moveTo(...roofPoints.bottomLeft);
+    ctx.lineTo(...roofPoints.topLeft);
     ctx.stroke();
 
-    ctx.fillText('Rake', 180, 420);
     ctx.beginPath();
-    ctx.moveTo(200, 415);
-    ctx.lineTo(220, 405);
+    ctx.moveTo(...roofPoints.bottomRight);
+    ctx.lineTo(...roofPoints.topRight);
     ctx.stroke();
 
-    // Right rake
-    ctx.beginPath();
-    ctx.moveTo(950, 380);
-    ctx.lineTo(1000, 440);
-    ctx.stroke();
+    // LABELS with pointer lines
+    ctx.font = 'bold 22px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'white';
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 3;
 
-    ctx.fillText('Rake', 1020, 420);
-    ctx.beginPath();
-    ctx.moveTo(1000, 415);
-    ctx.lineTo(980, 405);
-    ctx.stroke();
+    // Function to draw label with pointer
+    function drawLabel(text, x, y, pointerX, pointerY) {
+      // Text with outline
+      ctx.strokeText(text, x, y);
+      ctx.fillText(text, x, y);
+
+      // Pointer line
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 8);
+      ctx.lineTo(pointerX, pointerY);
+      ctx.stroke();
+
+      // Arrow head
+      const angle = Math.atan2(pointerY - (y + 8), pointerX - x);
+      ctx.beginPath();
+      ctx.moveTo(pointerX, pointerY);
+      ctx.lineTo(
+        pointerX - 12 * Math.cos(angle - Math.PI/6),
+        pointerY - 12 * Math.sin(angle - Math.PI/6)
+      );
+      ctx.lineTo(
+        pointerX - 12 * Math.cos(angle + Math.PI/6),
+        pointerY - 12 * Math.sin(angle + Math.PI/6)
+      );
+      ctx.closePath();
+      ctx.fillStyle = 'white';
+      ctx.fill();
+    }
+
+    // Draw all labels
+    drawLabel('Ridge', 600, 100, 600, 145);
+    drawLabel('Hip', 240, 240, 270, 280);
+    drawLabel('Hip', 960, 240, 930, 280);
+    if (valleysFt > 0) {
+      drawLabel('Valley', 670, 260, 620, 280);
+    }
+    drawLabel('Eave', 600, 470, 600, 415);
+    drawLabel('Rake', 150, 320, 210, 360);
+    drawLabel('Rake', 1050, 320, 990, 360);
 
     // Flashing indication
     if (wallsFt > 0) {
       ctx.strokeStyle = '#eab308';
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.moveTo(400, 180);
-      ctx.lineTo(400, 230);
+      ctx.moveTo(320, 150);
+      ctx.lineTo(320, 200);
       ctx.stroke();
 
-      ctx.fillText('Flashing', 440, 210);
-      ctx.beginPath();
-      ctx.moveTo(430, 210);
-      ctx.lineTo(405, 210);
-      ctx.stroke();
+      drawLabel('Flashing', 380, 180, 325, 175);
     }
-
-    ctx.restore();
   }, [eavesFt, rakesFt, ridgesFt, hipsFt, valleysFt, stepsFt, wallsFt]);
 
   const components = [
