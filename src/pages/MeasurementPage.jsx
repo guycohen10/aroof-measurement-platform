@@ -203,12 +203,13 @@ export default function MeasurementPage() {
         drawingControl: false,
         polygonOptions: {
           fillColor: SECTION_COLORS[0].fill,
-          fillOpacity: 0.5,
+          fillOpacity: 0.3,
           strokeWeight: 3,
           strokeColor: SECTION_COLORS[0].stroke,
           clickable: true,
-          editable: true,
-          zIndex: 1
+          editable: false,
+          draggable: false,
+          zIndex: 100
         }
       });
 
@@ -233,8 +234,12 @@ export default function MeasurementPage() {
         polygon.setOptions({
           fillColor: sectionColor.fill,
           strokeColor: sectionColor.stroke,
-          fillOpacity: 0.5,
-          strokeWeight: 3
+          fillOpacity: 0.3,
+          strokeWeight: 3,
+          clickable: true,
+          editable: false,
+          draggable: false,
+          zIndex: 100
         });
 
         const newSection = {
@@ -1038,36 +1043,31 @@ export default function MeasurementPage() {
           </div>
 
           <div className="p-4 space-y-3">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm">{error}</AlertDescription>
-              </Alert>
-            )}
-
-            {mapError && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm">
-                  {mapError}
-                  <Button size="sm" onClick={handleRetryMap} className="ml-2 mt-2">
-                    Retry
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {mapLoading && (
-              <Alert className="bg-blue-50 border-blue-200">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                <AlertDescription className="text-xs text-blue-900">
-                  {geocodingStatus}
-                </AlertDescription>
-              </Alert>
-            )}
-            
             {!mapLoading && !mapError && !isDrawingMode && (
               <>
+                <Button
+                  onClick={startDrawingOnLiveMap}
+                  disabled={isDrawing || !mapInstanceRef.current}
+                  className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold"
+                >
+                  {isDrawing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Drawing Section {liveMapSections.length + 1}...
+                    </>
+                  ) : liveMapSections.length === 0 ? (
+                    <>
+                      <Edit3 className="w-5 h-5 mr-2" />
+                      🎨 Start Drawing Section 1
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5 mr-2" />
+                      Add Section {liveMapSections.length + 1}
+                    </>
+                  )}
+                </Button>
+
                 <Card className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-300">
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-2">
@@ -1078,23 +1078,23 @@ export default function MeasurementPage() {
                     <div className="space-y-2 text-xs text-blue-900">
                       <div className="flex items-start gap-2">
                         <span className="font-bold text-blue-700 min-w-[60px]">Step 1:</span>
-                        <span>Use zoom controls to get the best view of your roof</span>
+                        <span>Click "Start Drawing" button above</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <span className="font-bold text-blue-700 min-w-[60px]">Step 2:</span>
-                        <span>Click "Start Drawing" below, then click points around roof sections</span>
+                        <span>Click points around each roof section on the map</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <span className="font-bold text-blue-700 min-w-[60px]">Step 3:</span>
-                        <span>Double-click to finish each section - it will change color automatically</span>
+                        <span>Double-click to finish - section appears as colored polygon</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <span className="font-bold text-blue-700 min-w-[60px]">Step 4:</span>
-                        <span>Repeat for all roof sections. Each gets a unique color.</span>
+                        <span>Repeat for all sections - each gets unique color</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <span className="font-bold text-green-700 min-w-[60px]">Optional:</span>
-                        <span>Capture different angles and draw on them separately</span>
+                        <span>Use zoom controls below for best view</span>
                       </div>
                     </div>
                   </div>
@@ -1174,6 +1174,34 @@ export default function MeasurementPage() {
                   )}
                 </Button>
               </>
+            )}
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {mapError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  {mapError}
+                  <Button size="sm" onClick={handleRetryMap} className="ml-2 mt-2">
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {mapLoading && (
+              <Alert className="bg-blue-50 border-blue-200">
+                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                <AlertDescription className="text-xs text-blue-900">
+                  {geocodingStatus}
+                </AlertDescription>
+              </Alert>
             )}
 
             {isDrawingMode && (
