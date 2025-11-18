@@ -906,6 +906,11 @@ export default function MeasurementPage() {
   const handleCompleteMeasurement = useCallback(async () => {
     const totalAdjusted = getTotalArea();
     
+    if (liveMapSections.length === 0 && !capturedImages.some(img => img.sections?.length > 0)) {
+      setError("⚠️ Please draw at least one roof section before completing.");
+      return;
+    }
+    
     if (totalAdjusted < 100) {
       setError("Total area seems too small. Please verify your measurements.");
       return;
@@ -915,6 +920,12 @@ export default function MeasurementPage() {
       setError("Total area seems unusually large. Please verify your measurements.");
       return;
     }
+
+    const confirmed = window.confirm(
+      `Complete measurement with ${liveMapSections.length + capturedImages.reduce((sum, img) => sum + (img.sections?.length || 0), 0)} section(s) totaling ${totalAdjusted.toFixed(2)} sq ft?`
+    );
+    
+    if (!confirmed) return;
 
     setSaving(true);
     setError("");
@@ -1131,29 +1142,6 @@ export default function MeasurementPage() {
                     </Button>
                   </div>
                 </Card>
-
-                <Button
-                  onClick={startDrawingOnLiveMap}
-                  disabled={isDrawing || !mapInstanceRef.current}
-                  className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold"
-                >
-                  {isDrawing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Drawing Section {liveMapSections.length + 1}...
-                    </>
-                  ) : liveMapSections.length === 0 ? (
-                    <>
-                      <Edit3 className="w-5 h-5 mr-2" />
-                      Start Drawing Section 1
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-5 h-5 mr-2" />
-                      Add Section {liveMapSections.length + 1}
-                    </>
-                  )}
-                </Button>
 
                 <Button
                   onClick={handleCaptureView}
