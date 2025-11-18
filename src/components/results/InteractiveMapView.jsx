@@ -16,33 +16,30 @@ export default function InteractiveMapView({ measurement, sections }) {
       return;
     }
 
-    const loadGoogleMaps = () => {
-      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-      if (existingScript || (window.google && window.google.maps)) {
-        initializeMap();
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc&libraries=geometry,drawing';
-      script.async = true;
-      script.onload = () => initializeMap();
-      script.onerror = () => {
-        setError("Failed to load Google Maps");
-        setLoading(false);
-      };
-      document.head.appendChild(script);
-    };
+    let attemptCount = 0;
+    const maxAttempts = 20;
 
     const initializeMap = () => {
+      attemptCount++;
+
       if (!mapRef.current) {
-        setTimeout(initializeMap, 200);
+        if (attemptCount < maxAttempts) {
+          setTimeout(initializeMap, 200);
+        } else {
+          setError("Map container not available");
+          setLoading(false);
+        }
         return;
       }
 
       if (!window.google || !window.google.maps) {
-        console.log("Google Maps not loaded, waiting...");
-        setTimeout(initializeMap, 500);
+        console.log("Google Maps not loaded yet, attempt", attemptCount);
+        if (attemptCount < maxAttempts) {
+          setTimeout(initializeMap, 300);
+        } else {
+          setError("Google Maps failed to load. Please refresh the page.");
+          setLoading(false);
+        }
         return;
       }
 
@@ -139,10 +136,9 @@ export default function InteractiveMapView({ measurement, sections }) {
             map.setZoom(21);
           }
           console.log("Map initialized successfully");
+          setLoading(false);
+          setError("");
         });
-
-        setLoading(false);
-        setError("");
 
       } catch (err) {
         console.error("Map initialization error:", err);
@@ -152,7 +148,7 @@ export default function InteractiveMapView({ measurement, sections }) {
     };
 
     // Wait a bit for DOM to be ready
-    const timer = setTimeout(loadGoogleMaps, 100);
+    const timer = setTimeout(initializeMap, 100);
     return () => clearTimeout(timer);
   }, [sections]);
 
