@@ -12,7 +12,7 @@ import InteractiveMapView from "../components/results/InteractiveMapView";
 import DetailedMeasurements from "../components/results/DetailedMeasurements";
 import PhotoUpload from "../components/results/PhotoUpload";
 import PDFReportGenerator from "../components/results/PDFReportGenerator";
-import Roof3DView from "../components/results/Roof3DView";
+
 
 export default function Results() {
   const navigate = useNavigate();
@@ -115,6 +115,172 @@ export default function Results() {
   const isHomeowner = measurement.user_type === "homeowner";
   const hasPitchAdjustment = flatArea !== adjustedArea;
   const capturedImages = measurement?.captured_images || [];
+
+  const SECTION_COLORS = [
+    { stroke: '#4A90E2', fill: '#4A90E2', name: 'Blue' },
+    { stroke: '#10b981', fill: '#10b981', name: 'Green' },
+    { stroke: '#f97316', fill: '#f97316', name: 'Orange' },
+    { stroke: '#a855f7', fill: '#a855f7', name: 'Purple' },
+    { stroke: '#ef4444', fill: '#ef4444', name: 'Red' },
+    { stroke: '#06b6d4', fill: '#06b6d4', name: 'Cyan' },
+    { stroke: '#f59e0b', fill: '#f59e0b', name: 'Amber' },
+    { stroke: '#ec4899', fill: '#ec4899', name: 'Pink' },
+    { stroke: '#8b5cf6', fill: '#8b5cf6', name: 'Violet' },
+    { stroke: '#14b8a6', fill: '#14b8a6', name: 'Teal' },
+  ];
+
+  const generateBlueprint = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1000;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 32px Arial';
+    ctx.fillText('ROOF MEASUREMENT BLUEPRINT', 50, 50);
+    ctx.font = '16px Arial';
+    ctx.fillStyle = '#475569';
+    ctx.fillText(measurement.property_address, 50, 80);
+    ctx.fillText(`Generated: ${new Date().toLocaleDateString()}`, 50, 105);
+    
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+    
+    const allSections = sections.map((s, idx) => ({
+      ...s,
+      displayColor: s.color || SECTION_COLORS[idx % SECTION_COLORS.length].stroke
+    }));
+    
+    if (allSections.length === 0) {
+      alert('No sections to display in blueprint');
+      return;
+    }
+    
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+    
+    allSections.forEach(section => {
+      if (section.coordinates && section.coordinates.length > 0) {
+        section.coordinates.forEach(point => {
+          minLat = Math.min(minLat, point.lat);
+          maxLat = Math.max(maxLat, point.lat);
+          minLng = Math.min(minLng, point.lng);
+          maxLng = Math.max(maxLng, point.lng);
+        });
+      }
+    });
+    
+    const latRange = maxLat - minLat;
+    const lngRange = maxLng - minLng;
+    const padding = Math.max(latRange, lngRange) * 0.1;
+    
+    minLat -= padding;
+    maxLat += padding;
+    minLng -= padding;
+    maxLng += padding;
+    
+    const drawPadding = 80;
+    const drawWidth = canvas.width - drawPadding * 2;
+    const drawHeight = canvas.height - 300;
+    const drawTop = 140;
+    
+    function scalePoint(lat, lng) {
+      const x = drawPadding + ((lng - minLng) / (maxLng - minLng)) * drawWidth;
+      const y = drawTop + ((maxLat - lat) / (maxLat - minLat)) * drawHeight;
+      return { x, y };
+    }
+    
+    allSections.forEach((section, index) => {
+      if (!section.coordinates || section.coordinates.length === 0) return;
+      
+      const color = section.displayColor;
+      
+      ctx.fillStyle = color + '33';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      
+      ctx.beginPath();
+      section.coordinates.forEach((point, i) => {
+        const scaled = scalePoint(point.lat, point.lng);
+        if (i === 0) ctx.moveTo(scaled.x, scaled.y);
+        else ctx.lineTo(scaled.x, scaled.y);
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      
+      let centerLat = 0, centerLng = 0;
+      section.coordinates.forEach(p => {
+        centerLat += p.lat;
+        centerLng += p.lng;
+      });
+      centerLat /= section.coordinates.length;
+      centerLng /= section.coordinates.length;
+      
+      const centerScaled = scalePoint(centerLat, centerLng);
+      
+      const labelLines = [
+        section.name || `Section ${index + 1}`,
+        `${Math.round(section.adjusted_area_sqft || section.flat_area_sqft).toLocaleString()} sq ft`,
+        `Pitch: ${section.pitch || 'flat'}`
+      ];
+      
+      const lineHeight = 18;
+      const labelHeight = labelLines.length * lineHeight + 10;
+      const labelWidth = 140;
+      
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.fillRect(centerScaled.x - labelWidth/2, centerScaled.y - labelHeight/2, labelWidth, labelHeight);
+      ctx.strokeRect(centerScaled.x - labelWidth/2, centerScaled.y - labelHeight/2, labelWidth, labelHeight);
+      
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      labelLines.forEach((line, i) => {
+        const y = centerScaled.y - labelHeight/2 + 15 + (i * lineHeight);
+        if (i === 0) {
+          ctx.font = 'bold 14px Arial';
+        } else {
+          ctx.font = '12px Arial';
+        }
+        ctx.fillText(line, centerScaled.x, y);
+      });
+    });
+    
+    const legendTop = drawTop + drawHeight + 40;
+    const totalSquares = (area / 100).toFixed(2);
+    
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(50, legendTop, canvas.width - 100, 150);
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(50, legendTop, canvas.width - 100, 150);
+    
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('MEASUREMENT SUMMARY', 70, legendTop + 35);
+    
+    ctx.font = '18px Arial';
+    ctx.fillStyle = '#475569';
+    ctx.fillText(`Total Sections: ${allSections.length}`, 70, legendTop + 70);
+    ctx.fillText(`Total Area: ${area.toLocaleString()} sq ft`, 70, legendTop + 100);
+    ctx.fillText(`Total Squares: ${totalSquares}`, 70, legendTop + 130);
+    
+    const dataUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = `roof-blueprint-${measurement.property_address.replace(/[^a-z0-9]/gi, '-')}.png`;
+    link.href = dataUrl;
+    link.click();
+  };
 
   const materialMultipliers = {
     asphalt_shingles: 1.0,
@@ -332,14 +498,20 @@ export default function Results() {
                 <CardHeader className="bg-gradient-to-r from-purple-50 to-white">
                   <CardTitle className="flex items-center gap-2 text-2xl">
                     <Box className="w-6 h-6 text-purple-600" />
-                    🎨 3D Roof Visualization
+                    📐 Roof Blueprint Diagram
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
                   <p className="text-slate-600 mb-4">
-                    Interactive 3D model - drag to rotate
+                    Scaled blueprint showing all measured sections with labels
                   </p>
-                  <Roof3DView measurement={measurement} sections={sections} />
+                  <Button
+                    onClick={() => generateBlueprint()}
+                    className="w-full h-16 bg-purple-600 hover:bg-purple-700 text-white text-lg"
+                  >
+                    <Download className="w-5 h-5 mr-2" />
+                    Download Blueprint Image
+                  </Button>
                 </CardContent>
               </Card>
             )}
