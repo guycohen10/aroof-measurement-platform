@@ -16,10 +16,27 @@ export default function InteractiveMapView({ measurement, sections }) {
       return;
     }
 
+    const loadGoogleMaps = () => {
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript || (window.google && window.google.maps)) {
+        initializeMap();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc&libraries=geometry,drawing';
+      script.async = true;
+      script.onload = () => initializeMap();
+      script.onerror = () => {
+        setError("Failed to load Google Maps");
+        setLoading(false);
+      };
+      document.head.appendChild(script);
+    };
+
     const initializeMap = () => {
       if (!mapRef.current) {
-        setError("Map container not ready");
-        setLoading(false);
+        setTimeout(initializeMap, 200);
         return;
       }
 
@@ -135,7 +152,7 @@ export default function InteractiveMapView({ measurement, sections }) {
     };
 
     // Wait a bit for DOM to be ready
-    const timer = setTimeout(initializeMap, 100);
+    const timer = setTimeout(loadGoogleMaps, 100);
     return () => clearTimeout(timer);
   }, [sections]);
 
