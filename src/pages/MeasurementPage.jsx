@@ -242,6 +242,9 @@ export default function MeasurementPage() {
           zIndex: 100
         });
 
+        // Keep polygon on map explicitly
+        polygon.setMap(map);
+
         const newSection = {
           id: `section-${Date.now()}`,
           name: `Section ${liveMapSections.length + 1}`,
@@ -257,6 +260,7 @@ export default function MeasurementPage() {
         setLiveMapSections(prev => [...prev, newSection]);
         polygonsRef.current.push(polygon);
 
+        // Turn off drawing mode but keep polygon visible and editable
         drawingManager.setDrawingMode(null);
         setIsDrawing(false);
       });
