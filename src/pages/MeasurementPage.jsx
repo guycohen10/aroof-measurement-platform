@@ -144,6 +144,12 @@ export default function MeasurementPage() {
       return;
     }
 
+    // If map already exists, don't recreate it
+    if (mapInstanceRef.current) {
+      console.log("✅ Map already exists, skipping creation");
+      return;
+    }
+
     try {
       console.log("✅ Creating Google Map with center:", center);
       
@@ -326,7 +332,7 @@ export default function MeasurementPage() {
       setMapError(`Error creating map: ${err.message}`);
       setMapLoading(false);
     }
-  }, [address, liveMapSections.length]);
+  }, [address]);
 
   const initializeMap = useCallback(async () => {
     console.log("🔄 initializeMap called");
