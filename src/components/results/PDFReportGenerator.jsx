@@ -5,11 +5,146 @@ import { FileText, Loader2 } from "lucide-react";
 export default function PDFReportGenerator({ measurement, satelliteImageData, diagramImageData, userBranding, onGenerate }) {
   const [generating, setGenerating] = React.useState(false);
 
+  const generate3DRoofDiagram = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 700;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 1200, 700);
+    
+    const roof = {
+      topLeft: [250, 200],
+      topRight: [950, 200],
+      centerTop: [600, 200],
+      bottomLeft: [150, 500],
+      bottomRight: [1050, 500],
+      centerBottom: [600, 500]
+    };
+    
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.beginPath();
+    ctx.ellipse(600, 520, 450, 35, 0, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    ctx.fillStyle = '#6b7280';
+    ctx.beginPath();
+    ctx.moveTo(...roof.topLeft);
+    ctx.lineTo(...roof.bottomLeft);
+    ctx.lineTo(...roof.centerBottom);
+    ctx.lineTo(...roof.centerTop);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.fillStyle = '#9ca3af';
+    ctx.beginPath();
+    ctx.moveTo(...roof.centerTop);
+    ctx.lineTo(...roof.centerBottom);
+    ctx.lineTo(...roof.bottomRight);
+    ctx.lineTo(...roof.topRight);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.lineCap = 'round';
+    
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 10;
+    ctx.shadowColor = 'rgba(245, 158, 11, 0.4)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(...roof.topLeft);
+    ctx.lineTo(...roof.topRight);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    ctx.strokeStyle = '#ec4899';
+    ctx.lineWidth = 8;
+    ctx.shadowColor = 'rgba(236, 72, 153, 0.4)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(...roof.topLeft);
+    ctx.lineTo(...roof.bottomLeft);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(...roof.topRight);
+    ctx.lineTo(...roof.bottomRight);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    ctx.strokeStyle = '#8b5cf6';
+    ctx.lineWidth = 8;
+    ctx.setLineDash([20, 10]);
+    ctx.shadowColor = 'rgba(139, 92, 246, 0.4)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(...roof.centerTop);
+    ctx.lineTo(...roof.centerBottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+    
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 10;
+    ctx.shadowColor = 'rgba(16, 185, 129, 0.4)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(...roof.bottomLeft);
+    ctx.lineTo(...roof.bottomRight);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 7;
+    ctx.shadowColor = 'rgba(6, 182, 212, 0.4)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(...roof.bottomLeft);
+    ctx.lineTo(...roof.topLeft);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(...roof.bottomRight);
+    ctx.lineTo(...roof.topRight);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    ctx.font = 'bold 26px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#000000';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 4;
+    
+    ctx.strokeText('Ridge', 600, 170);
+    ctx.fillText('Ridge', 600, 170);
+    
+    ctx.strokeText('Hip', 180, 340);
+    ctx.fillText('Hip', 180, 340);
+    
+    ctx.strokeText('Hip', 1020, 340);
+    ctx.fillText('Hip', 1020, 340);
+    
+    ctx.strokeText('Valley', 670, 350);
+    ctx.fillText('Valley', 670, 350);
+    
+    ctx.strokeText('Eave', 600, 540);
+    ctx.fillText('Eave', 600, 540);
+    
+    ctx.strokeText('Rake', 100, 350);
+    ctx.fillText('Rake', 100, 350);
+    
+    ctx.strokeText('Rake', 1100, 350);
+    ctx.fillText('Rake', 1100, 350);
+    
+    return canvas.toDataURL('image/png');
+  };
+
   const generatePrintableHTML = () => {
     const sections = measurement?.measurement_data?.sections || [];
     const photos = measurement?.photos || [];
     const flatArea = measurement?.measurement_data?.total_flat_sqft || measurement.total_sqft || 0;
     const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea;
+    
+    const roofDiagram3D = generate3DRoofDiagram();
     
     const totalSquares = (adjustedArea / 100).toFixed(2);
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -358,7 +493,129 @@ export default function PDFReportGenerator({ measurement, satelliteImageData, di
   
   <div class="page-break"></div>
   
-  <!-- PAGE 3: DETAILED MEASUREMENTS -->
+  <!-- PAGE 3: SATELLITE VIEW -->
+  ${satelliteImageSrc ? `
+  <div class="page">
+    <div class="header">
+      <div class="header-left">
+        ${companyLogo ? `<img src="${companyLogo}" alt="${companyName} Logo" class="header-logo" />` : '<h1>' + companyName + '</h1>'}
+        <p>Satellite Measurement View</p>
+      </div>
+    </div>
+    
+    <h2 class="section-title">📸 Aerial View with Measured Sections</h2>
+    <p style="color: #64748b; margin-bottom: 20px;">
+      High-resolution satellite imagery showing the property with highlighted roof sections
+    </p>
+    
+    <div style="border: 3px solid #3b82f6; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,0.15); margin-bottom: 20px;">
+      <img 
+        src="${satelliteImageSrc}" 
+        alt="Satellite measurement view"
+        style="width: 100%; height: auto; display: block;"
+      />
+    </div>
+    
+    <div class="details-grid">
+      <div class="detail-item">
+        <div class="detail-label">Property Address</div>
+        <div class="detail-value">${measurement.property_address}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Total Roof Area</div>
+        <div class="detail-value">${Math.round(adjustedArea).toLocaleString()} sq ft</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Measurement Sections</div>
+        <div class="detail-value">${sections.length}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Measurement Date</div>
+        <div class="detail-value">${today}</div>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>${companyName} | ${companyPhone} | ${companyEmail} | Page 3</p>
+    </div>
+  </div>
+  
+  <div class="page-break"></div>
+  ` : ''}
+  
+  <!-- PAGE X: 3D ROOF COMPONENTS -->
+  <div class="page">
+    <div class="header">
+      <div class="header-left">
+        ${companyLogo ? `<img src="${companyLogo}" alt="${companyName} Logo" class="header-logo" />` : '<h1>' + companyName + '</h1>'}
+        <p>Roof Components Guide</p>
+      </div>
+    </div>
+    
+    <h2 class="section-title">🏗️ Roof Components Illustrated</h2>
+    <p style="color: #64748b; margin-bottom: 20px;">
+      Visual guide showing the different parts of your roof structure
+    </p>
+    
+    <div style="border: 3px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 24px; background: white;">
+      <img 
+        src="${roofDiagram3D}" 
+        alt="3D roof components diagram"
+        style="width: 100%; height: auto; display: block;"
+      />
+    </div>
+    
+    <div style="background: #f8fafc; border-radius: 12px; padding: 20px; border: 2px solid #e5e7eb;">
+      <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #1e293b;">Component Definitions:</h3>
+      <table style="margin: 0;">
+        <tbody>
+          <tr>
+            <td style="border: none; padding: 8px 12px;">
+              <div style="display: inline-block; width: 12px; height: 12px; background: #f59e0b; border-radius: 2px; margin-right: 8px;"></div>
+              <strong>Ridge:</strong>
+            </td>
+            <td style="border: none; padding: 8px 12px; color: #64748b;">Top horizontal peak of the roof</td>
+          </tr>
+          <tr>
+            <td style="border: none; padding: 8px 12px;">
+              <div style="display: inline-block; width: 12px; height: 12px; background: #ec4899; border-radius: 2px; margin-right: 8px;"></div>
+              <strong>Hip:</strong>
+            </td>
+            <td style="border: none; padding: 8px 12px; color: #64748b;">External diagonal angles where roof planes meet</td>
+          </tr>
+          <tr>
+            <td style="border: none; padding: 8px 12px;">
+              <div style="display: inline-block; width: 12px; height: 12px; background: #8b5cf6; border-radius: 2px; margin-right: 8px;"></div>
+              <strong>Valley:</strong>
+            </td>
+            <td style="border: none; padding: 8px 12px; color: #64748b;">Internal diagonal angles (water channels)</td>
+          </tr>
+          <tr>
+            <td style="border: none; padding: 8px 12px;">
+              <div style="display: inline-block; width: 12px; height: 12px; background: #10b981; border-radius: 2px; margin-right: 8px;"></div>
+              <strong>Eave:</strong>
+            </td>
+            <td style="border: none; padding: 8px 12px; color: #64748b;">Lower horizontal edge (gutter installation)</td>
+          </tr>
+          <tr>
+            <td style="border: none; padding: 8px 12px;">
+              <div style="display: inline-block; width: 12px; height: 12px; background: #06b6d4; border-radius: 2px; margin-right: 8px;"></div>
+              <strong>Rake:</strong>
+            </td>
+            <td style="border: none; padding: 8px 12px; color: #64748b;">Gable end edges (sloped perimeter)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="footer">
+      <p>${companyName} | ${companyPhone} | ${companyEmail} | Page ${satelliteImageSrc ? '4' : '3'}</p>
+    </div>
+  </div>
+  
+  <div class="page-break"></div>
+  
+  <!-- PAGE X: DETAILED MEASUREMENTS -->
   <div class="page">
     <div class="header">
       <div class="header-left">
@@ -438,13 +695,13 @@ export default function PDFReportGenerator({ measurement, satelliteImageData, di
     </table>
     
     <div class="footer">
-      <p>${companyName} | ${companyPhone} | ${companyEmail} | Page 3</p>
+      <p>${companyName} | ${companyPhone} | ${companyEmail} | Page ${satelliteImageSrc ? '5' : '4'}</p>
     </div>
   </div>
   
   <div class="page-break"></div>
   
-  <!-- PAGE 4: PRICING -->
+  <!-- PAGE X: PRICING -->
   <div class="page">
     <div class="header">
       <div class="header-left">
@@ -495,7 +752,7 @@ export default function PDFReportGenerator({ measurement, satelliteImageData, di
     ` : ''}
     
     <div class="footer">
-      <p>${companyName} | ${companyPhone} | ${companyEmail} | Page 4</p>
+      <p>${companyName} | ${companyPhone} | ${companyEmail} | Page ${satelliteImageSrc ? '6' : '5'}</p>
     </div>
   </div>
   
