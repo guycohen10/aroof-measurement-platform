@@ -79,6 +79,8 @@ export default function MeasurementPage() {
   const [selectedSection, setSelectedSection] = useState(null);
   const [draggedPointIndex, setDraggedPointIndex] = useState(null);
   const [shapeOpacity, setShapeOpacity] = useState(0.5);
+  const [showTreeHelper, setShowTreeHelper] = useState(false);
+  const [deletedSectionsCount, setDeletedSectionsCount] = useState(0);
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
@@ -498,6 +500,7 @@ export default function MeasurementPage() {
     
     setLiveMapSections(prev => prev.filter(s => s.id !== sectionId));
     polygonsRef.current = polygonsRef.current.filter((_, i) => i !== sectionIndex);
+    setDeletedSectionsCount(prev => prev + 1);
   }, [liveMapSections]);
 
   const updateLiveMapSectionPitch = useCallback((sectionId, pitchValue) => {
@@ -915,6 +918,7 @@ export default function MeasurementPage() {
     }
     
     redrawCanvas();
+    setDeletedSectionsCount(prev => prev + 1);
   }, [sections, selectedSection, selectedImageIndex, redrawCanvas]);
 
   const updateSectionPitch = useCallback((sectionId, pitchValue) => {
@@ -960,6 +964,22 @@ export default function MeasurementPage() {
       setupDrawingCanvas();
     }
   }, [isDrawingMode, selectedImageIndex, setupDrawingCanvas]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if ((liveMapSections.length > 0 || sections.length > 0) && !showTreeHelper) {
+        setShowTreeHelper(true);
+      }
+    }, 120000);
+    
+    return () => clearTimeout(timer);
+  }, [liveMapSections.length, sections.length, showTreeHelper]);
+
+  useEffect(() => {
+    if (deletedSectionsCount >= 3) {
+      setShowTreeHelper(true);
+    }
+  }, [deletedSectionsCount]);
 
   const getTotalArea = () => {
     const liveTotal = liveMapSections.reduce((sum, s) => sum + s.adjusted_area_sqft, 0);
@@ -1437,7 +1457,7 @@ export default function MeasurementPage() {
                       <Info className="w-5 h-5 text-blue-600" />
                       <h3 className="font-bold text-blue-900 text-sm">📋 How to Use:</h3>
                     </div>
-                    
+
                     <div className="space-y-2 text-xs text-blue-900">
                       <div className="flex items-start gap-2">
                         <span className="font-bold text-blue-700 min-w-[60px]">Step 1:</span>
@@ -1460,8 +1480,69 @@ export default function MeasurementPage() {
                         <span>Use zoom controls below for best view</span>
                       </div>
                     </div>
+
+                    <div className="pt-3 mt-3 border-t-2 border-blue-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-lg">🌳</span>
+                        <h4 className="font-bold text-blue-900 text-sm">If Trees Block Your View:</h4>
+                      </div>
+
+                      <div className="space-y-1 text-xs text-blue-900">
+                        <div>✅ <strong>Zoom in closer</strong> (level 21-22) for highest resolution</div>
+                        <div>✅ <strong>Look for roof edges</strong> visible between tree gaps</div>
+                        <div>✅ <strong>Use building corners</strong> as reference points</div>
+                        <div>✅ <strong>Draw your best estimate</strong> - we'll verify during free inspection</div>
+                        <div>✅ <strong>Upload site photos</strong> to supplement your measurement</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 p-2 bg-blue-100 rounded text-xs text-blue-900">
+                      💡 <strong>Tip:</strong> Use "Capture View" to save specific angles and draw on static images
+                    </div>
                   </div>
                 </Card>
+
+                {showTreeHelper && (
+                  <Alert className="bg-yellow-50 border-yellow-300 border-2 relative mb-4">
+                    <button
+                      onClick={() => setShowTreeHelper(false)}
+                      className="absolute top-2 right-2 text-yellow-900 hover:text-yellow-700 text-xl font-bold"
+                    >
+                      ×
+                    </button>
+                    <AlertDescription>
+                      <div className="flex items-start gap-3 mb-3">
+                        <span className="text-3xl">🌳</span>
+                        <div>
+                          <div className="font-bold text-yellow-900 text-sm mb-1">
+                            Having Trouble Seeing the Roof?
+                          </div>
+                          <div className="text-xs text-yellow-800 leading-relaxed">
+                            Trees can make satellite measurements challenging. Draw your best estimate - we'll verify exact measurements during your <strong>FREE on-site inspection</strong>.
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => setShowTreeHelper(false)}
+                          className="bg-green-600 hover:bg-green-700 text-white h-10"
+                        >
+                          <Camera className="w-4 h-4 mr-2" />
+                          Upload Site Photos to Help
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowTreeHelper(false)}
+                          className="border-yellow-400 text-yellow-900"
+                        >
+                          Continue Drawing
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 <Card className="p-3 bg-white border-2 border-slate-200">
                   <div className="space-y-2">
@@ -1474,6 +1555,20 @@ export default function MeasurementPage() {
                       }`}>
                         {zoomAdvice.icon} {currentZoom}
                       </span>
+                    </div>
+
+                    <div className={`p-2 rounded text-xs ${
+                      currentZoom >= 21 ? 'bg-green-50 text-green-800' :
+                      currentZoom >= 20 ? 'bg-blue-50 text-blue-800' :
+                      'bg-yellow-50 text-yellow-800'
+                    }`}>
+                      {currentZoom >= 21 ? (
+                        <div>✅ <strong>Perfect zoom!</strong> This resolution is ideal for accuracy.</div>
+                      ) : currentZoom >= 20 ? (
+                        <div>✓ <strong>Good zoom level</strong> for measurements.</div>
+                      ) : (
+                        <div>🔍 <strong>Tip:</strong> Zoom in closer (21-22) for better detail and accuracy.</div>
+                      )}
                     </div>
                     
                     <div className="flex gap-2">

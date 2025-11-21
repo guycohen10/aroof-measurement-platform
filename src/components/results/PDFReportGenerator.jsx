@@ -401,6 +401,13 @@ export default function PDFReportGenerator({ measurement, satelliteImageData, di
       </div>
     </div>
     
+    <div style="text-align: center; margin-top: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+      <p style="font-size: 10px; color: #64748b; line-height: 1.6; margin: 0;">
+        <strong>Note:</strong> Satellite measurements are preliminary estimates (±2-5% accuracy). Tree coverage and<br/>
+        other factors may affect precision. Final measurements verified during on-site inspection.
+      </p>
+    </div>
+    
     <div class="details-grid">
       <div class="detail-item">
         <div class="detail-label">Sections Measured</div>

@@ -591,6 +591,35 @@ export default function Results() {
 
             <PhotoUpload measurement={measurement} onPhotosUpdate={handlePhotosUpdate} />
 
+            <Card className="shadow-lg border-2 border-slate-200">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-3 mb-4">
+                  <FileText className="w-6 h-6 text-slate-600 flex-shrink-0 mt-1" />
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-2">
+                      📋 Measurement Accuracy Notice
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      This satellite-based measurement provides an accurate preliminary estimate (±2-5%). 
+                      However, factors such as tree coverage, image resolution, and roof complexity may 
+                      affect precision. Our licensed roofing professionals will verify all measurements 
+                      during your <strong className="text-blue-600">FREE on-site inspection</strong> before 
+                      providing a final quote.
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleScheduleClick}
+                  size="lg"
+                  className="w-full bg-blue-600 hover:bg-blue-700 h-14"
+                >
+                  <Calendar className="w-5 h-5 mr-2" />
+                  Schedule Free Inspection
+                </Button>
+              </CardContent>
+            </Card>
+
             <section className="py-16 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl shadow-xl">
               <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-12">
