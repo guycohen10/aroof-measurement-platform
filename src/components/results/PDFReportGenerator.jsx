@@ -485,13 +485,13 @@ export default function PDFReportGenerator({ measurement, satelliteImageData, di
     ${photos.length > 0 ? `
       <h2 class="section-title">📸 Site Photos</h2>
       <div class="photos-grid">
-        ${photos.slice(0, 4).map((photo, idx) => `
+        ${photos.slice(0, 4).map((photoUrl, idx) => `
           <div class="photo-item">
-            <img src="${photo.url}" alt="Photo ${idx + 1}" />
-            ${photo.caption ? `<div style="padding: 8px; background: #f8fafc; font-size: 10px;">${photo.caption}</div>` : ''}
+            <img src="${photoUrl}" alt="Photo ${idx + 1}" />
           </div>
         `).join('')}
       </div>
+      ${photos.length > 4 ? `<p style="text-align: center; color: #64748b; font-size: 11px; margin-top: 10px;">+ ${photos.length - 4} more photos available</p>` : ''}
     ` : ''}
     
     <div class="footer">
