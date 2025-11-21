@@ -45,13 +45,8 @@ export default function PhotoUpload({ measurement, onPhotosUpdate }) {
         console.log("Uploading file:", file.name);
         const { file_url } = await base44.integrations.Core.UploadFile({ file });
         
-        uploaded.push({
-          id: `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          url: file_url,
-          caption: '',
-          size: file.size,
-          uploaded_at: new Date().toISOString()
-        });
+        // Store only the URL string
+        uploaded.push(file_url);
         
         console.log("File uploaded successfully:", file_url);
       } catch (err) {
@@ -68,18 +63,22 @@ export default function PhotoUpload({ measurement, onPhotosUpdate }) {
     const updatedPhotos = [...photos, ...uploaded];
     console.log("Saving photos to database:", updatedPhotos.length, "total photos");
     
+    // Validate - ensure all items are strings
+    const validPhotos = updatedPhotos.filter(p => typeof p === 'string');
+    console.log("Valid photo URLs:", validPhotos);
+    
     // Save to database immediately
     try {
       await base44.entities.Measurement.update(measurement.id, {
-        photos: updatedPhotos
+        photos: validPhotos
       });
       
       console.log("Photos saved successfully to database");
-      setPhotos(updatedPhotos);
+      setPhotos(validPhotos);
       setSuccess(`${uploaded.length} photo(s) uploaded successfully!`);
       
       if (onPhotosUpdate) {
-        onPhotosUpdate(updatedPhotos);
+        onPhotosUpdate(validPhotos);
       }
       
       // Clear success message after 3 seconds
@@ -94,28 +93,10 @@ export default function PhotoUpload({ measurement, onPhotosUpdate }) {
     event.target.value = '';
   };
 
-  const updateCaption = async (photoId, caption) => {
-    const updated = photos.map(p =>
-      p.id === photoId ? { ...p, caption } : p
-    );
-    
-    setPhotos(updated);
-    
-    try {
-      await base44.entities.Measurement.update(measurement.id, {
-        photos: updated
-      });
-      console.log("Caption updated successfully");
-    } catch (err) {
-      console.error("Failed to update caption:", err);
-      setError("Failed to update caption");
-    }
-  };
-
-  const removePhoto = async (photoId) => {
+  const removePhoto = async (photoIndex) => {
     if (!confirm('Remove this photo? This cannot be undone.')) return;
     
-    const updated = photos.filter(p => p.id !== photoId);
+    const updated = photos.filter((_, idx) => idx !== photoIndex);
     setPhotos(updated);
     
     try {
@@ -207,12 +188,12 @@ export default function PhotoUpload({ measurement, onPhotosUpdate }) {
             </div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {photos.map((photo, index) => (
-                <Card key={photo.id} className="overflow-hidden">
+              {photos.map((photoUrl, index) => (
+                <Card key={index} className="overflow-hidden">
                   <div className="relative aspect-video bg-slate-100">
                     <img
-                      src={photo.url}
-                      alt={photo.caption || `Photo ${index + 1}`}
+                      src={photoUrl}
+                      alt={`Photo ${index + 1}`}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         e.target.style.display = 'none';
@@ -225,18 +206,11 @@ export default function PhotoUpload({ measurement, onPhotosUpdate }) {
                     </div>
                   </div>
                   
-                  <CardContent className="p-3 space-y-2">
-                    <Input
-                      type="text"
-                      placeholder="Add caption (optional)"
-                      value={photo.caption || ''}
-                      onChange={(e) => updateCaption(photo.id, e.target.value)}
-                      className="text-sm"
-                    />
+                  <CardContent className="p-3">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => removePhoto(photo.id)}
+                      onClick={() => removePhoto(index)}
                       className="text-red-600 hover:bg-red-50 w-full"
                     >
                       <X className="w-4 h-4 mr-1" />
