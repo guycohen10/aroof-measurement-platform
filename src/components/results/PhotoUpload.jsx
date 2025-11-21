@@ -119,15 +119,20 @@ export default function PhotoUpload({ measurement, onPhotosUpdate }) {
   };
 
   return (
-    <Card className="shadow-xl border-2 border-blue-200">
-      <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50">
+    <Card className="shadow-xl border-2 border-green-200" id="photo-upload-section">
+      <CardHeader className="bg-gradient-to-r from-green-50 to-white">
         <CardTitle className="text-2xl flex items-center gap-2">
-          <Camera className="w-6 h-6 text-blue-600" />
-          Add Site Photos
+          <Camera className="w-6 h-6 text-green-600" />
+          📸 Add Site Photos (Recommended)
         </CardTitle>
-        <p className="text-sm text-slate-600 mt-2">
-          Upload photos to include in your PDF report - photos will be saved automatically
+        <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+          Upload photos of your roof from ground level. This helps us verify measurements 
+          and spot any issues not visible from satellite view - especially helpful if trees 
+          are blocking the aerial view.
         </p>
+        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-900">
+          💡 <strong>Pro Tip:</strong> Take photos from all four corners of your house for the most complete view.
+        </div>
       </CardHeader>
       
       <CardContent className="p-6">
