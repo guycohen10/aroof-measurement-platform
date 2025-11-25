@@ -604,12 +604,24 @@ export default function Homepage() {
             </div>
           </div>
           
-          <div className="border-t border-slate-800 pt-8 text-center text-sm text-slate-400">
-            <p>© {new Date().getFullYear()} Aroof. All rights reserved. Licensed & Insured in Texas.</p>
-            <div className="flex justify-center gap-6 mt-4 text-xs">
-              <a href="#" className="hover:text-white">Privacy Policy</a>
-              <a href="#" className="hover:text-white">Terms of Service</a>
-              <a href="#" className="hover:text-white">Contact</a>
+          <div className="border-t border-slate-800 pt-8">
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-slate-400">
+                <p>© {new Date().getFullYear()} Aroof. All rights reserved. Licensed & Insured in Texas.</p>
+                <div className="flex gap-6 mt-4 text-xs">
+                  <a href="#" className="hover:text-white">Privacy Policy</a>
+                  <a href="#" className="hover:text-white">Terms of Service</a>
+                  <a href="#" className="hover:text-white">Contact</a>
+                </div>
+              </div>
+              <div>
+                <Link 
+                  to={createPageUrl("EmployeeLogin")} 
+                  className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  Employee Login
+                </Link>
+              </div>
             </div>
           </div>
         </div>

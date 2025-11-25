@@ -41,6 +41,8 @@ import RooferLogin from './pages/RooferLogin';
 import ForgotPassword from './pages/ForgotPassword';
 import DispatchDashboard from './pages/DispatchDashboard';
 import DispatchJobDetail from './pages/DispatchJobDetail';
+import EmployeeLogin from './pages/EmployeeLogin';
+import CrewDashboard from './pages/CrewDashboard';
 import __Layout from './Layout.jsx';
 
 
@@ -88,6 +90,8 @@ export const PAGES = {
     "ForgotPassword": ForgotPassword,
     "DispatchDashboard": DispatchDashboard,
     "DispatchJobDetail": DispatchJobDetail,
+    "EmployeeLogin": EmployeeLogin,
+    "CrewDashboard": CrewDashboard,
 }
 
 export const pagesConfig = {
