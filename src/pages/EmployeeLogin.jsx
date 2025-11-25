@@ -14,7 +14,7 @@ const ROLES = [
     description: 'Full system access - view everything, manage all users, update prices',
     icon: '👑',
     color: '#ef4444',
-    redirect: 'AdminDashboard'
+    redirect: 'AdminGodMode'
   },
   {
     id: 'estimator',
