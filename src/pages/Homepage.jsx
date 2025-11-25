@@ -28,17 +28,128 @@ export default function Homepage() {
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm">
+    <>
+      {/* SEO: Local Business Schema */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "RoofingContractor",
+        "name": "Aroof",
+        "image": "https://aroof.build/logo.png",
+        "description": "DFW's #1 roofing company offering instant satellite roof measurements and professional roofing services.",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "6810 Windrock Rd",
+          "addressLocality": "Dallas",
+          "addressRegion": "TX",
+          "postalCode": "75252",
+          "addressCountry": "US"
+        },
+        "geo": {
+          "@type": "GeoCoordinates",
+          "latitude": 32.9537,
+          "longitude": -96.8236
+        },
+        "telephone": "+1-850-238-9727",
+        "email": "contact@aroof.build",
+        "url": "https://aroof.build",
+        "priceRange": "$3-$5",
+        "openingHoursSpecification": [
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+            "opens": "08:00",
+            "closes": "18:00"
+          },
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": "Saturday",
+            "opens": "09:00",
+            "closes": "15:00"
+          }
+        ],
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "4.9",
+          "reviewCount": "500",
+          "bestRating": "5",
+          "worstRating": "1"
+        },
+        "areaServed": [
+          "Dallas, TX",
+          "Fort Worth, TX",
+          "Plano, TX",
+          "Frisco, TX",
+          "McKinney, TX",
+          "Allen, TX",
+          "Richardson, TX",
+          "Irving, TX",
+          "Arlington, TX",
+          "Garland, TX"
+        ],
+        "serviceType": [
+          "Roof Measurement",
+          "Roof Replacement",
+          "Roof Repair",
+          "Roof Inspection",
+          "Satellite Roof Analysis"
+        ]
+      }) }} />
+
+      {/* SEO: Service Schema */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Service",
+        "serviceType": "Roof Measurement Service",
+        "provider": {
+          "@type": "RoofingContractor",
+          "name": "Aroof",
+          "telephone": "+1-850-238-9727",
+          "email": "contact@aroof.build",
+          "url": "https://aroof.build"
+        },
+        "areaServed": {
+          "@type": "City",
+          "name": "Dallas-Fort Worth Metroplex"
+        },
+        "hasOfferCatalog": {
+          "@type": "OfferCatalog",
+          "name": "Roof Measurement Services",
+          "itemListElement": [
+            {
+              "@type": "Offer",
+              "itemOffered": {
+                "@type": "Service",
+                "name": "Homeowner Roof Measurement",
+                "description": "Instant satellite roof measurement with professional PDF report"
+              },
+              "price": "3.00",
+              "priceCurrency": "USD"
+            },
+            {
+              "@type": "Offer",
+              "itemOffered": {
+                "@type": "Service",
+                "name": "Professional Roofer Measurement",
+                "description": "Advanced measurement tools for roofing contractors"
+              },
+              "price": "5.00",
+              "priceCurrency": "USD"
+            }
+          ]
+        }
+      }) }} />
+
+      <div className="min-h-screen bg-white">
+        {/* Navigation Bar */}
+        <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm" role="navigation" aria-label="Main navigation">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link to={createPageUrl("Homepage")} className="flex items-center gap-3">
+            <Link to={createPageUrl("Homepage")} className="flex items-center gap-3" aria-label="Aroof Home">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-900 to-blue-700 rounded-xl flex items-center justify-center">
-                <Home className="w-6 h-6 text-white" />
+                <Home className="w-6 h-6 text-white" aria-hidden="true" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Aroof</h1>
+                <div className="text-2xl font-bold text-slate-900">Aroof</div>
                 <p className="text-xs text-blue-600 font-semibold">DFW's #1 Roofing Company</p>
               </div>
             </Link>
@@ -140,23 +251,19 @@ export default function Homepage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
+      <header className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0em0tNiAwYzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 mb-8">
-            <Award className="w-4 h-4 text-yellow-400" />
+            <Award className="w-4 h-4 text-yellow-400" aria-hidden="true" />
             <span className="text-white text-sm font-semibold">Rated #1 Roofing Service in DFW</span>
           </div>
 
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-6 leading-tight">
-            Get Your Roof
-            <br />
-            <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-              Measured for FREE
-            </span>
+            Get Your Roof Measured for FREE
           </h1>
 
           <p className="text-xl md:text-2xl text-blue-100 mb-4 max-w-3xl mx-auto">
@@ -172,10 +279,11 @@ export default function Homepage() {
               <Button 
                 size="lg" 
                 className="h-16 px-10 text-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-2xl shadow-green-500/50 hover:shadow-green-500/75 transition-all duration-300 transform hover:scale-105"
+                aria-label="Get free roof measurement now"
               >
-                <Zap className="w-6 h-6 mr-2" />
+                <Zap className="w-6 h-6 mr-2" aria-hidden="true" />
                 Get FREE Measurement Now
-                <ArrowRight className="w-5 h-5 ml-2" />
+                <ArrowRight className="w-5 h-5 ml-2" aria-hidden="true" />
               </Button>
             </Link>
           </div>
@@ -188,7 +296,7 @@ export default function Homepage() {
               { icon: Star, text: "4.9/5 Star Rating", color: "text-orange-400" }
             ].map((badge, index) => (
               <div key={index} className="flex flex-col items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 hover:bg-white/20 transition-all duration-300">
-                <badge.icon className={`w-8 h-8 ${badge.color}`} />
+                <badge.icon className={`w-8 h-8 ${badge.color}`} aria-hidden="true" />
                 <p className="text-sm font-semibold text-white text-center">{badge.text}</p>
               </div>
             ))}
@@ -200,13 +308,14 @@ export default function Homepage() {
             <div className="w-1 h-3 bg-white/50 rounded-full"></div>
           </div>
         </div>
-      </section>
+      </header>
 
-      {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 bg-gradient-to-br from-slate-50 to-white">
+      <main>
+        {/* How It Works Section */}
+        <section id="how-it-works" className="py-20 bg-gradient-to-br from-slate-50 to-white" aria-labelledby="how-it-works-heading">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+            <h2 id="how-it-works-heading" className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
               How It Works
             </h2>
             <p className="text-xl text-slate-600 max-w-2xl mx-auto">
@@ -246,7 +355,7 @@ export default function Homepage() {
                   </div>
                   
                   <div className={`w-16 h-16 bg-gradient-to-br ${step.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                    <step.icon className="w-8 h-8 text-white" />
+                    <step.icon className="w-8 h-8 text-white" aria-hidden="true" />
                   </div>
                   
                   <h3 className="text-2xl font-bold text-slate-900 mb-3">{step.title}</h3>
@@ -259,10 +368,10 @@ export default function Homepage() {
       </section>
 
       {/* Why Choose Aroof Section */}
-      <section id="benefits" className="py-20 bg-gradient-to-br from-blue-900 to-slate-900">
+      <section id="benefits" className="py-20 bg-gradient-to-br from-blue-900 to-slate-900" aria-labelledby="benefits-heading">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            <h2 id="benefits-heading" className="text-4xl md:text-5xl font-bold text-white mb-4">
               Why Choose Aroof?
             </h2>
             <p className="text-xl text-blue-200 max-w-2xl mx-auto">
@@ -284,7 +393,7 @@ export default function Homepage() {
                 className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 hover:bg-white/20 transition-all duration-300 group"
               >
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-cyan-300 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                  <benefit.icon className="w-6 h-6 text-blue-900" />
+                  <benefit.icon className="w-6 h-6 text-blue-900" aria-hidden="true" />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">{benefit.title}</h3>
                 <p className="text-blue-200 leading-relaxed">{benefit.description}</p>
@@ -295,10 +404,10 @@ export default function Homepage() {
       </section>
 
       {/* Reviews Section */}
-      <section id="reviews" className="py-20 bg-gradient-to-br from-slate-50 to-white">
+      <section id="reviews" className="py-20 bg-gradient-to-br from-slate-50 to-white" aria-labelledby="reviews-heading">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+            <h2 id="reviews-heading" className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
               What Our Customers Say
             </h2>
             <div className="flex items-center justify-center gap-2 mb-4">
@@ -363,10 +472,10 @@ export default function Homepage() {
       </section>
 
       {/* Projects Gallery Section */}
-      <section className="py-20 bg-gradient-to-br from-slate-100 to-white">
+      <section className="py-20 bg-gradient-to-br from-slate-100 to-white" aria-labelledby="projects-heading">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+            <h2 id="projects-heading" className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
               Recent Projects
             </h2>
             <p className="text-xl text-slate-600">
@@ -381,8 +490,8 @@ export default function Homepage() {
               { location: "Dallas, TX", sqft: "2,400 sq ft" }
             ].map((project, index) => (
               <div key={index} className="group relative overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500">
-                <div className="aspect-[4/3] bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center">
-                  <Home className="w-20 h-20 text-slate-500" />
+                <div className="aspect-[4/3] bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center" role="img" aria-label={`Completed roofing project in ${project.location} - ${project.sqft}`}>
+                  <Home className="w-20 h-20 text-slate-500" aria-hidden="true" />
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
                   <div className="flex items-center gap-2 text-white mb-1">
@@ -401,11 +510,11 @@ export default function Homepage() {
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-blue-900 to-blue-700 relative overflow-hidden">
+      <section className="py-20 bg-gradient-to-r from-blue-900 to-blue-700 relative overflow-hidden" aria-labelledby="cta-heading">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGllbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0em0tNiAwYzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
         
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <h2 className="text-4xl md:text-6xl font-bold text-white mb-6">
+          <h2 id="cta-heading" className="text-4xl md:text-6xl font-bold text-white mb-6">
             Ready to Get Started?
           </h2>
           <p className="text-xl text-blue-100 mb-10">
@@ -416,10 +525,11 @@ export default function Homepage() {
             <Button 
               size="lg" 
               className="h-20 px-12 text-2xl bg-white text-blue-900 hover:bg-blue-50 shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105"
+              aria-label="Measure your roof for free now"
             >
-              <Zap className="w-8 h-8 mr-3" />
+              <Zap className="w-8 h-8 mr-3" aria-hidden="true" />
               Measure My Roof FREE
-              <ArrowRight className="w-6 h-6 ml-3" />
+              <ArrowRight className="w-6 h-6 ml-3" aria-hidden="true" />
             </Button>
           </Link>
 
@@ -428,15 +538,16 @@ export default function Homepage() {
           </p>
         </div>
       </section>
+      </main>
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-white py-12">
+      <footer className="bg-slate-900 text-white py-12" role="contentinfo">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center">
-                  <Home className="w-6 h-6 text-white" />
+                  <Home className="w-6 h-6 text-white" aria-hidden="true" />
                 </div>
                 <span className="text-2xl font-bold">Aroof</span>
               </div>
@@ -506,5 +617,6 @@ export default function Homepage() {
 
       <ChatWidget currentPage="homepage" measurement={null} />
     </div>
+    </>
   );
 }
