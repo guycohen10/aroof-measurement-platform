@@ -43,6 +43,7 @@ import DispatchDashboard from './pages/DispatchDashboard';
 import DispatchJobDetail from './pages/DispatchJobDetail';
 import EmployeeLogin from './pages/EmployeeLogin';
 import CrewDashboard from './pages/CrewDashboard';
+import AdminGodMode from './pages/AdminGodMode';
 import __Layout from './Layout.jsx';
 
 
@@ -92,6 +93,7 @@ export const PAGES = {
     "DispatchJobDetail": DispatchJobDetail,
     "EmployeeLogin": EmployeeLogin,
     "CrewDashboard": CrewDashboard,
+    "AdminGodMode": AdminGodMode,
 }
 
 export const pagesConfig = {

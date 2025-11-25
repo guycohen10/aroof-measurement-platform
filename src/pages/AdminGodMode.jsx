@@ -1,0 +1,139 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { base44 } from "@/api/base44Client";
+import { Loader2, LogOut, BarChart3, Users, UserCheck, Phone, HardHat, Hammer, Calendar, DollarSign, Settings } from "lucide-react";
+import OverviewTab from "../components/admin/godmode/OverviewTab";
+import LeadsGodModeTab from "../components/admin/godmode/LeadsGodModeTab";
+import EstimatorsGodModeTab from "../components/admin/godmode/EstimatorsGodModeTab";
+import DispatchersGodModeTab from "../components/admin/godmode/DispatchersGodModeTab";
+import CrewsGodModeTab from "../components/admin/godmode/CrewsGodModeTab";
+import RoofersGodModeTab from "../components/admin/godmode/RoofersGodModeTab";
+import AppointmentsGodModeTab from "../components/admin/godmode/AppointmentsGodModeTab";
+import PricingGodModeTab from "../components/admin/godmode/PricingGodModeTab";
+import SettingsGodModeTab from "../components/admin/godmode/SettingsGodModeTab";
+
+export default function AdminGodMode() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  async function checkAuth() {
+    try {
+      const currentUser = await base44.auth.me();
+      
+      if (currentUser.role !== 'admin') {
+        alert('Access denied. Admin only.');
+        navigate('/');
+        return;
+      }
+      
+      setUser(currentUser);
+      setLoading(false);
+    } catch (err) {
+      console.error('Auth check failed:', err);
+      navigate('/');
+    }
+  }
+
+  async function handleLogout() {
+    await base44.auth.logout('/');
+  }
+
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'leads', label: 'Leads', icon: Users },
+    { id: 'estimators', label: 'Estimators', icon: UserCheck },
+    { id: 'dispatchers', label: 'Dispatchers', icon: Phone },
+    { id: 'crews', label: 'Crews', icon: HardHat },
+    { id: 'roofers', label: 'External Roofers', icon: Hammer },
+    { id: 'appointments', label: 'Appointments', icon: Calendar },
+    { id: 'pricing', label: 'Pricing', icon: DollarSign },
+    { id: 'settings', label: 'Settings', icon: Settings }
+  ];
+
+  return (
+    <div className="flex min-h-screen bg-slate-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-slate-900 text-white fixed h-screen overflow-y-auto">
+        <div className="p-6">
+          <div className="mb-8">
+            <div className="text-4xl mb-2">👑</div>
+            <h1 className="text-2xl font-bold mb-1">Admin Panel</h1>
+            <p className="text-xs text-slate-400">God Mode Access</p>
+          </div>
+
+          <nav className="space-y-2">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full px-4 py-3 rounded-lg text-left flex items-center gap-3 transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-blue-600 font-semibold'
+                    : 'hover:bg-slate-800'
+                }`}
+              >
+                <tab.icon className="w-5 h-5" />
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+
+          <button
+            onClick={handleLogout}
+            className="w-full mt-8 px-4 py-3 bg-red-600/20 hover:bg-red-600/30 rounded-lg text-left flex items-center gap-3 transition-all"
+          >
+            <LogOut className="w-5 h-5" />
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="ml-64 flex-1 p-8">
+        {/* Header */}
+        <header className="mb-8 flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold text-slate-900">{tabs.find(t => t.id === activeTab)?.label}</h2>
+            <p className="text-slate-600 mt-1">Welcome back, {user?.full_name}</p>
+          </div>
+          <button
+            onClick={handleRefresh}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+          >
+            🔄 Refresh
+          </button>
+        </header>
+
+        {/* Tab Content */}
+        {activeTab === 'overview' && <OverviewTab key={refreshKey} />}
+        {activeTab === 'leads' && <LeadsGodModeTab key={refreshKey} />}
+        {activeTab === 'estimators' && <EstimatorsGodModeTab key={refreshKey} />}
+        {activeTab === 'dispatchers' && <DispatchersGodModeTab key={refreshKey} />}
+        {activeTab === 'crews' && <CrewsGodModeTab key={refreshKey} />}
+        {activeTab === 'roofers' && <RoofersGodModeTab key={refreshKey} />}
+        {activeTab === 'appointments' && <AppointmentsGodModeTab key={refreshKey} />}
+        {activeTab === 'pricing' && <PricingGodModeTab key={refreshKey} />}
+        {activeTab === 'settings' && <SettingsGodModeTab key={refreshKey} />}
+      </main>
+    </div>
+  );
+}
