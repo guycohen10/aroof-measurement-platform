@@ -29,11 +29,28 @@ export default function AdminGodMode() {
 
   async function checkAuth() {
     try {
+      // Check localStorage auth first (temporary workaround)
+      const aroofAuth = localStorage.getItem('aroof_auth');
+      if (aroofAuth) {
+        const authData = JSON.parse(aroofAuth);
+        if (authData.role === 'admin') {
+          setUser({
+            full_name: 'God Administrator',
+            email: authData.email,
+            role: 'admin'
+          });
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Try Base44 auth
       const currentUser = await base44.auth.me();
       
       if (currentUser.role !== 'admin') {
         alert('Access denied. Admin only.');
-        navigate('/');
+        localStorage.clear();
+        navigate('/EmployeeLogin');
         return;
       }
       
@@ -41,12 +58,14 @@ export default function AdminGodMode() {
       setLoading(false);
     } catch (err) {
       console.error('Auth check failed:', err);
-      navigate('/');
+      localStorage.clear();
+      navigate('/EmployeeLogin');
     }
   }
 
   async function handleLogout() {
-    await base44.auth.logout('/');
+    localStorage.clear();
+    navigate('/EmployeeLogin');
   }
 
   const handleRefresh = () => {
