@@ -66,13 +66,19 @@ export default function EmployeeLogin() {
     setLoading(true);
 
     try {
-      // Try to login with base44 auth
-      await base44.auth.login({ email, password });
+      // Query User entity to find matching user
+      const users = await base44.entities.User.list();
       
-      // Get current user
-      const user = await base44.auth.me();
+      const user = users.find(u => 
+        u.email.toLowerCase() === email.toLowerCase() && 
+        u.full_name // Just verify user exists - Base44 handles actual auth
+      );
       
-      // Check if user has the required role
+      if (!user) {
+        throw new Error('Invalid credentials');
+      }
+      
+      // Verify role matches
       if (selectedRole === 'admin' && user.role !== 'admin') {
         throw new Error('You do not have admin access');
       }
@@ -93,8 +99,8 @@ export default function EmployeeLogin() {
         throw new Error('You do not have roofer access');
       }
       
-      // Redirect to appropriate dashboard
-      navigate(createPageUrl(selectedRoleData.redirect));
+      // Use Base44's built-in login redirect
+      base44.auth.redirectToLogin(selectedRoleData.redirect);
       
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
