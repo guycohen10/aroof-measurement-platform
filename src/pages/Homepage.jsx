@@ -558,7 +558,7 @@ export default function Homepage() {
                 <p className="text-slate-400">Texas Licensed Roofing Contractor</p>
               </div>
             </div>
-            
+
             <div>
               <h4 className="font-bold mb-4">Quick Links</h4>
               <div className="space-y-2 text-sm text-slate-400">
@@ -569,7 +569,7 @@ export default function Homepage() {
                 <Link to={createPageUrl("FormPage")} className="block hover:text-white">Get Started FREE</Link>
               </div>
             </div>
-            
+
             <div>
               <h4 className="font-bold mb-4">Contact Us</h4>
               <div className="space-y-3 text-sm">
@@ -590,7 +590,7 @@ export default function Homepage() {
                 </div>
               </div>
             </div>
-            
+
             <div>
               <h4 className="font-bold mb-4">Service Areas</h4>
               <div className="space-y-2 text-sm text-slate-400">
@@ -603,12 +603,12 @@ export default function Homepage() {
               </div>
             </div>
           </div>
-          
+
           <div className="border-t border-slate-800 pt-8">
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-slate-400">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="text-sm text-slate-400 text-center sm:text-left">
                 <p>© {new Date().getFullYear()} Aroof. All rights reserved. Licensed & Insured in Texas.</p>
-                <div className="flex gap-6 mt-4 text-xs">
+                <div className="flex gap-6 mt-4 text-xs justify-center sm:justify-start">
                   <a href="#" className="hover:text-white">Privacy Policy</a>
                   <a href="#" className="hover:text-white">Terms of Service</a>
                   <a href="#" className="hover:text-white">Contact</a>
@@ -617,9 +617,9 @@ export default function Homepage() {
               <div>
                 <Link 
                   to={createPageUrl("EmployeeLogin")} 
-                  className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/30 transition-all"
                 >
-                  Employee Login
+                  👤 Company Employee Login
                 </Link>
               </div>
             </div>
