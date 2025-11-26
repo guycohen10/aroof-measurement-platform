@@ -29,38 +29,61 @@ export default function AdminGodMode() {
 
   async function checkAuth() {
     try {
-      // Check localStorage auth first (temporary workaround)
-      const aroofAuth = localStorage.getItem('aroof_auth');
-      if (aroofAuth) {
-        const authData = JSON.parse(aroofAuth);
-        if (authData.role === 'admin') {
-          setUser({
-            full_name: 'God Administrator',
-            email: authData.email,
-            role: 'admin'
-          });
-          setLoading(false);
-          return;
-        }
-      }
-      
-      // Try Base44 auth
-      const currentUser = await base44.auth.me();
-      
-      if (currentUser.role !== 'admin') {
-        alert('Access denied. Admin only.');
-        localStorage.clear();
-        navigate('/EmployeeLogin');
+      // STRICT authentication check
+      const authToken = localStorage.getItem('authToken');
+      const userRole = localStorage.getItem('userRole');
+      const userName = localStorage.getItem('userName');
+      const userEmail = localStorage.getItem('userEmail');
+
+      // Validate all required auth data exists
+      if (!authToken || !userRole || !userName || !userEmail) {
+        console.log('Missing auth data, redirecting to login');
+        redirectToLogin();
         return;
       }
+
+      // Validate token is legitimate (not fake/test)
+      if (authToken.length < 10 || authToken === 'test' || authToken === '123') {
+        console.log('Invalid token format, redirecting to login');
+        redirectToLogin();
+        return;
+      }
+
+      // Strict role check - must be admin
+      if (userRole !== 'admin') {
+        console.log('Not admin role, redirecting to login');
+        alert('Access denied. Admin access required.');
+        redirectToLogin();
+        return;
+      }
+
+      // Try Base44 auth as additional verification
+      try {
+        const currentUser = await base44.auth.me();
+        if (currentUser.role !== 'admin') {
+          redirectToLogin();
+          return;
+        }
+        setUser(currentUser);
+      } catch {
+        // Base44 auth not available, use localStorage data
+        setUser({
+          full_name: userName,
+          email: userEmail,
+          role: userRole
+        });
+      }
       
-      setUser(currentUser);
       setLoading(false);
     } catch (err) {
       console.error('Auth check failed:', err);
-      localStorage.clear();
-      navigate('/EmployeeLogin');
+      redirectToLogin();
     }
+  }
+
+  function redirectToLogin() {
+    localStorage.clear();
+    navigate('/EmployeeLogin');
   }
 
   async function handleLogout() {

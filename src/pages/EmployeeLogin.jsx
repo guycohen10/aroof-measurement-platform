@@ -97,29 +97,42 @@ export default function EmployeeLogin() {
     setLoading(true);
 
     try {
-      // For now, use a simple auth approach with localStorage
-      // This simulates authentication until Base44 backend is properly configured
-      
-      // Validate credentials (basic check)
+      // Validate credentials
       if (!email || !password) {
         throw new Error('Please enter both email and password');
       }
-      
-      // Store auth data
-      const authData = {
-        email: email,
-        role: selectedRole,
-        authenticated: true,
-        timestamp: Date.now()
+
+      // Hardcoded credentials check (temporary until backend auth is configured)
+      const validCredentials = {
+        'greenteamdallas@gmail.com': { password: 'Aroof123!', role: 'admin', name: 'God Administrator' }
       };
+
+      const userCreds = validCredentials[email.toLowerCase()];
       
-      localStorage.setItem('aroof_auth', JSON.stringify(authData));
-      localStorage.setItem('authToken', `token_${Date.now()}`);
+      if (!userCreds || userCreds.password !== password) {
+        throw new Error('Invalid email or password');
+      }
+
+      if (selectedRole === 'admin' && userCreds.role !== 'admin') {
+        throw new Error('You do not have admin access');
+      }
+
+      // Generate secure token
+      const sessionToken = `aroof_${Date.now()}_${Math.random().toString(36).substr(2, 15)}`;
+      
+      // Store complete auth data
+      localStorage.setItem('authToken', sessionToken);
       localStorage.setItem('userRole', selectedRole);
+      localStorage.setItem('userName', userCreds.name);
       localStorage.setItem('userEmail', email);
+      localStorage.setItem('userId', `user_${Date.now()}`);
       
-      // Redirect directly to dashboard
-      navigate(createPageUrl(selectedRoleData.redirect));
+      console.log('Login successful:', { email, role: selectedRole });
+      
+      // Redirect to dashboard
+      setTimeout(() => {
+        navigate(createPageUrl(selectedRoleData.redirect));
+      }, 100);
       
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
