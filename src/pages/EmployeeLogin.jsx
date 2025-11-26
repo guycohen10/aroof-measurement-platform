@@ -99,8 +99,14 @@ export default function EmployeeLogin() {
         throw new Error('You do not have roofer access');
       }
       
-      // Use Base44's built-in login redirect
-      base44.auth.redirectToLogin(selectedRoleData.redirect);
+      // Store auth data in localStorage
+      localStorage.setItem('authToken', `user_${user.id}_${Date.now()}`);
+      localStorage.setItem('userRole', user.role || selectedRole);
+      localStorage.setItem('userName', user.full_name);
+      localStorage.setItem('userEmail', user.email);
+      
+      // Redirect directly to the dashboard
+      navigate(createPageUrl(selectedRoleData.redirect));
       
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
