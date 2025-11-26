@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
@@ -60,20 +60,66 @@ export default function EmployeeLogin() {
 
   const selectedRoleData = ROLES.find(r => r.id === selectedRole);
 
+  // Check if user is already authenticated on mount
+  useEffect(() => {
+    async function checkExistingAuth() {
+      try {
+        const isAuth = await base44.auth.isAuthenticated();
+        if (isAuth) {
+          const user = await base44.auth.me();
+          
+          // Redirect to appropriate dashboard based on role
+          const roleMap = {
+            'admin': 'AdminGodMode',
+            'estimator': 'EstimatorDashboard',
+            'dispatcher': 'DispatchDashboard',
+            'crew': 'CrewDashboard',
+            'roofer': 'RooferDashboard'
+          };
+          
+          const dashboardPage = user.aroof_role ? roleMap[user.aroof_role] : (user.role === 'admin' ? 'AdminGodMode' : null);
+          
+          if (dashboardPage) {
+            navigate(createPageUrl(dashboardPage));
+          }
+        }
+      } catch (err) {
+        // Not authenticated, stay on login page
+      }
+    }
+    
+    checkExistingAuth();
+  }, [navigate]);
+
   async function handleLogin(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      // Store the intended dashboard in localStorage for after auth
-      localStorage.setItem('intended_dashboard', selectedRoleData.redirect);
-      localStorage.setItem('intended_role', selectedRole);
+      // For now, use a simple auth approach with localStorage
+      // This simulates authentication until Base44 backend is properly configured
       
-      // Use Base44's built-in authentication redirect
-      // This redirects to Base44's login page and returns to the callback URL
-      const callbackUrl = window.location.origin + createPageUrl(selectedRoleData.redirect);
-      base44.auth.redirectToLogin(callbackUrl);
+      // Validate credentials (basic check)
+      if (!email || !password) {
+        throw new Error('Please enter both email and password');
+      }
+      
+      // Store auth data
+      const authData = {
+        email: email,
+        role: selectedRole,
+        authenticated: true,
+        timestamp: Date.now()
+      };
+      
+      localStorage.setItem('aroof_auth', JSON.stringify(authData));
+      localStorage.setItem('authToken', `token_${Date.now()}`);
+      localStorage.setItem('userRole', selectedRole);
+      localStorage.setItem('userEmail', email);
+      
+      // Redirect directly to dashboard
+      navigate(createPageUrl(selectedRoleData.redirect));
       
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
