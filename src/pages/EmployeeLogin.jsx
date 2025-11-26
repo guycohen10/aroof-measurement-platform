@@ -66,47 +66,14 @@ export default function EmployeeLogin() {
     setLoading(true);
 
     try {
-      // Query User entity to find matching user
-      const users = await base44.entities.User.list();
+      // Store the intended dashboard in localStorage for after auth
+      localStorage.setItem('intended_dashboard', selectedRoleData.redirect);
+      localStorage.setItem('intended_role', selectedRole);
       
-      const user = users.find(u => 
-        u.email.toLowerCase() === email.toLowerCase() && 
-        u.full_name // Just verify user exists - Base44 handles actual auth
-      );
-      
-      if (!user) {
-        throw new Error('Invalid credentials');
-      }
-      
-      // Verify role matches
-      if (selectedRole === 'admin' && user.role !== 'admin') {
-        throw new Error('You do not have admin access');
-      }
-      
-      if (selectedRole === 'estimator' && user.aroof_role !== 'estimator') {
-        throw new Error('You do not have estimator access');
-      }
-      
-      if (selectedRole === 'dispatcher' && user.aroof_role !== 'dispatcher') {
-        throw new Error('You do not have dispatcher access');
-      }
-      
-      if (selectedRole === 'crew' && user.aroof_role !== 'crew_lead') {
-        throw new Error('You do not have crew lead access');
-      }
-      
-      if (selectedRole === 'roofer' && user.aroof_role !== 'external_roofer') {
-        throw new Error('You do not have roofer access');
-      }
-      
-      // Store auth data in localStorage
-      localStorage.setItem('authToken', `user_${user.id}_${Date.now()}`);
-      localStorage.setItem('userRole', user.role || selectedRole);
-      localStorage.setItem('userName', user.full_name);
-      localStorage.setItem('userEmail', user.email);
-      
-      // Redirect directly to the dashboard
-      navigate(createPageUrl(selectedRoleData.redirect));
+      // Use Base44's built-in authentication redirect
+      // This redirects to Base44's login page and returns to the callback URL
+      const callbackUrl = window.location.origin + createPageUrl(selectedRoleData.redirect);
+      base44.auth.redirectToLogin(callbackUrl);
       
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');

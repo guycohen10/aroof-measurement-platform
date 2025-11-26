@@ -21,6 +21,10 @@ export default function AdminGodMode() {
 
   useEffect(() => {
     checkAuth();
+    
+    // Clear the intended dashboard after successful auth
+    localStorage.removeItem('intended_dashboard');
+    localStorage.removeItem('intended_role');
   }, []);
 
   async function checkAuth() {
