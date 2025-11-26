@@ -60,37 +60,6 @@ export default function EmployeeLogin() {
 
   const selectedRoleData = ROLES.find(r => r.id === selectedRole);
 
-  // Check if user is already authenticated on mount
-  useEffect(() => {
-    async function checkExistingAuth() {
-      try {
-        const isAuth = await base44.auth.isAuthenticated();
-        if (isAuth) {
-          const user = await base44.auth.me();
-          
-          // Redirect to appropriate dashboard based on role
-          const roleMap = {
-            'admin': 'AdminGodMode',
-            'estimator': 'EstimatorDashboard',
-            'dispatcher': 'DispatchDashboard',
-            'crew': 'CrewDashboard',
-            'roofer': 'RooferDashboard'
-          };
-          
-          const dashboardPage = user.aroof_role ? roleMap[user.aroof_role] : (user.role === 'admin' ? 'AdminGodMode' : null);
-          
-          if (dashboardPage) {
-            navigate(createPageUrl(dashboardPage));
-          }
-        }
-      } catch (err) {
-        // Not authenticated, stay on login page
-      }
-    }
-    
-    checkExistingAuth();
-  }, [navigate]);
-
   async function handleLogin(e) {
     e.preventDefault();
     setError('');
@@ -127,12 +96,13 @@ export default function EmployeeLogin() {
       localStorage.setItem('userEmail', email);
       localStorage.setItem('userId', `user_${Date.now()}`);
       
-      console.log('Login successful:', { email, role: selectedRole });
+      console.log('[Login] Success - redirecting to dashboard');
       
-      // Redirect to dashboard
-      setTimeout(() => {
-        navigate(createPageUrl(selectedRoleData.redirect));
-      }, 100);
+      // Wait for localStorage to save
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Use replace to prevent back button loops
+      window.location.replace(createPageUrl(selectedRoleData.redirect));
       
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');

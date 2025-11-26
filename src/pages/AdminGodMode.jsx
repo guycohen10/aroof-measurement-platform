@@ -18,77 +18,85 @@ export default function AdminGodMode() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
-    checkAuth();
+    // Only check auth once on mount
+    let mounted = true;
     
-    // Clear the intended dashboard after successful auth
-    localStorage.removeItem('intended_dashboard');
-    localStorage.removeItem('intended_role');
-  }, []);
+    if (mounted && !isRedirecting) {
+      checkAuth();
+    }
+    
+    return () => {
+      mounted = false;
+    };
+  }, []); // Empty deps - runs only once
 
   async function checkAuth() {
+    if (isRedirecting) return; // Prevent multiple redirects
+    
     try {
-      // STRICT authentication check
       const authToken = localStorage.getItem('authToken');
       const userRole = localStorage.getItem('userRole');
       const userName = localStorage.getItem('userName');
       const userEmail = localStorage.getItem('userEmail');
 
-      // Validate all required auth data exists
+      console.log('[Auth Check] Starting - ONE TIME ONLY');
+
+      // Check authentication
       if (!authToken || !userRole || !userName || !userEmail) {
-        console.log('Missing auth data, redirecting to login');
+        console.log('[Auth Check] Missing credentials');
         redirectToLogin();
         return;
       }
 
-      // Validate token is legitimate (not fake/test)
-      if (authToken.length < 10 || authToken === 'test' || authToken === '123') {
-        console.log('Invalid token format, redirecting to login');
+      // Validate token format
+      if (authToken.length < 10) {
+        console.log('[Auth Check] Invalid token');
         redirectToLogin();
         return;
       }
 
-      // Strict role check - must be admin
+      // Check admin role
       if (userRole !== 'admin') {
-        console.log('Not admin role, redirecting to login');
-        alert('Access denied. Admin access required.');
+        console.log('[Auth Check] Not admin');
         redirectToLogin();
         return;
       }
 
-      // Try Base44 auth as additional verification
-      try {
-        const currentUser = await base44.auth.me();
-        if (currentUser.role !== 'admin') {
-          redirectToLogin();
-          return;
-        }
-        setUser(currentUser);
-      } catch {
-        // Base44 auth not available, use localStorage data
-        setUser({
-          full_name: userName,
-          email: userEmail,
-          role: userRole
-        });
-      }
-      
+      // Success - set user and stop loading
+      console.log('[Auth Check] Authenticated as admin');
+      setUser({
+        full_name: userName,
+        email: userEmail,
+        role: userRole
+      });
       setLoading(false);
+      
     } catch (err) {
-      console.error('Auth check failed:', err);
+      console.error('[Auth Check] Error:', err);
       redirectToLogin();
     }
   }
 
   function redirectToLogin() {
+    if (isRedirecting) return; // Already redirecting
+    
+    console.log('[Auth] Redirecting to login...');
+    setIsRedirecting(true);
     localStorage.clear();
-    navigate('/EmployeeLogin');
+    
+    // Use replace to prevent back button issues
+    setTimeout(() => {
+      window.location.replace('/EmployeeLogin');
+    }, 300);
   }
 
   async function handleLogout() {
+    console.log('[Logout] Clearing session');
     localStorage.clear();
-    navigate('/EmployeeLogin');
+    window.location.replace('/EmployeeLogin');
   }
 
   const handleRefresh = () => {
