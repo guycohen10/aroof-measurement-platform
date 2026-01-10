@@ -1277,31 +1277,83 @@ export default function MeasurementPage() {
       let method;
       let inputSqft = null;
 
-      if (autoEstimate || !buildingSqft) {
-        // Use zip code average as fallback
-        const zipCode = address.match(/\d{5}/)?.[0];
-        const avgHomeSizes = {
-          '75001': 2200, '75002': 2400, '75006': 2100, '75007': 2300,
-          '75019': 2500, '75023': 2600, '75024': 2700, '75025': 2400,
-          '75034': 2200, '75035': 2300, '75056': 2100, '75062': 2500,
-          '75071': 2300, '75074': 2600, '75075': 2800, '75078': 2400,
-          '75080': 2200, '75081': 2500, '75082': 2300, '75093': 2400
-        };
-        const estimatedBuildingSqft = avgHomeSizes[zipCode] || 2000;
-        roofSqft = Math.round(estimatedBuildingSqft * 1.3);
-        method = 'zip_average';
-        inputSqft = null;
-      } else {
-        // User provided building sqft
-        const parsedSqft = parseInt(buildingSqft);
-        if (isNaN(parsedSqft) || parsedSqft < 500 || parsedSqft > 20000) {
-          setError("Please enter a valid building size between 500 and 20,000 sq ft");
-          setQuickEstimateLoading(false);
-          return;
+      // Try Solar API first if we have coordinates
+      if (coordinates) {
+        try {
+          const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${coordinates.lat}&location.longitude=${coordinates.lng}&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
+          
+          const response = await fetch(solarApiUrl);
+          
+          if (response.ok) {
+            const data = await response.json();
+            const roofAreaM2 = data.solarPotential?.wholeRoofStats?.areaMeters2;
+            
+            if (roofAreaM2 && roofAreaM2 > 0) {
+              roofSqft = Math.round(roofAreaM2 * 10.7639); // Convert m² to ft²
+              method = 'solar_api';
+              inputSqft = buildingSqft ? parseInt(buildingSqft) : null;
+              console.log('✅ Solar API success:', roofSqft, 'sq ft');
+            } else {
+              throw new Error('No roof data from Solar API');
+            }
+          } else {
+            throw new Error('Solar API request failed');
+          }
+        } catch (solarErr) {
+          console.log('Solar API failed, using fallback:', solarErr.message);
+          
+          // Fallback to multiplier method
+          if (autoEstimate || !buildingSqft) {
+            const zipCode = address.match(/\d{5}/)?.[0];
+            const avgHomeSizes = {
+              '75001': 2200, '75002': 2400, '75006': 2100, '75007': 2300,
+              '75019': 2500, '75023': 2600, '75024': 2700, '75025': 2400,
+              '75034': 2200, '75035': 2300, '75056': 2100, '75062': 2500,
+              '75071': 2300, '75074': 2600, '75075': 2800, '75078': 2400,
+              '75080': 2200, '75081': 2500, '75082': 2300, '75093': 2400
+            };
+            const estimatedBuildingSqft = avgHomeSizes[zipCode] || 2000;
+            roofSqft = Math.round(estimatedBuildingSqft * 1.3);
+            method = 'zip_average';
+            inputSqft = null;
+          } else {
+            const parsedSqft = parseInt(buildingSqft);
+            if (isNaN(parsedSqft) || parsedSqft < 500 || parsedSqft > 20000) {
+              setError("Please enter a valid building size between 500 and 20,000 sq ft");
+              setQuickEstimateLoading(false);
+              return;
+            }
+            roofSqft = Math.round(parsedSqft * 1.3);
+            method = 'building_sqft_multiplier';
+            inputSqft = parsedSqft;
+          }
         }
-        roofSqft = Math.round(parsedSqft * 1.3);
-        method = 'building_sqft_multiplier';
-        inputSqft = parsedSqft;
+      } else {
+        // No coordinates yet, use fallback
+        if (autoEstimate || !buildingSqft) {
+          const zipCode = address.match(/\d{5}/)?.[0];
+          const avgHomeSizes = {
+            '75001': 2200, '75002': 2400, '75006': 2100, '75007': 2300,
+            '75019': 2500, '75023': 2600, '75024': 2700, '75025': 2400,
+            '75034': 2200, '75035': 2300, '75056': 2100, '75062': 2500,
+            '75071': 2300, '75074': 2600, '75075': 2800, '75078': 2400,
+            '75080': 2200, '75081': 2500, '75082': 2300, '75093': 2400
+          };
+          const estimatedBuildingSqft = avgHomeSizes[zipCode] || 2000;
+          roofSqft = Math.round(estimatedBuildingSqft * 1.3);
+          method = 'zip_average';
+          inputSqft = null;
+        } else {
+          const parsedSqft = parseInt(buildingSqft);
+          if (isNaN(parsedSqft) || parsedSqft < 500 || parsedSqft > 20000) {
+            setError("Please enter a valid building size between 500 and 20,000 sq ft");
+            setQuickEstimateLoading(false);
+            return;
+          }
+          roofSqft = Math.round(parsedSqft * 1.3);
+          method = 'building_sqft_multiplier';
+          inputSqft = parsedSqft;
+        }
       }
 
       const currentUser = await base44.auth.me().catch(() => null);
