@@ -1359,9 +1359,9 @@ export default function MeasurementPage() {
 
     try {
       // Get current user to retrieve company_id
-      const currentUser = await base44.auth.me();
+      const currentUser = await base44.auth.me().catch(() => null);
 
-      const capturedSections = capturedImages.flatMap((imgIndex) => 
+      const capturedSections = capturedImages.flatMap((img, imgIndex) => 
         (img.sections || []).map(section => ({
           ...section,
           imageIndex: imgIndex,
