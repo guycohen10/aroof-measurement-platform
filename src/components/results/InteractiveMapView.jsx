@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, AlertCircle } from "lucide-react";
 
-export default function InteractiveMapView({ measurement, sections }) {
+export default function InteractiveMapView({ measurement, sections, mapScriptLoaded: parentScriptLoaded }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const scriptLoadedRef = useRef(false);
@@ -13,13 +13,14 @@ export default function InteractiveMapView({ measurement, sections }) {
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
-  // CRITICAL FIX: Load Google Maps script FIRST
+  // Use parent script loaded state or load locally
   useEffect(() => {
-    console.log("🚀 InteractiveMapView: Loading Google Maps script");
+    if (parentScriptLoaded) {
+      setMapScriptLoaded(true);
+      return;
+    }
 
-    // Check if already loaded
     if (window.google && window.google.maps && window.google.maps.geometry) {
-      console.log("✅ InteractiveMapView: Google Maps already loaded");
       if (!scriptLoadedRef.current) {
         scriptLoadedRef.current = true;
         setMapScriptLoaded(true);
@@ -27,65 +28,24 @@ export default function InteractiveMapView({ measurement, sections }) {
       return;
     }
 
-    // Check if script tag exists
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existingScript) {
-      console.log("⏳ InteractiveMapView: Script exists, waiting...");
       let attempts = 0;
-      const maxAttempts = 60;
-      
       const checkInterval = setInterval(() => {
         attempts++;
         if (window.google && window.google.maps && window.google.maps.geometry) {
           clearInterval(checkInterval);
-          console.log("✅ InteractiveMapView: Google Maps ready!");
           scriptLoadedRef.current = true;
           setMapScriptLoaded(true);
-        } else if (attempts >= maxAttempts) {
+        } else if (attempts >= 60) {
           clearInterval(checkInterval);
-          console.error("❌ InteractiveMapView: Timeout");
-          setError("Google Maps is taking too long to load.");
+          setError("Google Maps timeout");
           setLoading(false);
         }
       }, 200);
       return;
     }
-
-    // Create new script
-    console.log("📥 InteractiveMapView: Loading Google Maps script...");
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places`;
-    script.async = true;
-    script.defer = true;
-    
-    script.onload = () => {
-      console.log("✅ InteractiveMapView: Script loaded, checking API...");
-      
-      let attempts = 0;
-      const checkInterval = setInterval(() => {
-        attempts++;
-        if (window.google && window.google.maps && window.google.maps.geometry) {
-          clearInterval(checkInterval);
-          console.log("✅ InteractiveMapView: API ready!");
-          scriptLoadedRef.current = true;
-          setMapScriptLoaded(true);
-        } else if (attempts >= 40) {
-          clearInterval(checkInterval);
-          console.error("❌ InteractiveMapView: API not ready");
-          setError("Google Maps API failed to initialize.");
-          setLoading(false);
-        }
-      }, 100);
-    };
-    
-    script.onerror = () => {
-      console.error("❌ InteractiveMapView: Script load error");
-      setError("Failed to load Google Maps. Check internet connection.");
-      setLoading(false);
-    };
-    
-    document.head.appendChild(script);
-  }, []);
+  }, [parentScriptLoaded]);
 
   // Initialize map ONLY after script is loaded
   useEffect(() => {

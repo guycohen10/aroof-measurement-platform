@@ -18,12 +18,65 @@ import Roof3DView from "../components/results/Roof3DView";
 
 export default function Results() {
   const navigate = useNavigate();
+  const scriptLoadedRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [measurement, setMeasurement] = useState(null);
   const [error, setError] = useState(null);
   const [materialType, setMaterialType] = useState("asphalt_shingles");
   const [downloadCount, setDownloadCount] = useState(0);
   const [currentUser, setCurrentUser] = useState(null);
+  const [mapScriptLoaded, setMapScriptLoaded] = useState(false);
+  const scriptLoadedRef = useRef(false);
+
+  const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+
+  // Load Google Maps script once for entire Results page
+  useEffect(() => {
+    if (window.google && window.google.maps && window.google.maps.geometry) {
+      if (!scriptLoadedRef.current) {
+        scriptLoadedRef.current = true;
+        setMapScriptLoaded(true);
+      }
+      return;
+    }
+
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+    if (existingScript) {
+      let attempts = 0;
+      const checkInterval = setInterval(() => {
+        attempts++;
+        if (window.google && window.google.maps && window.google.maps.geometry) {
+          clearInterval(checkInterval);
+          scriptLoadedRef.current = true;
+          setMapScriptLoaded(true);
+        } else if (attempts >= 60) {
+          clearInterval(checkInterval);
+        }
+      }, 200);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places`;
+    script.async = true;
+    script.defer = true;
+    
+    script.onload = () => {
+      let attempts = 0;
+      const checkInterval = setInterval(() => {
+        attempts++;
+        if (window.google && window.google.maps && window.google.maps.geometry) {
+          clearInterval(checkInterval);
+          scriptLoadedRef.current = true;
+          setMapScriptLoaded(true);
+        } else if (attempts >= 40) {
+          clearInterval(checkInterval);
+        }
+      }, 100);
+    };
+    
+    document.head.appendChild(script);
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -593,7 +646,7 @@ export default function Results() {
                   <p className="text-sm text-slate-600 mt-1">Interactive 3D satellite view with measurement overlay</p>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <Roof3DView measurement={measurement} sections={sections} />
+                  <Roof3DView measurement={measurement} sections={sections} mapScriptLoaded={mapScriptLoaded} />
                 </CardContent>
               </Card>
             )}
@@ -607,7 +660,7 @@ export default function Results() {
                 <p className="text-sm text-slate-600 mt-1">Interactive map - zoom and pan</p>
               </CardHeader>
               <CardContent>
-                <InteractiveMapView measurement={measurement} sections={sections} />
+                <InteractiveMapView measurement={measurement} sections={sections} mapScriptLoaded={mapScriptLoaded} />
               </CardContent>
             </Card>
 

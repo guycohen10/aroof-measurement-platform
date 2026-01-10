@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RotateCcw, Move, Maximize2, Loader2, AlertCircle, Box } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export default function Roof3DView({ measurement, sections }) {
+export default function Roof3DView({ measurement, sections, mapScriptLoaded: parentScriptLoaded }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const scriptLoadedRef = useRef(false);
@@ -17,12 +17,14 @@ export default function Roof3DView({ measurement, sections }) {
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
-  // Load Google Maps script
+  // Use parent script loaded state
   useEffect(() => {
-    console.log("🚀 Roof3DView: Loading Google Maps script");
+    if (parentScriptLoaded) {
+      setMapScriptLoaded(true);
+      return;
+    }
 
     if (window.google && window.google.maps && window.google.maps.geometry) {
-      console.log("✅ Roof3DView: Google Maps already loaded");
       if (!scriptLoadedRef.current) {
         scriptLoadedRef.current = true;
         setMapScriptLoaded(true);
@@ -32,54 +34,22 @@ export default function Roof3DView({ measurement, sections }) {
 
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existingScript) {
-      console.log("⏳ Roof3DView: Script exists, waiting...");
       let attempts = 0;
       const checkInterval = setInterval(() => {
         attempts++;
         if (window.google && window.google.maps && window.google.maps.geometry) {
           clearInterval(checkInterval);
-          console.log("✅ Roof3DView: Google Maps ready!");
           scriptLoadedRef.current = true;
           setMapScriptLoaded(true);
         } else if (attempts >= 60) {
           clearInterval(checkInterval);
-          setError("Google Maps is taking too long to load.");
+          setError("Google Maps timeout");
           setLoading(false);
         }
       }, 200);
       return;
     }
-
-    console.log("📥 Roof3DView: Loading script...");
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places`;
-    script.async = true;
-    script.defer = true;
-    
-    script.onload = () => {
-      console.log("✅ Roof3DView: Script loaded");
-      let attempts = 0;
-      const checkInterval = setInterval(() => {
-        attempts++;
-        if (window.google && window.google.maps && window.google.maps.geometry) {
-          clearInterval(checkInterval);
-          scriptLoadedRef.current = true;
-          setMapScriptLoaded(true);
-        } else if (attempts >= 40) {
-          clearInterval(checkInterval);
-          setError("API failed to initialize.");
-          setLoading(false);
-        }
-      }, 100);
-    };
-    
-    script.onerror = () => {
-      setError("Failed to load Google Maps.");
-      setLoading(false);
-    };
-    
-    document.head.appendChild(script);
-  }, []);
+  }, [parentScriptLoaded]);
 
   // Initialize map after script loads
   useEffect(() => {
