@@ -644,7 +644,16 @@ export default function Results() {
                   <p className="text-sm text-slate-600 mt-1">Interactive 3D satellite view with measurement overlay</p>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <Roof3DView measurement={measurement} sections={sections} mapScriptLoaded={mapScriptLoaded} />
+                  {!mapScriptLoaded ? (
+                    <div className="h-[500px] flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border-2 border-slate-200">
+                      <div className="text-center">
+                        <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+                        <p className="text-lg font-semibold text-slate-700">Loading Google Maps...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Roof3DView measurement={measurement} sections={sections} mapScriptLoaded={mapScriptLoaded} />
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -658,7 +667,16 @@ export default function Results() {
                 <p className="text-sm text-slate-600 mt-1">Interactive map - zoom and pan</p>
               </CardHeader>
               <CardContent>
-                <InteractiveMapView measurement={measurement} sections={sections} mapScriptLoaded={mapScriptLoaded} />
+                {!mapScriptLoaded ? (
+                  <div className="h-[500px] flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border-2 border-slate-200">
+                    <div className="text-center">
+                      <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+                      <p className="text-lg font-semibold text-slate-700">Loading Google Maps...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <InteractiveMapView measurement={measurement} sections={sections} mapScriptLoaded={mapScriptLoaded} />
+                )}
               </CardContent>
             </Card>
 
