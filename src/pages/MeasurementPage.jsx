@@ -1290,7 +1290,10 @@ export default function MeasurementPage() {
     setError("");
 
     try {
-      const capturedSections = capturedImages.flatMap((img, imgIndex) => 
+      // Get current user to retrieve company_id
+      const currentUser = await base44.auth.me();
+
+      const capturedSections = capturedImages.flatMap((imgIndex) => 
         (img.sections || []).map(section => ({
           ...section,
           imageIndex: imgIndex,
@@ -1312,6 +1315,7 @@ export default function MeasurementPage() {
       const components = calculateRoofComponents();
 
       const measurementData = {
+        company_id: currentUser.company_id, // ADD COMPANY_ID
         property_address: address,
         user_type: "homeowner",
         captured_images: capturedImages,
@@ -1354,7 +1358,7 @@ export default function MeasurementPage() {
       setError(`Failed to save measurement: ${err.message}. Please try again.`);
       setSaving(false);
     }
-  }, [capturedImages, liveMapSections, address, measurementId, navigate]);
+  }, [capturedImages, liveMapSections, address, measurementId, navigate, calculateRoofComponents, getTotalArea]);
 
   if (loading) {
     return (

@@ -30,10 +30,16 @@ export default function RooferSignup() {
   
   const [formData, setFormData] = useState({
     companyName: "",
+    companyPhone: "",
+    address: "",
+    city: "",
+    state: "",
+    zip: "",
     fullName: "",
     email: "",
     phone: "",
     password: "",
+    confirmPassword: "",
     agreeToTerms: false
   });
 
@@ -120,6 +126,11 @@ export default function RooferSignup() {
       return;
     }
 
+    if (formData.password !== formData.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+
     if (!formData.agreeToTerms) {
       alert('Please agree to the terms and conditions');
       return;
@@ -131,17 +142,37 @@ export default function RooferSignup() {
     }
 
     try {
-      // Create user account directly using Base44 auth
-      const newUser = await base44.auth.signup({
+      // Step 1: Create Company
+      const company = await base44.entities.Company.create({
+        company_name: formData.companyName,
+        contact_phone: formData.companyPhone,
+        contact_email: formData.email,
+        contact_name: formData.fullName,
+        address_street: formData.address,
+        address_city: formData.city,
+        address_state: formData.state,
+        address_zip: formData.zip,
+        is_active: true,
+        subscription_tier: selectedPlan || 'basic',
+        subscription_status: 'trial',
+        trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+      });
+
+      // Step 2: Create User with signup
+      await base44.auth.signup({
         email: formData.email,
         password: formData.password,
         full_name: formData.fullName
       });
 
-      // Update user with additional roofer-specific data
+      // Step 3: Login to get user session
+      await base44.auth.login(formData.email, formData.password);
+
+      // Step 4: Update user with company_id and role
       await base44.auth.updateMe({
-        aroof_role: 'external_roofer',
+        company_id: company.id,
         company_name: formData.companyName,
+        aroof_role: 'external_roofer',
         phone: formData.phone,
         subscription_plan: selectedPlan || 'free',
         subscription_status: 'active',
@@ -150,10 +181,10 @@ export default function RooferSignup() {
         next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       });
       
-      alert(`✅ Account created successfully!\n\nPlan: ${plans[selectedPlan].name}\n\nYou can now log in with your credentials.`);
+      alert(`✅ Company account created successfully!\n\nCompany: ${formData.companyName}\nPlan: ${plans[selectedPlan].name}\n\nRedirecting to your dashboard...`);
       
-      // Redirect to login page
-      navigate(createPageUrl("RooferLogin"));
+      // Step 5: Redirect to dashboard
+      navigate(createPageUrl("RooferDashboard"));
       
     } catch (err) {
       console.error('Signup error:', err);
@@ -426,6 +457,11 @@ export default function RooferSignup() {
 
             <Card className="shadow-xl">
               <CardContent className="p-8 space-y-6">
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">Section 1: Company Information</h3>
+                  <p className="text-sm text-slate-600">Tell us about your roofing business</p>
+                </div>
+
                 <div>
                   <Label>Company Name *</Label>
                   <Input 
@@ -433,6 +469,61 @@ export default function RooferSignup() {
                     value={formData.companyName}
                     onChange={(e) => setFormData({...formData, companyName: e.target.value})}
                   />
+                </div>
+
+                <div>
+                  <Label>Company Phone *</Label>
+                  <Input 
+                    type="tel"
+                    placeholder="(555) 123-4567"
+                    value={formData.companyPhone}
+                    onChange={(e) => setFormData({...formData, companyPhone: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <Label>Company Address</Label>
+                  <Input 
+                    placeholder="123 Main Street"
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>City</Label>
+                    <Input 
+                      placeholder="Dallas"
+                      value={formData.city}
+                      onChange={(e) => setFormData({...formData, city: e.target.value})}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label>State</Label>
+                      <Input 
+                        placeholder="TX"
+                        maxLength="2"
+                        value={formData.state}
+                        onChange={(e) => setFormData({...formData, state: e.target.value.toUpperCase()})}
+                      />
+                    </div>
+                    <div>
+                      <Label>ZIP</Label>
+                      <Input 
+                        placeholder="75201"
+                        maxLength="5"
+                        value={formData.zip}
+                        onChange={(e) => setFormData({...formData, zip: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6 mt-6">
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">Section 2: Your Account</h3>
+                  <p className="text-sm text-slate-600 mb-4">Create your admin login</p>
                 </div>
 
                 <div>
@@ -455,22 +546,22 @@ export default function RooferSignup() {
                 </div>
 
                 <div>
-                  <Label>Phone Number</Label>
+                  <Label>Password *</Label>
                   <Input 
-                    type="tel"
-                    placeholder="(555) 123-4567"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    type="password"
+                    placeholder="Create a secure password (min 8 characters)"
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
                   />
                 </div>
 
                 <div>
-                  <Label>Password *</Label>
+                  <Label>Confirm Password *</Label>
                   <Input 
                     type="password"
-                    placeholder="Create a secure password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    placeholder="Re-enter your password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
                   />
                 </div>
 

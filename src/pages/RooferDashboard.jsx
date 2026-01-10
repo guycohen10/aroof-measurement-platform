@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -47,14 +46,19 @@ export default function RooferDashboard() {
 
       setUser(currentUser);
 
-      // Load measurements created by this user, sorted by created_date descending, limited to 10
-      const userMeasurements = await base44.entities.Measurement.filter(
-        { created_by: currentUser.email },
-        '-created_date',
-        10
+      // Load all users in this company
+      const companyUsers = await base44.entities.User.list();
+      const companyUserIds = companyUsers
+        .filter(u => u.company_id === currentUser.company_id)
+        .map(u => u.email);
+
+      // Load measurements for all users in this company, sorted by created_date descending, limited to 10
+      const allMeasurements = await base44.entities.Measurement.list('-created_date', 100);
+      const userMeasurements = allMeasurements.filter(m => 
+        m.company_id === currentUser.company_id || companyUserIds.includes(m.created_by)
       );
       
-      setMeasurements(userMeasurements);
+      setMeasurements(userMeasurements.slice(0, 10));
       setLoading(false);
     } catch (err) {
       console.error('Error loading dashboard:', err);
@@ -163,6 +167,12 @@ export default function RooferDashboard() {
             </div>
 
             <div className="flex items-center gap-3">
+              <Link to={createPageUrl("CompanyProfile")}>
+                <Button variant="ghost" className="text-white hover:bg-white/10">
+                  <Home className="w-4 h-4 mr-2" />
+                  Company
+                </Button>
+              </Link>
               <Link to={createPageUrl("RooferBilling")}>
                 <Button variant="ghost" className="text-white hover:bg-white/10">
                   <Settings className="w-4 h-4 mr-2" />
