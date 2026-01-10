@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -124,21 +125,32 @@ export default function RooferSignup() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      alert('Password must be at least 6 characters long');
+    if (formData.password.length < 8) {
+      alert('Password must be at least 8 characters long');
       return;
     }
 
     try {
-      // Use Base44's user invitation system to create account
-      // This creates a user with proper authentication
-      await base44.users.inviteUser(formData.email, "user");
+      // Create user account directly using Base44 auth
+      const newUser = await base44.auth.signup({
+        email: formData.email,
+        password: formData.password,
+        full_name: formData.fullName
+      });
 
-      // Update the user profile with additional details
-      // Note: The user will need to accept the invitation and set their password
-      // For now, we'll redirect them to login
+      // Update user with additional roofer-specific data
+      await base44.auth.updateMe({
+        aroof_role: 'external_roofer',
+        company_name: formData.companyName,
+        phone: formData.phone,
+        subscription_plan: selectedPlan || 'free',
+        subscription_status: 'active',
+        measurements_used_this_month: 0,
+        measurements_limit: plans[selectedPlan]?.measurements || 3,
+        next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      });
       
-      alert(`✅ Account invitation sent!\n\nWe've sent an invitation to ${formData.email}.\n\nPlease check your email to activate your account and set your password.\n\nPlan: ${plans[selectedPlan].name}`);
+      alert(`✅ Account created successfully!\n\nPlan: ${plans[selectedPlan].name}\n\nYou can now log in with your credentials.`);
       
       // Redirect to login page
       navigate(createPageUrl("RooferLogin"));
@@ -146,11 +158,13 @@ export default function RooferSignup() {
     } catch (err) {
       console.error('Signup error:', err);
       
-      if (err.message?.includes('already exists') || err.message?.includes('duplicate')) {
+      if (err.message?.includes('already exists') || err.message?.includes('duplicate') || err.message?.includes('already registered')) {
         alert('❌ An account with this email already exists.\n\nPlease try logging in instead.');
         navigate(createPageUrl("RooferLogin"));
+      } else if (err.message?.includes('Public authentication') || err.message?.includes('not enabled')) {
+        alert('❌ Public registration is not enabled.\n\nPlease contact support to enable public authentication in your Base44 app settings.');
       } else {
-        alert('❌ Failed to create account.\n\nError: ' + (err.message || 'Unknown error'));
+        alert('❌ Failed to create account.\n\n' + (err.message || 'Please try again or contact support.'));
       }
     }
   };
