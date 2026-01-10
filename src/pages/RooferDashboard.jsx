@@ -35,6 +35,16 @@ export default function RooferDashboard() {
   // Renamed from checkAuthAndLoad and updated
   const loadDashboardData = async () => {
     try {
+      // Check for demo user first
+      const demoUser = localStorage.getItem('demo_user');
+      if (demoUser) {
+        const user = JSON.parse(demoUser);
+        setUser(user);
+        setMeasurements([]);
+        setLoading(false);
+        return;
+      }
+
       const currentUser = await base44.auth.me();
       
       // Check if user is external roofer
@@ -76,10 +86,12 @@ export default function RooferDashboard() {
 
   const handleLogout = async () => { // Made async
     try {
+      localStorage.removeItem('demo_user');
       await base44.auth.logout(); // Added await
       navigate(createPageUrl("RooferLogin")); // Navigate to login page
     } catch (err) {
       console.error('Logout error:', err);
+      localStorage.removeItem('demo_user');
       // Fallback for more robust logout, force page reload to clear state
       window.location.href = createPageUrl("RooferLogin");
     }
