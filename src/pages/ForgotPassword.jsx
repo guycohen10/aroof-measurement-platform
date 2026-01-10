@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,15 +21,20 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      // In production, this would call password reset API
-      // For now, just show success message
+      // Use Base44 password reset functionality
+      await base44.auth.resetPassword(email);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
       setSubmitted(true);
     } catch (err) {
-      setError("Failed to send reset email. Please try again.");
+      console.error('Password reset error:', err);
+      
+      if (err.message?.includes('User not found') || err.message?.includes('not exist')) {
+        setError("No account found with this email address.");
+      } else if (err.message?.includes('not enabled') || err.message?.includes('not supported')) {
+        setError("Password reset is not available. Please contact support.");
+      } else {
+        setError("Failed to send reset email. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
