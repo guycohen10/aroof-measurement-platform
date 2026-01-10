@@ -275,7 +275,7 @@ export default function Homepage() {
             </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Link to={createPageUrl("FormPage")}>
+            <Link to={createPageUrl("AddressEntry")}>
               <Button
                   size="lg"
                   className="h-16 px-10 text-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-2xl shadow-green-500/50 hover:shadow-green-500/75 transition-all duration-300 transform hover:scale-105"
@@ -521,7 +521,7 @@ export default function Homepage() {
             Join thousands of satisfied DFW homeowners who trust Aroof
           </p>
           
-          <Link to={createPageUrl("FormPage")}>
+          <Link to={createPageUrl("AddressEntry")}>
             <Button
                   size="lg"
                   className="h-20 px-12 text-2xl bg-white text-blue-900 hover:bg-blue-50 shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105"

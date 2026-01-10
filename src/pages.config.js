@@ -47,6 +47,8 @@ import UserTypeSelection from './pages/UserTypeSelection';
 import Windows from './pages/Windows';
 import CompanyProfile from './pages/CompanyProfile';
 import StormTracking from './pages/StormTracking';
+import AddressEntry from './pages/AddressEntry';
+import ContactInfoPage from './pages/ContactInfoPage';
 import __Layout from './Layout.jsx';
 
 
@@ -100,6 +102,8 @@ export const PAGES = {
     "Windows": Windows,
     "CompanyProfile": CompanyProfile,
     "StormTracking": StormTracking,
+    "AddressEntry": AddressEntry,
+    "ContactInfoPage": ContactInfoPage,
 }
 
 export const pagesConfig = {

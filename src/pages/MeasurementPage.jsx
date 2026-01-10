@@ -1411,8 +1411,11 @@ export default function MeasurementPage() {
     setError("");
 
     try {
-      // Get current user to retrieve company_id
+      // Check if user is logged in
       const currentUser = await base44.auth.me().catch(() => null);
+      
+      // Determine if this is a roofer (logged in with external_roofer role)
+      const isRoofer = currentUser?.aroof_role === 'external_roofer';
 
       const capturedSections = capturedImages.flatMap((img, imgIndex) => 
         (img.sections || []).map(section => ({
@@ -1437,8 +1440,9 @@ export default function MeasurementPage() {
 
       const measurementData = {
         company_id: currentUser?.company_id || null,
+        user_id: currentUser?.id || null,
         property_address: address,
-        user_type: currentUser?.aroof_role === 'external_roofer' ? 'roofer' : 'homeowner',
+        user_type: isRoofer ? 'roofer' : 'homeowner',
         measurement_type: 'detailed_polygon',
         estimation_method: 'manual_polygon',
         captured_images: capturedImages,
@@ -1455,11 +1459,9 @@ export default function MeasurementPage() {
         valleys_ft: components.valleys,
         steps_ft: components.steps,
         walls_ft: components.walls,
-        payment_amount: 3,
-        payment_status: "completed",
-        stripe_payment_id: "demo_" + Date.now(),
-        status: "completed",
-        completed_at: new Date().toISOString()
+        lead_status: 'new',
+        measurement_completed: true,
+        contact_info_provided: false
       };
 
       let savedMeasurementId = measurementId;
@@ -1475,7 +1477,15 @@ export default function MeasurementPage() {
         throw new Error("Failed to get measurement ID");
       }
 
-      navigate(createPageUrl(`Results?measurementid=${savedMeasurementId}`));
+      // If roofer, go directly to results
+      // If homeowner, go to contact info page
+      if (isRoofer) {
+        navigate(createPageUrl(`Results?measurementid=${savedMeasurementId}`));
+      } else {
+        // Store measurement ID in session for contact info page
+        sessionStorage.setItem('pending_measurement_id', savedMeasurementId);
+        navigate(createPageUrl('ContactInfoPage'));
+      }
       
     } catch (err) {
       setError(`Failed to save measurement: ${err.message}. Please try again.`);
