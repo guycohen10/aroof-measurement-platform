@@ -1,269 +1,284 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { RotateCcw, Move } from 'lucide-react';
+import React, { useRef, useState, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RotateCcw, Move, Maximize2, Loader2, AlertCircle, Box } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Roof3DView({ measurement, sections }) {
-  const canvasRef = useRef(null);
-  const animationFrameRef = useRef(null);
-  const [rotation, setRotation] = useState({ x: -0.5, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [renderError, setRenderError] = useState(false);
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const scriptLoadedRef = useRef(false);
+  const [mapScriptLoaded, setMapScriptLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [mapTilt, setMapTilt] = useState(45);
+  const [mapHeading, setMapHeading] = useState(0);
+  const [view3DAvailable, setView3DAvailable] = useState(true);
 
+  const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+
+  // Load Google Maps script
   useEffect(() => {
-    if (!sections || sections.length === 0) {
-      return;
-    }
-    
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      setRenderError(true);
+    console.log("🚀 Roof3DView: Loading Google Maps script");
+
+    if (window.google && window.google.maps && window.google.maps.geometry) {
+      console.log("✅ Roof3DView: Google Maps already loaded");
+      if (!scriptLoadedRef.current) {
+        scriptLoadedRef.current = true;
+        setMapScriptLoaded(true);
+      }
       return;
     }
 
-    const render = () => {
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+    if (existingScript) {
+      console.log("⏳ Roof3DView: Script exists, waiting...");
+      let attempts = 0;
+      const checkInterval = setInterval(() => {
+        attempts++;
+        if (window.google && window.google.maps && window.google.maps.geometry) {
+          clearInterval(checkInterval);
+          console.log("✅ Roof3DView: Google Maps ready!");
+          scriptLoadedRef.current = true;
+          setMapScriptLoaded(true);
+        } else if (attempts >= 60) {
+          clearInterval(checkInterval);
+          setError("Google Maps is taking too long to load.");
+          setLoading(false);
+        }
+      }, 200);
+      return;
+    }
+
+    console.log("📥 Roof3DView: Loading script...");
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places`;
+    script.async = true;
+    script.defer = true;
+    
+    script.onload = () => {
+      console.log("✅ Roof3DView: Script loaded");
+      let attempts = 0;
+      const checkInterval = setInterval(() => {
+        attempts++;
+        if (window.google && window.google.maps && window.google.maps.geometry) {
+          clearInterval(checkInterval);
+          scriptLoadedRef.current = true;
+          setMapScriptLoaded(true);
+        } else if (attempts >= 40) {
+          clearInterval(checkInterval);
+          setError("API failed to initialize.");
+          setLoading(false);
+        }
+      }, 100);
+    };
+    
+    script.onerror = () => {
+      setError("Failed to load Google Maps.");
+      setLoading(false);
+    };
+    
+    document.head.appendChild(script);
+  }, []);
+
+  // Initialize map after script loads
+  useEffect(() => {
+    if (!mapScriptLoaded) return;
+
+    const initializeMap = () => {
+      if (!mapRef.current) {
+        setTimeout(initializeMap, 100);
+        return;
+      }
+
       try {
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          setRenderError(true);
-          return;
-        }
-
-        const width = canvas.width;
-        const height = canvas.height;
-        
-        // Clear canvas
-        ctx.clearRect(0, 0, width, height);
-        
-        // Sky blue gradient background
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, '#0ea5e9');
-        gradient.addColorStop(1, '#1e3a8a');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height);
-        
-        // Get all coordinates
+        // Calculate center from sections
         const allCoords = [];
-        sections.forEach(section => {
-          if (section.coordinates && section.coordinates.length > 0) {
-            section.coordinates.forEach(coord => {
-              allCoords.push({ lat: coord.lat, lng: coord.lng });
-            });
-          }
-        });
-        
-        if (allCoords.length === 0) {
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 24px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText('No coordinates available', width / 2, height / 2);
-          return;
+        if (sections && sections.length > 0) {
+          sections.forEach(section => {
+            if (section.coordinates && section.coordinates.length > 0) {
+              section.coordinates.forEach(coord => {
+                allCoords.push({ lat: coord.lat, lng: coord.lng });
+              });
+            }
+          });
         }
-        
-        // Calculate bounds
-        const minLat = Math.min(...allCoords.map(c => c.lat));
-        const maxLat = Math.max(...allCoords.map(c => c.lat));
-        const minLng = Math.min(...allCoords.map(c => c.lng));
-        const maxLng = Math.max(...allCoords.map(c => c.lng));
-        
-        const centerLat = (minLat + maxLat) / 2;
-        const centerLng = (minLng + maxLng) / 2;
-        const scale = Math.min(width, height) * 0.8;
-        
-        // 3D projection function
-        const project = (lat, lng, h = 0) => {
-          const x = (lng - centerLng) * scale * 100000;
-          const y = (lat - centerLat) * scale * 100000;
-          const z = h;
-          
-          const cosX = Math.cos(rotation.x);
-          const sinX = Math.sin(rotation.x);
-          const y1 = y * cosX - z * sinX;
-          const z1 = y * sinX + z * cosX;
-          
-          const cosY = Math.cos(rotation.y);
-          const sinY = Math.sin(rotation.y);
-          const x2 = x * cosY + z1 * sinY;
-          const z2 = -x * sinY + z1 * cosY;
-          
-          const perspective = 600;
-          const scale2d = perspective / (perspective + z2);
-          
-          return {
-            x: width / 2 + x2 * scale2d,
-            y: height / 2 - y1 * scale2d,
-            z: z2
-          };
-        };
-        
-        // Sort sections by depth for proper rendering
-        const sectionsWithDepth = sections.map(section => {
-          if (!section.coordinates || section.coordinates.length === 0) return null;
-          const centerLat = section.coordinates.reduce((sum, c) => sum + c.lat, 0) / section.coordinates.length;
-          const centerLng = section.coordinates.reduce((sum, c) => sum + c.lng, 0) / section.coordinates.length;
-          const pitchMult = section.pitch_multiplier || 1;
-          const roofHeight = (pitchMult - 1) * 100;
-          const centerProj = project(centerLat, centerLng, roofHeight);
-          return { section, depth: centerProj.z };
-        }).filter(Boolean);
-        
-        sectionsWithDepth.sort((a, b) => a.depth - b.depth);
-        
-        // Draw sections
-        sectionsWithDepth.forEach(({ section }, idx) => {
-          if (!section.coordinates || section.coordinates.length === 0) return;
-          
-          const color = section.color || '#3b82f6';
-          const pitchMult = section.pitch_multiplier || 1;
-          const roofHeight = (pitchMult - 1) * 100;
-          
-          // Draw base (shadow)
-          ctx.beginPath();
-          section.coordinates.forEach((coord, i) => {
-            const p = project(coord.lat, coord.lng, 0);
-            if (i === 0) ctx.moveTo(p.x, p.y);
-            else ctx.lineTo(p.x, p.y);
-          });
-          ctx.closePath();
-          ctx.fillStyle = color + '30';
-          ctx.fill();
-          
-          // Draw roof surface
-          ctx.shadowColor = 'rgba(0,0,0,0.3)';
-          ctx.shadowBlur = 10;
-          ctx.beginPath();
-          section.coordinates.forEach((coord, i) => {
-            const p = project(coord.lat, coord.lng, roofHeight);
-            if (i === 0) ctx.moveTo(p.x, p.y);
-            else ctx.lineTo(p.x, p.y);
-          });
-          ctx.closePath();
-          ctx.fillStyle = color;
-          ctx.fill();
-          ctx.strokeStyle = '#000000';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          ctx.shadowBlur = 0;
-          
-          // Draw vertical edges
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 1.5;
-          section.coordinates.forEach(coord => {
-            const p1 = project(coord.lat, coord.lng, 0);
-            const p2 = project(coord.lat, coord.lng, roofHeight);
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
-          });
-          
-          // Add label
-          const centerLat = section.coordinates.reduce((sum, c) => sum + c.lat, 0) / section.coordinates.length;
-          const centerLng = section.coordinates.reduce((sum, c) => sum + c.lng, 0) / section.coordinates.length;
-          const labelPos = project(centerLat, centerLng, roofHeight + 15);
-          
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 14px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.shadowColor = 'rgba(0,0,0,0.8)';
-          ctx.shadowBlur = 4;
-          const area = Math.round(section.adjusted_area_sqft || section.flat_area_sqft || 0);
-          const label = `${section.name || 'S' + (idx + 1)}: ${area} ft²`;
-          ctx.fillText(label, labelPos.x, labelPos.y);
-          ctx.shadowBlur = 0;
+
+        const center = allCoords.length > 0
+          ? {
+              lat: allCoords.reduce((sum, c) => sum + c.lat, 0) / allCoords.length,
+              lng: allCoords.reduce((sum, c) => sum + c.lng, 0) / allCoords.length
+            }
+          : { lat: 32.7767, lng: -96.7970 };
+
+        console.log("Creating 3D map at:", center);
+
+        const map = new window.google.maps.Map(mapRef.current, {
+          center: center,
+          zoom: 20,
+          mapTypeId: 'satellite',
+          tilt: 45,
+          heading: 0,
+          streetViewControl: false,
+          fullscreenControl: true,
+          mapTypeControl: false,
+          zoomControl: true,
+          rotateControl: true,
+          gestureHandling: 'greedy'
         });
-        
-        // Add title
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 24px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.shadowColor = 'rgba(0,0,0,0.8)';
-        ctx.shadowBlur = 6;
-        ctx.fillText('3D Roof Model', 20, 40);
-        ctx.font = '16px sans-serif';
-        ctx.fillText('Drag to rotate', 20, 65);
-        ctx.shadowBlur = 0;
-        
+
+        mapInstanceRef.current = map;
+
+        // Draw polygons
+        if (sections && sections.length > 0) {
+          sections.forEach((section, idx) => {
+            if (!section.coordinates || section.coordinates.length === 0) return;
+
+            const coords = section.coordinates.map(c => ({ lat: c.lat, lng: c.lng }));
+
+            new window.google.maps.Polygon({
+              paths: coords,
+              strokeColor: section.color || '#ef4444',
+              strokeOpacity: 0.9,
+              strokeWeight: 3,
+              fillColor: section.color || '#ef4444',
+              fillOpacity: 0.4,
+              map: map
+            });
+          });
+        }
+
+        // Check if 3D is available after map loads
+        window.google.maps.event.addListenerOnce(map, 'tilesloaded', () => {
+          const actualTilt = map.getTilt();
+          if (actualTilt === 0 && mapTilt === 45) {
+            console.log("3D view not available for this location");
+            setView3DAvailable(false);
+          }
+          setLoading(false);
+        });
+
       } catch (err) {
-        console.error('3D render error:', err);
-        setRenderError(true);
+        console.error("3D map error:", err);
+        setError(`Failed to initialize 3D view: ${err.message}`);
+        setLoading(false);
       }
     };
 
-    render();
-    
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [sections, rotation]);
+    setTimeout(initializeMap, 100);
+  }, [mapScriptLoaded, sections, mapTilt]);
 
-  const handleMouseDown = (e) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX, y: e.clientY });
-  };
+  const rotateView = useCallback(() => {
+    if (!mapInstanceRef.current) return;
+    const newHeading = (mapHeading + 90) % 360;
+    setMapHeading(newHeading);
+    mapInstanceRef.current.setHeading(newHeading);
+  }, [mapHeading]);
 
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    const dx = e.clientX - dragStart.x;
-    const dy = e.clientY - dragStart.y;
-    setRotation(prev => ({
-      x: prev.x + dy * 0.01,
-      y: prev.y + dx * 0.01
-    }));
-    setDragStart({ x: e.clientX, y: e.clientY });
-  };
+  const toggleTilt = useCallback(() => {
+    if (!mapInstanceRef.current) return;
+    const newTilt = mapTilt === 45 ? 0 : 45;
+    setMapTilt(newTilt);
+    mapInstanceRef.current.setTilt(newTilt);
+  }, [mapTilt]);
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  const resetView = useCallback(() => {
+    if (!mapInstanceRef.current) return;
+    setMapHeading(0);
+    setMapTilt(45);
+    mapInstanceRef.current.setHeading(0);
+    mapInstanceRef.current.setTilt(45);
+    mapInstanceRef.current.setZoom(20);
+  }, []);
 
-  const resetView = () => {
-    setRotation({ x: -0.5, y: 0 });
-  };
-
-  if (!sections || sections.length === 0) {
+  if (!mapScriptLoaded && !error) {
     return (
-      <div className="bg-slate-100 rounded-xl p-12 text-center">
-        <p className="text-slate-600">Complete measurement to view 3D model</p>
+      <div className="h-[500px] flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border-2 border-slate-200">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-lg font-semibold text-slate-700">Loading 3D map...</p>
+        </div>
       </div>
     );
   }
 
-  if (renderError) {
+  if (loading && mapScriptLoaded) {
     return (
-      <div className="bg-red-50 rounded-xl p-12 text-center">
-        <p className="text-red-600">Unable to render 3D visualization</p>
+      <div className="h-[500px] flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border-2 border-slate-200">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-lg font-semibold text-slate-700">Rendering 3D view...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-[500px] flex items-center justify-center bg-red-50 rounded-xl border-2 border-red-200">
+        <div className="text-center px-4">
+          <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+          <p className="text-lg font-semibold text-red-900 mb-2">Unable to load 3D view</p>
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="bg-slate-900 rounded-xl overflow-hidden shadow-2xl">
-        <canvas
-          ref={canvasRef}
-          width={800}
-          height={600}
-          className="w-full cursor-move"
-          style={{ display: 'block', maxWidth: '100%', height: 'auto' }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+      {!view3DAvailable && (
+        <Alert className="bg-yellow-50 border-yellow-300">
+          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-900">
+            <strong>3D imagery not available for this location.</strong> Showing high-resolution 2D satellite view instead.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="relative rounded-xl overflow-hidden border-2 border-slate-200 shadow-lg">
+        <div 
+          ref={mapRef} 
+          className="w-full h-[500px]"
+          style={{ minHeight: '500px' }}
         />
-      </div>
-      
-      <div className="flex gap-2">
-        <Button variant="outline" onClick={resetView} className="flex-1">
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Reset View
-        </Button>
-        <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-900 rounded-lg text-sm">
-          <Move className="w-4 h-4" />
-          Drag to rotate
+        {measurement?.total_adjusted_sqft && (
+          <div className="absolute bottom-4 left-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg font-bold z-10">
+            {Math.round(measurement.total_adjusted_sqft).toLocaleString()} sq ft
+          </div>
+        )}
+        <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-lg shadow-lg text-sm font-semibold z-10">
+          {view3DAvailable ? '3D View' : '2D View'}
         </div>
+      </div>
+
+      <div className="flex gap-3">
+        <Button 
+          variant="outline" 
+          className="flex-1"
+          onClick={rotateView}
+          disabled={!view3DAvailable}
+        >
+          <RotateCcw className="w-4 h-4 mr-2" />
+          Rotate (90°)
+        </Button>
+        <Button 
+          variant="outline" 
+          className="flex-1"
+          onClick={toggleTilt}
+          disabled={!view3DAvailable}
+        >
+          <Move className="w-4 h-4 mr-2" />
+          {mapTilt === 45 ? '2D View' : '3D View'}
+        </Button>
+        <Button 
+          variant="outline" 
+          className="flex-1"
+          onClick={resetView}
+        >
+          <Maximize2 className="w-4 h-4 mr-2" />
+          Reset
+        </Button>
       </div>
     </div>
   );

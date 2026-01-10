@@ -13,6 +13,7 @@ import DetailedMeasurements from "../components/results/DetailedMeasurements";
 import PhotoUpload from "../components/results/PhotoUpload";
 import PDFReportGenerator from "../components/results/PDFReportGenerator";
 import RoofDiagram from "../components/results/RoofDiagram";
+import Roof3DView from "../components/results/Roof3DView";
 
 
 export default function Results() {
@@ -578,6 +579,21 @@ export default function Results() {
                       </div>
                     </>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+            {sections.length > 0 && (
+              <Card className="shadow-xl border-2 border-red-200">
+                <CardHeader className="bg-gradient-to-r from-red-50 to-white">
+                  <CardTitle className="flex items-center gap-2 text-2xl">
+                    <Box className="w-6 h-6 text-red-600" />
+                    🏠 3D Roof View
+                  </CardTitle>
+                  <p className="text-sm text-slate-600 mt-1">Interactive 3D satellite view with measurement overlay</p>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <Roof3DView measurement={measurement} sections={sections} />
                 </CardContent>
               </Card>
             )}
