@@ -45,6 +45,7 @@ import StripeCanceled from './pages/StripeCanceled';
 import StripeSuccess from './pages/StripeSuccess';
 import UserTypeSelection from './pages/UserTypeSelection';
 import Windows from './pages/Windows';
+import CompanyProfile from './pages/CompanyProfile';
 import __Layout from './Layout.jsx';
 
 
@@ -96,6 +97,7 @@ export const PAGES = {
     "StripeSuccess": StripeSuccess,
     "UserTypeSelection": UserTypeSelection,
     "Windows": Windows,
+    "CompanyProfile": CompanyProfile,
 }
 
 export const pagesConfig = {
