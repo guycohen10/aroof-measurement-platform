@@ -32,7 +32,7 @@ function calculateRiskScore(hailData) {
   return Math.min(score, 100);
 }
 
-function StormMap() {
+function StormMap({ onDataTypeChange, onDateRangeChange }) {
   const [storms, setStorms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dataType, setDataType] = useState('live'); // 'live' or 'historical'
@@ -83,17 +83,21 @@ function StormMap() {
   };
 
   const fetchHistoricalStorms = async () => {
-    // Performance check
-    const daysDiff = Math.abs(new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24);
-    if (daysDiff > 365) {
-      alert('Large date ranges may take longer to load. Please wait.');
-    }
-
     setLoading(true);
     setDataType('historical');
+    
+    // Notify parent component of data type and date range changes
+    if (onDataTypeChange) onDataTypeChange('historical');
+    if (onDateRangeChange) onDateRangeChange({ start: startDate, end: endDate });
+    
     try {
+      // Ensure dates are in ISO 8601 format (YYYY-MM-DD)
+      const formattedStart = new Date(startDate).toISOString().split('T')[0];
+      const formattedEnd = new Date(endDate).toISOString().split('T')[0];
+      
       const statesParam = selectedState === 'All US' ? '' : `&states=${selectedState}`;
-      const url = `https://mesonet.agron.iastate.edu/geojson/sbw.geojson?phenomena=SV&significance=W&start=${startDate}&end=${endDate}${statesParam}`;
+      // Include both SV (Severe Thunderstorm) and TO (Tornado) to capture major hail events
+      const url = `https://mesonet.agron.iastate.edu/geojson/sbw.geojson?phenomena=SV,TO&significance=W&start=${formattedStart}&end=${formattedEnd}${statesParam}`;
       
       const response = await fetch(url);
       const data = await response.json();
@@ -124,7 +128,6 @@ function StormMap() {
       setLoading(false);
     } catch (err) {
       console.error('Failed to fetch historical storms:', err);
-      alert('Failed to fetch historical data. Please try again.');
       setLoading(false);
     }
   };
@@ -141,6 +144,11 @@ function StormMap() {
     setStartDate(date.toISOString().split('T')[0]);
     setEndDate(new Date().toISOString().split('T')[0]);
     setSelectedState('TX');
+    
+    // Notify parent component
+    if (onDataTypeChange) onDataTypeChange('live');
+    if (onDateRangeChange) onDateRangeChange({ start: '', end: '' });
+    
     fetchNWSStorms();
   };
 
@@ -165,74 +173,9 @@ function StormMap() {
   };
 
   return (
-    <div className="relative h-[600px] w-full rounded-lg overflow-hidden border-2 border-slate-200">
-      <MapContainer 
-        center={[32.7767, -96.7970]} 
-        zoom={dataType === 'historical' ? 9 : 5} 
-        style={{ height: '100%', width: '100%' }}
-        className="z-0"
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        />
-        
-        {storms.map((storm) => (
-          <Polygon
-            key={storm.id}
-            positions={storm.coordinates}
-            pathOptions={
-              dataType === 'live' 
-                ? {
-                    color: '#FF0000',
-                    weight: 2,
-                    dashArray: '5, 5',
-                    fillColor: '#FF4500',
-                    fillOpacity: 0.4
-                  }
-                : {
-                    color: '#800080',
-                    weight: 2,
-                    fillColor: '#800080',
-                    fillOpacity: 0.2
-                  }
-            }
-          >
-            <Popup>
-              <div className="text-sm max-w-xs">
-                <p className="font-bold mb-2" style={{ color: dataType === 'live' ? '#dc2626' : '#7c3aed' }}>
-                  {storm.headline}
-                </p>
-                {dataType === 'live' ? (
-                  <>
-                    <p className="text-xs mb-1"><strong>Hail Size:</strong> {extractHailSize(storm.description)} inches</p>
-                    <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto">
-                      {storm.description}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-xs mb-2"><strong>📅 Date:</strong> {formatDate(storm.date)}</p>
-                    <p className="text-xs mb-2"><strong>Event:</strong> Severe Thunderstorm Warning</p>
-                    <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto border-t pt-2">
-                      <strong>Report:</strong>
-                      <p className="mt-1">{storm.description || 'No additional details available'}</p>
-                      {storm.rawProps?.status && (
-                        <p className="mt-1"><strong>Status:</strong> {storm.rawProps.status}</p>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </Popup>
-          </Polygon>
-        ))}
-      </MapContainer>
-
-      <div 
-        className="absolute top-4 left-4 right-4 bg-white rounded-lg shadow-2xl p-4 border-2 border-slate-300"
-        style={{ zIndex: 9999 }}
-      >
+    <div className="space-y-4">
+      {/* Filter Bar Outside Map */}
+      <div className="bg-white rounded-lg shadow-lg p-4 border-2 border-slate-300">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-col">
             <label className="text-xs font-bold text-slate-700 mb-1">State</label>
@@ -278,7 +221,7 @@ function StormMap() {
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
               disabled={loading}
             >
-              🔍 Find Storms
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : '🔍'} Find Storms
             </Button>
             <Button
               onClick={handleClearFilters}
@@ -292,13 +235,79 @@ function StormMap() {
         </div>
       </div>
 
-      <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg">
-        <p className="text-xs text-slate-600 mb-1">
-          {dataType === 'live' ? 'Live Storm Tracking' : 'Historical Data (DFW)'}
-        </p>
-        <p className="text-sm font-bold text-slate-900">
-          {loading ? 'Loading...' : `${storms.length} ${dataType === 'live' ? 'Active' : 'Historical'} ${storms.length === 1 ? 'Storm' : 'Storms'}`}
-        </p>
+      {/* Map Container */}
+      <div className="relative h-[600px] w-full rounded-lg overflow-hidden border-2 border-slate-200">
+        <MapContainer 
+          center={[32.7767, -96.7970]} 
+          zoom={dataType === 'historical' ? 9 : 5} 
+          style={{ height: '100%', width: '100%' }}
+          className="z-0"
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          />
+          
+          {storms.map((storm) => (
+            <Polygon
+              key={storm.id}
+              positions={storm.coordinates}
+              pathOptions={
+                dataType === 'live' 
+                  ? {
+                      color: '#FF0000',
+                      weight: 2,
+                      dashArray: '5, 5',
+                      fillColor: '#FF4500',
+                      fillOpacity: 0.4
+                    }
+                  : {
+                      color: '#800080',
+                      weight: 2,
+                      fillColor: '#800080',
+                      fillOpacity: 0.2
+                    }
+              }
+            >
+              <Popup>
+                <div className="text-sm max-w-xs">
+                  <p className="font-bold mb-2" style={{ color: dataType === 'live' ? '#dc2626' : '#7c3aed' }}>
+                    {storm.headline}
+                  </p>
+                  {dataType === 'live' ? (
+                    <>
+                      <p className="text-xs mb-1"><strong>Hail Size:</strong> {extractHailSize(storm.description)} inches</p>
+                      <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto">
+                        {storm.description}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs mb-2"><strong>📅 Date:</strong> {formatDate(storm.date)}</p>
+                      <p className="text-xs mb-2"><strong>Event:</strong> Severe Thunderstorm Warning</p>
+                      <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto border-t pt-2">
+                        <strong>Report:</strong>
+                        <p className="mt-1">{storm.description || 'No additional details available'}</p>
+                        {storm.rawProps?.status && (
+                          <p className="mt-1"><strong>Status:</strong> {storm.rawProps.status}</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </Popup>
+            </Polygon>
+          ))}
+        </MapContainer>
+
+        <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg">
+          <p className="text-xs text-slate-600 mb-1">
+            {dataType === 'live' ? 'Live Storm Tracking' : 'Historical Data'}
+          </p>
+          <p className="text-sm font-bold text-slate-900">
+            {loading ? 'Loading...' : `${storms.length} ${dataType === 'live' ? 'Active Storms' : 'Total Historical Events'}`}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -313,6 +322,8 @@ export default function StormTracking() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [mapDataType, setMapDataType] = useState('live');
+  const [mapDateRange, setMapDateRange] = useState({ start: '', end: '' });
   
   const [formData, setFormData] = useState({
     zip_code: "",
@@ -551,7 +562,13 @@ export default function StormTracking() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-2xl flex items-center gap-2">
-                    🌩️ Hot Zones (Last 30 Days)
+                    🌩️ Hot Zones {
+                      mapDataType === 'live' 
+                        ? '(Live Feed)' 
+                        : mapDateRange.start && mapDateRange.end 
+                          ? `(${new Date(mapDateRange.start).toLocaleDateString()} to ${new Date(mapDateRange.end).toLocaleDateString()})`
+                          : '(Last 30 Days)'
+                    }
                   </CardTitle>
                   <div className="flex gap-2">
                     <Button onClick={exportHotZones} variant="outline" size="sm" disabled={hotZones.length === 0}>
@@ -566,7 +583,10 @@ export default function StormTracking() {
                 </div>
               </CardHeader>
               <CardContent>
-                <StormMap />
+                <StormMap 
+                  onDataTypeChange={setMapDataType}
+                  onDateRangeChange={setMapDateRange}
+                />
                 
                 {hotZones.length > 0 && (
                   <div className="space-y-3 mt-6">
