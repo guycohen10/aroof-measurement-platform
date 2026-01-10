@@ -49,6 +49,12 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
 
   // Initialize map ONLY after script is loaded
   useEffect(() => {
+    // CRITICAL: Check if mapRef.current is available
+    if (!mapRef.current) {
+      console.log("⏳ InteractiveMapView: DOM element not ready");
+      return;
+    }
+
     if (!mapScriptLoaded) {
       console.log("⏳ InteractiveMapView: Waiting for script...");
       return;
@@ -62,19 +68,11 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
 
     console.log("✅ InteractiveMapView: Script loaded, initializing map...");
 
-    let attemptCount = 0;
-    const maxAttempts = 10;
-
     const initializeMap = () => {
-      attemptCount++;
-
+      // Double-check ref is still available
       if (!mapRef.current) {
-        if (attemptCount < maxAttempts) {
-          setTimeout(initializeMap, 200);
-        } else {
-          setError("Map container not available");
-          setLoading(false);
-        }
+        setError("Map container not available");
+        setLoading(false);
         return;
       }
 
@@ -182,10 +180,9 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
       }
     };
 
-    // Start initialization
-    const timer = setTimeout(initializeMap, 100);
-    return () => clearTimeout(timer);
-  }, [mapScriptLoaded, sections]);
+    // Start initialization immediately
+    initializeMap();
+  }, [mapScriptLoaded, sections, mapRef.current]);
 
   const downloadImage = async () => {
     if (!mapRef.current) return;
@@ -273,8 +270,7 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
       <div className="relative rounded-xl overflow-hidden border-2 border-slate-200 shadow-lg bg-slate-100">
         <div 
           ref={mapRef} 
-          className="w-full h-[500px]"
-          style={{ minHeight: '500px' }}
+          style={{ width: '100%', height: '500px' }}
         />
         {measurement?.total_adjusted_sqft && (
           <div className="absolute bottom-4 left-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg font-bold z-10">

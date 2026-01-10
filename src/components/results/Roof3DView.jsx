@@ -53,11 +53,19 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
 
   // Initialize map after script loads
   useEffect(() => {
+    // CRITICAL: Check if mapRef.current is available
+    if (!mapRef.current) {
+      console.log("⏳ Roof3DView: DOM element not ready");
+      return;
+    }
+
     if (!mapScriptLoaded) return;
 
     const initializeMap = () => {
+      // Double-check ref is still available
       if (!mapRef.current) {
-        setTimeout(initializeMap, 100);
+        setError("Map container not available");
+        setLoading(false);
         return;
       }
 
@@ -135,8 +143,8 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
       }
     };
 
-    setTimeout(initializeMap, 100);
-  }, [mapScriptLoaded, sections, mapTilt]);
+    initializeMap();
+  }, [mapScriptLoaded, sections, mapTilt, mapRef.current]);
 
   const rotateView = useCallback(() => {
     if (!mapInstanceRef.current) return;
@@ -209,8 +217,7 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
       <div className="relative rounded-xl overflow-hidden border-2 border-slate-200 shadow-lg">
         <div 
           ref={mapRef} 
-          className="w-full h-[500px]"
-          style={{ minHeight: '500px' }}
+          style={{ width: '100%', height: '500px' }}
         />
         {measurement?.total_adjusted_sqft && (
           <div className="absolute bottom-4 left-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg font-bold z-10">
