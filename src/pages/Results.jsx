@@ -700,6 +700,23 @@ export default function Results() {
                     Flat: {flatArea.toLocaleString()} sq ft
                   </p>
                 )}
+                
+                {measurement.measurement_type === 'quick_estimate' && (
+                  <Alert className="mt-6 bg-orange-50 border-orange-200 text-left">
+                    <AlertDescription className="text-sm">
+                      <div className="font-bold text-orange-900 mb-2">⚡ Quick Estimate</div>
+                      <p className="text-orange-800 mb-3">
+                        This is an approximate calculation based on building size. 
+                        For precise measurements, use our Detailed Measurement tool.
+                      </p>
+                      <Link to={createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}`)}>
+                        <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700">
+                          Get Detailed Measurement
+                        </Button>
+                      </Link>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </CardContent>
             </Card>
 

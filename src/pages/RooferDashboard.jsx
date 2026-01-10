@@ -306,7 +306,8 @@ export default function RooferDashboard() {
                       <th className="text-left p-3 font-semibold text-slate-700 text-sm">Date</th>
                       <th className="text-left p-3 font-semibold text-slate-700 text-sm">Property Address</th>
                       <th className="text-left p-3 font-semibold text-slate-700 text-sm">Area</th>
-                      <th className="text-left p-3 font-semibold text-slate-700 text-sm">Customer</th>
+                      <th className="text-left p-3 font-semibold text-slate-700 text-sm">Type</th>
+                      <th className="text-left p-3 font-semibold text-slate-700 text-sm">Status</th>
                       <th className="text-left p-3 font-semibold text-slate-700 text-sm">Actions</th>
                     </tr>
                   </thead>
@@ -322,8 +323,27 @@ export default function RooferDashboard() {
                         <td className="p-3 font-semibold text-slate-900">
                           {Math.round(measurement.total_adjusted_sqft || measurement.total_sqft || 0).toLocaleString()} sq ft
                         </td>
-                        <td className="p-3 text-sm text-slate-600">
-                          {measurement.customer_name || 'N/A'}
+                        <td className="p-3">
+                          {measurement.measurement_type === 'quick_estimate' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-semibold">
+                              ⚡ Quick Est
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                              📐 Detailed
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
+                            measurement.lead_status === 'new' ? 'bg-slate-100 text-slate-800' :
+                            measurement.lead_status === 'contacted' ? 'bg-blue-100 text-blue-800' :
+                            measurement.lead_status === 'quoted' ? 'bg-purple-100 text-purple-800' :
+                            measurement.lead_status === 'booked' ? 'bg-green-100 text-green-800' :
+                            'bg-slate-100 text-slate-800'
+                          }`}>
+                            {measurement.lead_status || 'New'}
+                          </span>
                         </td>
                         <td className="p-3">
                           <div className="flex gap-2">
