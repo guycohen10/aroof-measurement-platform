@@ -53,6 +53,13 @@ export default function StormTracking() {
 
   const checkAuth = async () => {
     try {
+      // Check for demo user first
+      const demoUser = localStorage.getItem('demo_user');
+      if (demoUser) {
+        loadHotZones();
+        return;
+      }
+
       const user = await base44.auth.me();
       if (user.aroof_role !== 'external_roofer') {
         navigate(createPageUrl("Homepage"));
