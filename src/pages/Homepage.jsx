@@ -4,14 +4,14 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import ChatWidget from "../components/chat/ChatWidget";
-import { 
-  Home, 
-  MapPin, 
-  FileCheck, 
-  Zap, 
-  Shield, 
-  Award, 
-  Clock, 
+import {
+  Home,
+  MapPin,
+  FileCheck,
+  Zap,
+  Shield,
+  Award,
+  Clock,
   DollarSign,
   Star,
   Users,
@@ -21,8 +21,8 @@ import {
   Wrench,
   Mail,
   ChevronDown,
-  Building2
-} from "lucide-react";
+  Building2 } from
+"lucide-react";
 
 export default function Homepage() {
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
@@ -31,29 +31,29 @@ export default function Homepage() {
     <>
       {/* SEO: Local Business Schema */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "RoofingContractor",
-        "name": "Aroof",
-        "image": "https://aroof.build/logo.png",
-        "description": "DFW's #1 roofing company offering instant satellite roof measurements and professional roofing services.",
-        "address": {
-          "@type": "PostalAddress",
-          "streetAddress": "6810 Windrock Rd",
-          "addressLocality": "Dallas",
-          "addressRegion": "TX",
-          "postalCode": "75252",
-          "addressCountry": "US"
-        },
-        "geo": {
-          "@type": "GeoCoordinates",
-          "latitude": 32.9537,
-          "longitude": -96.8236
-        },
-        "telephone": "+1-850-238-9727",
-        "email": "contact@aroof.build",
-        "url": "https://aroof.build",
-        "priceRange": "$3-$5",
-        "openingHoursSpecification": [
+          "@context": "https://schema.org",
+          "@type": "RoofingContractor",
+          "name": "Aroof",
+          "image": "https://aroof.build/logo.png",
+          "description": "DFW's #1 roofing company offering instant satellite roof measurements and professional roofing services.",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "6810 Windrock Rd",
+            "addressLocality": "Dallas",
+            "addressRegion": "TX",
+            "postalCode": "75252",
+            "addressCountry": "US"
+          },
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 32.9537,
+            "longitude": -96.8236
+          },
+          "telephone": "+1-850-238-9727",
+          "email": "contact@aroof.build",
+          "url": "https://aroof.build",
+          "priceRange": "$3-$5",
+          "openingHoursSpecification": [
           {
             "@type": "OpeningHoursSpecification",
             "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
@@ -65,16 +65,16 @@ export default function Homepage() {
             "dayOfWeek": "Saturday",
             "opens": "09:00",
             "closes": "15:00"
-          }
-        ],
-        "aggregateRating": {
-          "@type": "AggregateRating",
-          "ratingValue": "4.9",
-          "reviewCount": "500",
-          "bestRating": "5",
-          "worstRating": "1"
-        },
-        "areaServed": [
+          }],
+
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.9",
+            "reviewCount": "500",
+            "bestRating": "5",
+            "worstRating": "1"
+          },
+          "areaServed": [
           "Dallas, TX",
           "Fort Worth, TX",
           "Plano, TX",
@@ -84,37 +84,37 @@ export default function Homepage() {
           "Richardson, TX",
           "Irving, TX",
           "Arlington, TX",
-          "Garland, TX"
-        ],
-        "serviceType": [
+          "Garland, TX"],
+
+          "serviceType": [
           "Roof Measurement",
           "Roof Replacement",
           "Roof Repair",
           "Roof Inspection",
-          "Satellite Roof Analysis"
-        ]
-      }) }} />
+          "Satellite Roof Analysis"]
+
+        }) }} />
 
       {/* SEO: Service Schema */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "Service",
-        "serviceType": "Roof Measurement Service",
-        "provider": {
-          "@type": "RoofingContractor",
-          "name": "Aroof",
-          "telephone": "+1-850-238-9727",
-          "email": "contact@aroof.build",
-          "url": "https://aroof.build"
-        },
-        "areaServed": {
-          "@type": "City",
-          "name": "Dallas-Fort Worth Metroplex"
-        },
-        "hasOfferCatalog": {
-          "@type": "OfferCatalog",
-          "name": "Roof Measurement Services",
-          "itemListElement": [
+          "@context": "https://schema.org",
+          "@type": "Service",
+          "serviceType": "Roof Measurement Service",
+          "provider": {
+            "@type": "RoofingContractor",
+            "name": "Aroof",
+            "telephone": "+1-850-238-9727",
+            "email": "contact@aroof.build",
+            "url": "https://aroof.build"
+          },
+          "areaServed": {
+            "@type": "City",
+            "name": "Dallas-Fort Worth Metroplex"
+          },
+          "hasOfferCatalog": {
+            "@type": "OfferCatalog",
+            "name": "Roof Measurement Services",
+            "itemListElement": [
             {
               "@type": "Offer",
               "itemOffered": {
@@ -134,10 +134,10 @@ export default function Homepage() {
               },
               "price": "5.00",
               "priceCurrency": "USD"
-            }
-          ]
-        }
-      }) }} />
+            }]
+
+          }
+        }) }} />
 
       <div className="min-h-screen bg-white">
         {/* Navigation Bar */}
@@ -155,17 +155,17 @@ export default function Homepage() {
             </Link>
             <div className="hidden md:flex items-center gap-8">
               {/* Services Dropdown */}
-              <div 
-                className="relative"
-                onMouseEnter={() => setServicesDropdownOpen(true)}
-                onMouseLeave={() => setServicesDropdownOpen(false)}
-              >
+              <div
+                  className="relative"
+                  onMouseEnter={() => setServicesDropdownOpen(true)}
+                  onMouseLeave={() => setServicesDropdownOpen(false)}>
+
                 <button className="flex items-center gap-1 text-slate-600 hover:text-blue-900 font-medium transition-colors">
                   Services
                   <ChevronDown className={`w-4 h-4 transition-transform ${servicesDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
                 
-                {servicesDropdownOpen && (
+                {servicesDropdownOpen &&
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-[600px] bg-white rounded-xl shadow-2xl border border-slate-200 p-6 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="grid grid-cols-3 gap-6">
                       {/* Column 1: Roofing Services */}
@@ -228,7 +228,7 @@ export default function Homepage() {
                       </Link>
                     </div>
                   </div>
-                )}
+                  }
               </div>
               
               <a href="#how-it-works" className="text-slate-600 hover:text-blue-900 font-medium">How It Works</a>
@@ -270,17 +270,17 @@ export default function Homepage() {
             Instant satellite measurements • Accurate pricing • DFW's most trusted roofing company
           </p>
           
-          <p className="text-lg text-green-300 mb-12 font-semibold">
-            📄 Download detailed PDF report for just $3-$5 (optional)
-          </p>
+          <p className="text-lg text-green-300 mb-12 font-semibold">📄 Download detailed PDF report for just $3 (optional)
+
+            </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Link to={createPageUrl("FormPage")}>
-              <Button 
-                size="lg" 
-                className="h-16 px-10 text-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-2xl shadow-green-500/50 hover:shadow-green-500/75 transition-all duration-300 transform hover:scale-105"
-                aria-label="Get free roof measurement now"
-              >
+              <Button
+                  size="lg"
+                  className="h-16 px-10 text-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-2xl shadow-green-500/50 hover:shadow-green-500/75 transition-all duration-300 transform hover:scale-105"
+                  aria-label="Get free roof measurement now">
+
                 <Zap className="w-6 h-6 mr-2" aria-hidden="true" />
                 Get FREE Measurement Now
                 <ArrowRight className="w-5 h-5 ml-2" aria-hidden="true" />
@@ -293,13 +293,13 @@ export default function Homepage() {
               { icon: Users, text: "5000+ Roofs Measured", color: "text-green-400" },
               { icon: Shield, text: "Licensed in Texas", color: "text-blue-400" },
               { icon: Award, text: "A+ BBB Rating", color: "text-yellow-400" },
-              { icon: Star, text: "4.9/5 Star Rating", color: "text-orange-400" }
-            ].map((badge, index) => (
+              { icon: Star, text: "4.9/5 Star Rating", color: "text-orange-400" }].
+              map((badge, index) =>
               <div key={index} className="flex flex-col items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 hover:bg-white/20 transition-all duration-300">
                 <badge.icon className={`w-8 h-8 ${badge.color}`} aria-hidden="true" />
                 <p className="text-sm font-semibold text-white text-center">{badge.text}</p>
               </div>
-            ))}
+              )}
           </div>
         </div>
 
@@ -325,29 +325,29 @@ export default function Homepage() {
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              {
-                step: "1",
-                icon: MapPin,
-                title: "Enter Your Address",
-                description: "Type your property address and we'll locate it instantly using satellite imagery - no payment required",
-                color: "from-blue-600 to-blue-700"
-              },
-              {
-                step: "2",
-                icon: Home,
-                title: "Measure Your Roof",
-                description: "Our advanced tool lets you outline your roof precisely with just a few clicks - 100% FREE",
-                color: "from-orange-600 to-orange-700"
-              },
-              {
-                step: "3",
-                icon: FileCheck,
-                title: "View Results Instantly",
-                description: "See accurate measurements and pricing. Download detailed PDF report for just $3 (optional)",
-                color: "from-green-600 to-green-700"
-              }
-            ].map((step, index) => (
-              <Card key={index} className="relative overflow-hidden border-none shadow-2xl hover:shadow-3xl transition-all duration-500 transform hover:-translate-y-2 group">
+                {
+                  step: "1",
+                  icon: MapPin,
+                  title: "Enter Your Address",
+                  description: "Type your property address and we'll locate it instantly using satellite imagery - no payment required",
+                  color: "from-blue-600 to-blue-700"
+                },
+                {
+                  step: "2",
+                  icon: Home,
+                  title: "Measure Your Roof",
+                  description: "Our advanced tool lets you outline your roof precisely with just a few clicks - 100% FREE",
+                  color: "from-orange-600 to-orange-700"
+                },
+                {
+                  step: "3",
+                  icon: FileCheck,
+                  title: "View Results Instantly",
+                  description: "See accurate measurements and pricing. Download detailed PDF report for just $3 (optional)",
+                  color: "from-green-600 to-green-700"
+                }].
+                map((step, index) =>
+                <Card key={index} className="relative overflow-hidden border-none shadow-2xl hover:shadow-3xl transition-all duration-500 transform hover:-translate-y-2 group">
                 <div className={`absolute top-0 left-0 right-0 h-2 bg-gradient-to-r ${step.color}`}></div>
                 <CardContent className="p-8 relative">
                   <div className="absolute -top-4 -right-4 w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center opacity-50">
@@ -362,7 +362,7 @@ export default function Homepage() {
                   <p className="text-slate-600 leading-relaxed">{step.description}</p>
                 </CardContent>
               </Card>
-            ))}
+                )}
           </div>
         </div>
       </section>
@@ -381,24 +381,24 @@ export default function Homepage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { icon: Shield, title: "Licensed & Insured", description: "Fully licensed in Texas with comprehensive insurance coverage" },
-              { icon: Award, title: "10-Year Warranty", description: "Industry-leading workmanship warranty on all installations" },
-              { icon: Clock, title: "Same-Day Service", description: "Emergency repairs and fast scheduling for your convenience" },
-              { icon: DollarSign, title: "Financing Available", description: "Flexible payment options to fit any budget" },
-              { icon: Star, title: "5-Star Reviews", description: "Rated 4.9/5 by over 500 satisfied DFW homeowners" },
-              { icon: Users, title: "Texas Family Owned", description: "Local business serving our DFW community since 2010" }
-            ].map((benefit, index) => (
-              <div 
-                key={index}
-                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 hover:bg-white/20 transition-all duration-300 group"
-              >
+                { icon: Shield, title: "Licensed & Insured", description: "Fully licensed in Texas with comprehensive insurance coverage" },
+                { icon: Award, title: "10-Year Warranty", description: "Industry-leading workmanship warranty on all installations" },
+                { icon: Clock, title: "Same-Day Service", description: "Emergency repairs and fast scheduling for your convenience" },
+                { icon: DollarSign, title: "Financing Available", description: "Flexible payment options to fit any budget" },
+                { icon: Star, title: "5-Star Reviews", description: "Rated 4.9/5 by over 500 satisfied DFW homeowners" },
+                { icon: Users, title: "Texas Family Owned", description: "Local business serving our DFW community since 2010" }].
+                map((benefit, index) =>
+                <div
+                  key={index}
+                  className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 hover:bg-white/20 transition-all duration-300 group">
+
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-cyan-300 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                   <benefit.icon className="w-6 h-6 text-blue-900" aria-hidden="true" />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">{benefit.title}</h3>
                 <p className="text-blue-200 leading-relaxed">{benefit.description}</p>
               </div>
-            ))}
+                )}
           </div>
         </div>
       </section>
@@ -411,40 +411,40 @@ export default function Homepage() {
               What Our Customers Say
             </h2>
             <div className="flex items-center justify-center gap-2 mb-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Star key={i} className="w-8 h-8 fill-yellow-400 text-yellow-400" />
-              ))}
+              {[1, 2, 3, 4, 5].map((i) =>
+                  <Star key={i} className="w-8 h-8 fill-yellow-400 text-yellow-400" />
+                  )}
             </div>
             <p className="text-xl text-slate-600">4.9/5 from 500+ verified reviews</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              {
-                name: "Sarah Johnson",
-                location: "Plano, TX",
-                rating: 5,
-                text: "Aroof made the entire process so easy! The satellite measurement was incredibly accurate, and their team was professional from start to finish. My new roof looks amazing!"
-              },
-              {
-                name: "Michael Chen",
-                location: "Frisco, TX",
-                rating: 5,
-                text: "Best roofing company in DFW! Got my measurement in under a minute, received a fair quote, and they completed the job in two days. Highly recommend!"
-              },
-              {
-                name: "Emily Rodriguez",
-                location: "Dallas, TX",
-                rating: 5,
-                text: "The measurement tool is genius! I was able to get an accurate estimate without anyone coming to my house first. The final price matched their estimate perfectly."
-              }
-            ].map((review, index) => (
-              <Card key={index} className="border-none shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+                {
+                  name: "Sarah Johnson",
+                  location: "Plano, TX",
+                  rating: 5,
+                  text: "Aroof made the entire process so easy! The satellite measurement was incredibly accurate, and their team was professional from start to finish. My new roof looks amazing!"
+                },
+                {
+                  name: "Michael Chen",
+                  location: "Frisco, TX",
+                  rating: 5,
+                  text: "Best roofing company in DFW! Got my measurement in under a minute, received a fair quote, and they completed the job in two days. Highly recommend!"
+                },
+                {
+                  name: "Emily Rodriguez",
+                  location: "Dallas, TX",
+                  rating: 5,
+                  text: "The measurement tool is genius! I was able to get an accurate estimate without anyone coming to my house first. The final price matched their estimate perfectly."
+                }].
+                map((review, index) =>
+                <Card key={index} className="border-none shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                 <CardContent className="p-8">
                   <div className="flex gap-1 mb-4">
-                    {[...Array(review.rating)].map((_, i) => (
+                    {[...Array(review.rating)].map((_, i) =>
                       <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                    ))}
+                      )}
                   </div>
                   <p className="text-slate-700 mb-6 leading-relaxed italic">"{review.text}"</p>
                   <div className="flex items-center gap-3 border-t pt-4">
@@ -466,7 +466,7 @@ export default function Homepage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+                )}
           </div>
         </div>
       </section>
@@ -485,11 +485,11 @@ export default function Homepage() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { location: "Plano, TX", sqft: "2,850 sq ft" },
-              { location: "Frisco, TX", sqft: "3,200 sq ft" },
-              { location: "Dallas, TX", sqft: "2,400 sq ft" }
-            ].map((project, index) => (
-              <div key={index} className="group relative overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500">
+                { location: "Plano, TX", sqft: "2,850 sq ft" },
+                { location: "Frisco, TX", sqft: "3,200 sq ft" },
+                { location: "Dallas, TX", sqft: "2,400 sq ft" }].
+                map((project, index) =>
+                <div key={index} className="group relative overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500">
                 <div className="aspect-[4/3] bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center" role="img" aria-label={`Completed roofing project in ${project.location} - ${project.sqft}`}>
                   <Home className="w-20 h-20 text-slate-500" aria-hidden="true" />
                 </div>
@@ -504,7 +504,7 @@ export default function Homepage() {
                   Completed
                 </div>
               </div>
-            ))}
+                )}
           </div>
         </div>
       </section>
@@ -522,11 +522,11 @@ export default function Homepage() {
           </p>
           
           <Link to={createPageUrl("FormPage")}>
-            <Button 
-              size="lg" 
-              className="h-20 px-12 text-2xl bg-white text-blue-900 hover:bg-blue-50 shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105"
-              aria-label="Measure your roof for free now"
-            >
+            <Button
+                  size="lg"
+                  className="h-20 px-12 text-2xl bg-white text-blue-900 hover:bg-blue-50 shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105"
+                  aria-label="Measure your roof for free now">
+
               <Zap className="w-8 h-8 mr-3" aria-hidden="true" />
               Measure My Roof FREE
               <ArrowRight className="w-6 h-6 ml-3" aria-hidden="true" />
@@ -615,10 +615,10 @@ export default function Homepage() {
                 </div>
               </div>
               <div>
-                <Link 
-                  to={createPageUrl("EmployeeLogin")} 
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/30 transition-all"
-                >
+                <Link
+                    to={createPageUrl("EmployeeLogin")}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/30 transition-all">
+
                   👤 Company Employee Login
                 </Link>
               </div>
@@ -629,6 +629,6 @@ export default function Homepage() {
 
       <ChatWidget currentPage="homepage" measurement={null} />
     </div>
-    </>
-  );
+    </>);
+
 }
