@@ -1,99 +1,101 @@
-import Homepage from './pages/Homepage';
-import UserTypeSelection from './pages/UserTypeSelection';
-import HomeownerForm from './pages/HomeownerForm';
-import RooferForm from './pages/RooferForm';
-import Payment from './pages/Payment';
-import MeasurementTool from './pages/MeasurementTool';
-import Results from './pages/Results';
 import AdminDashboard from './pages/AdminDashboard';
-import HomeownerStart from './pages/HomeownerStart';
-import RooferStart from './pages/RooferStart';
-import Measure from './pages/Measure';
-import SimpleResults from './pages/SimpleResults';
-import FormPage from './pages/FormPage';
-import MeasurementPage from './pages/MeasurementPage';
+import AdminGodMode from './pages/AdminGodMode';
+import Booking from './pages/Booking';
 import BookingConfirmation from './pages/BookingConfirmation';
 import BookingSuccess from './pages/BookingSuccess';
-import Booking from './pages/Booking';
-import SelectReportType from './pages/SelectReportType';
-import PDFDownload from './pages/PDFDownload';
-import Services from './pages/Services';
-import RoofReplacement from './pages/RoofReplacement';
-import RoofRepair from './pages/RoofRepair';
-import RoofInspection from './pages/RoofInspection';
-import EmergencyRoofing from './pages/EmergencyRoofing';
-import StormDamage from './pages/StormDamage';
-import Gutters from './pages/Gutters';
-import Siding from './pages/Siding';
-import Windows from './pages/Windows';
 import Commercial from './pages/Commercial';
-import Insurance from './pages/Insurance';
-import EstimatorDashboard from './pages/EstimatorDashboard';
-import EstimatorLeadDetail from './pages/EstimatorLeadDetail';
-import RooferSignup from './pages/RooferSignup';
-import RooferDashboard from './pages/RooferDashboard';
-import RooferBilling from './pages/RooferBilling';
-import RooferPlans from './pages/RooferPlans';
-import RooferSettings from './pages/RooferSettings';
-import StripeSuccess from './pages/StripeSuccess';
-import StripeCanceled from './pages/StripeCanceled';
-import RooferLogin from './pages/RooferLogin';
-import ForgotPassword from './pages/ForgotPassword';
+import CrewDashboard from './pages/CrewDashboard';
 import DispatchDashboard from './pages/DispatchDashboard';
 import DispatchJobDetail from './pages/DispatchJobDetail';
+import EmergencyRoofing from './pages/EmergencyRoofing';
 import EmployeeLogin from './pages/EmployeeLogin';
-import CrewDashboard from './pages/CrewDashboard';
-import AdminGodMode from './pages/AdminGodMode';
+import EstimatorDashboard from './pages/EstimatorDashboard';
+import EstimatorLeadDetail from './pages/EstimatorLeadDetail';
+import ForgotPassword from './pages/ForgotPassword';
+import FormPage from './pages/FormPage';
+import Gutters from './pages/Gutters';
+import Home from './pages/Home';
+import HomeownerForm from './pages/HomeownerForm';
+import HomeownerStart from './pages/HomeownerStart';
+import Homepage from './pages/Homepage';
+import Insurance from './pages/Insurance';
+import Measure from './pages/Measure';
+import MeasurementPage from './pages/MeasurementPage';
+import MeasurementTool from './pages/MeasurementTool';
+import PDFDownload from './pages/PDFDownload';
+import Payment from './pages/Payment';
+import Results from './pages/Results';
+import RoofInspection from './pages/RoofInspection';
+import RoofRepair from './pages/RoofRepair';
+import RoofReplacement from './pages/RoofReplacement';
+import RooferBilling from './pages/RooferBilling';
+import RooferDashboard from './pages/RooferDashboard';
+import RooferForm from './pages/RooferForm';
+import RooferLogin from './pages/RooferLogin';
+import RooferPlans from './pages/RooferPlans';
+import RooferSettings from './pages/RooferSettings';
+import RooferSignup from './pages/RooferSignup';
+import RooferStart from './pages/RooferStart';
+import SelectReportType from './pages/SelectReportType';
+import Services from './pages/Services';
+import Siding from './pages/Siding';
+import SimpleResults from './pages/SimpleResults';
+import StormDamage from './pages/StormDamage';
+import StripeCanceled from './pages/StripeCanceled';
+import StripeSuccess from './pages/StripeSuccess';
+import UserTypeSelection from './pages/UserTypeSelection';
+import Windows from './pages/Windows';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
-    "Homepage": Homepage,
-    "UserTypeSelection": UserTypeSelection,
-    "HomeownerForm": HomeownerForm,
-    "RooferForm": RooferForm,
-    "Payment": Payment,
-    "MeasurementTool": MeasurementTool,
-    "Results": Results,
     "AdminDashboard": AdminDashboard,
-    "HomeownerStart": HomeownerStart,
-    "RooferStart": RooferStart,
-    "Measure": Measure,
-    "SimpleResults": SimpleResults,
-    "FormPage": FormPage,
-    "MeasurementPage": MeasurementPage,
+    "AdminGodMode": AdminGodMode,
+    "Booking": Booking,
     "BookingConfirmation": BookingConfirmation,
     "BookingSuccess": BookingSuccess,
-    "Booking": Booking,
-    "SelectReportType": SelectReportType,
-    "PDFDownload": PDFDownload,
-    "Services": Services,
-    "RoofReplacement": RoofReplacement,
-    "RoofRepair": RoofRepair,
-    "RoofInspection": RoofInspection,
-    "EmergencyRoofing": EmergencyRoofing,
-    "StormDamage": StormDamage,
-    "Gutters": Gutters,
-    "Siding": Siding,
-    "Windows": Windows,
     "Commercial": Commercial,
-    "Insurance": Insurance,
-    "EstimatorDashboard": EstimatorDashboard,
-    "EstimatorLeadDetail": EstimatorLeadDetail,
-    "RooferSignup": RooferSignup,
-    "RooferDashboard": RooferDashboard,
-    "RooferBilling": RooferBilling,
-    "RooferPlans": RooferPlans,
-    "RooferSettings": RooferSettings,
-    "StripeSuccess": StripeSuccess,
-    "StripeCanceled": StripeCanceled,
-    "RooferLogin": RooferLogin,
-    "ForgotPassword": ForgotPassword,
+    "CrewDashboard": CrewDashboard,
     "DispatchDashboard": DispatchDashboard,
     "DispatchJobDetail": DispatchJobDetail,
+    "EmergencyRoofing": EmergencyRoofing,
     "EmployeeLogin": EmployeeLogin,
-    "CrewDashboard": CrewDashboard,
-    "AdminGodMode": AdminGodMode,
+    "EstimatorDashboard": EstimatorDashboard,
+    "EstimatorLeadDetail": EstimatorLeadDetail,
+    "ForgotPassword": ForgotPassword,
+    "FormPage": FormPage,
+    "Gutters": Gutters,
+    "Home": Home,
+    "HomeownerForm": HomeownerForm,
+    "HomeownerStart": HomeownerStart,
+    "Homepage": Homepage,
+    "Insurance": Insurance,
+    "Measure": Measure,
+    "MeasurementPage": MeasurementPage,
+    "MeasurementTool": MeasurementTool,
+    "PDFDownload": PDFDownload,
+    "Payment": Payment,
+    "Results": Results,
+    "RoofInspection": RoofInspection,
+    "RoofRepair": RoofRepair,
+    "RoofReplacement": RoofReplacement,
+    "RooferBilling": RooferBilling,
+    "RooferDashboard": RooferDashboard,
+    "RooferForm": RooferForm,
+    "RooferLogin": RooferLogin,
+    "RooferPlans": RooferPlans,
+    "RooferSettings": RooferSettings,
+    "RooferSignup": RooferSignup,
+    "RooferStart": RooferStart,
+    "SelectReportType": SelectReportType,
+    "Services": Services,
+    "Siding": Siding,
+    "SimpleResults": SimpleResults,
+    "StormDamage": StormDamage,
+    "StripeCanceled": StripeCanceled,
+    "StripeSuccess": StripeSuccess,
+    "UserTypeSelection": UserTypeSelection,
+    "Windows": Windows,
 }
 
 export const pagesConfig = {

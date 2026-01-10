@@ -124,12 +124,35 @@ export default function RooferSignup() {
       return;
     }
 
-    // For now, just show success message
-    // In production, this would create Stripe subscription and user account
-    alert(`✅ Account created! Plan: ${plans[selectedPlan].name}\n\nIn production, this would:\n1. Create Stripe customer\n2. Start subscription\n3. Create user account\n4. Send welcome email\n\nRedirecting to login...`);
-    
-    // Redirect to login
-    navigate(createPageUrl("Homepage"));
+    if (formData.password.length < 6) {
+      alert('Password must be at least 6 characters long');
+      return;
+    }
+
+    try {
+      // Use Base44's user invitation system to create account
+      // This creates a user with proper authentication
+      await base44.users.inviteUser(formData.email, "user");
+
+      // Update the user profile with additional details
+      // Note: The user will need to accept the invitation and set their password
+      // For now, we'll redirect them to login
+      
+      alert(`✅ Account invitation sent!\n\nWe've sent an invitation to ${formData.email}.\n\nPlease check your email to activate your account and set your password.\n\nPlan: ${plans[selectedPlan].name}`);
+      
+      // Redirect to login page
+      navigate(createPageUrl("RooferLogin"));
+      
+    } catch (err) {
+      console.error('Signup error:', err);
+      
+      if (err.message?.includes('already exists') || err.message?.includes('duplicate')) {
+        alert('❌ An account with this email already exists.\n\nPlease try logging in instead.');
+        navigate(createPageUrl("RooferLogin"));
+      } else {
+        alert('❌ Failed to create account.\n\nError: ' + (err.message || 'Unknown error'));
+      }
+    }
   };
 
   return (
