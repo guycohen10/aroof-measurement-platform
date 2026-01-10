@@ -188,17 +188,22 @@ function StormMap() {
         ))}
       </MapContainer>
 
-      <div className="absolute top-4 right-4 z-[1000]">
-        <Select value={mode} onValueChange={setMode}>
-          <SelectTrigger className="w-48 bg-white/95 backdrop-blur-sm shadow-lg border-2">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="live">🔴 Live Now</SelectItem>
-            <SelectItem value="30days">📅 Last 30 Days</SelectItem>
-            <SelectItem value="6months">🗓️ Last 6 Months</SelectItem>
-          </SelectContent>
-        </Select>
+      <div 
+        className="absolute top-4 right-4 bg-white rounded-lg shadow-2xl p-3 border-2 border-slate-300"
+        style={{ zIndex: 9999 }}
+      >
+        <label className="block text-xs font-bold text-slate-700 mb-2">
+          🌩️ Time Machine
+        </label>
+        <select
+          value={mode}
+          onChange={(e) => setMode(e.target.value)}
+          className="w-48 px-3 py-2 border-2 border-slate-300 rounded-lg text-sm font-semibold bg-white cursor-pointer hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="live">🔴 Live Storms</option>
+          <option value="30days">📅 Past 30 Days (FWD/Dallas)</option>
+          <option value="6months">🗓️ Past 6 Months (FWD/Dallas)</option>
+        </select>
       </div>
 
       <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg">
