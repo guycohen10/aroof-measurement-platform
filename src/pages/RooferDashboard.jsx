@@ -167,6 +167,12 @@ export default function RooferDashboard() {
             </div>
 
             <div className="flex items-center gap-3">
+              <Link to={createPageUrl("StormTracking")}>
+                <Button variant="ghost" className="text-white hover:bg-white/10">
+                  <TrendingUp className="w-4 h-4 mr-2" />
+                  Storm Tracking
+                </Button>
+              </Link>
               <Link to={createPageUrl("CompanyProfile")}>
                 <Button variant="ghost" className="text-white hover:bg-white/10">
                   <Home className="w-4 h-4 mr-2" />
