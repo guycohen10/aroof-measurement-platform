@@ -41,6 +41,23 @@ export default function RooferLogin() {
     setLoading(true);
 
     try {
+      // Demo credentials for testing
+      if (formData.email === "demo@roofer.com" && formData.password === "demo123") {
+        localStorage.setItem('demo_user', JSON.stringify({
+          email: "demo@roofer.com",
+          full_name: "Demo Roofing Company",
+          role: "user",
+          aroof_role: "external_roofer",
+          company_name: "Demo Roofing Co",
+          subscription_plan: "pro",
+          subscription_status: "active",
+          measurements_limit: 100,
+          measurements_used_this_month: 5
+        }));
+        navigate(createPageUrl("RooferDashboard"));
+        return;
+      }
+
       // Base44 login - this will set the auth session
       await base44.auth.login(formData.email, formData.password);
 
@@ -119,6 +136,14 @@ export default function RooferLogin() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-900 font-semibold">🔑 Demo Login:</p>
+              <p className="text-xs text-green-800 mt-1">
+                Email: <code className="bg-white px-2 py-0.5 rounded">demo@roofer.com</code><br/>
+                Password: <code className="bg-white px-2 py-0.5 rounded">demo123</code>
+              </p>
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
