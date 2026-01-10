@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Loader2, LogOut, BarChart3, Users, UserCheck, Phone, HardHat, Hammer, Calendar, DollarSign, Settings, Cloud } from "lucide-react";
+import { Loader2, LogOut, BarChart3, Users, UserCheck, Phone, HardHat, Hammer, Calendar, DollarSign, Settings, Cloud, MessageSquare } from "lucide-react";
 import OverviewTab from "../components/admin/godmode/OverviewTab";
 import LeadsGodModeTab from "../components/admin/godmode/LeadsGodModeTab";
 import EstimatorsGodModeTab from "../components/admin/godmode/EstimatorsGodModeTab";
@@ -12,6 +12,7 @@ import AppointmentsGodModeTab from "../components/admin/godmode/AppointmentsGodM
 import PricingGodModeTab from "../components/admin/godmode/PricingGodModeTab";
 import SettingsGodModeTab from "../components/admin/godmode/SettingsGodModeTab";
 import StormDataGodModeTab from "../components/admin/godmode/StormDataGodModeTab";
+import CommunicationsGodModeTab from "../components/admin/godmode/CommunicationsGodModeTab";
 
 export default function AdminGodMode() {
   const navigate = useNavigate();
@@ -121,6 +122,7 @@ export default function AdminGodMode() {
     { id: 'roofers', label: 'External Roofers', icon: Hammer },
     { id: 'appointments', label: 'Appointments', icon: Calendar },
     { id: 'storm', label: 'Storm Data', icon: Cloud },
+    { id: 'communications', label: 'Communications', icon: MessageSquare },
     { id: 'pricing', label: 'Pricing', icon: DollarSign },
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
@@ -188,6 +190,7 @@ export default function AdminGodMode() {
         {activeTab === 'roofers' && <RoofersGodModeTab key={refreshKey} />}
         {activeTab === 'appointments' && <AppointmentsGodModeTab key={refreshKey} />}
         {activeTab === 'storm' && <StormDataGodModeTab key={refreshKey} />}
+        {activeTab === 'communications' && <CommunicationsGodModeTab key={refreshKey} />}
         {activeTab === 'pricing' && <PricingGodModeTab key={refreshKey} />}
         {activeTab === 'settings' && <SettingsGodModeTab key={refreshKey} />}
       </main>

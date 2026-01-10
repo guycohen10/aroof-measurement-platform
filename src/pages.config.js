@@ -49,6 +49,7 @@ import CompanyProfile from './pages/CompanyProfile';
 import StormTracking from './pages/StormTracking';
 import AddressEntry from './pages/AddressEntry';
 import ContactInfoPage from './pages/ContactInfoPage';
+import FollowUpSettings from './pages/FollowUpSettings';
 import __Layout from './Layout.jsx';
 
 
@@ -104,6 +105,7 @@ export const PAGES = {
     "StormTracking": StormTracking,
     "AddressEntry": AddressEntry,
     "ContactInfoPage": ContactInfoPage,
+    "FollowUpSettings": FollowUpSettings,
 }
 
 export const pagesConfig = {

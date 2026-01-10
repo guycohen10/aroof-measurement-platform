@@ -173,6 +173,12 @@ export default function RooferDashboard() {
                   Storm Tracking
                 </Button>
               </Link>
+              <Link to={createPageUrl("FollowUpSettings")}>
+                <Button variant="ghost" className="text-white hover:bg-white/10">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Follow-Ups
+                </Button>
+              </Link>
               <Link to={createPageUrl("CompanyProfile")}>
                 <Button variant="ghost" className="text-white hover:bg-white/10">
                   <Home className="w-4 h-4 mr-2" />
