@@ -5,19 +5,105 @@ import { Download, Loader2, AlertCircle } from "lucide-react";
 export default function InteractiveMapView({ measurement, sections }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const scriptLoadedRef = useRef(false);
   const [loading, setLoading] = useState(true);
+  const [mapScriptLoaded, setMapScriptLoaded] = useState(false);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
 
+  const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+
+  // CRITICAL FIX: Load Google Maps script FIRST
   useEffect(() => {
+    console.log("🚀 InteractiveMapView: Loading Google Maps script");
+
+    // Check if already loaded
+    if (window.google && window.google.maps && window.google.maps.geometry) {
+      console.log("✅ InteractiveMapView: Google Maps already loaded");
+      if (!scriptLoadedRef.current) {
+        scriptLoadedRef.current = true;
+        setMapScriptLoaded(true);
+      }
+      return;
+    }
+
+    // Check if script tag exists
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+    if (existingScript) {
+      console.log("⏳ InteractiveMapView: Script exists, waiting...");
+      let attempts = 0;
+      const maxAttempts = 60;
+      
+      const checkInterval = setInterval(() => {
+        attempts++;
+        if (window.google && window.google.maps && window.google.maps.geometry) {
+          clearInterval(checkInterval);
+          console.log("✅ InteractiveMapView: Google Maps ready!");
+          scriptLoadedRef.current = true;
+          setMapScriptLoaded(true);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          console.error("❌ InteractiveMapView: Timeout");
+          setError("Google Maps is taking too long to load.");
+          setLoading(false);
+        }
+      }, 200);
+      return;
+    }
+
+    // Create new script
+    console.log("📥 InteractiveMapView: Loading Google Maps script...");
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places`;
+    script.async = true;
+    script.defer = true;
+    
+    script.onload = () => {
+      console.log("✅ InteractiveMapView: Script loaded, checking API...");
+      
+      let attempts = 0;
+      const checkInterval = setInterval(() => {
+        attempts++;
+        if (window.google && window.google.maps && window.google.maps.geometry) {
+          clearInterval(checkInterval);
+          console.log("✅ InteractiveMapView: API ready!");
+          scriptLoadedRef.current = true;
+          setMapScriptLoaded(true);
+        } else if (attempts >= 40) {
+          clearInterval(checkInterval);
+          console.error("❌ InteractiveMapView: API not ready");
+          setError("Google Maps API failed to initialize.");
+          setLoading(false);
+        }
+      }, 100);
+    };
+    
+    script.onerror = () => {
+      console.error("❌ InteractiveMapView: Script load error");
+      setError("Failed to load Google Maps. Check internet connection.");
+      setLoading(false);
+    };
+    
+    document.head.appendChild(script);
+  }, []);
+
+  // Initialize map ONLY after script is loaded
+  useEffect(() => {
+    if (!mapScriptLoaded) {
+      console.log("⏳ InteractiveMapView: Waiting for script...");
+      return;
+    }
+
     if (!sections || sections.length === 0) {
       setError("No measurement sections available");
       setLoading(false);
       return;
     }
 
+    console.log("✅ InteractiveMapView: Script loaded, initializing map...");
+
     let attemptCount = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 10;
 
     const initializeMap = () => {
       attemptCount++;
@@ -27,17 +113,6 @@ export default function InteractiveMapView({ measurement, sections }) {
           setTimeout(initializeMap, 200);
         } else {
           setError("Map container not available");
-          setLoading(false);
-        }
-        return;
-      }
-
-      if (!window.google || !window.google.maps) {
-        console.log("Google Maps not loaded yet, attempt", attemptCount);
-        if (attemptCount < maxAttempts) {
-          setTimeout(initializeMap, 300);
-        } else {
-          setError("Google Maps failed to load. Please refresh the page.");
           setLoading(false);
         }
         return;
@@ -147,10 +222,10 @@ export default function InteractiveMapView({ measurement, sections }) {
       }
     };
 
-    // Wait a bit for DOM to be ready
+    // Start initialization
     const timer = setTimeout(initializeMap, 100);
     return () => clearTimeout(timer);
-  }, [sections]);
+  }, [mapScriptLoaded, sections]);
 
   const downloadImage = async () => {
     if (!mapRef.current) return;
@@ -190,13 +265,25 @@ export default function InteractiveMapView({ measurement, sections }) {
     }
   };
 
-  if (loading) {
+  if (!mapScriptLoaded && !error) {
     return (
       <div className="h-[500px] flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border-2 border-slate-200">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-slate-700">Loading interactive map...</p>
-          <p className="text-sm text-slate-500 mt-2">Initializing Google Maps</p>
+          <p className="text-lg font-semibold text-slate-700">Loading Google Maps script...</p>
+          <p className="text-sm text-slate-500 mt-2">This may take a few seconds</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading && mapScriptLoaded) {
+    return (
+      <div className="h-[500px] flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border-2 border-slate-200">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-lg font-semibold text-slate-700">Rendering interactive map...</p>
+          <p className="text-sm text-slate-500 mt-2">Drawing {sections.length} section{sections.length !== 1 ? 's' : ''}</p>
         </div>
       </div>
     );
