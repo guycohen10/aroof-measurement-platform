@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera, X, Info, Square, Circle as CircleIcon, Pentagon, Eraser, MousePointer } from "lucide-react";
+import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera, X, Info, Square, Circle as CircleIcon, Pentagon, Eraser, MousePointer, Zap } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
 
 const SECTION_COLORS = [
   { stroke: '#4A90E2', fill: '#4A90E2', name: 'Blue' },
@@ -1592,9 +1593,9 @@ export default function MeasurementPage() {
                   </div>
                 </div>
               </Card>
-            ) : (
-              /* DETAILED MEASUREMENT MODE */
-              !mapLoading && !mapError && !isDrawingMode && (
+            ) : null}
+
+            {measurementMode === 'detailed' && !mapLoading && !mapError && !isDrawingMode && (
               <>
                 <Button
                   onClick={startDrawingOnLiveMap}
