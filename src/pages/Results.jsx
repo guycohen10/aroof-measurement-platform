@@ -18,7 +18,6 @@ import Roof3DView from "../components/results/Roof3DView";
 
 export default function Results() {
   const navigate = useNavigate();
-  const scriptLoadedRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [measurement, setMeasurement] = useState(null);
   const [error, setError] = useState(null);
@@ -27,7 +26,6 @@ export default function Results() {
   const [currentUser, setCurrentUser] = useState(null);
   const [mapScriptLoaded, setMapScriptLoaded] = useState(false);
   const scriptLoadedRef = useRef(false);
-
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
   // Load Google Maps script once for entire Results page
