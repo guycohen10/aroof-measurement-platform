@@ -38,7 +38,17 @@ export default function Results() {
         const measurements = await base44.entities.Measurement.filter({ id: measurementId });
         
         if (measurements.length > 0) {
-          setMeasurement(measurements[0]);
+          const meas = measurements[0];
+          
+          // Check if this is a homeowner measurement without contact info
+          if (meas.user_type === 'homeowner' && !meas.customer_name) {
+            // Redirect to contact info page
+            sessionStorage.setItem('pending_measurement_id', measurementId);
+            navigate(createPageUrl("ContactInfoPage"));
+            return;
+          }
+          
+          setMeasurement(meas);
         } else {
           setError("Measurement not found");
         }
@@ -100,7 +110,7 @@ export default function Results() {
           <CardContent className="p-8 text-center">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Measurement Not Found</h2>
             <p className="text-slate-600 mb-6">{error || "We couldn't find your measurement data."}</p>
-            <Link to={createPageUrl("FormPage")}>
+            <Link to={createPageUrl("AddressEntry")}>
               <Button size="lg" className="bg-blue-600 hover:bg-blue-700">Start New Measurement</Button>
             </Link>
           </CardContent>
