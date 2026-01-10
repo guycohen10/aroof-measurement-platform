@@ -35,18 +35,22 @@ function calculateRiskScore(hailData) {
 function StormMap() {
   const [storms, setStorms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState('live'); // 'live', '30days', '6months'
   const [dataType, setDataType] = useState('live'); // 'live' or 'historical'
+  const [selectedState, setSelectedState] = useState('TX');
+  const [startDate, setStartDate] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return date.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
 
   useEffect(() => {
-    if (mode === 'live') {
-      fetchNWSStorms();
-      const interval = setInterval(fetchNWSStorms, 60000);
-      return () => clearInterval(interval);
-    } else {
-      fetchHistoricalStorms(mode);
-    }
-  }, [mode]);
+    fetchNWSStorms();
+    const interval = setInterval(fetchNWSStorms, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchNWSStorms = async () => {
     setLoading(true);
@@ -78,45 +82,66 @@ function StormMap() {
     }
   };
 
-  const fetchHistoricalStorms = async (period) => {
+  const fetchHistoricalStorms = async () => {
+    // Performance check
+    const daysDiff = Math.abs(new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24);
+    if (daysDiff > 365) {
+      alert('Large date ranges may take longer to load. Please wait.');
+    }
+
     setLoading(true);
     setDataType('historical');
     try {
-      const end = new Date();
-      const start = new Date();
-      
-      if (period === '30days') {
-        start.setDate(start.getDate() - 30);
-      } else if (period === '6months') {
-        start.setMonth(start.getMonth() - 6);
-      }
-      
-      const startStr = start.toISOString().split('T')[0];
-      const endStr = end.toISOString().split('T')[0];
-      
-      const url = `https://mesonet.agron.iastate.edu/geojson/sbw.geojson?wfo=FWD&phenomena=SV&significance=W&start=${startStr}&end=${endStr}`;
+      const statesParam = selectedState === 'All US' ? '' : `&states=${selectedState}`;
+      const url = `https://mesonet.agron.iastate.edu/geojson/sbw.geojson?phenomena=SV&significance=W&start=${startDate}&end=${endDate}${statesParam}`;
       
       const response = await fetch(url);
       const data = await response.json();
       
       const stormPolygons = data.features
-        .filter(f => f.geometry && f.geometry.type === 'Polygon')
-        .map((feature, idx) => ({
-          id: `hist-${idx}`,
-          coordinates: feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]),
-          headline: '📅 Historical Severe Thunderstorm',
-          description: `Event Type: ${feature.properties.phenomena || 'SV'} | Significance: ${feature.properties.significance || 'W'}`,
-          severity: 'Historical',
-          date: feature.properties.issue || 'Unknown',
-          eventType: feature.properties.phenomena || 'SV'
-        }));
+        .filter(f => f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'))
+        .map((feature, idx) => {
+          let coordinates;
+          if (f.geometry.type === 'MultiPolygon') {
+            coordinates = f.geometry.coordinates[0][0].map(coord => [coord[1], coord[0]]);
+          } else {
+            coordinates = f.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+          }
+          
+          return {
+            id: `hist-${idx}`,
+            coordinates,
+            headline: '📅 Historical Severe Thunderstorm Warning',
+            description: feature.properties.status || 'Severe Thunderstorm Warning',
+            severity: 'Historical',
+            date: feature.properties.issue || feature.properties.product_issue || 'Unknown',
+            eventType: feature.properties.phenomena || 'SV',
+            rawProps: feature.properties
+          };
+        });
       
       setStorms(stormPolygons);
       setLoading(false);
     } catch (err) {
       console.error('Failed to fetch historical storms:', err);
+      alert('Failed to fetch historical data. Please try again.');
       setLoading(false);
     }
+  };
+
+  const handleSearchStorms = () => {
+    fetchHistoricalStorms();
+  };
+
+  const handleClearFilters = () => {
+    setStorms([]);
+    setDataType('live');
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    setStartDate(date.toISOString().split('T')[0]);
+    setEndDate(new Date().toISOString().split('T')[0]);
+    setSelectedState('TX');
+    fetchNWSStorms();
   };
 
   const extractHailSize = (description) => {
@@ -126,7 +151,14 @@ function StormMap() {
 
   const formatDate = (dateStr) => {
     try {
-      return new Date(dateStr).toLocaleDateString();
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
     } catch {
       return 'Unknown';
     }
@@ -167,19 +199,28 @@ function StormMap() {
             }
           >
             <Popup>
-              <div className="text-sm">
+              <div className="text-sm max-w-xs">
                 <p className="font-bold mb-2" style={{ color: dataType === 'live' ? '#dc2626' : '#7c3aed' }}>
                   {storm.headline}
                 </p>
                 {dataType === 'live' ? (
                   <>
                     <p className="text-xs mb-1"><strong>Hail Size:</strong> {extractHailSize(storm.description)} inches</p>
-                    <p className="text-xs text-slate-600">{storm.description.substring(0, 150)}...</p>
+                    <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto">
+                      {storm.description}
+                    </div>
                   </>
                 ) : (
                   <>
-                    <p className="text-xs mb-1"><strong>Date:</strong> {formatDate(storm.date)}</p>
-                    <p className="text-xs text-slate-600">{storm.description}</p>
+                    <p className="text-xs mb-2"><strong>📅 Date:</strong> {formatDate(storm.date)}</p>
+                    <p className="text-xs mb-2"><strong>Event:</strong> Severe Thunderstorm Warning</p>
+                    <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto border-t pt-2">
+                      <strong>Report:</strong>
+                      <p className="mt-1">{storm.description || 'No additional details available'}</p>
+                      {storm.rawProps?.status && (
+                        <p className="mt-1"><strong>Status:</strong> {storm.rawProps.status}</p>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -189,21 +230,66 @@ function StormMap() {
       </MapContainer>
 
       <div 
-        className="absolute top-4 right-4 bg-white rounded-lg shadow-2xl p-3 border-2 border-slate-300"
+        className="absolute top-4 left-4 right-4 bg-white rounded-lg shadow-2xl p-4 border-2 border-slate-300"
         style={{ zIndex: 9999 }}
       >
-        <label className="block text-xs font-bold text-slate-700 mb-2">
-          🌩️ Time Machine
-        </label>
-        <select
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
-          className="w-48 px-3 py-2 border-2 border-slate-300 rounded-lg text-sm font-semibold bg-white cursor-pointer hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="live">🔴 Live Storms</option>
-          <option value="30days">📅 Past 30 Days (FWD/Dallas)</option>
-          <option value="6months">🗓️ Past 6 Months (FWD/Dallas)</option>
-        </select>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col">
+            <label className="text-xs font-bold text-slate-700 mb-1">State</label>
+            <select
+              value={selectedState}
+              onChange={(e) => setSelectedState(e.target.value)}
+              className="px-3 py-2 border-2 border-slate-300 rounded-lg text-sm font-semibold bg-white cursor-pointer hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="TX">TX - Texas</option>
+              <option value="OK">OK - Oklahoma</option>
+              <option value="FL">FL - Florida</option>
+              <option value="KS">KS - Kansas</option>
+              <option value="MO">MO - Missouri</option>
+              <option value="CO">CO - Colorado</option>
+              <option value="All US">All US</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-xs font-bold text-slate-700 mb-1">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-3 py-2 border-2 border-slate-300 rounded-lg text-sm font-semibold bg-white cursor-pointer hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-xs font-bold text-slate-700 mb-1">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-3 py-2 border-2 border-slate-300 rounded-lg text-sm font-semibold bg-white cursor-pointer hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex gap-2 mt-5">
+            <Button
+              onClick={handleSearchStorms}
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+              disabled={loading}
+            >
+              🔍 Find Storms
+            </Button>
+            <Button
+              onClick={handleClearFilters}
+              size="sm"
+              variant="outline"
+              className="border-slate-400 text-slate-700 font-bold hover:bg-slate-100"
+            >
+              ❌ Clear
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg">
