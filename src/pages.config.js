@@ -51,6 +51,8 @@ import AddressEntry from './pages/AddressEntry';
 import ContactInfoPage from './pages/ContactInfoPage';
 import FollowUpSettings from './pages/FollowUpSettings';
 import LeadManagement from './pages/LeadManagement';
+import JobScheduling from './pages/JobScheduling';
+import CrewManagement from './pages/CrewManagement';
 import __Layout from './Layout.jsx';
 
 
@@ -108,6 +110,8 @@ export const PAGES = {
     "ContactInfoPage": ContactInfoPage,
     "FollowUpSettings": FollowUpSettings,
     "LeadManagement": LeadManagement,
+    "JobScheduling": JobScheduling,
+    "CrewManagement": CrewManagement,
 }
 
 export const pagesConfig = {

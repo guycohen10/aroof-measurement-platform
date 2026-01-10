@@ -166,33 +166,44 @@ export default function RooferDashboard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Link to={createPageUrl("LeadManagement")}>
+                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
+                  Leads
+                </Button>
+              </Link>
+              <Link to={createPageUrl("JobScheduling")}>
+                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
+                  Schedule
+                </Button>
+              </Link>
+              <Link to={createPageUrl("CrewManagement")}>
+                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
+                  Crews
+                </Button>
+              </Link>
+              <Link to={createPageUrl("DispatchDashboard")}>
+                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
+                  Dispatch
+                </Button>
+              </Link>
               <Link to={createPageUrl("StormTracking")}>
-                <Button variant="ghost" className="text-white hover:bg-white/10">
-                  <TrendingUp className="w-4 h-4 mr-2" />
-                  Storm Tracking
+                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
+                  Storm
                 </Button>
               </Link>
               <Link to={createPageUrl("FollowUpSettings")}>
-                <Button variant="ghost" className="text-white hover:bg-white/10">
-                  <Calendar className="w-4 h-4 mr-2" />
+                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
                   Follow-Ups
                 </Button>
               </Link>
               <Link to={createPageUrl("CompanyProfile")}>
-                <Button variant="ghost" className="text-white hover:bg-white/10">
-                  <Home className="w-4 h-4 mr-2" />
+                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
                   Company
                 </Button>
               </Link>
-              <Link to={createPageUrl("RooferBilling")}>
-                <Button variant="ghost" className="text-white hover:bg-white/10">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Settings
-                </Button>
-              </Link>
-              <Button variant="ghost" className="text-white hover:bg-white/10" onClick={handleLogout}>
-                <LogOut className="w-4 h-4 mr-2" />
+              <Button variant="ghost" className="text-white hover:bg-white/10" size="sm" onClick={handleLogout}>
+                <LogOut className="w-4 h-4 mr-1" />
                 Logout
               </Button>
             </div>
