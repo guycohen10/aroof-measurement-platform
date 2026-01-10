@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Home, Search, Download, Plus, AlertCircle, Loader2, Cloud, MapPin, Calendar, TrendingUp } from "lucide-react";
+import { Home, Search, Download, Plus, AlertCircle, Loader2, Cloud, MapPin, Calendar, TrendingUp, Zap } from "lucide-react";
+import { MapContainer, TileLayer, Polygon, Popup, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 
 function calculateRiskScore(hailData) {
   let score = 0;
@@ -27,6 +29,129 @@ function calculateRiskScore(hailData) {
   else if (hailData.events_last_year >= 3) score += 10;
   
   return Math.min(score, 100);
+}
+
+function StormMap() {
+  const [storms, setStorms] = useState([]);
+  const [showSimulation, setShowSimulation] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNWSStorms();
+    const interval = setInterval(fetchNWSStorms, 60000); // Refresh every 60 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchNWSStorms = async () => {
+    try {
+      const response = await fetch('https://api.weather.gov/alerts/active?event=Severe%20Thunderstorm%20Warning', {
+        headers: {
+          'User-Agent': '(Aroof.build, greenteamdallas@gmail.com)'
+        }
+      });
+      const data = await response.json();
+      
+      const stormPolygons = data.features
+        .filter(f => f.geometry && f.geometry.type === 'Polygon')
+        .map(feature => ({
+          id: feature.properties.id,
+          coordinates: feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]), // Swap to [lat, lng]
+          headline: feature.properties.headline || 'Severe Thunderstorm Warning',
+          description: feature.properties.description || '',
+          severity: feature.properties.severity || 'Unknown'
+        }));
+      
+      setStorms(stormPolygons);
+      setLoading(false);
+    } catch (err) {
+      console.error('Failed to fetch NWS storms:', err);
+      setLoading(false);
+    }
+  };
+
+  const simulateStorm = () => {
+    const fakeStorm = {
+      id: 'simulation-1',
+      coordinates: [
+        [32.80, -96.82],
+        [32.80, -96.76],
+        [32.74, -96.76],
+        [32.74, -96.82],
+        [32.80, -96.82]
+      ],
+      headline: '⚠️ SIMULATED - Severe Thunderstorm Warning',
+      description: 'This is a test polygon. Hail size: 1.5 inches. Wind gusts up to 60 mph expected.',
+      severity: 'Severe'
+    };
+    setStorms([fakeStorm]);
+    setShowSimulation(true);
+  };
+
+  const extractHailSize = (description) => {
+    const match = description.match(/(\d+\.?\d*)\s*inch/i);
+    return match ? match[1] : 'Unknown';
+  };
+
+  return (
+    <div className="relative h-[600px] w-full rounded-lg overflow-hidden border-2 border-slate-200">
+      <MapContainer 
+        center={[32.7767, -96.7970]} 
+        zoom={8} 
+        style={{ height: '100%', width: '100%' }}
+        className="z-0"
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        />
+        
+        {storms.map((storm) => (
+          <Polygon
+            key={storm.id}
+            positions={storm.coordinates}
+            pathOptions={{
+              color: '#FF0000',
+              weight: 2,
+              dashArray: '5, 5',
+              fillColor: '#FF4500',
+              fillOpacity: 0.4
+            }}
+          >
+            <Popup>
+              <div className="text-sm">
+                <p className="font-bold text-red-600 mb-2">{storm.headline}</p>
+                <p className="text-xs mb-1"><strong>Hail Size:</strong> {extractHailSize(storm.description)} inches</p>
+                <p className="text-xs text-slate-600">{storm.description.substring(0, 150)}...</p>
+              </div>
+            </Popup>
+          </Polygon>
+        ))}
+      </MapContainer>
+
+      <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
+        <Button
+          onClick={simulateStorm}
+          size="sm"
+          className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg"
+        >
+          <Zap className="w-4 h-4 mr-2" />
+          Simulate Storm
+        </Button>
+        {showSimulation && (
+          <div className="bg-purple-100 text-purple-900 px-3 py-1 rounded text-xs font-semibold">
+            Test Mode Active
+          </div>
+        )}
+      </div>
+
+      <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg">
+        <p className="text-xs text-slate-600 mb-1">Live Storm Tracking</p>
+        <p className="text-sm font-bold text-slate-900">
+          {loading ? 'Loading...' : `${storms.length} Active ${storms.length === 1 ? 'Storm' : 'Storms'}`}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function StormTracking() {
@@ -291,14 +416,10 @@ export default function StormTracking() {
                 </div>
               </CardHeader>
               <CardContent>
-                {hotZones.length === 0 ? (
-                  <div className="text-center py-12 text-slate-500">
-                    <Cloud className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-semibold mb-2">No Recent Storm Activity</p>
-                    <p className="text-sm">Add storm events to track high-value leads</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
+                <StormMap />
+                
+                {hotZones.length > 0 && (
+                  <div className="space-y-3 mt-6">
                     {hotZones.map((zone) => {
                       const badge = getRiskBadge(zone.risk_score);
                       return (
