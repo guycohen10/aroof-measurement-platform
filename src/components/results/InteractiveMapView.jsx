@@ -222,57 +222,54 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
     }
   };
 
-  if (!mapScriptLoaded && !error) {
-    return (
-      <div className="h-[500px] flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border-2 border-slate-200">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-slate-700">Loading Google Maps script...</p>
-          <p className="text-sm text-slate-500 mt-2">This may take a few seconds</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading && mapScriptLoaded) {
-    return (
-      <div className="h-[500px] flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border-2 border-slate-200">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-slate-700">Rendering interactive map...</p>
-          <p className="text-sm text-slate-500 mt-2">Drawing {sections.length} section{sections.length !== 1 ? 's' : ''}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="h-[500px] flex items-center justify-center bg-red-50 rounded-xl border-2 border-red-200">
-        <div className="text-center px-4">
-          <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-red-900 mb-2">Unable to load map</p>
-          <p className="text-sm text-red-700">{error}</p>
-          <Button 
-            variant="outline" 
-            className="mt-4"
-            onClick={() => window.location.reload()}
-          >
-            Refresh Page
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <div className="relative rounded-xl overflow-hidden border-2 border-slate-200 shadow-lg bg-slate-100">
         <div 
           ref={mapRef} 
-          style={{ width: '100%', height: '500px' }}
+          style={{ width: '100%', height: '500px', visibility: loading || error ? 'hidden' : 'visible' }}
         />
-        {measurement?.total_adjusted_sqft && (
+        
+        {/* Loading Overlay */}
+        {!mapScriptLoaded && !error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-slate-700">Loading Google Maps script...</p>
+              <p className="text-sm text-slate-500 mt-2">This may take a few seconds</p>
+            </div>
+          </div>
+        )}
+        
+        {loading && mapScriptLoaded && !error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-slate-700">Rendering interactive map...</p>
+              <p className="text-sm text-slate-500 mt-2">Drawing {sections.length} section{sections.length !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Error Overlay */}
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-red-50">
+            <div className="text-center px-4">
+              <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-red-900 mb-2">Unable to load map</p>
+              <p className="text-sm text-red-700">{error}</p>
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => window.location.reload()}
+              >
+                Refresh Page
+              </Button>
+            </div>
+          </div>
+        )}
+        
+        {measurement?.total_adjusted_sqft && !loading && !error && (
           <div className="absolute bottom-4 left-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg font-bold z-10">
             Total: {Math.round(measurement.total_adjusted_sqft).toLocaleString()} sq ft
           </div>
@@ -283,7 +280,7 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
         variant="outline" 
         className="w-full" 
         onClick={downloadImage} 
-        disabled={downloading}
+        disabled={downloading || loading}
       >
         {downloading ? (
           <>

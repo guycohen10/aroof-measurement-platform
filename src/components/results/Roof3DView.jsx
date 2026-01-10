@@ -169,43 +169,9 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
     mapInstanceRef.current.setZoom(20);
   }, []);
 
-  if (!mapScriptLoaded && !error) {
-    return (
-      <div className="h-[500px] flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border-2 border-slate-200">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-slate-700">Loading 3D map...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading && mapScriptLoaded) {
-    return (
-      <div className="h-[500px] flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border-2 border-slate-200">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-slate-700">Rendering 3D view...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="h-[500px] flex items-center justify-center bg-red-50 rounded-xl border-2 border-red-200">
-        <div className="text-center px-4">
-          <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-red-900 mb-2">Unable to load 3D view</p>
-          <p className="text-sm text-red-700">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
-      {!view3DAvailable && (
+      {!view3DAvailable && !loading && (
         <Alert className="bg-yellow-50 border-yellow-300">
           <AlertCircle className="h-4 w-4 text-yellow-600" />
           <AlertDescription className="text-yellow-900">
@@ -217,16 +183,49 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
       <div className="relative rounded-xl overflow-hidden border-2 border-slate-200 shadow-lg">
         <div 
           ref={mapRef} 
-          style={{ width: '100%', height: '500px' }}
+          style={{ width: '100%', height: '500px', visibility: loading || error ? 'hidden' : 'visible' }}
         />
-        {measurement?.total_adjusted_sqft && (
+        
+        {/* Loading Overlay */}
+        {!mapScriptLoaded && !error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-slate-700">Loading 3D map...</p>
+            </div>
+          </div>
+        )}
+        
+        {loading && mapScriptLoaded && !error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-slate-700">Rendering 3D view...</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Error Overlay */}
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-red-50">
+            <div className="text-center px-4">
+              <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-red-900 mb-2">Unable to load 3D view</p>
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        )}
+        
+        {measurement?.total_adjusted_sqft && !loading && !error && (
           <div className="absolute bottom-4 left-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg font-bold z-10">
             {Math.round(measurement.total_adjusted_sqft).toLocaleString()} sq ft
           </div>
         )}
-        <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-lg shadow-lg text-sm font-semibold z-10">
-          {view3DAvailable ? '3D View' : '2D View'}
-        </div>
+        {!loading && !error && (
+          <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-lg shadow-lg text-sm font-semibold z-10">
+            {view3DAvailable ? '3D View' : '2D View'}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3">
@@ -234,7 +233,7 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
           variant="outline" 
           className="flex-1"
           onClick={rotateView}
-          disabled={!view3DAvailable}
+          disabled={!view3DAvailable || loading}
         >
           <RotateCcw className="w-4 h-4 mr-2" />
           Rotate (90°)
@@ -243,7 +242,7 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
           variant="outline" 
           className="flex-1"
           onClick={toggleTilt}
-          disabled={!view3DAvailable}
+          disabled={!view3DAvailable || loading}
         >
           <Move className="w-4 h-4 mr-2" />
           {mapTilt === 45 ? '2D View' : '3D View'}
@@ -252,6 +251,7 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
           variant="outline" 
           className="flex-1"
           onClick={resetView}
+          disabled={loading}
         >
           <Maximize2 className="w-4 h-4 mr-2" />
           Reset
