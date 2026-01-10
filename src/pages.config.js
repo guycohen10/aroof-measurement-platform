@@ -53,6 +53,11 @@ import FollowUpSettings from './pages/FollowUpSettings';
 import LeadManagement from './pages/LeadManagement';
 import JobScheduling from './pages/JobScheduling';
 import CrewManagement from './pages/CrewManagement';
+import MaintenancePlans from './pages/MaintenancePlans';
+import EnrollMaintenance from './pages/EnrollMaintenance';
+import Subscriptions from './pages/Subscriptions';
+import SubscriptionDetail from './pages/SubscriptionDetail';
+import CustomerPortal from './pages/CustomerPortal';
 import __Layout from './Layout.jsx';
 
 
@@ -112,6 +117,11 @@ export const PAGES = {
     "LeadManagement": LeadManagement,
     "JobScheduling": JobScheduling,
     "CrewManagement": CrewManagement,
+    "MaintenancePlans": MaintenancePlans,
+    "EnrollMaintenance": EnrollMaintenance,
+    "Subscriptions": Subscriptions,
+    "SubscriptionDetail": SubscriptionDetail,
+    "CustomerPortal": CustomerPortal,
 }
 
 export const pagesConfig = {

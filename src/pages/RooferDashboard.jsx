@@ -174,17 +174,17 @@ export default function RooferDashboard() {
               </Link>
               <Link to={createPageUrl("JobScheduling")}>
                 <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
-                  Schedule
+                  Jobs
+                </Button>
+              </Link>
+              <Link to={createPageUrl("Subscriptions")}>
+                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
+                  Subscriptions
                 </Button>
               </Link>
               <Link to={createPageUrl("CrewManagement")}>
                 <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
                   Crews
-                </Button>
-              </Link>
-              <Link to={createPageUrl("DispatchDashboard")}>
-                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
-                  Dispatch
                 </Button>
               </Link>
               <Link to={createPageUrl("StormTracking")}>
@@ -195,11 +195,6 @@ export default function RooferDashboard() {
               <Link to={createPageUrl("FollowUpSettings")}>
                 <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
                   Follow-Ups
-                </Button>
-              </Link>
-              <Link to={createPageUrl("CompanyProfile")}>
-                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
-                  Company
                 </Button>
               </Link>
               <Button variant="ghost" className="text-white hover:bg-white/10" size="sm" onClick={handleLogout}>
