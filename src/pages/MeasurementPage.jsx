@@ -1780,35 +1780,7 @@ export default function MeasurementPage() {
               </>
             )}
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm">{error}</AlertDescription>
-              </Alert>
-            )}
-
-            {mapError && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm">
-                  {mapError}
-                  <Button size="sm" onClick={handleRetryMap} className="ml-2 mt-2">
-                    Retry
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {mapLoading && (
-              <Alert className="bg-blue-50 border-blue-200">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                <AlertDescription className="text-xs text-blue-900">
-                  {geocodingStatus}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {isDrawingMode && (
+            {measurementMode === 'detailed' && isDrawingMode && (
               <>
                 <Alert className={editMode ? "bg-amber-50 border-amber-200" : "bg-purple-50 border-purple-200"}>
                   <Info className={`h-4 w-4 ${editMode ? 'text-amber-600' : 'text-purple-600'}`} />
@@ -1932,6 +1904,34 @@ export default function MeasurementPage() {
                   ← Back to Live Map
                 </Button>
               </>
+            )}
+
+            {measurementMode === 'detailed' && error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {measurementMode === 'detailed' && mapError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  {mapError}
+                  <Button size="sm" onClick={handleRetryMap} className="ml-2 mt-2">
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {measurementMode === 'detailed' && mapLoading && (
+              <Alert className="bg-blue-50 border-blue-200">
+                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                <AlertDescription className="text-xs text-blue-900">
+                  {geocodingStatus}
+                </AlertDescription>
+              </Alert>
             )}
           </div>
 
