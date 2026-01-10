@@ -49,6 +49,11 @@ export default function MeasurementPage() {
   const containerRef = useRef(null);
   const initAttemptRef = useRef(0);
   
+  const [measurementMode, setMeasurementMode] = useState("detailed"); // 'quick' or 'detailed'
+  const [buildingSqft, setBuildingSqft] = useState("");
+  const [autoEstimate, setAutoEstimate] = useState(false);
+  const [quickEstimateLoading, setQuickEstimateLoading] = useState(false);
+  
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1262,6 +1267,69 @@ export default function MeasurementPage() {
     
   }, [liveMapSections, capturedImages, address, getTotalArea]);
 
+  const handleQuickEstimate = async () => {
+    setQuickEstimateLoading(true);
+    setError("");
+
+    try {
+      let roofSqft;
+      let method;
+      let inputSqft = null;
+
+      if (autoEstimate || !buildingSqft) {
+        // Use zip code average as fallback
+        const zipCode = address.match(/\d{5}/)?.[0];
+        const avgHomeSizes = {
+          '75001': 2200, '75002': 2400, '75006': 2100, '75007': 2300,
+          '75019': 2500, '75023': 2600, '75024': 2700, '75025': 2400,
+          '75034': 2200, '75035': 2300, '75056': 2100, '75062': 2500,
+          '75071': 2300, '75074': 2600, '75075': 2800, '75078': 2400,
+          '75080': 2200, '75081': 2500, '75082': 2300, '75093': 2400
+        };
+        const estimatedBuildingSqft = avgHomeSizes[zipCode] || 2000;
+        roofSqft = Math.round(estimatedBuildingSqft * 1.3);
+        method = 'zip_average';
+        inputSqft = null;
+      } else {
+        // User provided building sqft
+        const parsedSqft = parseInt(buildingSqft);
+        if (isNaN(parsedSqft) || parsedSqft < 500 || parsedSqft > 20000) {
+          setError("Please enter a valid building size between 500 and 20,000 sq ft");
+          setQuickEstimateLoading(false);
+          return;
+        }
+        roofSqft = Math.round(parsedSqft * 1.3);
+        method = 'building_sqft_multiplier';
+        inputSqft = parsedSqft;
+      }
+
+      const currentUser = await base44.auth.me().catch(() => null);
+
+      const measurementData = {
+        company_id: currentUser?.company_id || null,
+        user_id: currentUser?.id || null,
+        property_address: address,
+        user_type: currentUser?.aroof_role === 'external_roofer' ? 'roofer' : 'homeowner',
+        measurement_type: 'quick_estimate',
+        estimation_method: method,
+        building_sqft_input: inputSqft,
+        total_sqft: roofSqft,
+        total_adjusted_sqft: roofSqft,
+        lead_status: 'new',
+        payment_status: "pending"
+      };
+
+      const savedMeasurement = await base44.entities.Measurement.create(measurementData);
+      
+      navigate(createPageUrl(`Results?measurementid=${savedMeasurement.id}`));
+
+    } catch (err) {
+      console.error('Quick estimate error:', err);
+      setError(`Failed to create estimate: ${err.message}`);
+      setQuickEstimateLoading(false);
+    }
+  };
+
   const handleCompleteMeasurement = useCallback(async () => {
     const totalAdjusted = getTotalArea();
     
@@ -1315,9 +1383,11 @@ export default function MeasurementPage() {
       const components = calculateRoofComponents();
 
       const measurementData = {
-        company_id: currentUser.company_id, // ADD COMPANY_ID
+        company_id: currentUser?.company_id || null,
         property_address: address,
-        user_type: "homeowner",
+        user_type: currentUser?.aroof_role === 'external_roofer' ? 'roofer' : 'homeowner',
+        measurement_type: 'detailed_polygon',
+        estimation_method: 'manual_polygon',
         captured_images: capturedImages,
         measurement_data: {
           total_adjusted_sqft: totalAdjusted,
@@ -1410,7 +1480,30 @@ export default function MeasurementPage() {
         <div className="w-96 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
           <div className="p-6 border-b border-slate-200">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
-            <p className="text-sm text-slate-600">Follow the steps below</p>
+            <p className="text-sm text-slate-600">Choose your measurement method</p>
+            
+            <div className="flex bg-slate-100 rounded-lg p-1 mt-4">
+              <button
+                onClick={() => setMeasurementMode('quick')}
+                className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                  measurementMode === 'quick' 
+                    ? 'bg-green-600 text-white shadow' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                ⚡ Quick Estimate
+              </button>
+              <button
+                onClick={() => setMeasurementMode('detailed')}
+                className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                  measurementMode === 'detailed' 
+                    ? 'bg-blue-600 text-white shadow' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                📐 Detailed Measurement
+              </button>
+            </div>
           </div>
 
           <div className="p-4 bg-blue-50 border-b border-blue-200">
@@ -1430,7 +1523,78 @@ export default function MeasurementPage() {
           </div>
 
           <div className="p-4 space-y-3">
-            {!mapLoading && !mapError && !isDrawingMode && (
+            {measurementMode === 'quick' ? (
+              /* QUICK ESTIMATE MODE */
+              <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Zap className="w-6 h-6 text-green-600" />
+                    <h3 className="text-lg font-bold text-green-900">Get Instant Roof Estimate</h3>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4 border-2 border-green-200">
+                    <Label className="text-sm font-bold text-slate-700">Building Square Footage</Label>
+                    <Input
+                      type="number"
+                      value={buildingSqft}
+                      onChange={(e) => setBuildingSqft(e.target.value)}
+                      placeholder="e.g., 2000"
+                      disabled={autoEstimate}
+                      className="mt-2 h-12 text-lg"
+                    />
+                    <p className="text-xs text-slate-500 mt-2">Enter your home's total living area</p>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={autoEstimate}
+                      onChange={(e) => {
+                        setAutoEstimate(e.target.checked);
+                        if (e.target.checked) setBuildingSqft("");
+                      }}
+                      className="mt-1"
+                    />
+                    <label className="text-sm text-slate-700">
+                      <strong>I don't know</strong> - estimate it for me based on my ZIP code
+                    </label>
+                  </div>
+
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-xs text-blue-900">
+                      <strong>How it works:</strong> We calculate roof area using building size × 1.3 (standard roof multiplier). This gives you a quick ballpark estimate.
+                    </AlertDescription>
+                  </Alert>
+
+                  <Button
+                    onClick={handleQuickEstimate}
+                    disabled={quickEstimateLoading || (!buildingSqft && !autoEstimate)}
+                    className="w-full h-14 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold"
+                  >
+                    {quickEstimateLoading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Calculating...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-5 h-5 mr-2" />
+                        Calculate Roof Size
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="pt-4 border-t border-green-200">
+                    <p className="text-xs text-slate-600 mb-2">
+                      <strong>Want more accuracy?</strong> Switch to Detailed Measurement mode to draw exact roof sections for ±2% precision.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ) : (
+              /* DETAILED MEASUREMENT MODE */
+              !mapLoading && !mapError && !isDrawingMode && (
               <>
                 <Button
                   onClick={startDrawingOnLiveMap}
@@ -2033,7 +2197,46 @@ export default function MeasurementPage() {
         </div>
 
         <div className="flex-1 bg-slate-900 p-6 overflow-y-auto">
-          {!isDrawingMode ? (
+          {measurementMode === 'quick' ? (
+            /* QUICK ESTIMATE VIEW */
+            <div className="flex items-center justify-center h-full">
+              <Card className="max-w-2xl w-full bg-white/95 backdrop-blur-sm">
+                <CardContent className="p-12 text-center">
+                  <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Zap className="w-12 h-12 text-green-600" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-slate-900 mb-4">Quick Roof Estimate</h2>
+                  <p className="text-lg text-slate-600 mb-6">
+                    Get an instant estimate based on your building size
+                  </p>
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-left">
+                    <h3 className="font-bold text-blue-900 mb-3">How Quick Estimates Work:</h3>
+                    <ul className="space-y-2 text-sm text-blue-800">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>Based on building size × 1.3 (standard roof multiplier)</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>Provides ballpark estimate in seconds</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>Great for initial quotes and screening leads</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-orange-600" />
+                        <span><strong>Accuracy:</strong> ±15-20% (use Detailed mode for ±2% precision)</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <p className="text-sm text-slate-500 mt-6">
+                    ← Use the form on the left to calculate your estimate
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : !isDrawingMode ? (
             <div style={{ marginBottom: '50px' }}>
               <div style={{
                 background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
