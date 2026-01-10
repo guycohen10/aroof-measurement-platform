@@ -50,6 +50,7 @@ import StormTracking from './pages/StormTracking';
 import AddressEntry from './pages/AddressEntry';
 import ContactInfoPage from './pages/ContactInfoPage';
 import FollowUpSettings from './pages/FollowUpSettings';
+import LeadManagement from './pages/LeadManagement';
 import __Layout from './Layout.jsx';
 
 
@@ -106,6 +107,7 @@ export const PAGES = {
     "AddressEntry": AddressEntry,
     "ContactInfoPage": ContactInfoPage,
     "FollowUpSettings": FollowUpSettings,
+    "LeadManagement": LeadManagement,
 }
 
 export const pagesConfig = {
