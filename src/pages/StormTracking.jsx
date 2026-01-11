@@ -41,40 +41,7 @@ function MapRefSetter({ setMapRef }) {
   return null;
 }
 
-function MapBoundsUpdater({ storms, setVisibleCount }) {
-  const map = useMap();
-  
-  React.useEffect(() => {
-    const updateCount = () => {
-      if (!map || !storms || storms.length === 0) {
-        setVisibleCount(0);
-        return;
-      }
-      
-      const bounds = map.getBounds();
-      const visible = storms.filter(storm => {
-        if (!storm.position || storm.position.length < 2) return false;
-        const [lat, lng] = storm.position;
-        return bounds.contains([lat, lng]);
-      });
-      setVisibleCount(visible.length);
-    };
-    
-    // Initial count
-    updateCount();
-    
-    // Update on map move
-    map.on('moveend', updateCount);
-    map.on('zoomend', updateCount);
-    
-    return () => {
-      map.off('moveend', updateCount);
-      map.off('zoomend', updateCount);
-    };
-  }, [map, storms, setVisibleCount]);
-  
-  return null;
-}
+
 
 function StormPopupContent({ storm, hailColor, addressCache, savingLeads, onSaveLead, formatDate }) {
   if (!storm.position || storm.position.length < 2) {
@@ -358,6 +325,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       toast.success(`Loaded ${hailReports.length} hail leads for this specific view`);
 
       // Apply zoom and boundary after data loads
+      // Calculate visible count ONCE after data loads
       setTimeout(() => {
         if (mapRef) {
           if (mapBounds) {
@@ -365,16 +333,19 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
             try {
               console.log('🎯 Zooming to bounds:', mapBounds);
               mapRef.fitBounds(mapBounds, { padding: [50, 50], maxZoom: 11 });
-              
-              // Update visible count after zoom
-              setTimeout(() => updateVisibleCount(), 500);
             } catch (err) {
               console.error('Failed to fit bounds:', err);
             }
-          } else {
-            // No specific bounds - update count for current view
-            updateVisibleCount();
           }
+          
+          // Calculate visible count ONCE (no dynamic updates)
+          const bounds = mapRef.getBounds();
+          const visible = hailReports.filter(storm => {
+            if (!storm.position || storm.position.length < 2) return false;
+            const [lat, lon] = storm.position;
+            return bounds.contains([lat, lon]);
+          });
+          setVisibleCount(visible.length);
           
           // Draw county boundary
           if (boundaryGeoJSON) {
@@ -399,17 +370,6 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
           }
         }
       }, 100);
-      
-      const updateVisibleCount = () => {
-        if (!mapRef) return;
-        const bounds = mapRef.getBounds();
-        const visible = hailReports.filter(storm => {
-          if (!storm.position || storm.position.length < 2) return false;
-          const [lat, lng] = storm.position;
-          return bounds.contains([lat, lng]);
-        });
-        setVisibleCount(visible.length);
-      };
     } catch (err) {
       console.error('Failed to fetch hail reports:', err);
       setDebugUrl('ERROR: ' + err.message);
@@ -673,7 +633,6 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
           ref={setMapRef}
         >
           <MapRefSetter setMapRef={setMapRef} />
-          {dataType === 'historical' && <MapBoundsUpdater storms={storms} setVisibleCount={setVisibleCount} />}
           <LayersControl position="topright">
             <LayersControl.BaseLayer checked name="Street View">
               <TileLayer
@@ -723,19 +682,26 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
               // Skip invalid storm data
               if (!storm.position || storm.position.length < 2) return null;
               
-              const hailColor = getHailColor(storm.magnitude);
+              // Explicit coordinate check: Leaflet requires [lat, lon]
+              const [lat, lon] = storm.position;
+              if (!lat || !lon || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+                console.warn('⚠️ Invalid position:', storm.position);
+                return null;
+              }
+              
               return (
                 <CircleMarker
                   key={storm.id}
-                  center={storm.position}
-                  radius={8}
+                  center={[lat, lon]}
+                  radius={10}
                   pathOptions={{
                     color: '#FFFFFF',
-                    fillColor: hailColor.color,
-                    fillOpacity: 0.9,
-                    weight: 1,
+                    fillColor: '#FF0000',
+                    fillOpacity: 1.0,
+                    weight: 2,
                     stroke: true
                   }}
+                  zIndexOffset={1000}
                   eventHandlers={{
                     popupopen: async () => {
                       if (storm.position && Array.isArray(storm.position) && storm.position.length >= 2) {
