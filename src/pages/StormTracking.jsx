@@ -693,7 +693,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
             </LayersControl.BaseLayer>
           </LayersControl>
           
-          {dataType === 'live' && storms.map((storm) => {
+          {dataType === 'live' && Array.isArray(storms) && storms.map((storm) => {
             // Skip invalid polygon data
             if (!storm.coordinates || !Array.isArray(storm.coordinates) || storm.coordinates.length < 3) return null;
             
@@ -736,7 +736,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
               </p>
             </div>
           ) : (
-            <p className="text-sm font-bold text-slate-900">{storms.length} Active Storms</p>
+            <p className="text-sm font-bold text-slate-900">{Array.isArray(storms) ? storms.length : 0} Active Storms</p>
           )}
         </div>
       </div>
