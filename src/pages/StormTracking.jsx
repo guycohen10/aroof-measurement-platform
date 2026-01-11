@@ -65,7 +65,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       const data = await response.json();
       
       const stormPolygons = data.features
-        .filter(f => f.geometry && f.geometry.type === 'Polygon')
+        .filter(f => f.geometry && f.geometry.type === 'Polygon' && f.geometry.coordinates && f.geometry.coordinates[0])
         .map(feature => ({
           id: feature.properties.id,
           coordinates: feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]),
