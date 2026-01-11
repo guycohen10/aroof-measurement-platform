@@ -784,7 +784,7 @@ export default function Results() {
             {currentUser?.aroof_role === 'external_roofer' && (
               <Card className="bg-blue-50 border-2 border-blue-200 shadow-xl">
                 <CardHeader className="bg-gradient-to-r from-blue-100 to-blue-50">
-                  <CardTitle className="text-lg">📧 Share with Customer</CardTitle>
+                  <CardTitle className="text-lg">📧 Roofer Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 space-y-3">
                   {measurement.customer_name && (
@@ -795,29 +795,6 @@ export default function Results() {
                         <p className="text-sm text-slate-600">{measurement.customer_email}</p>
                       )}
                     </div>
-                  )}
-                  
-                  <Button
-                    size="lg"
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    onClick={async () => {
-                      if (!measurement.customer_email) {
-                        const email = prompt('Enter customer email:');
-                        if (!email) return;
-                        await base44.entities.Measurement.update(measurement.id, { customer_email: email });
-                        setMeasurement({...measurement, customer_email: email});
-                      }
-                      // Email functionality to be implemented
-                      alert('Email feature coming soon! For now, download PDF and send manually.');
-                    }}
-                  >
-                    📧 Email PDF to Customer
-                  </Button>
-                  
-                  {!measurement.customer_email && (
-                    <p className="text-xs text-amber-600 text-center">
-                      ⚠️ No email on file - will prompt for address
-                    </p>
                   )}
                   
                   <Button

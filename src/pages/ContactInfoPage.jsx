@@ -5,12 +5,15 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Home, Loader2, CheckCircle, ArrowRight } from "lucide-react";
+import { Home, Loader2, CheckCircle, ArrowRight, Mail } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function ContactInfoPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
   const [measurement, setMeasurement] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -53,22 +56,82 @@ export default function ContactInfoPage() {
     setSaving(true);
 
     try {
-      // Update measurement with customer details
-      await base44.entities.Measurement.update(measurement.id, {
-        customer_name: formData.name,
-        customer_email: formData.email,
-        customer_phone: formData.phone,
-        sms_consent: formData.sms_consent
+      // Generate 6-digit verification code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Save code and customer data to session
+      sessionStorage.setItem('verification_code', code);
+      sessionStorage.setItem('customer_data', JSON.stringify(formData));
+      
+      // Send verification email
+      await base44.integrations.Core.SendEmail({
+        to: formData.email,
+        subject: 'Verify your email - Aroof Roof Measurement',
+        body: `Hi ${formData.name},\n\nYour verification code is: ${code}\n\nEnter this code to access your roof measurement report.\n\nBest regards,\nAroof Team`
       });
-
-      // Clear session storage
-      sessionStorage.removeItem('pending_measurement_id');
-
-      // Redirect to results
-      navigate(createPageUrl(`Results?measurementid=${measurement.id}`));
-    } catch (err) {
-      alert("Failed to save information: " + err.message);
+      
+      setEmailSent(true);
       setSaving(false);
+      
+    } catch (err) {
+      alert("Failed to send verification email: " + err.message);
+      setSaving(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    const savedCode = sessionStorage.getItem('verification_code');
+    
+    if (verificationCode !== savedCode) {
+      alert('Invalid verification code. Please try again.');
+      return;
+    }
+    
+    setSaving(true);
+    
+    try {
+      const measurementId = sessionStorage.getItem('pending_measurement_id');
+      const customerData = JSON.parse(sessionStorage.getItem('customer_data'));
+      
+      // Update measurement with customer info
+      await base44.entities.Measurement.update(measurementId, {
+        customer_name: customerData.name,
+        customer_email: customerData.email,
+        customer_phone: customerData.phone,
+        email_verified: true,
+        sms_consent: customerData.sms_consent
+      });
+      
+      // Clear session
+      sessionStorage.removeItem('verification_code');
+      sessionStorage.removeItem('customer_data');
+      sessionStorage.removeItem('pending_measurement_id');
+      
+      // Redirect to results
+      navigate(createPageUrl(`Results?measurementid=${measurementId}`));
+      
+    } catch (err) {
+      alert('Failed to verify: ' + err.message);
+      setSaving(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    const customerData = JSON.parse(sessionStorage.getItem('customer_data'));
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    sessionStorage.setItem('verification_code', code);
+    
+    try {
+      await base44.integrations.Core.SendEmail({
+        to: customerData.email,
+        subject: 'Verify your email - Aroof Roof Measurement',
+        body: `Hi ${customerData.name},\n\nYour new verification code is: ${code}\n\nEnter this code to access your roof measurement report.\n\nBest regards,\nAroof Team`
+      });
+      
+      alert('✅ New verification code sent!');
+    } catch (err) {
+      alert('Failed to resend code: ' + err.message);
     }
   };
 
@@ -114,89 +177,156 @@ export default function ContactInfoPage() {
 
         <Card className="shadow-2xl border-none">
           <CardContent className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="text-base font-semibold text-slate-900 mb-2 block">
-                  Your Name *
-                </label>
-                <Input
-                  type="text"
-                  required
-                  placeholder="John Smith"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="h-14 text-lg"
-                  autoFocus
-                />
-              </div>
+            {!emailSent ? (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className="text-base font-semibold text-slate-900 mb-2 block">
+                    Your Name *
+                  </label>
+                  <Input
+                    type="text"
+                    required
+                    placeholder="John Smith"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="h-14 text-lg"
+                    autoFocus
+                  />
+                </div>
 
-              <div>
-                <label className="text-base font-semibold text-slate-900 mb-2 block">
-                  Email Address *
-                </label>
-                <Input
-                  type="email"
-                  required
-                  placeholder="john@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="h-14 text-lg"
-                />
-              </div>
+                <div>
+                  <label className="text-base font-semibold text-slate-900 mb-2 block">
+                    Email Address *
+                  </label>
+                  <Input
+                    type="email"
+                    required
+                    placeholder="john@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    className="h-14 text-lg"
+                  />
+                </div>
 
-              <div>
-                <label className="text-base font-semibold text-slate-900 mb-2 block">
-                  Phone Number *
-                </label>
-                <Input
-                  type="tel"
-                  required
-                  placeholder="(555) 123-4567"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  className="h-14 text-lg"
-                />
-              </div>
+                <div>
+                  <label className="text-base font-semibold text-slate-900 mb-2 block">
+                    Phone Number *
+                  </label>
+                  <Input
+                    type="tel"
+                    required
+                    placeholder="(555) 123-4567"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    className="h-14 text-lg"
+                  />
+                </div>
 
-              <div className="flex items-start gap-3 bg-blue-50 rounded-lg p-4">
-                <input
-                  type="checkbox"
-                  checked={formData.sms_consent}
-                  onChange={(e) => setFormData({...formData, sms_consent: e.target.checked})}
-                  className="mt-1 w-5 h-5"
-                  id="sms-consent"
-                />
-                <label htmlFor="sms-consent" className="text-sm text-slate-700 cursor-pointer">
-                  <strong>Text me updates about my roof project</strong>
-                  <span className="block text-xs text-slate-600 mt-1">
-                    Get appointment reminders and status updates via SMS
-                  </span>
-                </label>
-              </div>
+                <div className="flex items-start gap-3 bg-blue-50 rounded-lg p-4">
+                  <input
+                    type="checkbox"
+                    checked={formData.sms_consent}
+                    onChange={(e) => setFormData({...formData, sms_consent: e.target.checked})}
+                    className="mt-1 w-5 h-5"
+                    id="sms-consent"
+                  />
+                  <label htmlFor="sms-consent" className="text-sm text-slate-700 cursor-pointer">
+                    <strong>Text me updates about my roof project</strong>
+                    <span className="block text-xs text-slate-600 mt-1">
+                      Get appointment reminders and status updates via SMS
+                    </span>
+                  </label>
+                </div>
 
-              <Button
-                type="submit"
-                disabled={saving}
-                className="w-full h-16 text-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    See My Results
-                    <ArrowRight className="w-6 h-6 ml-3" />
-                  </>
-                )}
-              </Button>
-            </form>
+                <Button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full h-16 text-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+                      Sending Code...
+                    </>
+                  ) : (
+                    <>
+                      Send Verification Code
+                      <ArrowRight className="w-6 h-6 ml-3" />
+                    </>
+                  )}
+                </Button>
+              </form>
+            ) : (
+              <div className="space-y-6">
+                <Alert className="bg-green-50 border-green-200">
+                  <Mail className="h-5 w-5 text-green-600" />
+                  <AlertDescription className="text-green-900">
+                    <strong>Verification code sent!</strong>
+                    <p className="text-sm mt-1">Check your email: {JSON.parse(sessionStorage.getItem('customer_data')).email}</p>
+                  </AlertDescription>
+                </Alert>
+
+                <div>
+                  <label className="text-base font-semibold text-slate-900 mb-2 block">
+                    Enter 6-Digit Code *
+                  </label>
+                  <Input
+                    type="text"
+                    required
+                    placeholder="000000"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="h-14 text-2xl text-center tracking-widest font-bold"
+                    maxLength={6}
+                    autoFocus
+                  />
+                </div>
+
+                <Button
+                  onClick={handleVerifyCode}
+                  disabled={saving || verificationCode.length !== 6}
+                  className="w-full h-16 text-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-6 h-6 mr-3" />
+                      Verify & See Results
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  variant="link"
+                  onClick={handleResendCode}
+                  className="w-full"
+                  disabled={saving}
+                >
+                  Didn't receive code? Resend
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => setEmailSent(false)}
+                  className="w-full"
+                  disabled={saving}
+                >
+                  ← Change Email Address
+                </Button>
+              </div>
+            )}
 
             <div className="mt-6 pt-6 border-t border-slate-200">
               <p className="text-xs text-slate-500 text-center">
-                By continuing, you agree to receive information about your roof measurement.
-                We respect your privacy and won't spam you.
+                {!emailSent ? (
+                  'By continuing, you agree to receive information about your roof measurement. We respect your privacy and won\'t spam you.'
+                ) : (
+                  '🔒 Your information is secure. Check your spam folder if you don\'t see the email.'
+                )}
               </p>
             </div>
           </CardContent>
