@@ -93,53 +93,80 @@ export default function MeasurementPage() {
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
-  // Load address from URL or localStorage
+  // Load address from URL or localStorage or from active lead
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const addressParam = urlParams.get('address');
-    const latParam = urlParams.get('lat');
-    const lngParam = urlParams.get('lng');
-    const measurementIdParam = urlParams.get('measurementId');
-    
-    // Get address from URL or localStorage
-    const storedAddress = localStorage.getItem('measurementAddress');
-    const storedLat = localStorage.getItem('measurementLat');
-    const storedLng = localStorage.getItem('measurementLng');
-    
-    if (addressParam) {
-      const decodedAddress = decodeURIComponent(addressParam);
-      setAddress(decodedAddress);
-      localStorage.setItem('measurementAddress', decodedAddress);
-    } else if (storedAddress) {
-      setAddress(storedAddress);
-      // Add to URL for consistency
-      const url = new URL(window.location.href);
-      url.searchParams.set('address', storedAddress);
-      window.history.replaceState({}, '', url);
-    }
-
-    if (measurementIdParam) {
-      setMeasurementId(measurementIdParam);
-    }
-
-    if (latParam && lngParam) {
-      const lat = parseFloat(latParam);
-      const lng = parseFloat(lngParam);
-      if (!isNaN(lat) && !isNaN(lng)) {
-        setCoordinates({ lat, lng });
-        localStorage.setItem('measurementLat', lat.toString());
-        localStorage.setItem('measurementLng', lng.toString());
-        setGeocodingStatus("Location verified!");
+    const loadLeadInfo = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const addressParam = urlParams.get('address');
+      const latParam = urlParams.get('lat');
+      const lngParam = urlParams.get('lng');
+      const measurementIdParam = urlParams.get('measurementId');
+      const leadIdParam = urlParams.get('leadId');
+      
+      // Check for active lead from session
+      const activeLead = sessionStorage.getItem('active_lead_id');
+      const leadAddress = sessionStorage.getItem('lead_address');
+      
+      // Priority: leadId from URL > session storage > address param > localStorage
+      if (leadIdParam || activeLead) {
+        const leadId = leadIdParam || activeLead;
+        try {
+          const lead = await base44.entities.Measurement.get(leadId);
+          if (lead && lead.property_address) {
+            setAddress(lead.property_address);
+            setMeasurementId(leadId);
+            localStorage.setItem('measurementAddress', lead.property_address);
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.error('Failed to load lead:', err);
+        }
       }
-    } else if (storedLat && storedLng) {
-      const lat = parseFloat(storedLat);
-      const lng = parseFloat(storedLng);
-      if (!isNaN(lat) && !isNaN(lng)) {
-        setCoordinates({ lat, lng });
+      
+      if (leadAddress) {
+        setAddress(leadAddress);
+        localStorage.setItem('measurementAddress', leadAddress);
+      } else if (addressParam) {
+        const decodedAddress = decodeURIComponent(addressParam);
+        setAddress(decodedAddress);
+        localStorage.setItem('measurementAddress', decodedAddress);
+      } else {
+        const storedAddress = localStorage.getItem('measurementAddress');
+        if (storedAddress) {
+          setAddress(storedAddress);
+        }
       }
-    }
 
-    setLoading(false);
+      if (measurementIdParam) {
+        setMeasurementId(measurementIdParam);
+      }
+
+      if (latParam && lngParam) {
+        const lat = parseFloat(latParam);
+        const lng = parseFloat(lngParam);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          setCoordinates({ lat, lng });
+          localStorage.setItem('measurementLat', lat.toString());
+          localStorage.setItem('measurementLng', lng.toString());
+          setGeocodingStatus("Location verified!");
+        }
+      } else {
+        const storedLat = localStorage.getItem('measurementLat');
+        const storedLng = localStorage.getItem('measurementLng');
+        if (storedLat && storedLng) {
+          const lat = parseFloat(storedLat);
+          const lng = parseFloat(storedLng);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            setCoordinates({ lat, lng });
+          }
+        }
+      }
+
+      setLoading(false);
+    };
+    
+    loadLeadInfo();
   }, []);
 
   const createMap = useCallback((center) => {
@@ -1515,8 +1542,11 @@ export default function MeasurementPage() {
 
       let savedMeasurementId = measurementId;
 
+      // If we have a measurement ID (from lead), update it
+      // Otherwise create new measurement
       if (measurementId) {
         await base44.entities.Measurement.update(measurementId, measurementData);
+        savedMeasurementId = measurementId;
       } else {
         const savedMeasurement = await base44.entities.Measurement.create(measurementData);
         savedMeasurementId = savedMeasurement.id;
@@ -1525,6 +1555,10 @@ export default function MeasurementPage() {
       if (!savedMeasurementId) {
         throw new Error("Failed to get measurement ID");
       }
+
+      // Clear session storage
+      sessionStorage.removeItem('active_lead_id');
+      sessionStorage.removeItem('lead_address');
 
       // If roofer, go directly to results
       // If homeowner, go to contact info page
