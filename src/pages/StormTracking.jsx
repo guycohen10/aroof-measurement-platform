@@ -277,12 +277,14 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       
       // Use bounding box for precision search instead of state
       let url;
+      let usedBbox = false;
       if (mapRef && mapBounds) {
-        // Use bbox parameter for precise geographic search
-        const [[south, west], [north, east]] = mapBounds;
-        const bbox = `${west},${south},${east},${north}`;
+        // Explicitly construct bbox: min_lon,min_lat,max_lon,max_lat
+        const bounds = mapRef.getBounds();
+        const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
         url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H&bbox=${bbox}&sts=${sts}&ets=${ets}`;
         console.log('🎯 Using bounding box search:', bbox);
+        usedBbox = true;
       } else {
         // Fallback to state parameter
         const stateParam = targetState === 'All US' ? '' : `&state=${targetState}`;
@@ -295,6 +297,18 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       const data = await response.json();
       
       console.log(`📡 API returned ${data.features?.length || 0} features`);
+      
+      // Fallback: If bbox returns 0 results, retry with state parameter
+      if (usedBbox && (!data.features || data.features.length === 0)) {
+        console.log('⚠️ Bbox returned 0 results, falling back to state search');
+        const stateParam = targetState === 'All US' ? '' : `&state=${targetState}`;
+        const fallbackUrl = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}`;
+        setDebugUrl(fallbackUrl + ' (fallback)');
+        const fallbackResponse = await fetch(fallbackUrl);
+        const fallbackData = await fallbackResponse.json();
+        console.log(`📡 Fallback API returned ${fallbackData.features?.length || 0} features`);
+        Object.assign(data, fallbackData);
+      }
       
       // Filter for hail >= 0.75 inches and map to point markers with robust validation
       const validFeatures = data.features.filter(f => {
@@ -610,14 +624,27 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
                 ❌ Clear
               </Button>
             </div>
+            </div>
+            </div>
+
+            {/* Debug Dashboard */}
             {debugUrl && (
-              <p className="text-xs text-slate-500 break-all">
-                Fetching: {debugUrl}
-              </p>
+            <div className="mt-4 p-3 bg-slate-100 border border-slate-300 rounded-lg">
+            <p className="text-xs font-bold text-slate-700 mb-1">🔍 Debug URL:</p>
+            <a 
+              href={debugUrl.replace(' (fallback)', '')} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:underline break-all block"
+            >
+              {debugUrl}
+            </a>
+            <p className="text-xs text-slate-500 mt-1">
+              Click to view raw API response in browser
+            </p>
+            </div>
             )}
-          </div>
-        </div>
-      </div>
+            </div>
 
       {/* Map Container */}
       <div className="relative h-[600px] w-full rounded-lg overflow-hidden border-2 border-slate-200">
