@@ -1560,8 +1560,8 @@ export default function MeasurementPage() {
       sessionStorage.removeItem('active_lead_id');
       sessionStorage.removeItem('lead_address');
 
-      // If roofer, go directly to results
-      // If homeowner, go to contact info page
+      // If roofer, go directly to results (skip contact info)
+      // If homeowner, must provide contact info and verify email
       if (isRoofer) {
         navigate(createPageUrl(`Results?measurementid=${savedMeasurementId}`));
       } else {
