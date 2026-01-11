@@ -253,16 +253,33 @@ export default function RooferDashboard() {
                 Ready to Measure a Roof?
               </h2>
               <p className="text-lg text-slate-600 mb-6">
-                Get accurate measurements in 60 seconds using satellite imagery
+                Enter customer info first, then measure their roof
               </p>
-              <Button 
-                size="lg"
-                className="h-16 px-10 text-xl bg-green-600 hover:bg-green-700"
-                onClick={handleNewMeasurement}
-              >
-                <Zap className="w-6 h-6 mr-3" />
-                Measure New Roof
-              </Button>
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                <Button 
+                  size="lg"
+                  className="h-20 bg-green-600 hover:bg-green-700"
+                  onClick={() => navigate(createPageUrl("NewLeadForm"))}
+                >
+                  <div className="text-left w-full">
+                    <div className="font-bold text-lg mb-1">📝 New Lead</div>
+                    <div className="text-sm opacity-90">Enter customer info & measure</div>
+                  </div>
+                </Button>
+
+                <Button 
+                  size="lg"
+                  variant="outline"
+                  className="h-20 border-2 border-blue-400 hover:bg-blue-50"
+                  onClick={() => navigate(createPageUrl("ExistingLeadSelector"))}
+                >
+                  <div className="text-left w-full">
+                    <div className="font-bold text-lg mb-1">📋 Existing Lead</div>
+                    <div className="text-sm opacity-90">Select from your leads</div>
+                  </div>
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
