@@ -310,17 +310,26 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
         Object.assign(data, fallbackData);
       }
       
-      // Filter for hail >= 0.75 inches and map to point markers with robust validation
-      const validFeatures = data.features.filter(f => {
+      // Strict Filter: Only valid hail events >= 0.75 inches
+      const validHail = data.features.filter(f => {
         if (!f || !f.geometry || !f.geometry.coordinates || !f.properties) return false;
         if (!Array.isArray(f.geometry.coordinates) || f.geometry.coordinates.length !== 2) return false;
-        const magnitude = parseFloat(f.properties.magnitude);
+        
+        // Must be Hail type (type='H' or check typetext contains HAIL)
+        const isHail = f.properties.type === 'H' || 
+                       (f.properties.typetext && f.properties.typetext.toUpperCase().includes('HAIL'));
+        if (!isHail) return false;
+        
+        // Must have valid magnitude >= 0.75 inches
+        const magnitude = parseFloat(f.properties.mag || f.properties.magnitude);
         return !isNaN(magnitude) && magnitude >= 0.75;
       });
+      
+      console.log(`✅ Filtered ${validHail.length} valid hail events from ${data.features?.length || 0} total features`);
 
-      const hailReports = validFeatures.map((feature, idx) => {
+      const hailReports = validHail.map((feature, idx) => {
         const coords = feature.geometry.coordinates; // [lng, lat]
-        const magnitude = parseFloat(feature.properties.magnitude);
+        const magnitude = parseFloat(feature.properties.mag || feature.properties.magnitude);
         
         return {
           id: `hail-${idx}`,
@@ -338,7 +347,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       setLoading(false);
       
       // Show success toast
-      toast.success(`Loaded ${hailReports.length} reports for this specific view`);
+      toast.success(`Loaded ${hailReports.length} hail leads for this specific view`);
 
       // Apply zoom and boundary after data loads
       setTimeout(() => {
