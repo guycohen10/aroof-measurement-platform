@@ -131,15 +131,24 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       const data = await response.json();
       
       const stormPolygons = data.features
-        .filter(f => f.geometry && f.geometry.type === 'Polygon' && f.geometry.coordinates && f.geometry.coordinates[0])
+        .filter(f => {
+          if (!f || !f.geometry || !f.properties) return false;
+          if (f.geometry.type !== 'Polygon') return false;
+          if (!f.geometry.coordinates || !Array.isArray(f.geometry.coordinates)) return false;
+          if (!f.geometry.coordinates[0] || !Array.isArray(f.geometry.coordinates[0])) return false;
+          return f.geometry.coordinates[0].length > 0;
+        })
         .map(feature => ({
           id: feature.properties.id,
-          coordinates: feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]),
+          coordinates: feature.geometry.coordinates[0]
+            .filter(coord => coord && Array.isArray(coord) && coord.length >= 2)
+            .map(coord => [coord[1], coord[0]]),
           headline: feature.properties.headline || '⚠️ Severe Thunderstorm Warning',
           description: feature.properties.description || '',
           severity: feature.properties.severity || 'Unknown',
           date: feature.properties.onset || new Date().toISOString()
-        }));
+        }))
+        .filter(storm => storm.coordinates && storm.coordinates.length > 0);
       
       setStorms(stormPolygons);
       setLoading(false);
@@ -193,9 +202,19 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
           }
           
           // Get bounds for zoom
-          if (location.boundingbox && location.boundingbox.length === 4) {
-            const [south, north, west, east] = location.boundingbox;
-            mapBounds = [[parseFloat(south), parseFloat(west)], [parseFloat(north), parseFloat(east)]];
+          if (location.boundingbox && Array.isArray(location.boundingbox) && location.boundingbox.length === 4) {
+            try {
+              const [south, north, west, east] = location.boundingbox;
+              const s = parseFloat(south);
+              const n = parseFloat(north);
+              const w = parseFloat(west);
+              const e = parseFloat(east);
+              if (!isNaN(s) && !isNaN(n) && !isNaN(w) && !isNaN(e)) {
+                mapBounds = [[s, w], [n, e]];
+              }
+            } catch (err) {
+              console.error('Failed to parse bounding box:', err);
+            }
           }
           
           // Store boundary GeoJSON for drawing
@@ -547,29 +566,34 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
           </LayersControl>
           
           {dataType === 'live' ? (
-            storms.map((storm) => (
-              <Polygon
-                key={storm.id}
-                positions={storm.coordinates}
-                pathOptions={{
-                  color: '#FF0000',
-                  weight: 2,
-                  dashArray: '5, 5',
-                  fillColor: '#FF4500',
-                  fillOpacity: 0.4
-                }}
-              >
-                <Popup>
-                  <div className="text-sm max-w-xs">
-                    <p className="font-bold mb-2 text-red-600">{storm.headline}</p>
-                    <p className="text-xs mb-1"><strong>Hail Size:</strong> {extractHailSize(storm.description)} inches</p>
-                    <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto">
-                      {storm.description}
+            storms.map((storm) => {
+              // Skip invalid polygon data
+              if (!storm.coordinates || !Array.isArray(storm.coordinates) || storm.coordinates.length < 3) return null;
+              
+              return (
+                <Polygon
+                  key={storm.id}
+                  positions={storm.coordinates}
+                  pathOptions={{
+                    color: '#FF0000',
+                    weight: 2,
+                    dashArray: '5, 5',
+                    fillColor: '#FF4500',
+                    fillOpacity: 0.4
+                  }}
+                >
+                  <Popup>
+                    <div className="text-sm max-w-xs">
+                      <p className="font-bold mb-2 text-red-600">{storm.headline}</p>
+                      <p className="text-xs mb-1"><strong>Hail Size:</strong> {extractHailSize(storm.description)} inches</p>
+                      <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto">
+                        {storm.description}
+                      </div>
                     </div>
-                  </div>
-                </Popup>
-              </Polygon>
-            ))
+                  </Popup>
+                </Polygon>
+              );
+            })
           ) : (
             storms.map((storm) => {
               // Skip invalid storm data
@@ -589,9 +613,15 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
                   }}
                   eventHandlers={{
                     popupopen: async () => {
-                      if (storm.position && storm.position.length >= 2) {
-                        const [lat, lng] = storm.position;
-                        await fetchAddress(lat, lng);
+                      if (storm.position && Array.isArray(storm.position) && storm.position.length >= 2) {
+                        try {
+                          const [lat, lng] = storm.position;
+                          if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                            await fetchAddress(lat, lng);
+                          }
+                        } catch (err) {
+                          console.error('Error fetching address:', err);
+                        }
                       }
                     }
                   }}
