@@ -163,6 +163,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   };
 
   const extractHailSize = (description) => {
+    if (!description) return 'Unknown';
     const match = description.match(/(\d+\.?\d*)\s*inch/i);
     return match ? match[1] : 'Unknown';
   };
