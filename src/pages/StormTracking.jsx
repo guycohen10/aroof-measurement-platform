@@ -390,9 +390,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       setTimeout(() => {
         if (mapRef) {
           // Calculate visible count ONCE (no dynamic updates)
-          if (hailReports.features && hailReports.features.length > 0) {
-            setVisibleCount(hailReports.features.length);
-          }
+          // Note: visibleCount is not used anymore since we now display total from storms.features
           
           // Draw county boundary
           if (boundaryGeoJSON) {
@@ -734,11 +732,8 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
           ) : dataType === 'historical' ? (
             <div>
               <p className="text-sm font-bold text-slate-900">
-                {visibleCount > 0 ? `${visibleCount} Reports in View` : `${storms.length} Total Reports`}
+                {storms.features ? `${storms.features.length} Hail Reports` : '0 Reports'}
               </p>
-              {visibleCount > 0 && visibleCount !== storms.length && (
-                <p className="text-xs text-slate-500">({storms.length} total loaded)</p>
-              )}
             </div>
           ) : (
             <p className="text-sm font-bold text-slate-900">{storms.length} Active Storms</p>
