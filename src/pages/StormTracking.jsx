@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Home, Search, Download, Plus, AlertCircle, Loader2, Cloud, MapPin, Calendar, TrendingUp } from "lucide-react";
-import { MapContainer, TileLayer, Polygon, CircleMarker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Polygon, CircleMarker, Popup, LayersControl } from "react-leaflet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 import "leaflet/dist/leaflet.css";
 
 function calculateRiskScore(hailData) {
@@ -32,6 +33,53 @@ function calculateRiskScore(hailData) {
   return Math.min(score, 100);
 }
 
+function StormPopupContent({ storm, hailColor, addressCache, savingLeads, onSaveLead, formatDate }) {
+  const [lat, lng] = storm.position;
+  const cacheKey = `${lat},${lng}`;
+  const address = addressCache[cacheKey];
+  const leadStatus = savingLeads[storm.id];
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+  return (
+    <div className="text-sm max-w-xs">
+      <p className="font-bold mb-2" style={{ color: hailColor.color }}>
+        {hailColor.label}
+      </p>
+      <p className="text-xs mb-1"><strong>🧊 Hail Size:</strong> {storm.magnitude}" inches</p>
+      <p className="text-xs mb-1"><strong>⏰ Time:</strong> {formatDate(storm.valid)}</p>
+      
+      <div className="mt-3 pt-3 border-t">
+        {!address ? (
+          <p className="text-xs text-slate-500 italic">📍 Locating Address...</p>
+        ) : (
+          <>
+            <p className="text-xs mb-2"><strong>📍 Address:</strong></p>
+            <p className="text-xs text-slate-700 mb-2">{address}</p>
+            
+            <Button
+              size="sm"
+              className="w-full mb-2 bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => onSaveLead(storm, address)}
+              disabled={leadStatus === true || leadStatus === 'saved'}
+            >
+              {leadStatus === 'saved' ? '✅ Saved!' : leadStatus === true ? 'Saving...' : '➕ Save as Lead'}
+            </Button>
+            
+            <a 
+              href={googleMapsUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:underline flex items-center justify-center gap-1"
+            >
+              🗺️ Open in Google Maps
+            </a>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StormMap({ onDataTypeChange, onDateRangeChange }) {
   const [storms, setStorms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +94,8 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
     return new Date().toISOString().split('T')[0];
   });
   const [debugUrl, setDebugUrl] = useState('');
+  const [addressCache, setAddressCache] = useState({});
+  const [savingLeads, setSavingLeads] = useState({});
 
   useEffect(() => {
     fetchNWSStorms();
@@ -190,6 +240,61 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
     }
   };
 
+  const fetchAddress = async (lat, lng) => {
+    const cacheKey = `${lat},${lng}`;
+    if (addressCache[cacheKey]) {
+      return addressCache[cacheKey];
+    }
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+        {
+          headers: {
+            'User-Agent': '(Aroof.build, greenteamdallas@gmail.com)'
+          }
+        }
+      );
+      const data = await response.json();
+      
+      const address = data.display_name || 'Address not found';
+      const houseNumber = data.address?.house_number || '';
+      const road = data.address?.road || '';
+      const city = data.address?.city || data.address?.town || data.address?.village || '';
+      
+      const formattedAddress = houseNumber && road 
+        ? `${houseNumber} ${road}, ${city}` 
+        : address;
+      
+      setAddressCache(prev => ({ ...prev, [cacheKey]: formattedAddress }));
+      return formattedAddress;
+    } catch (err) {
+      console.error('Geocoding error:', err);
+      return 'Address lookup failed';
+    }
+  };
+
+  const saveAsLead = async (storm, address) => {
+    const leadKey = storm.id;
+    setSavingLeads(prev => ({ ...prev, [leadKey]: true }));
+
+    try {
+      await base44.entities.Lead.create({
+        name: 'Storm Lead',
+        address: address,
+        email: '',
+        phone: ''
+      });
+
+      toast.success('Lead saved successfully!');
+      setSavingLeads(prev => ({ ...prev, [leadKey]: 'saved' }));
+    } catch (err) {
+      console.error('Failed to save lead:', err);
+      toast.error('Failed to save lead: ' + err.message);
+      setSavingLeads(prev => ({ ...prev, [leadKey]: false }));
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Filter Bar Outside Map */}
@@ -268,10 +373,20 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
           style={{ height: '100%', width: '100%' }}
           className="z-0"
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          />
+          <LayersControl position="topright">
+            <LayersControl.BaseLayer checked name="Street View">
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              />
+            </LayersControl.BaseLayer>
+            <LayersControl.BaseLayer name="Satellite View">
+              <TileLayer
+                attribution='Tiles &copy; Esri'
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              />
+            </LayersControl.BaseLayer>
+          </LayersControl>
           
           {dataType === 'live' ? (
             storms.map((storm) => (
@@ -311,16 +426,22 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
                     fillOpacity: 0.7,
                     weight: 2
                   }}
+                  eventHandlers={{
+                    popupopen: async () => {
+                      const [lat, lng] = storm.position;
+                      await fetchAddress(lat, lng);
+                    }
+                  }}
                 >
                   <Popup>
-                    <div className="text-sm max-w-xs">
-                      <p className="font-bold mb-2" style={{ color: hailColor.color }}>
-                        {hailColor.label}
-                      </p>
-                      <p className="text-xs mb-1"><strong>🧊 Hail Size:</strong> {storm.magnitude}" inches</p>
-                      <p className="text-xs mb-1"><strong>📍 Location:</strong> {storm.city}{storm.county ? `, ${storm.county}` : ''}</p>
-                      <p className="text-xs mb-1"><strong>⏰ Time:</strong> {formatDate(storm.valid)}</p>
-                    </div>
+                    <StormPopupContent 
+                      storm={storm} 
+                      hailColor={hailColor} 
+                      addressCache={addressCache}
+                      savingLeads={savingLeads}
+                      onSaveLead={saveAsLead}
+                      formatDate={formatDate}
+                    />
                   </Popup>
                 </CircleMarker>
               );
