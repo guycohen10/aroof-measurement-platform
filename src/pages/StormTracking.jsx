@@ -41,6 +41,41 @@ function MapRefSetter({ setMapRef }) {
   return null;
 }
 
+function MapBoundsUpdater({ storms, setVisibleCount }) {
+  const map = useMap();
+  
+  React.useEffect(() => {
+    const updateCount = () => {
+      if (!map || !storms || storms.length === 0) {
+        setVisibleCount(0);
+        return;
+      }
+      
+      const bounds = map.getBounds();
+      const visible = storms.filter(storm => {
+        if (!storm.position || storm.position.length < 2) return false;
+        const [lat, lng] = storm.position;
+        return bounds.contains([lat, lng]);
+      });
+      setVisibleCount(visible.length);
+    };
+    
+    // Initial count
+    updateCount();
+    
+    // Update on map move
+    map.on('moveend', updateCount);
+    map.on('zoomend', updateCount);
+    
+    return () => {
+      map.off('moveend', updateCount);
+      map.off('zoomend', updateCount);
+    };
+  }, [map, storms, setVisibleCount]);
+  
+  return null;
+}
+
 function StormPopupContent({ storm, hailColor, addressCache, savingLeads, onSaveLead, formatDate }) {
   if (!storm.position || storm.position.length < 2) {
     return <div className="text-xs text-red-600">Invalid location data</div>;
@@ -101,6 +136,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   const [searchInput, setSearchInput] = useState('');
   const [mapRef, setMapRef] = useState(null);
   const [boundaryLayer, setBoundaryLayer] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(0);
   const [startDate, setStartDate] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() - 30);
@@ -265,42 +301,63 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
         };
       });
       
+      console.log(`✅ Parsed ${hailReports.length} valid hail reports`);
       setStorms(hailReports);
       setLoading(false);
 
       // Apply zoom and boundary after data loads
-      if (mapRef) {
-        if (mapBounds) {
-          // Zoom to specific area
-          try {
-            mapRef.fitBounds(mapBounds, { padding: [50, 50] });
-          } catch (err) {
-            console.error('Failed to fit bounds:', err);
+      setTimeout(() => {
+        if (mapRef) {
+          if (mapBounds) {
+            // Zoom to specific area
+            try {
+              console.log('🎯 Zooming to bounds:', mapBounds);
+              mapRef.fitBounds(mapBounds, { padding: [50, 50], maxZoom: 11 });
+              
+              // Update visible count after zoom
+              setTimeout(() => updateVisibleCount(), 500);
+            } catch (err) {
+              console.error('Failed to fit bounds:', err);
+            }
+          } else {
+            // No specific bounds - update count for current view
+            updateVisibleCount();
+          }
+          
+          // Draw county boundary
+          if (boundaryGeoJSON) {
+            import('leaflet').then(L => {
+              // Remove old boundary
+              if (boundaryLayer) {
+                mapRef.removeLayer(boundaryLayer);
+              }
+              
+              // Add new boundary
+              const boundary = L.geoJSON(boundaryGeoJSON, {
+                style: {
+                  color: '#000',
+                  weight: 3,
+                  fillOpacity: 0,
+                  dashArray: '10, 5'
+                }
+              });
+              boundary.addTo(mapRef);
+              setBoundaryLayer(boundary);
+            });
           }
         }
-        
-        // Draw county boundary
-        if (boundaryGeoJSON) {
-          import('leaflet').then(L => {
-            // Remove old boundary
-            if (boundaryLayer) {
-              mapRef.removeLayer(boundaryLayer);
-            }
-            
-            // Add new boundary
-            const boundary = L.geoJSON(boundaryGeoJSON, {
-              style: {
-                color: '#000',
-                weight: 3,
-                fillOpacity: 0,
-                dashArray: '10, 5'
-              }
-            });
-            boundary.addTo(mapRef);
-            setBoundaryLayer(boundary);
-          });
-        }
-      }
+      }, 100);
+      
+      const updateVisibleCount = () => {
+        if (!mapRef) return;
+        const bounds = mapRef.getBounds();
+        const visible = hailReports.filter(storm => {
+          if (!storm.position || storm.position.length < 2) return false;
+          const [lat, lng] = storm.position;
+          return bounds.contains([lat, lng]);
+        });
+        setVisibleCount(visible.length);
+      };
     } catch (err) {
       console.error('Failed to fetch hail reports:', err);
       setDebugUrl('ERROR: ' + err.message);
@@ -550,6 +607,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
           ref={setMapRef}
         >
           <MapRefSetter setMapRef={setMapRef} />
+          {dataType === 'historical' && <MapBoundsUpdater storms={storms} setVisibleCount={setVisibleCount} />}
           <LayersControl position="topright">
             <LayersControl.BaseLayer checked name="Street View">
               <TileLayer
@@ -608,8 +666,9 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
                   pathOptions={{
                     color: hailColor.color,
                     fillColor: hailColor.color,
-                    fillOpacity: 0.7,
-                    weight: 2
+                    fillOpacity: 0.8,
+                    weight: 1,
+                    stroke: true
                   }}
                   eventHandlers={{
                     popupopen: async () => {
@@ -646,9 +705,20 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
           <p className="text-xs text-slate-600 mb-1">
             {dataType === 'live' ? 'Live Storm Tracking' : 'Confirmed Hail Reports'}
           </p>
-          <p className="text-sm font-bold text-slate-900">
-            {loading ? 'Loading...' : `${storms.length} ${dataType === 'live' ? 'Active Storms' : 'Hail Reports'}`}
-          </p>
+          {loading ? (
+            <p className="text-sm font-bold text-slate-900">Loading...</p>
+          ) : dataType === 'historical' ? (
+            <div>
+              <p className="text-sm font-bold text-slate-900">
+                {visibleCount > 0 ? `${visibleCount} Reports in View` : `${storms.length} Total Reports`}
+              </p>
+              {visibleCount > 0 && visibleCount !== storms.length && (
+                <p className="text-xs text-slate-500">({storms.length} total loaded)</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm font-bold text-slate-900">{storms.length} Active Storms</p>
+          )}
         </div>
       </div>
     </div>
