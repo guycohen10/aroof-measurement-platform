@@ -781,6 +781,56 @@ export default function Results() {
           </div>
 
           <div className="lg:col-span-1 space-y-8">
+            {currentUser?.aroof_role === 'external_roofer' && (
+              <Card className="bg-blue-50 border-2 border-blue-200 shadow-xl">
+                <CardHeader className="bg-gradient-to-r from-blue-100 to-blue-50">
+                  <CardTitle className="text-lg">📧 Share with Customer</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-3">
+                  {measurement.customer_name && (
+                    <div className="bg-white rounded-lg p-3 border">
+                      <p className="text-xs text-slate-500">Customer</p>
+                      <p className="font-bold text-slate-900">{measurement.customer_name}</p>
+                      {measurement.customer_email && (
+                        <p className="text-sm text-slate-600">{measurement.customer_email}</p>
+                      )}
+                    </div>
+                  )}
+                  
+                  <Button
+                    size="lg"
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    onClick={async () => {
+                      if (!measurement.customer_email) {
+                        const email = prompt('Enter customer email:');
+                        if (!email) return;
+                        await base44.entities.Measurement.update(measurement.id, { customer_email: email });
+                        setMeasurement({...measurement, customer_email: email});
+                      }
+                      // Email functionality to be implemented
+                      alert('Email feature coming soon! For now, download PDF and send manually.');
+                    }}
+                  >
+                    📧 Email PDF to Customer
+                  </Button>
+                  
+                  {!measurement.customer_email && (
+                    <p className="text-xs text-amber-600 text-center">
+                      ⚠️ No email on file - will prompt for address
+                    </p>
+                  )}
+                  
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => navigate(createPageUrl(`LeadManagement?leadId=${measurement.id}`))}
+                  >
+                    View in Lead Management →
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             <Card className="border-2 border-blue-200 shadow-xl bg-gradient-to-br from-blue-50 to-white">
               <CardContent className="p-8 text-center">
                 <h2 className="text-xl font-semibold text-slate-700 mb-4">
