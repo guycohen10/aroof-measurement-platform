@@ -114,6 +114,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       // Filter for hail >= 0.75 inches and map to point markers
       const hailReports = data.features
         .filter(f => {
+          if (!f.geometry || !f.geometry.coordinates || !f.properties) return false;
           const magnitude = parseFloat(f.properties.magnitude);
           return !isNaN(magnitude) && magnitude >= 0.75;
         })
