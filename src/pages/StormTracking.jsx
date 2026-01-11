@@ -115,7 +115,6 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   const [debugUrl, setDebugUrl] = useState('');
   const [addressCache, setAddressCache] = useState({});
   const [savingLeads, setSavingLeads] = useState({});
-  const [renderLog, setRenderLog] = useState('No data yet...');
   
   // Use ref to store marker layer to prevent re-renders
   const markerLayerRef = React.useRef(null);
@@ -134,19 +133,12 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   
   // Force render dots when storms data changes
   useEffect(() => {
-    if (!mapRef || !storms || storms.length === 0) {
-      setRenderLog('⏳ Waiting for map and data...');
-      return;
-    }
-    
+    if (!mapRef || !storms || storms.length === 0) return;
     drawDots(storms);
   }, [mapRef, storms]);
   
   const drawDots = (data) => {
-    if (!mapRef) {
-      setRenderLog('❌ Map not ready');
-      return;
-    }
+    if (!mapRef) return;
     
     import('leaflet').then(L => {
       // Clear existing markers
@@ -158,29 +150,13 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       const layerGroup = L.layerGroup();
       markerLayerRef.current = layerGroup;
       
-      let dotsAdded = 0;
-      let firstDot = null;
-      
-      // Add a test blue marker in Dallas to prove rendering works
-      const testMarker = L.circleMarker([32.7767, -96.7970], {
-        radius: 15,
-        color: '#FFFFFF',
-        fillColor: '#0000FF',
-        fillOpacity: 1.0,
-        weight: 3,
-        stroke: true
-      }).bindPopup('🔵 TEST MARKER - Dallas, TX');
-      layerGroup.addLayer(testMarker);
-      
       // Draw actual hail data
-      data.forEach((storm, idx) => {
+      data.forEach((storm) => {
         if (!storm.position || storm.position.length < 2) return;
         
         // FORCE coordinates to numbers
         const lat = parseFloat(storm.position[0]);
         const lon = parseFloat(storm.position[1]);
-        
-        if (!firstDot) firstDot = { lat, lon };
         
         // Sanity check
         if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
@@ -204,18 +180,10 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
         `);
         
         layerGroup.addLayer(marker);
-        dotsAdded++;
       });
       
       // Add layer to map
       layerGroup.addTo(mapRef);
-      
-      // Update render log
-      if (firstDot) {
-        setRenderLog(`✅ Drew ${dotsAdded} dots + 1 test marker | First dot: [${firstDot.lat.toFixed(4)}, ${firstDot.lon.toFixed(4)}]`);
-      } else {
-        setRenderLog(`⚠️ Attempted to draw ${data.length} dots, but none were valid`);
-      }
     });
   };
 
@@ -329,22 +297,38 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
         }
       }
 
+      // Zoom to area FIRST if we have bounds (before calculating bbox)
+      if (mapRef && mapBounds) {
+        try {
+          mapRef.fitBounds(mapBounds, { padding: [50, 50], maxZoom: 11 });
+          // Wait for map to finish zooming
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (err) {
+          console.error('Failed to fit bounds:', err);
+        }
+      }
+
       // Format dates for LSR API (YYYY-MM-DDTHH:MM)
       const sts = `${startDate}T00:00`;
       const ets = `${endDate}T23:59`;
       
-      // Use bounding box for precision search instead of state
+      // EXCLUSIVE: Use EITHER bbox OR state, never both
       let url;
       let usedBbox = false;
+      
       if (mapRef && mapBounds) {
-        // Explicitly construct bbox: min_lon,min_lat,max_lon,max_lat
+        // Case A: City/County/Zip search - Use bbox ONLY
         const bounds = mapRef.getBounds();
-        const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+        const west = bounds.getWest().toFixed(4);
+        const south = bounds.getSouth().toFixed(4);
+        const east = bounds.getEast().toFixed(4);
+        const north = bounds.getNorth().toFixed(4);
+        const bbox = `${west},${south},${east},${north}`;
         url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H&bbox=${bbox}&sts=${sts}&ets=${ets}`;
         console.log('🎯 Using bounding box search:', bbox);
         usedBbox = true;
       } else {
-        // Fallback to state parameter
+        // Case B: State search - Use state ONLY
         const stateParam = targetState === 'All US' ? '' : `&state=${targetState}`;
         url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}`;
       }
@@ -415,20 +399,9 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       // Show success toast
       toast.success(`Loaded ${hailReports.length} hail leads for this specific view`);
 
-      // Apply zoom and boundary after data loads
-      // Calculate visible count ONCE after data loads
+      // Calculate visible count and draw boundary after data loads
       setTimeout(() => {
         if (mapRef) {
-          if (mapBounds) {
-            // Zoom to specific area
-            try {
-              console.log('🎯 Zooming to bounds:', mapBounds);
-              mapRef.fitBounds(mapBounds, { padding: [50, 50], maxZoom: 11 });
-            } catch (err) {
-              console.error('Failed to fit bounds:', err);
-            }
-          }
-          
           // Calculate visible count ONCE (no dynamic updates)
           const bounds = mapRef.getBounds();
           const visible = hailReports.filter(storm => {
@@ -713,12 +686,6 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
             </div>
             )}
             </div>
-
-      {/* Render Log */}
-      <div className="mb-4 p-3 bg-slate-100 border border-slate-300 rounded-lg">
-        <p className="text-xs font-bold text-slate-700 mb-1">🔍 Render Log:</p>
-        <p className="text-xs text-slate-600 font-mono">{renderLog}</p>
-      </div>
 
       {/* Map Container */}
       <div className="relative h-[600px] w-full rounded-lg overflow-hidden border-2 border-slate-200">
