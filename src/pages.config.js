@@ -51,13 +51,13 @@ import Services from './pages/Services';
 import Siding from './pages/Siding';
 import SimpleResults from './pages/SimpleResults';
 import StormDamage from './pages/StormDamage';
+import StormTracking from './pages/StormTracking';
 import StripeCanceled from './pages/StripeCanceled';
 import StripeSuccess from './pages/StripeSuccess';
 import SubscriptionDetail from './pages/SubscriptionDetail';
 import Subscriptions from './pages/Subscriptions';
 import UserTypeSelection from './pages/UserTypeSelection';
 import Windows from './pages/Windows';
-import StormTracking from './pages/StormTracking';
 import __Layout from './Layout.jsx';
 
 
@@ -115,13 +115,13 @@ export const PAGES = {
     "Siding": Siding,
     "SimpleResults": SimpleResults,
     "StormDamage": StormDamage,
+    "StormTracking": StormTracking,
     "StripeCanceled": StripeCanceled,
     "StripeSuccess": StripeSuccess,
     "SubscriptionDetail": SubscriptionDetail,
     "Subscriptions": Subscriptions,
     "UserTypeSelection": UserTypeSelection,
     "Windows": Windows,
-    "StormTracking": StormTracking,
 }
 
 export const pagesConfig = {

@@ -115,6 +115,10 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   const [debugUrl, setDebugUrl] = useState('');
   const [addressCache, setAddressCache] = useState({});
   const [savingLeads, setSavingLeads] = useState({});
+  const [renderLog, setRenderLog] = useState('No data yet...');
+  
+  // Use ref to store marker layer to prevent re-renders
+  const markerLayerRef = React.useRef(null);
 
   useEffect(() => {
     fetchNWSStorms();
@@ -127,6 +131,93 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       if (interval) clearInterval(interval);
     };
   }, [dataType]);
+  
+  // Force render dots when storms data changes
+  useEffect(() => {
+    if (!mapRef || !storms || storms.length === 0) {
+      setRenderLog('⏳ Waiting for map and data...');
+      return;
+    }
+    
+    drawDots(storms);
+  }, [mapRef, storms]);
+  
+  const drawDots = (data) => {
+    if (!mapRef) {
+      setRenderLog('❌ Map not ready');
+      return;
+    }
+    
+    import('leaflet').then(L => {
+      // Clear existing markers
+      if (markerLayerRef.current) {
+        mapRef.removeLayer(markerLayerRef.current);
+      }
+      
+      // Create new layer group
+      const layerGroup = L.layerGroup();
+      markerLayerRef.current = layerGroup;
+      
+      let dotsAdded = 0;
+      let firstDot = null;
+      
+      // Add a test blue marker in Dallas to prove rendering works
+      const testMarker = L.circleMarker([32.7767, -96.7970], {
+        radius: 15,
+        color: '#FFFFFF',
+        fillColor: '#0000FF',
+        fillOpacity: 1.0,
+        weight: 3,
+        stroke: true
+      }).bindPopup('🔵 TEST MARKER - Dallas, TX');
+      layerGroup.addLayer(testMarker);
+      
+      // Draw actual hail data
+      data.forEach((storm, idx) => {
+        if (!storm.position || storm.position.length < 2) return;
+        
+        // FORCE coordinates to numbers
+        const lat = parseFloat(storm.position[0]);
+        const lon = parseFloat(storm.position[1]);
+        
+        if (!firstDot) firstDot = { lat, lon };
+        
+        // Sanity check
+        if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+          console.warn(`⚠️ Invalid coordinates: [${lat}, ${lon}]`);
+          return;
+        }
+        
+        const marker = L.circleMarker([lat, lon], {
+          radius: 10,
+          color: '#FFFFFF',
+          fillColor: '#FF0000',
+          fillOpacity: 1.0,
+          weight: 2,
+          stroke: true
+        }).bindPopup(`
+          <div class="text-sm">
+            <p class="font-bold text-red-600">🔴 Hail: ${storm.magnitude}"</p>
+            <p class="text-xs">Location: [${lat.toFixed(4)}, ${lon.toFixed(4)}]</p>
+            <p class="text-xs">${storm.city || 'Unknown'}</p>
+          </div>
+        `);
+        
+        layerGroup.addLayer(marker);
+        dotsAdded++;
+      });
+      
+      // Add layer to map
+      layerGroup.addTo(mapRef);
+      
+      // Update render log
+      if (firstDot) {
+        setRenderLog(`✅ Drew ${dotsAdded} dots + 1 test marker | First dot: [${firstDot.lat.toFixed(4)}, ${firstDot.lon.toFixed(4)}]`);
+      } else {
+        setRenderLog(`⚠️ Attempted to draw ${data.length} dots, but none were valid`);
+      }
+    });
+  };
 
   const fetchNWSStorms = async () => {
     setLoading(true);
@@ -622,6 +713,12 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
             </div>
             )}
             </div>
+
+      {/* Render Log */}
+      <div className="mb-4 p-3 bg-slate-100 border border-slate-300 rounded-lg">
+        <p className="text-xs font-bold text-slate-700 mb-1">🔍 Render Log:</p>
+        <p className="text-xs text-slate-600 font-mono">{renderLog}</p>
+      </div>
 
       {/* Map Container */}
       <div className="relative h-[600px] w-full rounded-lg overflow-hidden border-2 border-slate-200">
