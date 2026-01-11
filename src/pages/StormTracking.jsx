@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Home, Search, Download, Plus, AlertCircle, Loader2, Cloud, MapPin, Calendar, TrendingUp } from "lucide-react";
-import { MapContainer, TileLayer, Polygon, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Polygon, CircleMarker, Popup } from "react-leaflet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import "leaflet/dist/leaflet.css";
 
@@ -45,6 +45,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   const [endDate, setEndDate] = useState(() => {
     return new Date().toISOString().split('T')[0];
   });
+  const [debugUrl, setDebugUrl] = useState('');
 
   useEffect(() => {
     fetchNWSStorms();
@@ -83,6 +84,12 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   };
 
   const fetchHistoricalStorms = async () => {
+    // Performance check for > 3 months
+    const daysDiff = Math.abs(new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24);
+    if (daysDiff > 90) {
+      alert('Loading large hail history... this may take 10 seconds.');
+    }
+
     setLoading(true);
     setDataType('historical');
     
@@ -91,43 +98,45 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
     if (onDateRangeChange) onDateRangeChange({ start: startDate, end: endDate });
     
     try {
-      // Ensure dates are in ISO 8601 format (YYYY-MM-DD)
-      const formattedStart = new Date(startDate).toISOString().split('T')[0];
-      const formattedEnd = new Date(endDate).toISOString().split('T')[0];
+      // Format dates for LSR API (YYYY-MM-DDTHH:MM)
+      const sts = `${startDate}T00:00`;
+      const ets = `${endDate}T23:59`;
       
-      const statesParam = selectedState === 'All US' ? '' : `&states=${selectedState}`;
-      // Include both SV (Severe Thunderstorm) and TO (Tornado) to capture major hail events
-      const url = `https://mesonet.agron.iastate.edu/geojson/sbw.geojson?phenomena=SV,TO&significance=W&start=${formattedStart}&end=${formattedEnd}${statesParam}`;
+      const stateParam = selectedState === 'All US' ? '' : `&state=${selectedState}`;
+      // Use LSR (Local Storm Reports) endpoint for confirmed hail reports
+      const url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}`;
+      
+      setDebugUrl(url);
       
       const response = await fetch(url);
       const data = await response.json();
       
-      const stormPolygons = data.features
-        .filter(f => f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'))
+      // Filter for hail >= 0.75 inches and map to point markers
+      const hailReports = data.features
+        .filter(f => {
+          const magnitude = parseFloat(f.properties.magnitude);
+          return !isNaN(magnitude) && magnitude >= 0.75;
+        })
         .map((feature, idx) => {
-          let coordinates;
-          if (f.geometry.type === 'MultiPolygon') {
-            coordinates = f.geometry.coordinates[0][0].map(coord => [coord[1], coord[0]]);
-          } else {
-            coordinates = f.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
-          }
+          const magnitude = parseFloat(feature.properties.magnitude);
+          const coords = feature.geometry.coordinates; // [lng, lat]
           
           return {
-            id: `hist-${idx}`,
-            coordinates,
-            headline: '📅 Historical Severe Thunderstorm Warning',
-            description: feature.properties.status || 'Severe Thunderstorm Warning',
-            severity: 'Historical',
-            date: feature.properties.issue || feature.properties.product_issue || 'Unknown',
-            eventType: feature.properties.phenomena || 'SV',
+            id: `hail-${idx}`,
+            position: [coords[1], coords[0]], // [lat, lng] for Leaflet
+            magnitude,
+            city: feature.properties.city || 'Unknown',
+            county: feature.properties.county || '',
+            valid: feature.properties.valid || '',
             rawProps: feature.properties
           };
         });
       
-      setStorms(stormPolygons);
+      setStorms(hailReports);
       setLoading(false);
     } catch (err) {
-      console.error('Failed to fetch historical storms:', err);
+      console.error('Failed to fetch hail reports:', err);
+      setDebugUrl('ERROR: ' + err.message);
       setLoading(false);
     }
   };
@@ -139,6 +148,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   const handleClearFilters = () => {
     setStorms([]);
     setDataType('live');
+    setDebugUrl('');
     const date = new Date();
     date.setDate(date.getDate() - 30);
     setStartDate(date.toISOString().split('T')[0]);
@@ -155,6 +165,12 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   const extractHailSize = (description) => {
     const match = description.match(/(\d+\.?\d*)\s*inch/i);
     return match ? match[1] : 'Unknown';
+  };
+
+  const getHailColor = (magnitude) => {
+    if (magnitude >= 2.0) return { color: '#dc2626', label: '🔴 Urgent/Money Lead' }; // Red
+    if (magnitude >= 1.26) return { color: '#f97316', label: '🟠 Good Lead' }; // Orange
+    return { color: '#eab308', label: '🟡 Minor' }; // Yellow
   };
 
   const formatDate = (dateStr) => {
@@ -214,23 +230,30 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
             />
           </div>
 
-          <div className="flex gap-2 mt-5">
-            <Button
-              onClick={handleSearchStorms}
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
-              disabled={loading}
-            >
-              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : '🔍'} Find Storms
-            </Button>
-            <Button
-              onClick={handleClearFilters}
-              size="sm"
-              variant="outline"
-              className="border-slate-400 text-slate-700 font-bold hover:bg-slate-100"
-            >
-              ❌ Clear
-            </Button>
+          <div className="flex flex-col gap-2 mt-5">
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSearchStorms}
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : '🔍'} Find Storms
+              </Button>
+              <Button
+                onClick={handleClearFilters}
+                size="sm"
+                variant="outline"
+                className="border-slate-400 text-slate-700 font-bold hover:bg-slate-100"
+              >
+                ❌ Clear
+              </Button>
+            </div>
+            {debugUrl && (
+              <p className="text-xs text-slate-500 break-all">
+                Fetching: {debugUrl}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -248,64 +271,67 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
           
-          {storms.map((storm) => (
-            <Polygon
-              key={storm.id}
-              positions={storm.coordinates}
-              pathOptions={
-                dataType === 'live' 
-                  ? {
-                      color: '#FF0000',
-                      weight: 2,
-                      dashArray: '5, 5',
-                      fillColor: '#FF4500',
-                      fillOpacity: 0.4
-                    }
-                  : {
-                      color: '#800080',
-                      weight: 2,
-                      fillColor: '#800080',
-                      fillOpacity: 0.2
-                    }
-              }
-            >
-              <Popup>
-                <div className="text-sm max-w-xs">
-                  <p className="font-bold mb-2" style={{ color: dataType === 'live' ? '#dc2626' : '#7c3aed' }}>
-                    {storm.headline}
-                  </p>
-                  {dataType === 'live' ? (
-                    <>
-                      <p className="text-xs mb-1"><strong>Hail Size:</strong> {extractHailSize(storm.description)} inches</p>
-                      <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto">
-                        {storm.description}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xs mb-2"><strong>📅 Date:</strong> {formatDate(storm.date)}</p>
-                      <p className="text-xs mb-2"><strong>Event:</strong> Severe Thunderstorm Warning</p>
-                      <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto border-t pt-2">
-                        <strong>Report:</strong>
-                        <p className="mt-1">{storm.description || 'No additional details available'}</p>
-                        {storm.rawProps?.status && (
-                          <p className="mt-1"><strong>Status:</strong> {storm.rawProps.status}</p>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </Popup>
-            </Polygon>
-          ))}
+          {dataType === 'live' ? (
+            storms.map((storm) => (
+              <Polygon
+                key={storm.id}
+                positions={storm.coordinates}
+                pathOptions={{
+                  color: '#FF0000',
+                  weight: 2,
+                  dashArray: '5, 5',
+                  fillColor: '#FF4500',
+                  fillOpacity: 0.4
+                }}
+              >
+                <Popup>
+                  <div className="text-sm max-w-xs">
+                    <p className="font-bold mb-2 text-red-600">{storm.headline}</p>
+                    <p className="text-xs mb-1"><strong>Hail Size:</strong> {extractHailSize(storm.description)} inches</p>
+                    <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto">
+                      {storm.description}
+                    </div>
+                  </div>
+                </Popup>
+              </Polygon>
+            ))
+          ) : (
+            storms.map((storm) => {
+              const hailColor = getHailColor(storm.magnitude);
+              return (
+                <CircleMarker
+                  key={storm.id}
+                  center={storm.position}
+                  radius={storm.magnitude >= 2.0 ? 10 : storm.magnitude >= 1.26 ? 8 : 6}
+                  pathOptions={{
+                    color: hailColor.color,
+                    fillColor: hailColor.color,
+                    fillOpacity: 0.7,
+                    weight: 2
+                  }}
+                >
+                  <Popup>
+                    <div className="text-sm max-w-xs">
+                      <p className="font-bold mb-2" style={{ color: hailColor.color }}>
+                        {hailColor.label}
+                      </p>
+                      <p className="text-xs mb-1"><strong>🧊 Hail Size:</strong> {storm.magnitude}" inches</p>
+                      <p className="text-xs mb-1"><strong>📍 Location:</strong> {storm.city}{storm.county ? `, ${storm.county}` : ''}</p>
+                      <p className="text-xs mb-1"><strong>⏰ Time:</strong> {formatDate(storm.valid)}</p>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              );
+            })
+          )}
         </MapContainer>
 
         <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg">
           <p className="text-xs text-slate-600 mb-1">
-            {dataType === 'live' ? 'Live Storm Tracking' : 'Historical Data'}
+            {dataType === 'live' ? 'Live Storm Tracking' : 'Confirmed Hail Reports'}
           </p>
           <p className="text-sm font-bold text-slate-900">
-            {loading ? 'Loading...' : `${storms.length} ${dataType === 'live' ? 'Active Storms' : 'Total Historical Events'}`}
+            {loading ? 'Loading...' : `${storms.length} ${dataType === 'live' ? 'Active Storms' : 'Hail Reports'}`}
           </p>
         </div>
       </div>
