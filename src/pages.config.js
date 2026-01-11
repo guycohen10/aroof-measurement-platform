@@ -58,6 +58,8 @@ import SubscriptionDetail from './pages/SubscriptionDetail';
 import Subscriptions from './pages/Subscriptions';
 import UserTypeSelection from './pages/UserTypeSelection';
 import Windows from './pages/Windows';
+import NewLeadForm from './pages/NewLeadForm';
+import ExistingLeadSelector from './pages/ExistingLeadSelector';
 import __Layout from './Layout.jsx';
 
 
@@ -122,6 +124,8 @@ export const PAGES = {
     "Subscriptions": Subscriptions,
     "UserTypeSelection": UserTypeSelection,
     "Windows": Windows,
+    "NewLeadForm": NewLeadForm,
+    "ExistingLeadSelector": ExistingLeadSelector,
 }
 
 export const pagesConfig = {
