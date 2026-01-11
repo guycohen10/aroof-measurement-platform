@@ -745,92 +745,34 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
             </LayersControl.BaseLayer>
           </LayersControl>
           
-          {dataType === 'live' ? (
-            storms.map((storm) => {
-              // Skip invalid polygon data
-              if (!storm.coordinates || !Array.isArray(storm.coordinates) || storm.coordinates.length < 3) return null;
-              
-              return (
-                <Polygon
-                  key={storm.id}
-                  positions={storm.coordinates}
-                  pathOptions={{
-                    color: '#FF0000',
-                    weight: 2,
-                    dashArray: '5, 5',
-                    fillColor: '#FF4500',
-                    fillOpacity: 0.4
-                  }}
-                >
-                  <Popup>
-                    <div className="text-sm max-w-xs">
-                      <p className="font-bold mb-2 text-red-600">{storm.headline}</p>
-                      <p className="text-xs mb-1"><strong>Hail Size:</strong> {extractHailSize(storm.description)} inches</p>
-                      <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto">
-                        {storm.description}
-                      </div>
+          {dataType === 'live' && storms.map((storm) => {
+            // Skip invalid polygon data
+            if (!storm.coordinates || !Array.isArray(storm.coordinates) || storm.coordinates.length < 3) return null;
+            
+            return (
+              <Polygon
+                key={storm.id}
+                positions={storm.coordinates}
+                pathOptions={{
+                  color: '#FF0000',
+                  weight: 2,
+                  dashArray: '5, 5',
+                  fillColor: '#FF4500',
+                  fillOpacity: 0.4
+                }}
+              >
+                <Popup>
+                  <div className="text-sm max-w-xs">
+                    <p className="font-bold mb-2 text-red-600">{storm.headline}</p>
+                    <p className="text-xs mb-1"><strong>Hail Size:</strong> {extractHailSize(storm.description)} inches</p>
+                    <div className="text-xs text-slate-600 mt-2 max-h-32 overflow-y-auto">
+                      {storm.description}
                     </div>
-                  </Popup>
-                </Polygon>
-              );
-            })
-          ) : (
-            storms.map((storm) => {
-              // Skip invalid storm data
-              if (!storm.position || storm.position.length < 2) return null;
-              
-              // Get color based on hail size
-              const hailColor = getHailColor(storm.magnitude);
-              
-              // Explicit coordinate check: Leaflet requires [lat, lon]
-              const [lat, lon] = storm.position;
-              if (!lat || !lon || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-                console.warn('⚠️ Invalid position:', storm.position);
-                return null;
-              }
-              
-              return (
-                <CircleMarker
-                  key={storm.id}
-                  center={[lat, lon]}
-                  radius={10}
-                  pathOptions={{
-                    color: '#FFFFFF',
-                    fillColor: '#FF0000',
-                    fillOpacity: 1.0,
-                    weight: 2,
-                    stroke: true
-                  }}
-                  zIndexOffset={1000}
-                  eventHandlers={{
-                    popupopen: async () => {
-                      if (storm.position && Array.isArray(storm.position) && storm.position.length >= 2) {
-                        try {
-                          const [lat, lng] = storm.position;
-                          if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
-                            await fetchAddress(lat, lng);
-                          }
-                        } catch (err) {
-                          console.error('Error fetching address:', err);
-                        }
-                      }
-                    }
-                  }}
-                >
-                  <Popup>
-                    <StormPopupContent 
-                      storm={storm} 
-                      hailColor={hailColor} 
-                      addressCache={addressCache}
-                      savingLeads={savingLeads}
-                      onSaveLead={saveAsLead}
-                      formatDate={formatDate}
-                    />
-                  </Popup>
-                </CircleMarker>
-              );
-            })
-          )}
+                  </div>
+                </Popup>
+              </Polygon>
+            );
+          })}
         </MapContainer>
 
         <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg">
