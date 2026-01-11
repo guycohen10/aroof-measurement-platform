@@ -93,6 +93,28 @@ export default function MeasurementPage() {
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
+  // Check if roofer is accessing public page incorrectly
+  useEffect(() => {
+    const checkPublicAccess = async () => {
+      try {
+        const user = await base44.auth.me();
+        // If roofer AND no leadId in URL/session, redirect to dashboard
+        if (user && user.aroof_role === 'external_roofer') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const hasLeadId = urlParams.get('leadId') || sessionStorage.getItem('active_lead_id');
+          
+          if (!hasLeadId) {
+            navigate(createPageUrl("RooferDashboard"));
+            return;
+          }
+        }
+      } catch {
+        // Not logged in - allow access for homeowners
+      }
+    };
+    checkPublicAccess();
+  }, []);
+
   // Load address from URL or localStorage or from active lead
   useEffect(() => {
     const loadLeadInfo = async () => {

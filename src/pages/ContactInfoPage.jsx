@@ -23,8 +23,21 @@ export default function ContactInfoPage() {
   });
 
   useEffect(() => {
+    checkIfRooferAndRedirect();
     loadMeasurement();
   }, []);
+
+  const checkIfRooferAndRedirect = async () => {
+    try {
+      const user = await base44.auth.me();
+      if (user && user.aroof_role === 'external_roofer') {
+        // Roofers should never reach this page
+        navigate(createPageUrl("RooferDashboard"));
+      }
+    } catch {
+      // Not logged in - proceed normally for homeowners
+    }
+  };
 
   const loadMeasurement = async () => {
     try {
