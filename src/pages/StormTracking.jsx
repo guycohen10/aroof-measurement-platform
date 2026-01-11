@@ -230,7 +230,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
     // Performance check for > 3 months
     const daysDiff = Math.abs(new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24);
     if (daysDiff > 90) {
-      alert('Loading large hail history... this may take 10 seconds.');
+      toast.warning('⚠️ Loading 3+ months of data may take 10-15 seconds. Please wait...');
     }
 
     setLoading(true);
@@ -324,13 +324,13 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
         const east = bounds.getEast().toFixed(4);
         const north = bounds.getNorth().toFixed(4);
         const bbox = `${west},${south},${east},${north}`;
-        url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H&bbox=${bbox}&sts=${sts}&ets=${ets}`;
+        url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H&bbox=${bbox}&sts=${sts}&ets=${ets}&limit=9999`;
         console.log('🎯 Using bounding box search:', bbox);
         usedBbox = true;
       } else {
         // Case B: State search - Use state ONLY
         const stateParam = targetState === 'All US' ? '' : `&state=${targetState}`;
-        url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}`;
+        url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}&limit=9999`;
       }
       
       setDebugUrl(url);
@@ -344,7 +344,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       if (usedBbox && (!data.features || data.features.length === 0)) {
         console.log('⚠️ Bbox returned 0 results, falling back to state search');
         const stateParam = targetState === 'All US' ? '' : `&state=${targetState}`;
-        const fallbackUrl = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}`;
+        const fallbackUrl = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}&limit=9999`;
         setDebugUrl(fallbackUrl + ' (fallback)');
         const fallbackResponse = await fetch(fallbackUrl);
         const fallbackData = await fallbackResponse.json();
@@ -352,19 +352,22 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
         Object.assign(data, fallbackData);
       }
       
-      // Strict Filter: Only valid hail events >= 0.75 inches
+      // STRICT FILTER: Only valid hail events >= 0.75 inches (NO dust storms!)
       const validHail = data.features.filter(f => {
         if (!f || !f.geometry || !f.geometry.coordinates || !f.properties) return false;
         if (!Array.isArray(f.geometry.coordinates) || f.geometry.coordinates.length !== 2) return false;
         
-        // Must be Hail type (type='H' or check typetext contains HAIL)
-        const isHail = f.properties.type === 'H' || 
-                       (f.properties.typetext && f.properties.typetext.toUpperCase().includes('HAIL'));
+        // CRITICAL: Must be HAIL (reject DUST STORM, TORNADO, etc.)
+        const typeText = (f.properties.typetext || '').toUpperCase();
+        const type = f.properties.type || '';
+        const isHail = typeText === 'HAIL' || type === 'H';
         if (!isHail) return false;
         
         // Must have valid magnitude >= 0.75 inches
         const magnitude = parseFloat(f.properties.mag || f.properties.magnitude);
-        return !isNaN(magnitude) && magnitude >= 0.75;
+        if (isNaN(magnitude) || magnitude < 0.75) return false;
+        
+        return true;
       });
       
       console.log(`✅ Filtered ${validHail.length} valid hail events from ${data.features?.length || 0} total features`);
@@ -398,6 +401,16 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       
       // Show success toast
       toast.success(`Loaded ${hailReports.length} hail leads for this specific view`);
+      
+      // Auto-zoom to results if we have data
+      if (hailReports.length > 0 && mapRef) {
+        setTimeout(() => {
+          import('leaflet').then(L => {
+            const bounds = L.latLngBounds(hailReports.map(r => [r.position[0], r.position[1]]));
+            mapRef.fitBounds(bounds, { padding: [50, 50], maxZoom: 11 });
+          });
+        }, 500);
+      }
 
       // Calculate visible count and draw boundary after data loads
       setTimeout(() => {
