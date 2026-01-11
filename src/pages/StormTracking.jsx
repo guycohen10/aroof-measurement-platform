@@ -165,27 +165,28 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       const response = await fetch(url);
       const data = await response.json();
       
-      // Filter for hail >= 0.75 inches and map to point markers
-      const hailReports = data.features
-        .filter(f => {
-          if (!f.geometry || !f.geometry.coordinates || !Array.isArray(f.geometry.coordinates) || f.geometry.coordinates.length < 2 || !f.properties) return false;
-          const magnitude = parseFloat(f.properties.magnitude);
-          return !isNaN(magnitude) && magnitude >= 0.75;
-        })
-        .map((feature, idx) => {
-          const magnitude = parseFloat(feature.properties.magnitude);
-          const coords = feature.geometry.coordinates; // [lng, lat]
-          
-          return {
-            id: `hail-${idx}`,
-            position: [coords[1], coords[0]], // [lat, lng] for Leaflet
-            magnitude,
-            city: feature.properties.city || 'Unknown',
-            county: feature.properties.county || '',
-            valid: feature.properties.valid || '',
-            rawProps: feature.properties
-          };
-        });
+      // Filter for hail >= 0.75 inches and map to point markers with robust validation
+      const validFeatures = data.features.filter(f => {
+        if (!f || !f.geometry || !f.geometry.coordinates || !f.properties) return false;
+        if (!Array.isArray(f.geometry.coordinates) || f.geometry.coordinates.length !== 2) return false;
+        const magnitude = parseFloat(f.properties.magnitude);
+        return !isNaN(magnitude) && magnitude >= 0.75;
+      });
+
+      const hailReports = validFeatures.map((feature, idx) => {
+        const coords = feature.geometry.coordinates; // [lng, lat]
+        const magnitude = parseFloat(feature.properties.magnitude);
+        
+        return {
+          id: `hail-${idx}`,
+          position: [coords[1], coords[0]], // [lat, lng] for Leaflet
+          magnitude,
+          city: feature.properties.city || 'Unknown',
+          county: feature.properties.county || '',
+          valid: feature.properties.valid || '',
+          rawProps: feature.properties
+        };
+      });
       
       setStorms(hailReports);
       setLoading(false);
@@ -418,6 +419,9 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
             ))
           ) : (
             storms.map((storm) => {
+              // Skip invalid storm data
+              if (!storm.position || storm.position.length < 2) return null;
+              
               const hailColor = getHailColor(storm.magnitude);
               return (
                 <CircleMarker
@@ -432,8 +436,10 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
                   }}
                   eventHandlers={{
                     popupopen: async () => {
-                      const [lat, lng] = storm.position;
-                      await fetchAddress(lat, lng);
+                      if (storm.position && storm.position.length >= 2) {
+                        const [lat, lng] = storm.position;
+                        await fetchAddress(lat, lng);
+                      }
                     }
                   }}
                 >
