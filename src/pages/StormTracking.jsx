@@ -151,9 +151,15 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
 
   useEffect(() => {
     fetchNWSStorms();
-    const interval = setInterval(fetchNWSStorms, 60000);
-    return () => clearInterval(interval);
-  }, []);
+    // Only auto-refresh in live mode
+    let interval;
+    if (dataType === 'live') {
+      interval = setInterval(fetchNWSStorms, 60000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [dataType]);
 
   const fetchNWSStorms = async () => {
     setLoading(true);
@@ -269,14 +275,26 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       const sts = `${startDate}T00:00`;
       const ets = `${endDate}T23:59`;
       
-      const stateParam = targetState === 'All US' ? '' : `&state=${targetState}`;
-      // Use LSR (Local Storm Reports) endpoint for confirmed hail reports
-      const url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}`;
+      // Use bounding box for precision search instead of state
+      let url;
+      if (mapRef && mapBounds) {
+        // Use bbox parameter for precise geographic search
+        const [[south, west], [north, east]] = mapBounds;
+        const bbox = `${west},${south},${east},${north}`;
+        url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H&bbox=${bbox}&sts=${sts}&ets=${ets}`;
+        console.log('🎯 Using bounding box search:', bbox);
+      } else {
+        // Fallback to state parameter
+        const stateParam = targetState === 'All US' ? '' : `&state=${targetState}`;
+        url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}`;
+      }
       
       setDebugUrl(url);
       
       const response = await fetch(url);
       const data = await response.json();
+      
+      console.log(`📡 API returned ${data.features?.length || 0} features`);
       
       // Filter for hail >= 0.75 inches and map to point markers with robust validation
       const validFeatures = data.features.filter(f => {
@@ -304,6 +322,9 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       console.log(`✅ Parsed ${hailReports.length} valid hail reports`);
       setStorms(hailReports);
       setLoading(false);
+      
+      // Show success toast
+      toast.success(`Loaded ${hailReports.length} reports for this specific view`);
 
       // Apply zoom and boundary after data loads
       setTimeout(() => {
@@ -389,10 +410,11 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
 
   const handleClearFilters = () => {
     setStorms([]);
-    setDataType('live');
+    setDataType('live'); // This will re-enable auto-refresh via useEffect
     setDebugUrl('');
     setSearchType('state');
     setSearchInput('');
+    setVisibleCount(0);
     const date = new Date();
     date.setDate(date.getDate() - 30);
     setStartDate(date.toISOString().split('T')[0]);
@@ -662,13 +684,13 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
                 <CircleMarker
                   key={storm.id}
                   center={storm.position}
-                  radius={storm.magnitude >= 2.0 ? 10 : storm.magnitude >= 1.26 ? 8 : 6}
+                  radius={storm.magnitude >= 2.0 ? 6 : storm.magnitude >= 1.26 ? 5 : 4}
                   pathOptions={{
                     color: hailColor.color,
                     fillColor: hailColor.color,
-                    fillOpacity: 0.8,
-                    weight: 1,
-                    stroke: true
+                    fillOpacity: 0.6,
+                    weight: 0,
+                    stroke: false
                   }}
                   eventHandlers={{
                     popupopen: async () => {
