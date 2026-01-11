@@ -682,6 +682,9 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
               // Skip invalid storm data
               if (!storm.position || storm.position.length < 2) return null;
               
+              // Get color based on hail size
+              const hailColor = getHailColor(storm.magnitude);
+              
               // Explicit coordinate check: Leaflet requires [lat, lon]
               const [lat, lon] = storm.position;
               if (!lat || !lon || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
