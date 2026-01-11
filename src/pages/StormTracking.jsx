@@ -133,12 +133,12 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   
   // Force render dots when storms data changes
   useEffect(() => {
-    if (!mapRef || !storms || storms.length === 0) return;
+    if (!mapRef || !storms) return;
     drawDots(storms);
   }, [mapRef, storms]);
   
   const drawDots = (data) => {
-    if (!mapRef) return;
+    if (!mapRef || !data || !data.features || data.features.length === 0) return;
     
     import('leaflet').then(L => {
       // Clear existing markers
@@ -146,44 +146,46 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
         mapRef.removeLayer(markerLayerRef.current);
       }
       
-      // Create new layer group
-      const layerGroup = L.layerGroup();
-      markerLayerRef.current = layerGroup;
-      
-      // Draw actual hail data
-      data.forEach((storm) => {
-        if (!storm.position || storm.position.length < 2) return;
-        
-        // FORCE coordinates to numbers
-        const lat = parseFloat(storm.position[0]);
-        const lon = parseFloat(storm.position[1]);
-        
-        // Sanity check
-        if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-          console.warn(`⚠️ Invalid coordinates: [${lat}, ${lon}]`);
-          return;
+      // Use standard L.geoJSON layer
+      const stormLayer = L.geoJSON(data, {
+        pointToLayer: function (feature, latlng) {
+          // Leaflet AUTOMATICALLY calculates 'latlng' correctly here. No manual flipping needed!
+          
+          // Determine color based on hail size (mag)
+          let color = '#FF0000'; // Default Red
+          const size = feature.properties.mag || 0;
+          if (size < 1.0) color = '#FFD700'; // Yellow
+          else if (size < 1.75) color = '#FF8C00'; // Orange
+          
+          // Return the visible dot
+          return L.circleMarker(latlng, {
+            radius: 8,
+            fillColor: color,
+            color: "#fff",
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.8
+          });
+        },
+        onEachFeature: function (feature, layer) {
+          // Add the popup here
+          layer.bindPopup(`
+            <div class="text-sm">
+              <b>Confirmed Hail: ${feature.properties.mag || '?'} in</b><br>
+              📍 ${feature.properties.city || 'Unknown Location'}<br>
+              ⏰ ${feature.properties.valid || 'Unknown Time'}
+            </div>
+          `);
         }
-        
-        const marker = L.circleMarker([lat, lon], {
-          radius: 10,
-          color: '#FFFFFF',
-          fillColor: '#FF0000',
-          fillOpacity: 1.0,
-          weight: 2,
-          stroke: true
-        }).bindPopup(`
-          <div class="text-sm">
-            <p class="font-bold text-red-600">🔴 Hail: ${storm.magnitude}"</p>
-            <p class="text-xs">Location: [${lat.toFixed(4)}, ${lon.toFixed(4)}]</p>
-            <p class="text-xs">${storm.city || 'Unknown'}</p>
-          </div>
-        `);
-        
-        layerGroup.addLayer(marker);
-      });
+      }).addTo(mapRef);
       
-      // Add layer to map
-      layerGroup.addTo(mapRef);
+      // Store layer reference
+      markerLayerRef.current = stormLayer;
+      
+      // Auto-zoom to bounds
+      if (stormLayer.getBounds().isValid()) {
+        mapRef.fitBounds(stormLayer.getBounds(), { padding: [50, 50], maxZoom: 11 });
+      }
     });
   };
 
@@ -372,57 +374,25 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       
       console.log(`✅ Filtered ${validHail.length} valid hail events from ${data.features?.length || 0} total features`);
 
-      const hailReports = validHail.map((feature, idx) => {
-        const coords = feature.geometry.coordinates; // GeoJSON: [lng, lat]
-        const lon = coords[0];
-        const lat = coords[1];
-        const magnitude = parseFloat(feature.properties.mag || feature.properties.magnitude);
-        
-        // Safety check: skip invalid coordinates
-        if (Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-          console.warn(`⚠️ Invalid coordinates: [${lat}, ${lon}]`);
-          return null;
-        }
-        
-        return {
-          id: `hail-${idx}`,
-          position: [lat, lon], // Leaflet: [lat, lon]
-          magnitude,
-          city: feature.properties.city || 'Unknown',
-          county: feature.properties.county || '',
-          valid: feature.properties.valid || '',
-          rawProps: feature.properties
-        };
-      }).filter(Boolean); // Remove null entries
+      // Create GeoJSON with only valid hail
+      const filteredGeoJSON = {
+        type: "FeatureCollection",
+        features: validHail
+      };
       
-      console.log(`✅ Parsed ${hailReports.length} valid hail reports`);
-      setStorms(hailReports);
+      setStorms(filteredGeoJSON);
       setLoading(false);
       
       // Show success toast
-      toast.success(`Loaded ${hailReports.length} hail leads for this specific view`);
-      
-      // Auto-zoom to results if we have data
-      if (hailReports.length > 0 && mapRef) {
-        setTimeout(() => {
-          import('leaflet').then(L => {
-            const bounds = L.latLngBounds(hailReports.map(r => [r.position[0], r.position[1]]));
-            mapRef.fitBounds(bounds, { padding: [50, 50], maxZoom: 11 });
-          });
-        }, 500);
-      }
+      toast.success(`✅ Success! Plotting ${validHail.length} hail reports using Standard GeoJSON.`, { duration: 5000 });
 
       // Calculate visible count and draw boundary after data loads
       setTimeout(() => {
         if (mapRef) {
           // Calculate visible count ONCE (no dynamic updates)
-          const bounds = mapRef.getBounds();
-          const visible = hailReports.filter(storm => {
-            if (!storm.position || storm.position.length < 2) return false;
-            const [lat, lon] = storm.position;
-            return bounds.contains([lat, lon]);
-          });
-          setVisibleCount(visible.length);
+          if (hailReports.features && hailReports.features.length > 0) {
+            setVisibleCount(hailReports.features.length);
+          }
           
           // Draw county boundary
           if (boundaryGeoJSON) {
