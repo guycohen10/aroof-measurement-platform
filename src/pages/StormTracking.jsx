@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Home, Search, Download, Plus, AlertCircle, Loader2, Cloud, MapPin, Calendar, TrendingUp } from "lucide-react";
-import { MapContainer, TileLayer, Polygon, CircleMarker, Popup, LayersControl } from "react-leaflet";
+import { MapContainer, TileLayer, Polygon, CircleMarker, Popup, LayersControl, useMap } from "react-leaflet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import "leaflet/dist/leaflet.css";
@@ -31,6 +31,14 @@ function calculateRiskScore(hailData) {
   else if (hailData.events_last_year >= 3) score += 10;
   
   return Math.min(score, 100);
+}
+
+function MapRefSetter({ setMapRef }) {
+  const map = useMap();
+  React.useEffect(() => {
+    setMapRef(map);
+  }, [map, setMapRef]);
+  return null;
 }
 
 function StormPopupContent({ storm, hailColor, addressCache, savingLeads, onSaveLead, formatDate }) {
@@ -88,7 +96,11 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   const [storms, setStorms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dataType, setDataType] = useState('live'); // 'live' or 'historical'
+  const [searchType, setSearchType] = useState('state'); // 'state', 'county', 'city', 'zip'
   const [selectedState, setSelectedState] = useState('TX');
+  const [searchInput, setSearchInput] = useState('');
+  const [mapRef, setMapRef] = useState(null);
+  const [boundaryLayer, setBoundaryLayer] = useState(null);
   const [startDate, setStartDate] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() - 30);
@@ -152,11 +164,57 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
     if (onDateRangeChange) onDateRangeChange({ start: startDate, end: endDate });
     
     try {
+      let targetState = selectedState;
+      let mapBounds = null;
+      let boundaryGeoJSON = null;
+
+      // CASE B: County/City/Zip - Geocode first
+      if (searchType !== 'state' && searchInput.trim()) {
+        const geocodeUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchInput)}&format=json&addressdetails=1&polygon_geojson=1&limit=1`;
+        
+        try {
+          const geoResponse = await fetch(geocodeUrl, {
+            headers: { 'User-Agent': '(Aroof.build, greenteamdallas@gmail.com)' }
+          });
+          const geoData = await geoResponse.json();
+          
+          if (!geoData || geoData.length === 0) {
+            toast.error('Location not found. Please try "City, State" format.');
+            setLoading(false);
+            return;
+          }
+          
+          const location = geoData[0];
+          
+          // Extract state from geocode result
+          if (location.address && location.address.state) {
+            const stateAbbr = getStateAbbreviation(location.address.state);
+            if (stateAbbr) targetState = stateAbbr;
+          }
+          
+          // Get bounds for zoom
+          if (location.boundingbox && location.boundingbox.length === 4) {
+            const [south, north, west, east] = location.boundingbox;
+            mapBounds = [[parseFloat(south), parseFloat(west)], [parseFloat(north), parseFloat(east)]];
+          }
+          
+          // Store boundary GeoJSON for drawing
+          if (location.geojson && searchType === 'county') {
+            boundaryGeoJSON = location.geojson;
+          }
+          
+          toast.success(`Found: ${location.display_name}`);
+        } catch (err) {
+          console.error('Geocoding error:', err);
+          toast.error('Failed to geocode location. Using state search.');
+        }
+      }
+
       // Format dates for LSR API (YYYY-MM-DDTHH:MM)
       const sts = `${startDate}T00:00`;
       const ets = `${endDate}T23:59`;
       
-      const stateParam = selectedState === 'All US' ? '' : `&state=${selectedState}`;
+      const stateParam = targetState === 'All US' ? '' : `&state=${targetState}`;
       // Use LSR (Local Storm Reports) endpoint for confirmed hail reports
       const url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}`;
       
@@ -190,6 +248,40 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       
       setStorms(hailReports);
       setLoading(false);
+
+      // Apply zoom and boundary after data loads
+      if (mapRef) {
+        if (mapBounds) {
+          // Zoom to specific area
+          try {
+            mapRef.fitBounds(mapBounds, { padding: [50, 50] });
+          } catch (err) {
+            console.error('Failed to fit bounds:', err);
+          }
+        }
+        
+        // Draw county boundary
+        if (boundaryGeoJSON) {
+          import('leaflet').then(L => {
+            // Remove old boundary
+            if (boundaryLayer) {
+              mapRef.removeLayer(boundaryLayer);
+            }
+            
+            // Add new boundary
+            const boundary = L.geoJSON(boundaryGeoJSON, {
+              style: {
+                color: '#000',
+                weight: 3,
+                fillOpacity: 0,
+                dashArray: '10, 5'
+              }
+            });
+            boundary.addTo(mapRef);
+            setBoundaryLayer(boundary);
+          });
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch hail reports:', err);
       setDebugUrl('ERROR: ' + err.message);
@@ -201,15 +293,41 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
     fetchHistoricalStorms();
   };
 
+  const getStateAbbreviation = (stateName) => {
+    const states = {
+      'Texas': 'TX', 'Oklahoma': 'OK', 'Florida': 'FL', 'Kansas': 'KS',
+      'Missouri': 'MO', 'Colorado': 'CO', 'Alabama': 'AL', 'Arizona': 'AZ',
+      'Arkansas': 'AR', 'California': 'CA', 'Connecticut': 'CT', 'Delaware': 'DE',
+      'Georgia': 'GA', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN',
+      'Iowa': 'IA', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME',
+      'Maryland': 'MD', 'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN',
+      'Mississippi': 'MS', 'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV',
+      'New Hampshire': 'NH', 'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY',
+      'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH', 'Oregon': 'OR',
+      'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC', 'South Dakota': 'SD',
+      'Tennessee': 'TN', 'Utah': 'UT', 'Vermont': 'VT', 'Virginia': 'VA',
+      'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY'
+    };
+    return states[stateName] || null;
+  };
+
   const handleClearFilters = () => {
     setStorms([]);
     setDataType('live');
     setDebugUrl('');
+    setSearchType('state');
+    setSearchInput('');
     const date = new Date();
     date.setDate(date.getDate() - 30);
     setStartDate(date.toISOString().split('T')[0]);
     setEndDate(new Date().toISOString().split('T')[0]);
     setSelectedState('TX');
+    
+    // Clear boundary layer
+    if (boundaryLayer && mapRef) {
+      mapRef.removeLayer(boundaryLayer);
+      setBoundaryLayer(null);
+    }
     
     // Notify parent component
     if (onDataTypeChange) onDataTypeChange('live');
@@ -306,20 +424,53 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       <div className="bg-white rounded-lg shadow-lg p-4 border-2 border-slate-300">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-col">
-            <label className="text-xs font-bold text-slate-700 mb-1">State</label>
+            <label className="text-xs font-bold text-slate-700 mb-1">Search By</label>
             <select
-              value={selectedState}
-              onChange={(e) => setSelectedState(e.target.value)}
+              value={searchType}
+              onChange={(e) => {
+                setSearchType(e.target.value);
+                setSearchInput('');
+              }}
               className="px-3 py-2 border-2 border-slate-300 rounded-lg text-sm font-semibold bg-white cursor-pointer hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="TX">TX - Texas</option>
-              <option value="OK">OK - Oklahoma</option>
-              <option value="FL">FL - Florida</option>
-              <option value="KS">KS - Kansas</option>
-              <option value="MO">MO - Missouri</option>
-              <option value="CO">CO - Colorado</option>
-              <option value="All US">All US</option>
+              <option value="state">State</option>
+              <option value="county">County</option>
+              <option value="city">City</option>
+              <option value="zip">Zip Code</option>
             </select>
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-xs font-bold text-slate-700 mb-1">
+              {searchType === 'state' ? 'State' : searchType === 'county' ? 'County Name' : searchType === 'city' ? 'City, State' : 'Zip Code'}
+            </label>
+            {searchType === 'state' ? (
+              <select
+                value={selectedState}
+                onChange={(e) => setSelectedState(e.target.value)}
+                className="px-3 py-2 border-2 border-slate-300 rounded-lg text-sm font-semibold bg-white cursor-pointer hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="TX">TX - Texas</option>
+                <option value="OK">OK - Oklahoma</option>
+                <option value="FL">FL - Florida</option>
+                <option value="KS">KS - Kansas</option>
+                <option value="MO">MO - Missouri</option>
+                <option value="CO">CO - Colorado</option>
+                <option value="All US">All US</option>
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder={
+                  searchType === 'county' ? 'Collin County, TX' :
+                  searchType === 'city' ? 'Dallas, TX' :
+                  '75001'
+                }
+                className="px-3 py-2 border-2 border-slate-300 rounded-lg text-sm font-semibold bg-white hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
+              />
+            )}
           </div>
 
           <div className="flex flex-col">
@@ -377,7 +528,9 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
           zoom={dataType === 'historical' ? 9 : 5} 
           style={{ height: '100%', width: '100%' }}
           className="z-0"
+          ref={setMapRef}
         >
+          <MapRefSetter setMapRef={setMapRef} />
           <LayersControl position="topright">
             <LayersControl.BaseLayer checked name="Street View">
               <TileLayer
