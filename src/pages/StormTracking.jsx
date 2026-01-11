@@ -151,6 +151,12 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
         pointToLayer: function (feature, latlng) {
           // Leaflet AUTOMATICALLY calculates 'latlng' correctly here. No manual flipping needed!
           
+          // CROP TOOL: Only draw if the dot is inside the current view
+          const currentBounds = mapRef.getBounds();
+          if (!currentBounds.contains(latlng)) {
+            return null; // Skip this marker - it's outside the visible area
+          }
+          
           // Determine color based on hail size (mag)
           let color = '#FF0000'; // Default Red
           const size = feature.properties.mag || 0;
@@ -249,7 +255,11 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
 
       // CASE B: County/City/Zip - Geocode first
       if (searchType !== 'state' && searchInput.trim()) {
-        const geocodeUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchInput)}&format=json&addressdetails=1&polygon_geojson=1&limit=1`;
+        // For zip codes, append ", USA" for better accuracy
+        const searchQuery = searchType === 'zip' 
+          ? `${searchInput.trim()}, USA` 
+          : searchInput.trim();
+        const geocodeUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&polygon_geojson=1&limit=1`;
         
         try {
           const geoResponse = await fetch(geocodeUrl, {
@@ -302,9 +312,16 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       // Zoom to area FIRST if we have bounds (before calculating bbox)
       if (mapRef && mapBounds) {
         try {
-          mapRef.fitBounds(mapBounds, { padding: [50, 50], maxZoom: 11 });
-          // Wait for map to finish zooming
-          await new Promise(resolve => setTimeout(resolve, 300));
+          // Use flyToBounds for animated zoom and wait for completion
+          await new Promise((resolve) => {
+            mapRef.flyToBounds(mapBounds, { 
+              padding: [50, 50], 
+              maxZoom: 11,
+              duration: 1.0 
+            });
+            // Wait 1000ms to ensure zoom completes
+            setTimeout(resolve, 1000);
+          });
         } catch (err) {
           console.error('Failed to fit bounds:', err);
         }
@@ -602,6 +619,7 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
                   searchType === 'city' ? 'Dallas, TX' :
                   '75001'
                 }
+                onKeyPress={(e) => e.key === 'Enter' && handleSearchStorms()}
                 className="px-3 py-2 border-2 border-slate-300 rounded-lg text-sm font-semibold bg-white hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
               />
             )}
