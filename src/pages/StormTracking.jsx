@@ -146,16 +146,10 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
         mapRef.removeLayer(markerLayerRef.current);
       }
       
-      // Use standard L.geoJSON layer
+      // Use standard L.geoJSON layer (data is already filtered client-side)
       const stormLayer = L.geoJSON(data, {
         pointToLayer: function (feature, latlng) {
           // Leaflet AUTOMATICALLY calculates 'latlng' correctly here. No manual flipping needed!
-          
-          // CROP TOOL: Only draw if the dot is inside the current view
-          const currentBounds = mapRef.getBounds();
-          if (!currentBounds.contains(latlng)) {
-            return null; // Skip this marker - it's outside the visible area
-          }
           
           // Determine color based on hail size (mag)
           let color = '#FF0000'; // Default Red
@@ -235,10 +229,12 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   };
 
   const fetchHistoricalStorms = async () => {
-    // Performance check for > 3 months
+    // Performance check for date range
     const daysDiff = Math.abs(new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24);
     if (daysDiff > 90) {
       toast.warning('⚠️ Loading 3+ months of data may take 10-15 seconds. Please wait...');
+    } else if (daysDiff > 30) {
+      toast.info('⚠️ Searching large date range. Filtering to state events for optimization.');
     }
 
     setLoading(true);
@@ -331,26 +327,11 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       const sts = `${startDate}T00:00`;
       const ets = `${endDate}T23:59`;
       
-      // EXCLUSIVE: Use EITHER bbox OR state, never both
-      let url;
-      let usedBbox = false;
+      // FORCE STATE PARAMETER (bbox is ignored by API)
+      const stateParam = targetState === 'All US' ? '' : `&state=${targetState}`;
+      const url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}&limit=9999`;
       
-      if (mapRef && mapBounds) {
-        // Case A: City/County/Zip search - Use bbox ONLY
-        const bounds = mapRef.getBounds();
-        const west = bounds.getWest().toFixed(4);
-        const south = bounds.getSouth().toFixed(4);
-        const east = bounds.getEast().toFixed(4);
-        const north = bounds.getNorth().toFixed(4);
-        const bbox = `${west},${south},${east},${north}`;
-        url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H&bbox=${bbox}&sts=${sts}&ets=${ets}&limit=9999`;
-        console.log('🎯 Using bounding box search:', bbox);
-        usedBbox = true;
-      } else {
-        // Case B: State search - Use state ONLY
-        const stateParam = targetState === 'All US' ? '' : `&state=${targetState}`;
-        url = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}&limit=9999`;
-      }
+      console.log('🎯 Using state-based search:', targetState);
       
       setDebugUrl(url);
       
@@ -359,19 +340,9 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       
       console.log(`📡 API returned ${data.features?.length || 0} features`);
       
-      // Fallback: If bbox returns 0 results, retry with state parameter
-      if (usedBbox && (!data.features || data.features.length === 0)) {
-        console.log('⚠️ Bbox returned 0 results, falling back to state search');
-        const stateParam = targetState === 'All US' ? '' : `&state=${targetState}`;
-        const fallbackUrl = `https://mesonet.agron.iastate.edu/geojson/lsr.geojson?type=H${stateParam}&sts=${sts}&ets=${ets}&limit=9999`;
-        setDebugUrl(fallbackUrl + ' (fallback)');
-        const fallbackResponse = await fetch(fallbackUrl);
-        const fallbackData = await fallbackResponse.json();
-        console.log(`📡 Fallback API returned ${fallbackData.features?.length || 0} features`);
-        Object.assign(data, fallbackData);
-      }
+      // STRICT FILTER: Only valid hail events >= 0.75 inches inside visible bounds
+      const currentBounds = mapRef ? mapRef.getBounds() : null;
       
-      // STRICT FILTER: Only valid hail events >= 0.75 inches (NO dust storms!)
       const validHail = data.features.filter(f => {
         if (!f || !f.geometry || !f.geometry.coordinates || !f.properties) return false;
         if (!Array.isArray(f.geometry.coordinates) || f.geometry.coordinates.length !== 2) return false;
@@ -385,6 +356,12 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
         // Must have valid magnitude >= 0.75 inches
         const magnitude = parseFloat(f.properties.mag || f.properties.magnitude);
         if (isNaN(magnitude) || magnitude < 0.75) return false;
+        
+        // CLIENT-SIDE PRECISION CROP: Only include if inside visible bounds
+        if (currentBounds && mapBounds) {
+          const [lng, lat] = f.geometry.coordinates;
+          if (!currentBounds.contains([lat, lng])) return false;
+        }
         
         return true;
       });
