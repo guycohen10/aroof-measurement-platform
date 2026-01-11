@@ -34,6 +34,10 @@ function calculateRiskScore(hailData) {
 }
 
 function StormPopupContent({ storm, hailColor, addressCache, savingLeads, onSaveLead, formatDate }) {
+  if (!storm.position || storm.position.length < 2) {
+    return <div className="text-xs text-red-600">Invalid location data</div>;
+  }
+  
   const [lat, lng] = storm.position;
   const cacheKey = `${lat},${lng}`;
   const address = addressCache[cacheKey];
