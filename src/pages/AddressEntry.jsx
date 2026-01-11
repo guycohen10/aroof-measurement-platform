@@ -18,6 +18,21 @@ export default function AddressEntry() {
   const [address, setAddress] = useState("");
 
   useEffect(() => {
+    checkIfRooferAndRedirect();
+  }, []);
+
+  const checkIfRooferAndRedirect = async () => {
+    try {
+      const user = await base44.auth.me();
+      if (user && user.aroof_role === 'external_roofer') {
+        navigate(createPageUrl("RooferDashboard"));
+      }
+    } catch {
+      // Not logged in - show form (homeowner path)
+    }
+  };
+
+  useEffect(() => {
     if (window.google && window.google.maps && window.google.maps.places) {
       setPlacesLoaded(true);
       return;

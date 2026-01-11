@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import ChatWidget from "../components/chat/ChatWidget";
@@ -25,6 +26,7 @@ import {
 "lucide-react";
 
 export default function Homepage() {
+  const navigate = useNavigate();
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
 
   return (
@@ -275,17 +277,27 @@ export default function Homepage() {
             </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Link to={createPageUrl("AddressEntry")}>
-              <Button
-                  size="lg"
-                  className="h-16 px-10 text-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-2xl shadow-green-500/50 hover:shadow-green-500/75 transition-all duration-300 transform hover:scale-105"
-                  aria-label="Get free roof measurement now">
-
-                <Zap className="w-6 h-6 mr-2" aria-hidden="true" />
-                Get FREE Measurement Now
-                <ArrowRight className="w-5 h-5 ml-2" aria-hidden="true" />
-              </Button>
-            </Link>
+            <Button
+                size="lg"
+                className="h-16 px-10 text-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-2xl shadow-green-500/50 hover:shadow-green-500/75 transition-all duration-300 transform hover:scale-105"
+                aria-label="Get free roof measurement now"
+                onClick={async () => {
+                  try {
+                    const user = await base44.auth.me();
+                    if (user && user.aroof_role === 'external_roofer') {
+                      navigate(createPageUrl("RooferDashboard"));
+                    } else {
+                      navigate(createPageUrl("AddressEntry"));
+                    }
+                  } catch {
+                    navigate(createPageUrl("AddressEntry"));
+                  }
+                }}
+              >
+              <Zap className="w-6 h-6 mr-2" aria-hidden="true" />
+              Get FREE Measurement Now
+              <ArrowRight className="w-5 h-5 ml-2" aria-hidden="true" />
+            </Button>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
@@ -521,17 +533,27 @@ export default function Homepage() {
             Join thousands of satisfied DFW homeowners who trust Aroof
           </p>
           
-          <Link to={createPageUrl("AddressEntry")}>
-            <Button
-                  size="lg"
-                  className="h-20 px-12 text-2xl bg-white text-blue-900 hover:bg-blue-50 shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105"
-                  aria-label="Measure your roof for free now">
-
-              <Zap className="w-8 h-8 mr-3" aria-hidden="true" />
-              Measure My Roof FREE
-              <ArrowRight className="w-6 h-6 ml-3" aria-hidden="true" />
-            </Button>
-          </Link>
+          <Button
+                size="lg"
+                className="h-20 px-12 text-2xl bg-white text-blue-900 hover:bg-blue-50 shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105"
+                aria-label="Measure your roof for free now"
+                onClick={async () => {
+                  try {
+                    const user = await base44.auth.me();
+                    if (user && user.aroof_role === 'external_roofer') {
+                      navigate(createPageUrl("RooferDashboard"));
+                    } else {
+                      navigate(createPageUrl("AddressEntry"));
+                    }
+                  } catch {
+                    navigate(createPageUrl("AddressEntry"));
+                  }
+                }}
+              >
+            <Zap className="w-8 h-8 mr-3" aria-hidden="true" />
+            Measure My Roof FREE
+            <ArrowRight className="w-6 h-6 ml-3" aria-hidden="true" />
+          </Button>
 
           <p className="text-blue-200 mt-8">
             Quick • Accurate • FREE • Optional $3 PDF download

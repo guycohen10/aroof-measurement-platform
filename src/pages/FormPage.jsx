@@ -27,14 +27,21 @@ export default function FormPage() {
   });
 
   useEffect(() => {
-    loadUser();
+    checkIfRooferAndRedirect();
   }, []);
 
-  const loadUser = async () => {
+  const checkIfRooferAndRedirect = async () => {
     try {
       const user = await base44.auth.me();
-      setCurrentUser(user);
       
+      // If logged in as roofer, skip this page entirely
+      if (user && user.aroof_role === 'external_roofer') {
+        navigate(createPageUrl("RooferDashboard"));
+        return;
+      }
+      
+      // Load user data for homeowners
+      setCurrentUser(user);
       if (user.full_name) {
         setFormData(prev => ({ ...prev, name: user.full_name }));
       }
