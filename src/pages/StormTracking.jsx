@@ -328,19 +328,27 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
       console.log(`✅ Filtered ${validHail.length} valid hail events from ${data.features?.length || 0} total features`);
 
       const hailReports = validHail.map((feature, idx) => {
-        const coords = feature.geometry.coordinates; // [lng, lat]
+        const coords = feature.geometry.coordinates; // GeoJSON: [lng, lat]
+        const lon = coords[0];
+        const lat = coords[1];
         const magnitude = parseFloat(feature.properties.mag || feature.properties.magnitude);
+        
+        // Safety check: skip invalid coordinates
+        if (Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+          console.warn(`⚠️ Invalid coordinates: [${lat}, ${lon}]`);
+          return null;
+        }
         
         return {
           id: `hail-${idx}`,
-          position: [coords[1], coords[0]], // [lat, lng] for Leaflet
+          position: [lat, lon], // Leaflet: [lat, lon]
           magnitude,
           city: feature.properties.city || 'Unknown',
           county: feature.properties.county || '',
           valid: feature.properties.valid || '',
           rawProps: feature.properties
         };
-      });
+      }).filter(Boolean); // Remove null entries
       
       console.log(`✅ Parsed ${hailReports.length} valid hail reports`);
       setStorms(hailReports);
@@ -464,9 +472,9 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
   };
 
   const getHailColor = (magnitude) => {
-    if (magnitude >= 2.0) return { color: '#dc2626', label: '🔴 Urgent/Money Lead' }; // Red
-    if (magnitude >= 1.26) return { color: '#f97316', label: '🟠 Good Lead' }; // Orange
-    return { color: '#eab308', label: '🟡 Minor' }; // Yellow
+    if (magnitude > 1.75) return { color: '#FF0000', label: '🔴 Urgent Lead' }; // Red
+    if (magnitude >= 1.0) return { color: '#FF8C00', label: '🟠 Good Lead' }; // Orange
+    return { color: '#FFD700', label: '🟡 Minor' }; // Yellow
   };
 
   const formatDate = (dateStr) => {
@@ -720,13 +728,13 @@ function StormMap({ onDataTypeChange, onDateRangeChange }) {
                 <CircleMarker
                   key={storm.id}
                   center={storm.position}
-                  radius={storm.magnitude >= 2.0 ? 6 : storm.magnitude >= 1.26 ? 5 : 4}
+                  radius={8}
                   pathOptions={{
-                    color: hailColor.color,
+                    color: '#FFFFFF',
                     fillColor: hailColor.color,
-                    fillOpacity: 0.6,
-                    weight: 0,
-                    stroke: false
+                    fillOpacity: 0.9,
+                    weight: 1,
+                    stroke: true
                   }}
                   eventHandlers={{
                     popupopen: async () => {
