@@ -287,10 +287,10 @@ export default function Homepage() {
                     if (user && user.aroof_role === 'external_roofer') {
                       navigate(createPageUrl("RooferDashboard"));
                     } else {
-                      navigate(createPageUrl("AddressEntry"));
+                      navigate(createPageUrl("MeasurementPage"));
                     }
                   } catch {
-                    navigate(createPageUrl("AddressEntry"));
+                    navigate(createPageUrl("MeasurementPage"));
                   }
                 }}
               >
@@ -543,10 +543,10 @@ export default function Homepage() {
                     if (user && user.aroof_role === 'external_roofer') {
                       navigate(createPageUrl("RooferDashboard"));
                     } else {
-                      navigate(createPageUrl("AddressEntry"));
+                      navigate(createPageUrl("MeasurementPage"));
                     }
                   } catch {
-                    navigate(createPageUrl("AddressEntry"));
+                    navigate(createPageUrl("MeasurementPage"));
                   }
                 }}
               >
