@@ -257,29 +257,29 @@ export default function RooferDashboard() {
               </p>
               
               <div className="grid md:grid-cols-2 gap-4">
-                <Button 
-                  size="lg"
-                  className="h-20 bg-green-600 hover:bg-green-700"
-                  onClick={() => navigate(createPageUrl("NewLeadForm"))}
-                >
-                  <div className="text-left w-full">
-                    <div className="font-bold text-lg mb-1">📝 New Lead</div>
-                    <div className="text-sm opacity-90">Enter customer info & measure</div>
-                  </div>
-                </Button>
+                  <Button 
+                    size="lg"
+                    className="h-20 bg-green-600 hover:bg-green-700"
+                    onClick={() => navigate(createPageUrl("NewLeadForm"))}
+                  >
+                    <div className="text-left w-full">
+                      <div className="font-bold text-lg mb-1">📝 Measure New Roof</div>
+                      <div className="text-sm opacity-90">Enter customer info & measure</div>
+                    </div>
+                  </Button>
 
-                <Button 
-                  size="lg"
-                  variant="outline"
-                  className="h-20 border-2 border-blue-400 hover:bg-blue-50"
-                  onClick={() => navigate(createPageUrl("ExistingLeadSelector"))}
-                >
-                  <div className="text-left w-full">
-                    <div className="font-bold text-lg mb-1">📋 Existing Lead</div>
-                    <div className="text-sm opacity-90">Select from your leads</div>
-                  </div>
-                </Button>
-              </div>
+                  <Button 
+                    size="lg"
+                    variant="outline"
+                    className="h-20 border-2 border-blue-400 hover:bg-blue-50"
+                    onClick={() => navigate(createPageUrl("ExistingLeadSelector"))}
+                  >
+                    <div className="text-left w-full">
+                      <div className="font-bold text-lg mb-1">📋 Existing Lead</div>
+                      <div className="text-sm opacity-90">Add measurement to lead</div>
+                    </div>
+                  </Button>
+                </div>
             </CardContent>
           </Card>
 

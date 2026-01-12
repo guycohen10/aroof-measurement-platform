@@ -24,18 +24,33 @@ export default function ContactInfoPage() {
 
   useEffect(() => {
     checkIfRooferAndRedirect();
-    loadMeasurement();
   }, []);
 
   const checkIfRooferAndRedirect = async () => {
     try {
       const user = await base44.auth.me();
       if (user && user.aroof_role === 'external_roofer') {
-        // Roofers should never reach this page
-        navigate(createPageUrl("RooferDashboard"));
+        // Roofer should NEVER reach this page
+        console.error('❌ Roofer tried to access ContactInfoPage');
+        alert('You already entered customer info. Going to results...');
+        
+        // Get measurement ID from session
+        const measurementId = sessionStorage.getItem('active_lead_id') || 
+                             sessionStorage.getItem('pending_measurement_id');
+        
+        if (measurementId) {
+          navigate(createPageUrl(`Results?measurementid=${measurementId}`));
+        } else {
+          navigate(createPageUrl("RooferDashboard"));
+        }
+        return;
+      } else {
+        // Not a roofer - load measurement for homeowner
+        loadMeasurement();
       }
     } catch {
       // Not logged in - proceed normally for homeowners
+      loadMeasurement();
     }
   };
 

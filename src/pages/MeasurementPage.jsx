@@ -1578,16 +1578,26 @@ export default function MeasurementPage() {
         throw new Error("Failed to get measurement ID");
       }
 
-      // Clear session storage
-      sessionStorage.removeItem('active_lead_id');
-      sessionStorage.removeItem('lead_address');
-
-      // If roofer, go directly to results (skip contact info)
-      // If homeowner, must provide contact info and verify email
-      if (isRoofer) {
+      // CRITICAL: Check if this is a roofer with an existing lead
+      const leadId = sessionStorage.getItem('active_lead_id');
+      
+      if (isRoofer && leadId) {
+        // Roofer updating existing lead - customer info already saved
+        // Clear session storage
+        sessionStorage.removeItem('active_lead_id');
+        sessionStorage.removeItem('lead_address');
+        sessionStorage.removeItem('pending_measurement_id');
+        
+        // Go DIRECTLY to results - NO ContactInfoPage
         navigate(createPageUrl(`Results?measurementid=${savedMeasurementId}`));
+      } else if (isRoofer && !leadId) {
+        // Roofer without lead - shouldn't happen, redirect to dashboard
+        alert('Please start from dashboard to measure roofs');
+        navigate(createPageUrl('RooferDashboard'));
       } else {
-        // Store measurement ID in session for contact info page
+        // Homeowner - must provide contact info and verify email
+        sessionStorage.removeItem('active_lead_id');
+        sessionStorage.removeItem('lead_address');
         sessionStorage.setItem('pending_measurement_id', savedMeasurementId);
         navigate(createPageUrl('ContactInfoPage'));
       }

@@ -781,21 +781,34 @@ export default function Results() {
           </div>
 
           <div className="lg:col-span-1 space-y-8">
-            {currentUser?.aroof_role === 'external_roofer' && (
+            {isRoofer && (
               <Card className="bg-blue-50 border-2 border-blue-200 shadow-xl">
                 <CardHeader className="bg-gradient-to-r from-blue-100 to-blue-50">
-                  <CardTitle className="text-lg">📧 Roofer Actions</CardTitle>
+                  <CardTitle className="text-lg">📋 Lead Information</CardTitle>
                 </CardHeader>
-                <CardContent className="p-6 space-y-3">
+                <CardContent className="p-6 space-y-4">
                   {measurement.customer_name && (
-                    <div className="bg-white rounded-lg p-3 border">
-                      <p className="text-xs text-slate-500">Customer</p>
-                      <p className="font-bold text-slate-900">{measurement.customer_name}</p>
-                      {measurement.customer_email && (
-                        <p className="text-sm text-slate-600">{measurement.customer_email}</p>
+                    <div className="bg-white rounded-lg p-4 border space-y-1">
+                      <p className="text-sm font-bold text-slate-900">{measurement.customer_name}</p>
+                      {measurement.customer_phone && (
+                        <p className="text-sm text-slate-600">📱 {measurement.customer_phone}</p>
                       )}
+                      {measurement.customer_email && (
+                        <p className="text-sm text-slate-600">📧 {measurement.customer_email}</p>
+                      )}
+                      <p className="text-sm text-slate-600">📍 {measurement.property_address}</p>
                     </div>
                   )}
+                  
+                  <Button
+                    size="lg"
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    onClick={() => {
+                      alert('📄 PDF download feature coming soon! For now, use browser print.');
+                    }}
+                  >
+                    📄 Download PDF Report
+                  </Button>
                   
                   <Button
                     variant="outline"

@@ -17,6 +17,7 @@ import EmployeeLogin from './pages/EmployeeLogin';
 import EnrollMaintenance from './pages/EnrollMaintenance';
 import EstimatorDashboard from './pages/EstimatorDashboard';
 import EstimatorLeadDetail from './pages/EstimatorLeadDetail';
+import ExistingLeadSelector from './pages/ExistingLeadSelector';
 import FollowUpSettings from './pages/FollowUpSettings';
 import ForgotPassword from './pages/ForgotPassword';
 import FormPage from './pages/FormPage';
@@ -32,6 +33,7 @@ import MaintenancePlans from './pages/MaintenancePlans';
 import Measure from './pages/Measure';
 import MeasurementPage from './pages/MeasurementPage';
 import MeasurementTool from './pages/MeasurementTool';
+import NewLeadForm from './pages/NewLeadForm';
 import PDFDownload from './pages/PDFDownload';
 import Payment from './pages/Payment';
 import Results from './pages/Results';
@@ -58,8 +60,6 @@ import SubscriptionDetail from './pages/SubscriptionDetail';
 import Subscriptions from './pages/Subscriptions';
 import UserTypeSelection from './pages/UserTypeSelection';
 import Windows from './pages/Windows';
-import NewLeadForm from './pages/NewLeadForm';
-import ExistingLeadSelector from './pages/ExistingLeadSelector';
 import __Layout from './Layout.jsx';
 
 
@@ -83,6 +83,7 @@ export const PAGES = {
     "EnrollMaintenance": EnrollMaintenance,
     "EstimatorDashboard": EstimatorDashboard,
     "EstimatorLeadDetail": EstimatorLeadDetail,
+    "ExistingLeadSelector": ExistingLeadSelector,
     "FollowUpSettings": FollowUpSettings,
     "ForgotPassword": ForgotPassword,
     "FormPage": FormPage,
@@ -98,6 +99,7 @@ export const PAGES = {
     "Measure": Measure,
     "MeasurementPage": MeasurementPage,
     "MeasurementTool": MeasurementTool,
+    "NewLeadForm": NewLeadForm,
     "PDFDownload": PDFDownload,
     "Payment": Payment,
     "Results": Results,
@@ -124,8 +126,6 @@ export const PAGES = {
     "Subscriptions": Subscriptions,
     "UserTypeSelection": UserTypeSelection,
     "Windows": Windows,
-    "NewLeadForm": NewLeadForm,
-    "ExistingLeadSelector": ExistingLeadSelector,
 }
 
 export const pagesConfig = {
