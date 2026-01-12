@@ -69,19 +69,21 @@ export default function RooferLogin() {
       // Step 2: Try to login
       console.log('🔐 Step 2: Testing login...');
       try {
-        await base44.auth.login('demo@roofer.com', 'demo123');
+        await base44.auth.loginViaEmailPassword('demo@roofer.com', 'demo123');
         console.log('✅ Login successful');
       } catch (loginErr) {
         console.log('❌ Login failed - account may not exist');
-        console.log('Creating account via signup...');
+        console.log('Creating account via register...');
         try {
-          await base44.auth.signup({
+          await base44.auth.register({
             email: 'demo@roofer.com',
             password: 'demo123',
-            full_name: 'Demo Roofer'
+            full_name: 'Demo Roofer',
+            aroof_role: 'external_roofer',
+            company_id: demoCompany.id
           });
           console.log('✅ Account created, logging in...');
-          await base44.auth.login('demo@roofer.com', 'demo123');
+          await base44.auth.loginViaEmailPassword('demo@roofer.com', 'demo123');
         } catch (signupErr) {
           console.error('Signup error:', signupErr);
           throw new Error(`Failed to create account: ${signupErr.message}`);
@@ -151,8 +153,8 @@ export default function RooferLogin() {
     setLoading(true);
 
     try {
-      // ALWAYS use real authentication - no fake demo mode
-      await base44.auth.login(formData.email, formData.password);
+      // Use loginViaEmailPassword method
+      await base44.auth.loginViaEmailPassword(formData.email, formData.password);
 
       // Verify user is external roofer
       const user = await base44.auth.me();
