@@ -29,26 +29,12 @@ export default function RooferDashboard() {
   const [measurements, setMeasurements] = useState([]);
 
   useEffect(() => {
-    loadDashboardData(); // Changed to loadDashboardData
+    loadDashboardData();
   }, []);
 
-  // Renamed from checkAuthAndLoad and updated
   const loadDashboardData = async () => {
     try {
-      // Check for demo user first
-      const demoUser = localStorage.getItem('demo_user');
-      if (demoUser) {
-        const user = JSON.parse(demoUser);
-        console.log('🔍 RooferDashboard - Demo user loaded');
-        console.log('📧 Email:', user.email);
-        console.log('🎭 Role:', user.aroof_role);
-        console.log('🏢 Company ID:', user.company_id);
-        setUser(user);
-        setMeasurements([]);
-        setLoading(false);
-        return;
-      }
-
+      // ALWAYS use real authentication - no fake demo mode
       const currentUser = await base44.auth.me();
       
       // DEBUG: Log user details
@@ -100,15 +86,12 @@ export default function RooferDashboard() {
     }
   };
 
-  const handleLogout = async () => { // Made async
+  const handleLogout = async () => {
     try {
-      localStorage.removeItem('demo_user');
-      await base44.auth.logout(); // Added await
-      navigate(createPageUrl("RooferLogin")); // Navigate to login page
+      await base44.auth.logout();
+      navigate(createPageUrl("RooferLogin"));
     } catch (err) {
       console.error('Logout error:', err);
-      localStorage.removeItem('demo_user');
-      // Fallback for more robust logout, force page reload to clear state
       window.location.href = createPageUrl("RooferLogin");
     }
   };

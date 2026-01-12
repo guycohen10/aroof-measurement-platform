@@ -151,29 +151,7 @@ export default function RooferLogin() {
     setLoading(true);
 
     try {
-      // Demo credentials for testing - uses localStorage mock
-      if (formData.email === "demo@roofer.com" && formData.password === "demo123") {
-        console.log('✅ DEMO LOGIN SUCCESS');
-        console.log('📧 Logged in as: demo@roofer.com');
-        console.log('🎭 Role: external_roofer (demo mode)');
-        
-        localStorage.setItem('demo_user', JSON.stringify({
-          email: "demo@roofer.com",
-          full_name: "Demo Roofing Company",
-          role: "user",
-          aroof_role: "external_roofer",
-          company_name: "Demo Roofing Co",
-          company_id: "DEMO_COMPANY",
-          subscription_plan: "pro",
-          subscription_status: "active",
-          measurements_limit: 100,
-          measurements_used_this_month: 5
-        }));
-        navigate(createPageUrl("RooferDashboard"));
-        return;
-      }
-
-      // Base44 login - this will set the auth session
+      // ALWAYS use real authentication - no fake demo mode
       await base44.auth.login(formData.email, formData.password);
 
       // Verify user is external roofer
