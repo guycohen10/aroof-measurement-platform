@@ -65,11 +65,18 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('❌ Full Error:', error);
+    console.error('❌ Error Message:', error.message);
+    console.error('❌ Error Stack:', error.stack);
     
-    return Response.json({
+    return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Account creation failed'
-    }, { status: 500 });
+      error: error.message,
+      errorType: error.constructor.name,
+      stack: error.stack
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 });
