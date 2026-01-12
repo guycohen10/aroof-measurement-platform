@@ -196,19 +196,56 @@ export default function RooferSignup() {
     setLoading(true);
 
     try {
-      console.log('🔵 Verifying code...');
+      console.log('🔵 ═══════════════════════════════════');
+      console.log('🔵 VERIFICATION ATTEMPT');
+      console.log('🔵 ═══════════════════════════════════');
+      console.log('Email:', registeredEmail);
+      console.log('Code:', verificationCode);
+      console.log('Code length:', verificationCode.length);
 
-      // Verify the OTP
-      await base44.auth.verifyOtp({
-        email: registeredEmail,
-        otp_code: verificationCode
-      });
+      const attempts = [
+        { email: registeredEmail, otp_code: verificationCode },
+        { email: registeredEmail, code: verificationCode },
+        { email: registeredEmail, otp: verificationCode },
+        { otp_code: verificationCode },
+        { code: verificationCode }
+      ];
+
+      let success = false;
+      let lastError = null;
+
+      for (let i = 0; i < attempts.length; i++) {
+        try {
+          console.log(`\n🔵 Attempt ${i + 1}:`, JSON.stringify(attempts[i]));
+          
+          await base44.auth.verifyOtp(attempts[i]);
+          
+          console.log(`✅ SUCCESS with format ${i + 1}!`);
+          success = true;
+          break;
+          
+        } catch (err) {
+          console.log(`❌ Attempt ${i + 1} failed`);
+          console.log('Error:', err.message);
+          
+          if (err.response?.data) {
+            console.log('Response data:', JSON.stringify(err.response.data, null, 2));
+          }
+          
+          lastError = err;
+          
+          if (!err.message?.includes('422')) break;
+        }
+      }
+
+      if (!success) {
+        console.error('❌ ALL ATTEMPTS FAILED:', lastError);
+        throw lastError;
+      }
 
       console.log('✅ Email verified');
 
-      // Auto-login after verification
       await base44.auth.loginViaEmailPassword(registeredEmail, registeredPassword);
-
       const user = await base44.auth.me();
       console.log('✅ Logged in:', user.email);
 
@@ -216,8 +253,8 @@ export default function RooferSignup() {
       navigate(createPageUrl("RooferDashboard"));
 
     } catch (err) {
-      console.error('Verification error:', err);
-      alert('❌ Verification failed.\n\n' + (err.message || 'Please check your code and try again.'));
+      console.error('❌ Verification error:', err);
+      alert('❌ Verification failed. Check browser console for details.');
     } finally {
       setLoading(false);
     }

@@ -1,3 +1,4 @@
+import AddressMethodSelector from './pages/AddressMethodSelector';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminGodMode from './pages/AdminGodMode';
 import Booking from './pages/Booking';
@@ -11,6 +12,7 @@ import CrewManagement from './pages/CrewManagement';
 import CustomerPortal from './pages/CustomerPortal';
 import DispatchDashboard from './pages/DispatchDashboard';
 import DispatchJobDetail from './pages/DispatchJobDetail';
+import EmailVerification from './pages/EmailVerification';
 import EmergencyRoofing from './pages/EmergencyRoofing';
 import EmployeeLogin from './pages/EmployeeLogin';
 import EnrollMaintenance from './pages/EnrollMaintenance';
@@ -49,12 +51,11 @@ import StripeSuccess from './pages/StripeSuccess';
 import SubscriptionDetail from './pages/SubscriptionDetail';
 import Subscriptions from './pages/Subscriptions';
 import Windows from './pages/Windows';
-import AddressMethodSelector from './pages/AddressMethodSelector';
-import EmailVerification from './pages/EmailVerification';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "AddressMethodSelector": AddressMethodSelector,
     "AdminDashboard": AdminDashboard,
     "AdminGodMode": AdminGodMode,
     "Booking": Booking,
@@ -68,6 +69,7 @@ export const PAGES = {
     "CustomerPortal": CustomerPortal,
     "DispatchDashboard": DispatchDashboard,
     "DispatchJobDetail": DispatchJobDetail,
+    "EmailVerification": EmailVerification,
     "EmergencyRoofing": EmergencyRoofing,
     "EmployeeLogin": EmployeeLogin,
     "EnrollMaintenance": EnrollMaintenance,
@@ -106,8 +108,6 @@ export const PAGES = {
     "SubscriptionDetail": SubscriptionDetail,
     "Subscriptions": Subscriptions,
     "Windows": Windows,
-    "AddressMethodSelector": AddressMethodSelector,
-    "EmailVerification": EmailVerification,
 }
 
 export const pagesConfig = {
