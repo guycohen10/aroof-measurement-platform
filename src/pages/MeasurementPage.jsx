@@ -1621,14 +1621,15 @@ export default function MeasurementPage() {
     try {
       // Check if user is logged in
       const currentUser = await base44.auth.me().catch(() => null);
-      
-      console.log('🟢 MeasurementPage: Current user:', currentUser?.email, 'Role:', currentUser?.aroof_role);
-      
-      // Determine if this is a roofer (logged in with external_roofer role)
       const isRoofer = currentUser?.aroof_role === 'external_roofer';
       
-      console.log('🟢 MeasurementPage: isRoofer =', isRoofer);
+      const leadId = searchParams.get('leadId') || sessionStorage.getItem('active_lead_id');
 
+      console.log('🟡 Measurement complete!');
+      console.log('🟡 isRoofer:', isRoofer);
+      console.log('🟡 leadId:', leadId);
+
+      // Prepare measurement data sections
       const capturedSections = capturedImages.flatMap((img, imgIndex) => 
         (img.sections || []).map(section => ({
           ...section,
@@ -1647,26 +1648,13 @@ export default function MeasurementPage() {
       });
 
       const allSections = [...liveSections, ...capturedSections];
-
       const components = calculateRoofComponents();
 
-      // Get lead ID from URL or session
-      const leadId = searchParams.get('leadId') || sessionStorage.getItem('active_lead_id');
-      
-      console.log('🟡 Measurement complete!');
-      console.log('🟡 isRoofer:', isRoofer);
-      console.log('🟡 leadId:', leadId);
-      console.log('🟡 measurementId state:', measurementId);
-      console.log('🟡 leadData:', leadData ? { id: leadData.id, customer: leadData.customer_name } : null);
-
-      let savedMeasurementId;
-
-      if (isRoofer && (leadId || measurementId)) {
-        // ROOFER PATH: Update the existing lead with measurement data
-        const idToUpdate = leadId || measurementId;
-        console.log('📊 Updating lead', idToUpdate, 'with measurement data');
+      if (isRoofer && leadId) {
+        // UPDATE the existing lead with measurement data
+        console.log('📊 Updating lead', leadId, 'with measurement data');
         
-        await base44.entities.Measurement.update(idToUpdate, {
+        await base44.entities.Measurement.update(leadId, {
           // Measurement data
           total_sqft: totalAdjusted,
           total_adjusted_sqft: totalAdjusted,
@@ -1674,7 +1662,6 @@ export default function MeasurementPage() {
             total_adjusted_sqft: totalAdjusted,
             sections: allSections
           },
-          captured_images: capturedImages,
           measurement_type: 'detailed_polygon',
           estimation_method: 'manual_polygon',
           eaves_ft: components.eaves,
@@ -1684,105 +1671,71 @@ export default function MeasurementPage() {
           valleys_ft: components.valleys,
           steps_ft: components.steps,
           walls_ft: components.walls,
-          // Status updates
-          lead_status: 'new',
+          
+          // Status
           measurement_completed: true,
-          // Keep existing customer info - DON'T overwrite
+          measurement_date: new Date().toISOString(),
+          
+          // Keep address and customer info (already saved in NewLeadForm)
+          // DON'T overwrite customer_name, customer_phone, customer_email, property_address
         });
 
-        savedMeasurementId = idToUpdate;
-        console.log('✅ Lead updated successfully with ID:', savedMeasurementId);
+        console.log('✅ Lead updated successfully');
         
-        // Clear session storage
+        // Clear session
         sessionStorage.removeItem('active_lead_id');
         sessionStorage.removeItem('lead_address');
         sessionStorage.removeItem('pending_measurement_id');
-        
-        // Go DIRECTLY to results - NO ContactInfoPage
-        console.log('🟡 ROOFER: Navigating to Results with measurementid:', savedMeasurementId);
-        navigate(createPageUrl(`Results?measurementid=${savedMeasurementId}`));
 
-      } else if (isRoofer && !leadId && !measurementId) {
-        // Roofer without lead - shouldn't happen normally
-        console.log('⚠️ ROOFER WITHOUT LEAD - Creating new and redirecting to results');
-        
-        const measurementData = {
-          company_id: currentUser?.company_id || null,
-          user_id: currentUser?.id || null,
-          property_address: address,
-          user_type: 'roofer',
-          measurement_type: 'detailed_polygon',
-          estimation_method: 'manual_polygon',
-          captured_images: capturedImages,
-          measurement_data: {
-            total_adjusted_sqft: totalAdjusted,
-            sections: allSections
-          },
-          total_sqft: totalAdjusted,
-          total_adjusted_sqft: totalAdjusted,
-          eaves_ft: components.eaves,
-          rakes_ft: components.rakes,
-          ridges_ft: components.ridges,
-          hips_ft: components.hips,
-          valleys_ft: components.valleys,
-          steps_ft: components.steps,
-          walls_ft: components.walls,
-          lead_status: 'new',
-          measurement_completed: true
-        };
+        // Go DIRECTLY to results
+        console.log('🟡 Navigating to Results page');
+        navigate(`/results?id=${leadId}`);
 
-        const savedMeasurement = await base44.entities.Measurement.create(measurementData);
-        savedMeasurementId = savedMeasurement.id;
-        
-        console.log('🟡 Navigating to Results with new measurement:', savedMeasurementId);
-        navigate(createPageUrl(`Results?measurementid=${savedMeasurementId}`));
+      } else if (isRoofer && !leadId) {
+        console.log('⚠️ Roofer without lead ID - redirecting to dashboard');
+        alert('Please start from dashboard to measure roofs');
+        navigate('/rooferdashboard');
         
       } else {
-        // HOMEOWNER PATH: Create new measurement and go to contact info
+        // Homeowner flow
         console.log('👤 HOMEOWNER PATH: Creating new measurement');
         
         const measurementData = {
-          company_id: null,
-          user_id: null,
-          property_address: address,
-          user_type: 'homeowner',
-          measurement_type: 'detailed_polygon',
-          estimation_method: 'manual_polygon',
-          captured_images: capturedImages,
-          measurement_data: {
+            company_id: null,
+            user_id: null,
+            property_address: address,
+            user_type: 'homeowner',
+            measurement_type: 'detailed_polygon',
+            estimation_method: 'manual_polygon',
+            captured_images: capturedImages,
+            measurement_data: {
+              total_adjusted_sqft: totalAdjusted,
+              sections: allSections
+            },
+            total_sqft: totalAdjusted,
             total_adjusted_sqft: totalAdjusted,
-            sections: allSections
-          },
-          total_sqft: totalAdjusted,
-          total_adjusted_sqft: totalAdjusted,
-          eaves_ft: components.eaves,
-          rakes_ft: components.rakes,
-          ridges_ft: components.ridges,
-          hips_ft: components.hips,
-          valleys_ft: components.valleys,
-          steps_ft: components.steps,
-          walls_ft: components.walls,
-          lead_status: 'new',
-          measurement_completed: true,
-          contact_info_provided: false
-        };
-
-        const savedMeasurement = await base44.entities.Measurement.create(measurementData);
-        savedMeasurementId = savedMeasurement.id;
-
-        // Clear any roofer session data
-        sessionStorage.removeItem('active_lead_id');
-        sessionStorage.removeItem('lead_address');
-        
-        // Set pending measurement for contact info page
-        sessionStorage.setItem('pending_measurement_id', savedMeasurementId);
-        console.log('🟡 HOMEOWNER: Navigating to ContactInfoPage');
-        navigate(createPageUrl('ContactInfoPage'));
+            eaves_ft: components.eaves,
+            rakes_ft: components.rakes,
+            ridges_ft: components.ridges,
+            hips_ft: components.hips,
+            valleys_ft: components.valleys,
+            steps_ft: components.steps,
+            walls_ft: components.walls,
+            lead_status: 'new',
+            measurement_completed: true,
+            contact_info_provided: false
+          };
+  
+        const measurement = await base44.entities.Measurement.create(measurementData);
+  
+        sessionStorage.setItem('pending_measurement_id', measurement.id);
+        console.log('🟡 Navigating to ContactInfoPage');
+        navigate('/contactinfopage');
       }
-      
+
     } catch (err) {
       console.error('❌ Measurement save error:', err);
-      setError(`Failed to save measurement: ${err.message}. Please try again.`);
+      alert('Failed to save measurement: ' + err.message);
       setSaving(false);
     }
   }, [capturedImages, liveMapSections, address, measurementId, leadData, searchParams, navigate, calculateRoofComponents, getTotalArea]);
