@@ -1773,16 +1773,44 @@ export default function MeasurementPage() {
             </div>
           </div>
 
+          {/* Lead Info Card for Roofers */}
+          {leadData && (
+            <div className="p-4 bg-blue-50 border-b-2 border-blue-200">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-lg">📋</span>
+                <h3 className="font-bold text-blue-900">Measuring for Lead</h3>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-600 font-medium min-w-[70px]">Customer:</span>
+                  <span className="text-blue-900 font-semibold">{leadData.customer_name}</span>
+                </div>
+                {leadData.customer_phone && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-600 font-medium min-w-[70px]">Phone:</span>
+                    <span className="text-blue-900">{leadData.customer_phone}</span>
+                  </div>
+                )}
+                {leadData.customer_email && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-600 font-medium min-w-[70px]">Email:</span>
+                    <span className="text-blue-900">{leadData.customer_email}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="p-4 bg-blue-50 border-b border-blue-200">
             <div className="flex items-start gap-2">
               <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-blue-600 font-medium">Property:</p>
                 <p className="text-sm font-bold text-blue-900 break-words">{address || 'Enter address to start'}</p>
-                {coordinates && (
+                {(coordinates || addressLoaded) && (
                   <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                     <CheckCircle className="w-3 h-3" />
-                    Location verified
+                    {addressLoaded ? 'Address loaded from lead' : 'Location verified'}
                   </p>
                 )}
               </div>
