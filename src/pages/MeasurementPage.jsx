@@ -198,7 +198,9 @@ export default function MeasurementPage() {
         console.log('🟢 MeasurementPage: Lead loaded:', {
           id: lead.id,
           customer: lead.customer_name,
-          address: lead.property_address
+          address: lead.property_address,
+          lat: lead.latitude,
+          lng: lead.longitude
         });
 
         setLeadData(lead);
@@ -209,7 +211,26 @@ export default function MeasurementPage() {
           setAddress(lead.property_address);
           localStorage.setItem('measurementAddress', lead.property_address);
           console.log('✅ Address loaded from lead:', lead.property_address);
-          setAddressLoaded(true);
+          
+          // If we have coordinates, use them
+          if (lead.latitude && lead.longitude) {
+            const coords = {
+              lat: lead.latitude,
+              lng: lead.longitude
+            };
+            console.log('✅ Using coordinates from lead:', coords);
+            
+            // Set map center and zoom
+            setCoordinates(coords);
+            setCurrentZoom(20);
+            setAddressLoaded(true);
+          } else {
+            // No coordinates - need to geocode the address
+            console.log('⚠️ No coordinates in lead, geocoding address...');
+            if (window.google && window.google.maps) {
+                await geocodeAddress(lead.property_address);
+            }
+          }
         }
         
         setLoading(false);
@@ -222,7 +243,7 @@ export default function MeasurementPage() {
     };
 
     loadLeadData();
-  }, [searchParams]);
+  }, [searchParams, geocodeAddress]);
 
   // Fallback: Load address from URL or localStorage (for homeowners without lead)
   useEffect(() => {
