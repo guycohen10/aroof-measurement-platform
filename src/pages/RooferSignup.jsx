@@ -142,7 +142,17 @@ export default function RooferSignup() {
     }
 
     try {
-      // Step 1: Create Company
+      // Step 1: Create User with signup FIRST
+      await base44.auth.signup({
+        email: formData.email,
+        password: formData.password,
+        full_name: formData.fullName
+      });
+
+      // Step 2: Login to get authenticated session
+      await base44.auth.login(formData.email, formData.password);
+
+      // Step 3: Create Company (now authenticated)
       const company = await base44.entities.Company.create({
         company_name: formData.companyName,
         contact_phone: formData.companyPhone,
@@ -157,16 +167,6 @@ export default function RooferSignup() {
         subscription_status: 'trial',
         trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
       });
-
-      // Step 2: Create User with signup
-      await base44.auth.signup({
-        email: formData.email,
-        password: formData.password,
-        full_name: formData.fullName
-      });
-
-      // Step 3: Login to get user session
-      await base44.auth.login(formData.email, formData.password);
 
       // Step 4: Update user with company_id and role
       await base44.auth.updateMe({
