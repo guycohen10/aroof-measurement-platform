@@ -142,10 +142,9 @@ export default function RooferSignup() {
     }
 
     try {
-      // Call backend function to create account
-      const response = await base44.functions.invoke('createRooferAccount', {
+      // Step 1: Create Company via backend
+      const companyResponse = await base44.functions.invoke('createRooferAccount', {
         email: formData.email,
-        password: formData.password,
         fullName: formData.fullName,
         companyData: {
           companyName: formData.companyName,
@@ -158,23 +157,36 @@ export default function RooferSignup() {
         selectedPlan: selectedPlan
       });
 
-      const result = response.data;
+      const companyResult = companyResponse.data;
 
-      if (result.success) {
-        alert(`✅ Account created successfully!\n\nCompany: ${formData.companyName}\nPlan: ${plans[selectedPlan].name}\n\nYou can now log in with your email and password.`);
-        navigate(createPageUrl("RooferLogin"));
-      } else {
-        throw new Error(result.error || 'Failed to create account');
+      if (!companyResult.success) {
+        throw new Error(companyResult.error || 'Failed to create company');
       }
+
+      // Step 2: Create User Auth via frontend
+      await base44.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            company_id: companyResult.companyId,
+            aroof_role: 'external_roofer',
+            subscription_plan: selectedPlan || 'free',
+            measurements_used_this_month: 0
+          }
+        }
+      });
+
+      alert(`✅ Account created successfully!\n\nCompany: ${formData.companyName}\nPlan: ${plans[selectedPlan].name}\n\nYou can now log in with your email and password.`);
+      navigate(createPageUrl("RooferLogin"));
       
     } catch (err) {
       console.error('Signup error:', err);
       
-      if (err.message?.includes('already exists') || err.message?.includes('duplicate') || err.message?.includes('already registered') || err.message?.includes('already invited')) {
-        alert('❌ An account with this email already exists.\n\nPlease try logging in instead or contact support.');
+      if (err.message?.includes('already exists') || err.message?.includes('duplicate') || err.message?.includes('already registered')) {
+        alert('❌ An account with this email already exists.\n\nPlease try logging in instead.');
         navigate(createPageUrl("RooferLogin"));
-      } else if (err.message?.includes('permission') || err.message?.includes('denied')) {
-        alert('❌ Unable to create account - permission denied.\n\nThis likely means you need to enable user invitations or be logged in as an admin to create accounts.\n\nPlease contact support.');
       } else {
         alert('❌ Failed to create account.\n\n' + (err.message || 'Please try again or contact support.'));
       }

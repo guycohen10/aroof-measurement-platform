@@ -5,7 +5,7 @@ Deno.serve(async (req) => {
     const data = await req.json();
     const base44 = createClientFromRequest(req);
 
-    // Step 1: Create Company
+    // ONLY Create Company with Service Role
     const company = await base44.asServiceRole.entities.Company.create({
       company_name: data.companyData?.companyName || data.company_name,
       contact_email: data.email,
@@ -20,30 +20,13 @@ Deno.serve(async (req) => {
       subscription_tier: data.selectedPlan || 'free'
     });
 
-    // Step 2: Create Auth User
-    const newUser = await base44.asServiceRole.auth.signUp({
-      email: data.email,
-      password: data.password,
-      full_name: data.fullName || data.full_name
-    });
-
-    // Step 3: Update User Metadata
-    await base44.asServiceRole.auth.updateUser(newUser.id, {
-      company_id: company.id,
-      aroof_role: 'external_roofer',
-      subscription_plan: data.selectedPlan || 'free',
-      measurements_used_this_month: 0
-    });
-
     return new Response(JSON.stringify({
       success: true,
-      message: "Account created successfully! You can now log in.",
-      companyId: company.id,
-      userId: newUser.id
+      companyId: company.id
     }), { headers: { "Content-Type": "application/json" } });
 
   } catch (error) {
-    console.error('Signup error:', error);
+    console.error('Create company error:', error);
     return new Response(JSON.stringify({ 
       success: false, 
       error: error.message 
