@@ -27,41 +27,24 @@ Deno.serve(async (req) => {
 
     console.log('✅ Company created:', company.id);
 
-    // Step 2: Call auth API to create user account
-    // Base44 provides auth management at the platform level
-    const authResponse = await fetch(
-      `${Deno.env.get('BASE44_AUTH_API_URL') || 'https://auth.base44.dev'}/api/auth/signup`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-base44-app-id': Deno.env.get('BASE44_APP_ID'),
-          'x-base44-service-role': 'true'
-        },
-        body: JSON.stringify({
-          email,
-          password: body.password,
-          full_name: fullName,
-          company_id: company.id,
-          aroof_role: 'external_roofer'
-        })
-      }
-    );
+    // Step 2: Create User directly via service role
+    console.log('👤 Creating user account...');
+    const user = await base44.asServiceRole.entities.User.create({
+      email,
+      full_name: fullName,
+      role: 'user',
+      company_id: company.id,
+      aroof_role: 'external_roofer'
+    });
 
-    if (!authResponse.ok) {
-      const error = await authResponse.json();
-      throw new Error(error.message || 'Failed to create user account');
-    }
-
-    const authData = await authResponse.json();
-    console.log('✅ User account created');
+    console.log('✅ User created:', user.id);
 
     return Response.json({
       success: true,
       message: 'Account created successfully',
       companyId: company.id,
-      email,
-      sessionToken: authData.session_token
+      userId: user.id,
+      email
     });
 
   } catch (error) {
