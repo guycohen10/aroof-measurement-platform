@@ -5,12 +5,12 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { email, fullName, companyData, selectedPlan } = body;
 
-    console.log('🚀 Starting account creation for:', email);
+    console.log('🚀 Creating account for:', email);
 
     const base44 = createClientFromRequest(req);
 
-    // Create Company
-    console.log('📦 Creating company:', companyData.companyName);
+    // Step 1: Create Company (via service role for public signup)
+    console.log('📦 Creating company...');
     const company = await base44.asServiceRole.entities.Company.create({
       company_name: companyData.companyName,
       contact_email: email,
@@ -21,36 +21,51 @@ Deno.serve(async (req) => {
       address_state: companyData.state || '',
       address_zip: companyData.zip || '',
       is_active: true,
-      subscription_tier: selectedPlan || 'free',
-      subscription_status: 'active'
+      subscription_tier: selectedPlan || 'basic',
+      subscription_status: 'trial'
     });
 
     console.log('✅ Company created:', company.id);
 
-    // Create User record with extended attributes
-    console.log('👤 Creating user:', email);
-    const newUser = await base44.asServiceRole.entities.User.create({
-      email,
-      full_name: fullName,
-      role: 'user',
-      company_id: company.id,
-      aroof_role: 'external_roofer',
-      subscription_plan: selectedPlan || 'free'
-    });
+    // Step 2: Call auth API to create user account
+    // Base44 provides auth management at the platform level
+    const authResponse = await fetch(
+      `${Deno.env.get('BASE44_AUTH_API_URL') || 'https://auth.base44.dev'}/api/auth/signup`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-base44-app-id': Deno.env.get('BASE44_APP_ID'),
+          'x-base44-service-role': 'true'
+        },
+        body: JSON.stringify({
+          email,
+          password: body.password,
+          full_name: fullName,
+          company_id: company.id,
+          aroof_role: 'external_roofer'
+        })
+      }
+    );
 
-    console.log('✅ User created:', newUser.id);
+    if (!authResponse.ok) {
+      const error = await authResponse.json();
+      throw new Error(error.message || 'Failed to create user account');
+    }
+
+    const authData = await authResponse.json();
+    console.log('✅ User account created');
 
     return Response.json({
       success: true,
       message: 'Account created successfully',
       companyId: company.id,
-      userId: newUser.id,
-      email
+      email,
+      sessionToken: authData.session_token
     });
 
   } catch (error) {
     console.error('❌ Error:', error.message);
-    console.error('📋 Full error:', error);
     
     return Response.json({
       success: false,
