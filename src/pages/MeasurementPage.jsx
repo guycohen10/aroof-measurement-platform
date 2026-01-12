@@ -154,13 +154,29 @@ export default function MeasurementPage() {
       };
 
       console.log('✅ Address geocoded:', coords);
+      
+      // Update state
+      setCoordinates(coords);
+      setCurrentZoom(20);
+      setAddressLoaded(true);
+
+      // Update lead with coordinates if we have a lead ID
+      const leadId = searchParams.get('leadId') || sessionStorage.getItem('active_lead_id');
+      if (leadId) {
+        await base44.entities.Measurement.update(leadId, {
+          latitude: coords.lat,
+          longitude: coords.lng
+        });
+        console.log('✅ Lead updated with coordinates');
+      }
+
       return coords;
 
     } catch (err) {
       console.error('Geocoding error:', err);
       return null;
     }
-  }, []);
+  }, [searchParams]);
 
   // Load lead data if leadId is in URL or session
   useEffect(() => {
