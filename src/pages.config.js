@@ -20,15 +20,12 @@ import ExistingLeadSelector from './pages/ExistingLeadSelector';
 import FollowUpSettings from './pages/FollowUpSettings';
 import ForgotPassword from './pages/ForgotPassword';
 import Gutters from './pages/Gutters';
-import Home from './pages/Home';
 import Homepage from './pages/Homepage';
 import Insurance from './pages/Insurance';
 import JobScheduling from './pages/JobScheduling';
 import LeadManagement from './pages/LeadManagement';
 import MaintenancePlans from './pages/MaintenancePlans';
-import Measure from './pages/Measure';
 import MeasurementPage from './pages/MeasurementPage';
-import MeasurementTool from './pages/MeasurementTool';
 import NewLeadForm from './pages/NewLeadForm';
 import PDFDownload from './pages/PDFDownload';
 import Payment from './pages/Payment';
@@ -78,15 +75,12 @@ export const PAGES = {
     "FollowUpSettings": FollowUpSettings,
     "ForgotPassword": ForgotPassword,
     "Gutters": Gutters,
-    "Home": Home,
     "Homepage": Homepage,
     "Insurance": Insurance,
     "JobScheduling": JobScheduling,
     "LeadManagement": LeadManagement,
     "MaintenancePlans": MaintenancePlans,
-    "Measure": Measure,
     "MeasurementPage": MeasurementPage,
-    "MeasurementTool": MeasurementTool,
     "NewLeadForm": NewLeadForm,
     "PDFDownload": PDFDownload,
     "Payment": Payment,
