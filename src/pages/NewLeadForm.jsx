@@ -60,6 +60,10 @@ export default function NewLeadForm() {
       sessionStorage.setItem('active_lead_id', lead.id);
       sessionStorage.setItem('lead_address', formData.propertyAddress);
       
+      console.log('🔵 NewLeadForm: Lead created with ID:', lead.id);
+      console.log('🔵 NewLeadForm: Set sessionStorage active_lead_id:', lead.id);
+      console.log('🔵 NewLeadForm: Navigating to:', `MeasurementPage?leadId=${lead.id}`);
+      
       navigate(createPageUrl(`MeasurementPage?leadId=${lead.id}`));
 
     } catch (err) {

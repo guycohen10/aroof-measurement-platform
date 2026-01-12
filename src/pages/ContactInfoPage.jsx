@@ -29,14 +29,21 @@ export default function ContactInfoPage() {
   const checkIfRooferAndRedirect = async () => {
     try {
       const user = await base44.auth.me();
+      console.log('🔴 ContactInfoPage loaded!');
+      console.log('🔴 User role:', user?.aroof_role);
+      console.log('🔴 active_lead_id in session:', sessionStorage.getItem('active_lead_id'));
+      console.log('🔴 pending_measurement_id in session:', sessionStorage.getItem('pending_measurement_id'));
+      
       if (user && user.aroof_role === 'external_roofer') {
         // Roofer should NEVER reach this page
-        console.error('❌ Roofer tried to access ContactInfoPage');
+        console.error('❌ ROOFER TRIED TO ACCESS CONTACTINFOPAGE - THIS IS THE BUG!');
         alert('You already entered customer info. Going to results...');
         
         // Get measurement ID from session
         const measurementId = sessionStorage.getItem('active_lead_id') || 
                              sessionStorage.getItem('pending_measurement_id');
+        
+        console.log('🔴 Redirecting roofer with measurementId:', measurementId);
         
         if (measurementId) {
           navigate(createPageUrl(`Results?measurementid=${measurementId}`));
@@ -46,10 +53,12 @@ export default function ContactInfoPage() {
         return;
       } else {
         // Not a roofer - load measurement for homeowner
+        console.log('🔴 Loading measurement for homeowner');
         loadMeasurement();
       }
     } catch {
       // Not logged in - proceed normally for homeowners
+      console.log('🔴 User not logged in - loading measurement for homeowner');
       loadMeasurement();
     }
   };

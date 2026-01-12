@@ -98,18 +98,26 @@ export default function MeasurementPage() {
     const checkPublicAccess = async () => {
       try {
         const user = await base44.auth.me();
+        console.log('🟢 MeasurementPage loaded for user role:', user?.aroof_role);
+        console.log('🟢 MeasurementPage: sessionStorage active_lead_id:', sessionStorage.getItem('active_lead_id'));
+        
         // If roofer AND no leadId in URL/session, redirect to dashboard
         if (user && user.aroof_role === 'external_roofer') {
           const urlParams = new URLSearchParams(window.location.search);
           const hasLeadId = urlParams.get('leadId') || sessionStorage.getItem('active_lead_id');
           
+          console.log('🟢 MeasurementPage: URL leadId param:', urlParams.get('leadId'));
+          console.log('🟢 MeasurementPage: hasLeadId check result:', hasLeadId);
+          
           if (!hasLeadId) {
+            console.log('🟢 MeasurementPage: No lead ID found, redirecting to dashboard');
             navigate(createPageUrl("RooferDashboard"));
             return;
           }
         }
       } catch {
         // Not logged in - allow access for homeowners
+        console.log('🟢 MeasurementPage: User not logged in (homeowner)');
       }
     };
     checkPublicAccess();
@@ -1581,24 +1589,36 @@ export default function MeasurementPage() {
       // CRITICAL: Check if this is a roofer with an existing lead
       const leadId = sessionStorage.getItem('active_lead_id');
       
+      console.log('🟡 Measurement complete!');
+      console.log('🟡 isRoofer:', isRoofer);
+      console.log('🟡 leadId from session:', leadId);
+      console.log('🟡 savedMeasurementId:', savedMeasurementId);
+      console.log('🟡 measurementId state:', measurementId);
+      
       if (isRoofer && leadId) {
         // Roofer updating existing lead - customer info already saved
+        console.log('✅ ROOFER PATH: Going directly to Results');
+        
         // Clear session storage
         sessionStorage.removeItem('active_lead_id');
         sessionStorage.removeItem('lead_address');
         sessionStorage.removeItem('pending_measurement_id');
         
         // Go DIRECTLY to results - NO ContactInfoPage
+        console.log('🟡 Navigating to Results with measurementid:', savedMeasurementId);
         navigate(createPageUrl(`Results?measurementid=${savedMeasurementId}`));
       } else if (isRoofer && !leadId) {
         // Roofer without lead - shouldn't happen, redirect to dashboard
+        console.log('⚠️ ROOFER WITHOUT LEAD - Redirecting to dashboard');
         alert('Please start from dashboard to measure roofs');
         navigate(createPageUrl('RooferDashboard'));
       } else {
         // Homeowner - must provide contact info and verify email
+        console.log('👤 HOMEOWNER PATH: Going to ContactInfoPage');
         sessionStorage.removeItem('active_lead_id');
         sessionStorage.removeItem('lead_address');
         sessionStorage.setItem('pending_measurement_id', savedMeasurementId);
+        console.log('🟡 Navigating to ContactInfoPage');
         navigate(createPageUrl('ContactInfoPage'));
       }
       
