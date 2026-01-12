@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Loader2, LogOut, BarChart3, Users, UserCheck, Phone, HardHat, Hammer, Calendar, DollarSign, Settings, Cloud, MessageSquare } from "lucide-react";
 import OverviewTab from "../components/admin/godmode/OverviewTab";
 import LeadsGodModeTab from "../components/admin/godmode/LeadsGodModeTab";
+import HomeownerLeadsGodModeTab from "../components/admin/godmode/HomeownerLeadsGodModeTab";
 import EstimatorsGodModeTab from "../components/admin/godmode/EstimatorsGodModeTab";
 import DispatchersGodModeTab from "../components/admin/godmode/DispatchersGodModeTab";
 import CrewsGodModeTab from "../components/admin/godmode/CrewsGodModeTab";
@@ -115,6 +116,7 @@ export default function AdminGodMode() {
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'homeowner-leads', label: 'Homeowner Leads', icon: Users },
     { id: 'leads', label: 'Leads', icon: Users },
     { id: 'estimators', label: 'Estimators', icon: UserCheck },
     { id: 'dispatchers', label: 'Dispatchers', icon: Phone },
@@ -183,6 +185,7 @@ export default function AdminGodMode() {
 
         {/* Tab Content */}
         {activeTab === 'overview' && <OverviewTab key={refreshKey} />}
+        {activeTab === 'homeowner-leads' && <HomeownerLeadsGodModeTab key={refreshKey} />}
         {activeTab === 'leads' && <LeadsGodModeTab key={refreshKey} />}
         {activeTab === 'estimators' && <EstimatorsGodModeTab key={refreshKey} />}
         {activeTab === 'dispatchers' && <DispatchersGodModeTab key={refreshKey} />}
