@@ -35,6 +35,116 @@ export default function RooferLogin() {
     }
   };
 
+  const testDemoAccount = async () => {
+    try {
+      console.log('🧪 ═══════════════════════════════════════════════');
+      console.log('🧪 TESTING DEMO ACCOUNT');
+      console.log('🧪 ═══════════════════════════════════════════════');
+      
+      // Step 1: Check if company exists
+      console.log('📋 Step 1: Checking for demo company...');
+      const companies = await base44.entities.Company.list();
+      let demoCompany = companies.find(c => c.contact_email === 'demo@roofer.com');
+      
+      if (!demoCompany) {
+        console.log('📋 Creating demo company...');
+        demoCompany = await base44.entities.Company.create({
+          company_name: 'Demo Roofing Company',
+          contact_name: 'Demo Roofer',
+          contact_email: 'demo@roofer.com',
+          contact_phone: '(214) 555-0000',
+          address_street: '123 Demo St',
+          address_city: 'Dallas',
+          address_state: 'TX',
+          address_zip: '75001',
+          is_active: true,
+          subscription_tier: 'pro',
+          subscription_status: 'active'
+        });
+        console.log('✅ Demo company created:', demoCompany.id);
+      } else {
+        console.log('✅ Demo company exists:', demoCompany.id);
+      }
+      
+      // Step 2: Try to login
+      console.log('🔐 Step 2: Testing login...');
+      try {
+        await base44.auth.login('demo@roofer.com', 'demo123');
+        console.log('✅ Login successful');
+      } catch (loginErr) {
+        console.log('❌ Login failed - account may not exist');
+        console.log('Creating account via signup...');
+        try {
+          await base44.auth.signup({
+            email: 'demo@roofer.com',
+            password: 'demo123',
+            full_name: 'Demo Roofer'
+          });
+          console.log('✅ Account created, logging in...');
+          await base44.auth.login('demo@roofer.com', 'demo123');
+        } catch (signupErr) {
+          console.error('Signup error:', signupErr);
+          throw new Error(`Failed to create account: ${signupErr.message}`);
+        }
+      }
+      
+      // Step 3: Get user and update
+      console.log('👤 Step 3: Getting user data...');
+      const user = await base44.auth.me();
+      console.log('Current user data:', JSON.stringify(user, null, 2));
+      
+      // Step 4: Update user with aroof_role if missing
+      console.log('🔧 Step 4: Checking user role...');
+      if (!user.aroof_role || user.aroof_role !== 'external_roofer' || !user.company_id) {
+        console.log('Updating user with correct role and company...');
+        await base44.auth.updateMe({
+          aroof_role: 'external_roofer',
+          company_id: demoCompany.id,
+          company_name: 'Demo Roofing Company',
+          phone: '(214) 555-0000'
+        });
+        console.log('✅ User updated');
+        
+        // Verify update
+        const updatedUser = await base44.auth.me();
+        console.log('Updated user data:', JSON.stringify(updatedUser, null, 2));
+      } else {
+        console.log('✅ User already has correct role and company');
+      }
+      
+      // Step 5: Test creating a lead
+      console.log('📝 Step 5: Testing lead creation...');
+      const testLead = await base44.entities.Lead.create({
+        name: 'Test Customer',
+        email: 'test@example.com',
+        phone: '214-555-1234',
+        address: '123 Test St, Dallas, TX 75001'
+      });
+      console.log('✅ Test lead created:', testLead.id);
+      
+      // Clean up test lead
+      await base44.entities.Lead.delete(testLead.id);
+      console.log('✅ Test lead deleted');
+      
+      console.log('🧪 ═══════════════════════════════════════════════');
+      console.log('🧪 ALL TESTS PASSED ✅');
+      console.log('🧪 ═══════════════════════════════════════════════');
+      
+      alert('✅ Demo account test passed!\n\nYou can now login with:\nEmail: demo@roofer.com\nPassword: demo123\n\nCheck console for details.');
+      return true;
+      
+    } catch (err) {
+      console.error('❌ ═══════════════════════════════════════════════');
+      console.error('❌ DEMO ACCOUNT TEST FAILED');
+      console.error('❌ ═══════════════════════════════════════════════');
+      console.error('Error:', err);
+      console.error('Message:', err.message);
+      console.error('Stack:', err.stack);
+      alert(`❌ Demo account test failed:\n\n${err.message}\n\nCheck console for full details.`);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -259,6 +369,23 @@ export default function RooferLogin() {
                 Create Contractor Account
               </Button>
             </Link>
+
+            {/* DEMO ACCOUNT TEST BUTTON */}
+            <div className="mt-6 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
+              <p className="text-sm text-yellow-800 mb-3 font-semibold">
+                🧪 Developer Tools
+              </p>
+              <p className="text-xs text-yellow-700 mb-3">
+                Setup and test the demo account. Creates company, user, and verifies permissions.
+              </p>
+              <Button 
+                type="button"
+                onClick={testDemoAccount}
+                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
+              >
+                🧪 Test & Setup Demo Account
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
