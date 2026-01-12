@@ -25,6 +25,7 @@ export default function Results() {
   const [downloadCount, setDownloadCount] = useState(0);
   const [currentUser, setCurrentUser] = useState(null);
   const [isRoofer, setIsRoofer] = useState(false);
+  const [userType, setUserType] = useState(null);
   const [mapScriptLoaded, setMapScriptLoaded] = useState(false);
   const scriptLoadedRef = useRef(false);
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
@@ -117,9 +118,11 @@ export default function Results() {
         const user = await base44.auth.me();
         setCurrentUser(user);
         setIsRoofer(user && user.aroof_role === 'external_roofer');
+        setUserType('roofer');
       } catch (err) {
         setCurrentUser(null);
         setIsRoofer(false);
+        setUserType('homeowner');
       }
     };
 
