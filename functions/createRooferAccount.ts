@@ -13,9 +13,12 @@ Deno.serve(async (req) => {
       subscription_status: 'trial'
     });
 
+    // Send user invitation
+    await base44.users.inviteUser(data.email, "admin");
+
     return new Response(JSON.stringify({
       success: true,
-      message: "Company created. Please invite user manually.",
+      message: "Company created and invitation sent to your email!",
       companyId: company.id
     }), { headers: { "Content-Type": "application/json" } });
 
