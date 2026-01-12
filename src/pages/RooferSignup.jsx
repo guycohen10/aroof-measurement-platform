@@ -142,57 +142,27 @@ export default function RooferSignup() {
     }
 
     try {
-      // DEBUG: Check what auth methods are available
-      console.log('🔍 Base44 client:', base44);
-      console.log('🔍 Base44.auth object:', base44.auth);
-      console.log('🔍 Available auth methods:', Object.keys(base44.auth || {}));
-      console.log('🔍 Type of base44.auth.signup:', typeof base44.auth.signup);
-      console.log('🔍 Does signup exist?:', 'signup' in (base44.auth || {}));
-      
-      // Show me ALL available methods on base44.auth
-      console.log('🔍 All auth methods:');
-      for (let key in base44.auth) {
-        console.log(`  - base44.auth.${key}:`, typeof base44.auth[key]);
-      }
-      
-      // Step 1: Create Company via backend
-      const companyResponse = await base44.functions.invoke('createRooferAccount', {
-        email: formData.email,
-        fullName: formData.fullName,
-        companyData: {
-          companyName: formData.companyName,
-          companyPhone: formData.companyPhone,
-          address: formData.address,
-          city: formData.city,
-          state: formData.state,
-          zip: formData.zip
-        },
-        selectedPlan: selectedPlan
-      });
-
-      const companyResult = companyResponse.data;
-
-      if (!companyResult.success) {
-        throw new Error(companyResult.error || 'Failed to create company');
-      }
-
-      // Step 2: Create User Auth via frontend
-      await base44.auth.signup({
+      // Register user with Base44
+      await base44.auth.register({
         email: formData.email,
         password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            company_id: companyResult.companyId,
-            aroof_role: 'external_roofer',
-            subscription_plan: selectedPlan || 'free',
-            measurements_used_this_month: 0
-          }
-        }
+        full_name: formData.fullName,
+        company_name: formData.companyName,
+        company_phone: formData.companyPhone,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        zip: formData.zip,
+        aroof_role: 'external_roofer',
+        subscription_plan: selectedPlan || 'free',
+        measurements_used_this_month: 0
       });
 
-      alert(`✅ Account created successfully!\n\nCompany: ${formData.companyName}\nPlan: ${plans[selectedPlan].name}\n\nYou can now log in with your email and password.`);
-      navigate(createPageUrl("RooferLogin"));
+      // Auto-login after registration
+      await base44.auth.loginViaEmailPassword(formData.email, formData.password);
+
+      alert(`✅ Account created successfully!\n\nCompany: ${formData.companyName}\nPlan: ${plans[selectedPlan].name}\n\nRedirecting to your dashboard...`);
+      navigate(createPageUrl("RooferDashboard"));
       
     } catch (err) {
       console.error('Signup error:', err);
