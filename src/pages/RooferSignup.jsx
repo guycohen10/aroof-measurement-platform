@@ -161,8 +161,8 @@ export default function RooferSignup() {
       const result = response.data;
 
       if (result.success) {
-        alert(`✅ Company created successfully!\n\nCompany: ${formData.companyName}\nPlan: ${plans[selectedPlan].name}\n\n${result.message}\n\nWe'll send you an email invitation shortly to complete your account setup.`);
-        navigate(createPageUrl("Homepage"));
+        alert(`✅ Account created successfully!\n\nCompany: ${formData.companyName}\nPlan: ${plans[selectedPlan].name}\n\nYou can now log in with your email and password.`);
+        navigate(createPageUrl("RooferLogin"));
       } else {
         throw new Error(result.error || 'Failed to create account');
       }
