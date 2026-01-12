@@ -123,8 +123,8 @@ export default function RooferDashboard() {
       return;
     }
 
-    // Redirect to measurement page
-    navigate(createPageUrl("FormPage"));
+    // Redirect to NewLeadForm (correct roofer flow)
+    navigate(createPageUrl("NewLeadForm"));
   };
 
   const getLimit = (plan) => {
