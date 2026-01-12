@@ -98,7 +98,104 @@ export default function MeasurementPage() {
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
+  const [mapCenter, setMapCenter] = useState(null);
+  const [mapZoom, setMapZoom] = useState(20);
 
+  // Helper function to geocode and center map
+  const geocodeAndCenterMap = async (address) => {
+    if (!window.google?.maps) {
+      console.log('⏳ Google Maps not ready yet, will retry...');
+      setTimeout(() => geocodeAndCenterMap(address), 1000);
+      return;
+    }
+
+    try {
+      const geocoder = new window.google.maps.Geocoder();
+      const result = await new Promise((resolve, reject) => {
+        geocoder.geocode({ address: address }, (results, status) => {
+          if (status === 'OK' && results[0]) {
+            resolve(results[0]);
+          } else {
+            reject(new Error('Geocoding failed: ' + status));
+          }
+        });
+      });
+
+      const location = result.geometry.location;
+      const coords = { lat: location.lat(), lng: location.lng() };
+
+      console.log('📍 Geocoded coordinates:', coords);
+
+      setMapCenter(coords);
+      setMapZoom(20);
+
+    } catch (err) {
+      console.error('Geocoding error:', err);
+    }
+  };
+
+  // At the very top of the component, BEFORE any other useEffect
+  // Clear old data and load new address FIRST
+  useEffect(() => {
+    const initializePage = async () => {
+      console.log('🏠 ═══════════════════════════════════');
+      console.log('🏠 MEASUREMENT PAGE INITIALIZATION');
+      console.log('🏠 ═══════════════════════════════════');
+
+      // Check URL parameters
+      const addressFromURL = searchParams.get('address');
+      console.log('🌐 Address from URL:', addressFromURL);
+
+      // Check session storage
+      const sessionAddress = sessionStorage.getItem('homeowner_address');
+      const sessionMethod = sessionStorage.getItem('measurement_method');
+      console.log('📦 Address from session:', sessionAddress);
+      console.log('📦 Method from session:', sessionMethod);
+
+      // Check if user is authenticated
+      let isRoofer = false;
+      try {
+        const user = await base44.auth.me();
+        isRoofer = user?.aroof_role === 'external_roofer';
+        console.log('👤 User type:', isRoofer ? 'Roofer' : 'Homeowner');
+      } catch (err) {
+        console.log('👤 Not authenticated (homeowner)');
+      }
+
+      // For homeowners, ALWAYS use fresh address from URL/session
+      if (!isRoofer) {
+        const finalAddress = addressFromURL || sessionAddress;
+
+        if (finalAddress) {
+          console.log('✅ Loading address for homeowner:', finalAddress);
+          setAddress(finalAddress);
+
+          // Clear old session data
+          sessionStorage.removeItem('active_lead_id');
+          sessionStorage.removeItem('lead_address');
+          sessionStorage.removeItem('pending_measurement_id');
+
+          // Geocode and center map on this address
+          await geocodeAndCenterMap(finalAddress);
+        } else {
+          console.log('⚠️ No address provided - homeowner should not be here');
+          // Redirect back to address selector
+          navigate('/addressmethodselector');
+        }
+      } else {
+        // Roofer flow - check for lead
+        const leadId = searchParams.get('leadId') || sessionStorage.getItem('active_lead_id');
+        if (leadId) {
+          console.log('✅ Loading lead for roofer:', leadId);
+          await loadLeadData(leadId);
+        }
+      }
+
+      console.log('🏠 ═══════════════════════════════════\n');
+    };
+
+    initializePage();
+  }, []); // Empty dependency array - run once on mount
 
   // Check if roofer is accessing public page incorrectly
   useEffect(() => {
@@ -1882,7 +1979,17 @@ export default function MeasurementPage() {
               <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-blue-600 font-medium">Property:</p>
-                <p className="text-sm font-bold text-blue-900 break-words">{address || 'Enter address to start'}</p>
+                <Input
+                  value={address || ''}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Enter property address..."
+                  autoComplete="new-password" // Tricks browser into NOT autocompleting
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  disabled // Make it read-only if pre-loaded from URL
+                  className="text-sm font-bold text-blue-900 bg-transparent border-none p-0 h-auto focus-visible:ring-0"
+                />
                 {(coordinates || addressLoaded) && (
                   <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                     <CheckCircle className="w-3 h-3" />
