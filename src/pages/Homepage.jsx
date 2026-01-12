@@ -287,11 +287,11 @@ export default function Homepage() {
                     if (user && user.aroof_role === 'external_roofer') {
                       navigate(createPageUrl("RooferDashboard"));
                     } else {
-                      navigate(createPageUrl("MeasurementPage"));
+                       navigate(createPageUrl("AddressMethodSelector"));
+                     }
+                    } catch {
+                     navigate(createPageUrl("AddressMethodSelector"));
                     }
-                  } catch {
-                    navigate(createPageUrl("MeasurementPage"));
-                  }
                 }}
               >
               <Zap className="w-6 h-6 mr-2" aria-hidden="true" />
@@ -543,11 +543,11 @@ export default function Homepage() {
                     if (user && user.aroof_role === 'external_roofer') {
                       navigate(createPageUrl("RooferDashboard"));
                     } else {
-                      navigate(createPageUrl("MeasurementPage"));
+                       navigate(createPageUrl("AddressMethodSelector"));
+                     }
+                    } catch {
+                     navigate(createPageUrl("AddressMethodSelector"));
                     }
-                  } catch {
-                    navigate(createPageUrl("MeasurementPage"));
-                  }
                 }}
               >
             <Zap className="w-8 h-8 mr-3" aria-hidden="true" />
