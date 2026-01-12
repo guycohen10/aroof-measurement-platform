@@ -201,7 +201,7 @@ export default function RooferSignup() {
       // Verify the OTP
       await base44.auth.verifyOtp({
         email: registeredEmail,
-        code: verificationCode
+        otp: verificationCode
       });
 
       console.log('✅ Email verified');
