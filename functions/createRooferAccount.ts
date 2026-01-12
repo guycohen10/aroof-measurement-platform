@@ -5,7 +5,7 @@ Deno.serve(async (req) => {
     const { email, fullName, companyData, selectedPlan } = await req.json();
     const base44 = createClientFromRequest(req);
 
-    // Create Company
+    // Create Company record
     const company = await base44.asServiceRole.entities.Company.create({
       company_name: companyData.companyName,
       contact_email: email,
@@ -20,16 +20,17 @@ Deno.serve(async (req) => {
       subscription_status: 'trial'
     });
 
-    // Invite User
-    await base44.users.inviteUser(email, 'user');
-
-    return Response.json({ success: true, companyId: company.id });
+    // Return success - company created, user must be invited manually via dashboard
+    return Response.json({ 
+      success: true, 
+      companyId: company.id,
+      message: 'Company created. User invitation will be sent separately.'
+    });
 
   } catch (error) {
     return Response.json({ 
       success: false, 
-      error: error.message, 
-      stack: error.stack 
+      error: error.message 
     }, { status: 400 });
   }
 });
