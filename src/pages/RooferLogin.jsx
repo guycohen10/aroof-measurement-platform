@@ -187,6 +187,13 @@ export default function RooferLogin() {
       console.error('❌ Login error:', err);
       console.error('Error message:', err.message);
       
+      // Check if error is about unverified email
+      if (err.message?.includes('verify') || err.message?.includes('verification') || err.message?.includes('email')) {
+        console.log('📧 Redirecting to email verification...');
+        navigate(`${createPageUrl('EmailVerification')}?email=${encodeURIComponent(formData.email)}`);
+        return;
+      }
+      
       if (err.message?.includes('Invalid credentials') || err.message?.includes('401')) {
         setError("Invalid email or password. Please try again.");
       } else if (err.message?.includes('User not found')) {
