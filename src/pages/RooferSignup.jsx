@@ -27,6 +27,11 @@ export default function RooferSignup() {
   const [billingCycle, setBillingCycle] = useState("monthly");
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showSignupForm, setShowSignupForm] = useState(false);
+  const [step, setStep] = useState(1); // 1 = registration, 2 = verification
+  const [verificationCode, setVerificationCode] = useState("");
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [registeredPassword, setRegisteredPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     companyName: "",
@@ -141,7 +146,11 @@ export default function RooferSignup() {
       return;
     }
 
+    setLoading(true);
+
     try {
+      console.log('🔵 Registering account...');
+
       // Register user with Base44
       await base44.auth.register({
         email: formData.email,
@@ -158,11 +167,15 @@ export default function RooferSignup() {
         measurements_used_this_month: 0
       });
 
-      // Auto-login after registration
-      await base44.auth.loginViaEmailPassword(formData.email, formData.password);
+      console.log('✅ Registration successful');
+      console.log('📧 Verification code sent to:', formData.email);
 
-      alert(`✅ Account created successfully!\n\nCompany: ${formData.companyName}\nPlan: ${plans[selectedPlan].name}\n\nRedirecting to your dashboard...`);
-      navigate(createPageUrl("RooferDashboard"));
+      // Save credentials and move to verification step
+      setRegisteredEmail(formData.email);
+      setRegisteredPassword(formData.password);
+      setStep(2);
+
+      alert('✅ Check your email for a verification code.');
       
     } catch (err) {
       console.error('Signup error:', err);
@@ -171,8 +184,54 @@ export default function RooferSignup() {
         alert('❌ An account with this email already exists.\n\nPlease try logging in instead.');
         navigate(createPageUrl("RooferLogin"));
       } else {
-        alert('❌ Failed to create account.\n\n' + (err.message || 'Please try again or contact support.'));
+        alert('❌ Registration failed.\n\n' + (err.message || 'Please try again or contact support.'));
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerification = async (e) => {
+    e?.preventDefault();
+    setLoading(true);
+
+    try {
+      console.log('🔵 Verifying code...');
+
+      // Verify the OTP
+      await base44.auth.verifyOtp({
+        email: registeredEmail,
+        code: verificationCode
+      });
+
+      console.log('✅ Email verified');
+
+      // Auto-login after verification
+      await base44.auth.loginViaEmailPassword(registeredEmail, registeredPassword);
+
+      const user = await base44.auth.me();
+      console.log('✅ Logged in:', user.email);
+
+      alert('✅ Email verified! Welcome to Aroof.');
+      navigate(createPageUrl("RooferDashboard"));
+
+    } catch (err) {
+      console.error('Verification error:', err);
+      alert('❌ Verification failed.\n\n' + (err.message || 'Please check your code and try again.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setLoading(true);
+    try {
+      await base44.auth.resendOtp({ email: registeredEmail });
+      alert('✅ Verification code resent to ' + registeredEmail);
+    } catch (err) {
+      alert('❌ Failed to resend code: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -416,23 +475,26 @@ export default function RooferSignup() {
       {showSignupForm && (
         <section className="py-20 bg-white border-t-4 border-blue-600">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold text-slate-900 mb-4">
-                Create Your Account
-              </h2>
-              <p className="text-xl text-slate-600">
-                Selected Plan: <strong>{plans[selectedPlan]?.name}</strong> - 
-                ${getPrice(plans[selectedPlan])}/month
-              </p>
-              {selectedPlan !== 'free' && (
-                <Badge className="mt-2 bg-green-100 text-green-800">
-                  14-Day Free Trial Included
-                </Badge>
-              )}
-            </div>
+            {step === 1 ? (
+              // STEP 1: REGISTRATION
+              <>
+                <div className="text-center mb-12">
+                  <h2 className="text-4xl font-bold text-slate-900 mb-4">
+                    Create Your Account
+                  </h2>
+                  <p className="text-xl text-slate-600">
+                    Selected Plan: <strong>{plans[selectedPlan]?.name}</strong> - 
+                    ${getPrice(plans[selectedPlan])}/month
+                  </p>
+                  {selectedPlan !== 'free' && (
+                    <Badge className="mt-2 bg-green-100 text-green-800">
+                      14-Day Free Trial Included
+                    </Badge>
+                  )}
+                </div>
 
-            <Card className="shadow-xl">
-              <CardContent className="p-8 space-y-6">
+                <Card className="shadow-xl">
+                  <CardContent className="p-8 space-y-6">
                 <div className="mb-6">
                   <h3 className="text-lg font-bold text-slate-900 mb-2">Section 1: Company Information</h3>
                   <p className="text-sm text-slate-600">Tell us about your roofing business</p>
@@ -552,23 +614,88 @@ export default function RooferSignup() {
                 </div>
 
                 <Button
-                  className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
-                  onClick={handleSignup}
-                >
-                  {selectedPlan === 'free' ? 'Create Free Account' : 'Start 14-Day Free Trial'}
-                </Button>
+                   className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
+                   onClick={handleSignup}
+                   disabled={loading}
+                 >
+                   {loading ? 'Creating Account...' : (selectedPlan === 'free' ? 'Create Free Account' : 'Start 14-Day Free Trial')}
+                 </Button>
 
-                <p className="text-center text-sm text-slate-600">
-                  {selectedPlan === 'free' 
-                    ? 'No credit card required for Free plan'
-                    : 'You won\'t be charged until after your 14-day trial ends'
-                  }
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-      )}
+                 <p className="text-center text-sm text-slate-600">
+                   {selectedPlan === 'free' 
+                     ? 'No credit card required for Free plan'
+                     : 'You won\'t be charged until after your 14-day trial ends'
+                   }
+                 </p>
+                </CardContent>
+                </Card>
+                </>
+                ) : (
+                // STEP 2: EMAIL VERIFICATION
+                <>
+                <div className="text-center mb-12">
+                  <h2 className="text-4xl font-bold text-slate-900 mb-4">
+                    Verify Your Email
+                  </h2>
+                  <p className="text-xl text-slate-600">
+                    We sent a verification code to:<br />
+                    <strong>{registeredEmail}</strong>
+                  </p>
+                </div>
+
+                <Card className="shadow-xl max-w-md mx-auto">
+                  <CardContent className="p-8 space-y-6">
+                    <div>
+                      <Label>Verification Code *</Label>
+                      <Input
+                        type="text"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.toUpperCase())}
+                        placeholder="Enter code from email"
+                        maxLength={10}
+                        className="text-center text-2xl tracking-widest"
+                        disabled={loading}
+                      />
+                      <p className="text-xs text-slate-500 mt-2">Check your email for the 6-digit code</p>
+                    </div>
+
+                    <Button
+                      className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
+                      onClick={handleVerification}
+                      disabled={loading || !verificationCode}
+                    >
+                      {loading ? 'Verifying...' : 'Verify Email'}
+                    </Button>
+
+                    <div className="text-center space-y-3">
+                      <button
+                        type="button"
+                        onClick={handleResendCode}
+                        disabled={loading}
+                        className="text-sm text-blue-600 hover:underline block w-full"
+                      >
+                        Didn't receive the code? Resend
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStep(1);
+                          setVerificationCode("");
+                        }}
+                        disabled={loading}
+                        className="text-sm text-slate-600 hover:underline block w-full"
+                      >
+                        ← Back to registration
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+                </>
+                )}
+                </div>
+                </section>
+                )}
 
       {/* Testimonials */}
       <section className="py-20 bg-slate-900 text-white">
