@@ -278,7 +278,7 @@ export default function RooferLogin() {
               <p className="text-sm text-slate-600 mb-2">
                 <strong>Homeowner?</strong> You don't need an account.
               </p>
-              <Link to={createPageUrl("FormPage")}>
+              <Link to={createPageUrl("MeasurementPage")}>
                 <Button variant="link" className="text-blue-600 font-semibold p-0 h-auto">
                   Get FREE roof measurement →
                 </Button>

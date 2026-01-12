@@ -22,7 +22,7 @@ export default function Layout({ children, currentPageName }) {
   }, []);
 
   // Pages that shouldn't show the navigation
-  const pagesWithoutNav = ['Homepage', 'MeasurementPage', 'FormPage', 'Results', 'Booking', 'BookingSuccess', 'Payment', 'SelectReportType', 'PDFDownload', 'AddressEntry', 'ContactInfoPage'];
+  const pagesWithoutNav = ['Homepage', 'MeasurementPage', 'Results', 'Booking', 'BookingSuccess', 'Payment', 'SelectReportType', 'PDFDownload', 'ContactInfoPage'];
   const shouldShowNav = !pagesWithoutNav.includes(currentPageName);
 
   return (
