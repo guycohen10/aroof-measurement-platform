@@ -1,7 +1,10 @@
-export default async function createRooferAccount({ base44, params }) {
-  const { email, password, fullName, companyData, selectedPlan } = params;
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
+Deno.serve(async (req) => {
   try {
+    const base44 = createClientFromRequest(req);
+    const { email, fullName, companyData, selectedPlan } = await req.json();
+
     // Step 1: Invite user (creates account with email)
     await base44.asServiceRole.users.inviteUser(email, "user");
 
@@ -39,18 +42,18 @@ export default async function createRooferAccount({ base44, params }) {
       });
     }
 
-    return {
+    return Response.json({
       success: true,
       message: 'Account created successfully',
       companyId: company.id,
       userEmail: email
-    };
+    });
 
   } catch (err) {
     console.error('createRooferAccount error:', err);
-    return {
+    return Response.json({
       success: false,
       error: err.message || 'Failed to create account'
-    };
+    }, { status: 500 });
   }
-}
+});
