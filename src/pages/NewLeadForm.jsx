@@ -123,8 +123,24 @@ export default function NewLeadForm() {
       sessionStorage.setItem('active_lead_id', lead.id);
       sessionStorage.setItem('lead_address', formData.propertyAddress);
       
+      // COMPREHENSIVE DEBUG LOGGING
+      console.log('📦 SESSION STORAGE SAVED:');
+      console.log('  active_lead_id:', sessionStorage.getItem('active_lead_id'));
+      console.log('  lead_address:', sessionStorage.getItem('lead_address'));
+      console.log('  All session storage:', JSON.stringify({
+        active_lead_id: sessionStorage.getItem('active_lead_id'),
+        lead_address: sessionStorage.getItem('lead_address'),
+        pending_measurement_id: sessionStorage.getItem('pending_measurement_id')
+      }, null, 2));
+      
+      // Test if it persists
+      setTimeout(() => {
+        console.log('📦 SESSION STORAGE CHECK (after 1 second):');
+        console.log('  active_lead_id:', sessionStorage.getItem('active_lead_id'));
+        console.log('  Still there?', sessionStorage.getItem('active_lead_id') === lead.id ? '✅ YES' : '❌ NO');
+      }, 1000);
+      
       console.log('🔵 NewLeadForm: Lead created with ID:', lead.id);
-      console.log('🔵 NewLeadForm: Set sessionStorage active_lead_id:', lead.id);
       console.log('🔵 NewLeadForm: Navigating to:', `MeasurementPage?leadId=${lead.id}`);
       
       navigate(createPageUrl(`MeasurementPage?leadId=${lead.id}`));

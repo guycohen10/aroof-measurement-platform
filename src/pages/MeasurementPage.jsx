@@ -98,35 +98,57 @@ export default function MeasurementPage() {
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
+  // COMPREHENSIVE DEBUG LOGGING ON PAGE LOAD
+  useEffect(() => {
+    console.log('🔵 ═══════════════════════════════════════════════');
+    console.log('🔵 MEASUREMENTPAGE LOADED');
+    console.log('🔵 ═══════════════════════════════════════════════');
+    console.log('📦 Session storage on load:', {
+      active_lead_id: sessionStorage.getItem('active_lead_id'),
+      lead_address: sessionStorage.getItem('lead_address'),
+      pending_measurement_id: sessionStorage.getItem('pending_measurement_id')
+    });
+    console.log('🌐 URL:', window.location.href);
+    console.log('🌐 Search params:', window.location.search);
+    console.log('🌐 leadId from URL:', new URLSearchParams(window.location.search).get('leadId'));
+    console.log('🔵 ═══════════════════════════════════════════════');
+  }, []);
+
   // Check if roofer is accessing public page incorrectly
   useEffect(() => {
     const checkPublicAccess = async () => {
       try {
         const user = await base44.auth.me();
-        console.log('🟢 MeasurementPage loaded for user role:', user?.aroof_role);
-        console.log('🟢 MeasurementPage: sessionStorage active_lead_id:', sessionStorage.getItem('active_lead_id'));
+        console.log('👤 USER CHECK:');
+        console.log('  Email:', user?.email);
+        console.log('  aroof_role:', user?.aroof_role);
+        console.log('  Role:', user?.role);
+        console.log('  Full user:', JSON.stringify(user, null, 2));
         
         // If roofer AND no leadId in URL/session, redirect to dashboard
         if (user && user.aroof_role === 'external_roofer') {
           const urlParams = new URLSearchParams(window.location.search);
           const hasLeadId = urlParams.get('leadId') || sessionStorage.getItem('active_lead_id');
           
-          console.log('🟢 MeasurementPage: URL leadId param:', urlParams.get('leadId'));
-          console.log('🟢 MeasurementPage: hasLeadId check result:', hasLeadId);
+          console.log('🎭 Roofer detected');
+          console.log('  URL leadId:', urlParams.get('leadId'));
+          console.log('  Session leadId:', sessionStorage.getItem('active_lead_id'));
+          console.log('  Has lead ID?', hasLeadId ? '✅ YES' : '❌ NO');
           
           if (!hasLeadId) {
-            console.log('🟢 MeasurementPage: No lead ID found, redirecting to dashboard');
+            console.log('⚠️ No lead ID found, redirecting to dashboard');
             navigate(createPageUrl("RooferDashboard"));
             return;
           }
         }
-      } catch {
+      } catch (err) {
         // Not logged in - allow access for homeowners
-        console.log('🟢 MeasurementPage: User not logged in (homeowner)');
+        console.log('👤 User not logged in (homeowner flow)');
+        console.log('Error:', err.message);
       }
     };
     checkPublicAccess();
-  }, []);
+  }, [navigate]);
 
   // Geocode address function
   const geocodeAddress = useCallback(async (addressToGeocode) => {
@@ -564,7 +586,9 @@ export default function MeasurementPage() {
 
   // CRITICAL FIX: Load Google Maps script FIRST before anything else
   useEffect(() => {
-    console.log("🚀 Google Maps script loader - FIRST PRIORITY");
+    console.log("🚀 ═══════════════════════════════════════════════");
+    console.log("🚀 Google Maps script loader starting");
+    console.log("🚀 ═══════════════════════════════════════════════");
 
     // Check if already loaded
     if (window.google && window.google.maps && window.google.maps.drawing && window.google.maps.geometry) {
@@ -581,23 +605,36 @@ export default function MeasurementPage() {
     if (existingScript) {
       console.log("⏳ Script tag exists, waiting for Google Maps API...");
       let attempts = 0;
-      const maxAttempts = 60; // Increased timeout
+      const maxAttempts = 100; // INCREASED: 20 seconds
       
       const checkInterval = setInterval(() => {
         attempts++;
         if (window.google && window.google.maps && window.google.maps.drawing && window.google.maps.geometry) {
           clearInterval(checkInterval);
-          console.log("✅ Google Maps API ready!");
+          console.log("✅ Google Maps API ready after", attempts * 200, "ms");
           scriptLoadedRef.current = true;
           setMapScriptLoaded(true);
           setMapError("");
         } else if (attempts >= maxAttempts) {
           clearInterval(checkInterval);
-          console.error("❌ Google Maps load timeout after", maxAttempts * 200, "ms");
-          setMapError("Google Maps is taking too long to load. Please check your connection.");
+          console.error("❌ Google Maps load timeout after", maxAttempts * 200, "ms (20s)");
+          setMapError("Google Maps is taking too long to load. Please check your connection and refresh the page.");
           setMapLoading(false);
+        } else if (attempts % 10 === 0) {
+          console.log(`⏳ Still waiting... (${attempts * 0.2}s / 20s)`);
         }
       }, 200);
+      
+      // Overall safety timeout - 30 seconds
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        if (!scriptLoadedRef.current) {
+          console.error("❌ Overall timeout - 30 seconds elapsed");
+          setMapError("Google Maps failed to load after 30 seconds. Please refresh the page.");
+          setMapLoading(false);
+        }
+      }, 30000);
+      
       return;
     }
 
@@ -608,35 +645,51 @@ export default function MeasurementPage() {
     script.async = true;
     script.defer = true;
     
+    let scriptTimeout;
+    
     script.onload = () => {
-      console.log("✅ Script tag loaded, checking API availability...");
+      clearTimeout(scriptTimeout);
+      console.log("✅ Script tag loaded successfully");
+      console.log("⏳ Waiting for API to initialize...");
       
       // Poll for API availability
       let attempts = 0;
+      const maxAttempts = 100; // 20 seconds
       const checkInterval = setInterval(() => {
         attempts++;
         if (window.google && window.google.maps && window.google.maps.drawing && window.google.maps.geometry) {
           clearInterval(checkInterval);
-          console.log("✅ Google Maps API confirmed ready!");
+          console.log("✅ Google Maps API confirmed ready after", attempts * 200, "ms");
           scriptLoadedRef.current = true;
           setMapScriptLoaded(true);
           setMapError("");
-        } else if (attempts >= 40) {
+        } else if (attempts >= maxAttempts) {
           clearInterval(checkInterval);
-          console.error("❌ API not ready after script load");
-          setMapError("Google Maps API failed to initialize properly.");
+          console.error("❌ API not ready after 20 seconds");
+          setMapError("Google Maps API failed to initialize. Please refresh the page.");
           setMapLoading(false);
+        } else if (attempts % 10 === 0) {
+          console.log(`⏳ API check... (${attempts * 0.2}s / 20s)`);
         }
-      }, 100);
+      }, 200);
     };
     
     script.onerror = (e) => {
+      clearTimeout(scriptTimeout);
       console.error("❌ Script failed to load:", e);
-      setMapError("Failed to load Google Maps script. Please check your internet connection.");
+      setMapError("Failed to load Google Maps script. Check your internet connection and refresh.");
       setMapLoading(false);
     };
     
+    // Overall timeout - 30 seconds for script load
+    scriptTimeout = setTimeout(() => {
+      console.error("❌ Google Maps overall timeout (30s)");
+      setMapError("Google Maps script timeout. Please refresh the page.");
+      setMapLoading(false);
+    }, 30000);
+    
     document.head.appendChild(script);
+    console.log("📥 Script tag added to document");
   }, []); // Run ONCE on mount
 
   // Initialize map ONLY after script is loaded AND we have address/coordinates
