@@ -98,39 +98,7 @@ export default function MeasurementPage() {
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
-  // COMPREHENSIVE DEBUG LOGGING ON PAGE LOAD
-  useEffect(() => {
-    console.log('🔵 ═══════════════════════════════════════════════');
-    console.log('🔵 MEASUREMENTPAGE LOADED');
-    console.log('🔵 ═══════════════════════════════════════════════');
-    
-    // Load address from URL or session storage (homeowner flow)
-    const params = new URLSearchParams(window.location.search);
-    const addressFromURL = params.get('address');
-    const homeownerAddress = sessionStorage.getItem('homeowner_address');
-    const leadAddress = sessionStorage.getItem('lead_address');
-    
-    if (addressFromURL) {
-      console.log('✅ Address from URL:', addressFromURL);
-      setAddress(decodeURIComponent(addressFromURL));
-    } else if (homeownerAddress) {
-      console.log('✅ Address from session (homeowner):', homeownerAddress);
-      setAddress(homeownerAddress);
-    } else if (leadAddress) {
-      console.log('✅ Address from session (lead):', leadAddress);
-      setAddress(leadAddress);
-    }
-    
-    console.log('📦 Session storage on load:', {
-      active_lead_id: sessionStorage.getItem('active_lead_id'),
-      lead_address: sessionStorage.getItem('lead_address'),
-      homeowner_address: sessionStorage.getItem('homeowner_address'),
-      pending_measurement_id: sessionStorage.getItem('pending_measurement_id')
-    });
-    console.log('🌐 URL:', window.location.href);
-    console.log('🌐 Search params:', window.location.search);
-    console.log('🔵 ═══════════════════════════════════════════════');
-  }, []);
+
 
   // Check if roofer is accessing public page incorrectly
   useEffect(() => {
@@ -218,16 +186,13 @@ export default function MeasurementPage() {
     }
   }, [searchParams]);
 
-  // Load lead data if leadId is in URL or session
-  useEffect(() => {
-    const loadLeadData = async () => {
-      const leadId = searchParams.get('leadId') || sessionStorage.getItem('active_lead_id');
-      
-      if (!leadId) {
-        console.log('🟢 MeasurementPage: No lead ID, starting fresh measurement');
-        setLoading(false);
-        return;
-      }
+  // Load lead data if leadId is in URL or session (ROOFER FLOW ONLY)
+  const loadLeadData = async (leadId) => {
+    if (!leadId) {
+      console.log('🟢 MeasurementPage: No lead ID, starting fresh measurement');
+      setLoading(false);
+      return;
+    }
 
       try {
         console.log('🟢 MeasurementPage: Loading lead data for ID:', leadId);
@@ -278,12 +243,9 @@ export default function MeasurementPage() {
       } catch (err) {
         console.error('❌ Failed to load lead:', err);
         setError('Failed to load lead data: ' + err.message);
-        setLoading(false);
-      }
-    };
-
-    loadLeadData();
-  }, [searchParams, geocodeAddress]);
+      setLoading(false);
+    }
+  };
 
   // Fallback: Load address from URL or localStorage (for homeowners without lead)
   useEffect(() => {
