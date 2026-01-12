@@ -142,6 +142,19 @@ export default function RooferSignup() {
     }
 
     try {
+      // DEBUG: Check what auth methods are available
+      console.log('🔍 Base44 client:', base44);
+      console.log('🔍 Base44.auth object:', base44.auth);
+      console.log('🔍 Available auth methods:', Object.keys(base44.auth || {}));
+      console.log('🔍 Type of base44.auth.signup:', typeof base44.auth.signup);
+      console.log('🔍 Does signup exist?:', 'signup' in (base44.auth || {}));
+      
+      // Show me ALL available methods on base44.auth
+      console.log('🔍 All auth methods:');
+      for (let key in base44.auth) {
+        console.log(`  - base44.auth.${key}:`, typeof base44.auth[key]);
+      }
+      
       // Step 1: Create Company via backend
       const companyResponse = await base44.functions.invoke('createRooferAccount', {
         email: formData.email,
