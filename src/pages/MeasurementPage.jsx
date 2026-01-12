@@ -103,14 +103,32 @@ export default function MeasurementPage() {
     console.log('🔵 ═══════════════════════════════════════════════');
     console.log('🔵 MEASUREMENTPAGE LOADED');
     console.log('🔵 ═══════════════════════════════════════════════');
+    
+    // Load address from URL or session storage (homeowner flow)
+    const params = new URLSearchParams(window.location.search);
+    const addressFromURL = params.get('address');
+    const homeownerAddress = sessionStorage.getItem('homeowner_address');
+    const leadAddress = sessionStorage.getItem('lead_address');
+    
+    if (addressFromURL) {
+      console.log('✅ Address from URL:', addressFromURL);
+      setAddress(decodeURIComponent(addressFromURL));
+    } else if (homeownerAddress) {
+      console.log('✅ Address from session (homeowner):', homeownerAddress);
+      setAddress(homeownerAddress);
+    } else if (leadAddress) {
+      console.log('✅ Address from session (lead):', leadAddress);
+      setAddress(leadAddress);
+    }
+    
     console.log('📦 Session storage on load:', {
       active_lead_id: sessionStorage.getItem('active_lead_id'),
       lead_address: sessionStorage.getItem('lead_address'),
+      homeowner_address: sessionStorage.getItem('homeowner_address'),
       pending_measurement_id: sessionStorage.getItem('pending_measurement_id')
     });
     console.log('🌐 URL:', window.location.href);
     console.log('🌐 Search params:', window.location.search);
-    console.log('🌐 leadId from URL:', new URLSearchParams(window.location.search).get('leadId'));
     console.log('🔵 ═══════════════════════════════════════════════');
   }, []);
 
