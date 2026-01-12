@@ -1613,60 +1613,48 @@ export default function MeasurementPage() {
 
       const components = calculateRoofComponents();
 
-      const measurementData = {
-        company_id: currentUser?.company_id || null,
-        user_id: currentUser?.id || null,
-        property_address: address,
-        user_type: isRoofer ? 'roofer' : 'homeowner',
-        measurement_type: 'detailed_polygon',
-        estimation_method: 'manual_polygon',
-        captured_images: capturedImages,
-        measurement_data: {
-          total_adjusted_sqft: totalAdjusted,
-          sections: allSections
-        },
-        total_sqft: totalAdjusted,
-        total_adjusted_sqft: totalAdjusted,
-        eaves_ft: components.eaves,
-        rakes_ft: components.rakes,
-        ridges_ft: components.ridges,
-        hips_ft: components.hips,
-        valleys_ft: components.valleys,
-        steps_ft: components.steps,
-        walls_ft: components.walls,
-        lead_status: 'new',
-        measurement_completed: true,
-        contact_info_provided: false
-      };
-
-      let savedMeasurementId = measurementId;
-
-      // If we have a measurement ID (from lead), update it
-      // Otherwise create new measurement
-      if (measurementId) {
-        await base44.entities.Measurement.update(measurementId, measurementData);
-        savedMeasurementId = measurementId;
-      } else {
-        const savedMeasurement = await base44.entities.Measurement.create(measurementData);
-        savedMeasurementId = savedMeasurement.id;
-      }
-
-      if (!savedMeasurementId) {
-        throw new Error("Failed to get measurement ID");
-      }
-
-      // CRITICAL: Check if this is a roofer with an existing lead
-      const leadId = sessionStorage.getItem('active_lead_id');
+      // Get lead ID from URL or session
+      const leadId = searchParams.get('leadId') || sessionStorage.getItem('active_lead_id');
       
       console.log('🟡 Measurement complete!');
       console.log('🟡 isRoofer:', isRoofer);
-      console.log('🟡 leadId from session:', leadId);
-      console.log('🟡 savedMeasurementId:', savedMeasurementId);
+      console.log('🟡 leadId:', leadId);
       console.log('🟡 measurementId state:', measurementId);
-      
-      if (isRoofer && leadId) {
-        // Roofer updating existing lead - customer info already saved
-        console.log('✅ ROOFER PATH: Going directly to Results');
+      console.log('🟡 leadData:', leadData ? { id: leadData.id, customer: leadData.customer_name } : null);
+
+      let savedMeasurementId;
+
+      if (isRoofer && (leadId || measurementId)) {
+        // ROOFER PATH: Update the existing lead with measurement data
+        const idToUpdate = leadId || measurementId;
+        console.log('📊 Updating lead', idToUpdate, 'with measurement data');
+        
+        await base44.entities.Measurement.update(idToUpdate, {
+          // Measurement data
+          total_sqft: totalAdjusted,
+          total_adjusted_sqft: totalAdjusted,
+          measurement_data: {
+            total_adjusted_sqft: totalAdjusted,
+            sections: allSections
+          },
+          captured_images: capturedImages,
+          measurement_type: 'detailed_polygon',
+          estimation_method: 'manual_polygon',
+          eaves_ft: components.eaves,
+          rakes_ft: components.rakes,
+          ridges_ft: components.ridges,
+          hips_ft: components.hips,
+          valleys_ft: components.valleys,
+          steps_ft: components.steps,
+          walls_ft: components.walls,
+          // Status updates
+          lead_status: 'new',
+          measurement_completed: true,
+          // Keep existing customer info - DON'T overwrite
+        });
+
+        savedMeasurementId = idToUpdate;
+        console.log('✅ Lead updated successfully with ID:', savedMeasurementId);
         
         // Clear session storage
         sessionStorage.removeItem('active_lead_id');
@@ -1674,28 +1662,93 @@ export default function MeasurementPage() {
         sessionStorage.removeItem('pending_measurement_id');
         
         // Go DIRECTLY to results - NO ContactInfoPage
-        console.log('🟡 Navigating to Results with measurementid:', savedMeasurementId);
+        console.log('🟡 ROOFER: Navigating to Results with measurementid:', savedMeasurementId);
         navigate(createPageUrl(`Results?measurementid=${savedMeasurementId}`));
-      } else if (isRoofer && !leadId) {
-        // Roofer without lead - shouldn't happen, redirect to dashboard
-        console.log('⚠️ ROOFER WITHOUT LEAD - Redirecting to dashboard');
-        alert('Please start from dashboard to measure roofs');
-        navigate(createPageUrl('RooferDashboard'));
+
+      } else if (isRoofer && !leadId && !measurementId) {
+        // Roofer without lead - shouldn't happen normally
+        console.log('⚠️ ROOFER WITHOUT LEAD - Creating new and redirecting to results');
+        
+        const measurementData = {
+          company_id: currentUser?.company_id || null,
+          user_id: currentUser?.id || null,
+          property_address: address,
+          user_type: 'roofer',
+          measurement_type: 'detailed_polygon',
+          estimation_method: 'manual_polygon',
+          captured_images: capturedImages,
+          measurement_data: {
+            total_adjusted_sqft: totalAdjusted,
+            sections: allSections
+          },
+          total_sqft: totalAdjusted,
+          total_adjusted_sqft: totalAdjusted,
+          eaves_ft: components.eaves,
+          rakes_ft: components.rakes,
+          ridges_ft: components.ridges,
+          hips_ft: components.hips,
+          valleys_ft: components.valleys,
+          steps_ft: components.steps,
+          walls_ft: components.walls,
+          lead_status: 'new',
+          measurement_completed: true
+        };
+
+        const savedMeasurement = await base44.entities.Measurement.create(measurementData);
+        savedMeasurementId = savedMeasurement.id;
+        
+        console.log('🟡 Navigating to Results with new measurement:', savedMeasurementId);
+        navigate(createPageUrl(`Results?measurementid=${savedMeasurementId}`));
+        
       } else {
-        // Homeowner - must provide contact info and verify email
-        console.log('👤 HOMEOWNER PATH: Going to ContactInfoPage');
+        // HOMEOWNER PATH: Create new measurement and go to contact info
+        console.log('👤 HOMEOWNER PATH: Creating new measurement');
+        
+        const measurementData = {
+          company_id: null,
+          user_id: null,
+          property_address: address,
+          user_type: 'homeowner',
+          measurement_type: 'detailed_polygon',
+          estimation_method: 'manual_polygon',
+          captured_images: capturedImages,
+          measurement_data: {
+            total_adjusted_sqft: totalAdjusted,
+            sections: allSections
+          },
+          total_sqft: totalAdjusted,
+          total_adjusted_sqft: totalAdjusted,
+          eaves_ft: components.eaves,
+          rakes_ft: components.rakes,
+          ridges_ft: components.ridges,
+          hips_ft: components.hips,
+          valleys_ft: components.valleys,
+          steps_ft: components.steps,
+          walls_ft: components.walls,
+          lead_status: 'new',
+          measurement_completed: true,
+          contact_info_provided: false
+        };
+
+        const savedMeasurement = await base44.entities.Measurement.create(measurementData);
+        savedMeasurementId = savedMeasurement.id;
+
+        // Clear any roofer session data
         sessionStorage.removeItem('active_lead_id');
         sessionStorage.removeItem('lead_address');
+        
+        // Set pending measurement for contact info page
         sessionStorage.setItem('pending_measurement_id', savedMeasurementId);
-        console.log('🟡 Navigating to ContactInfoPage');
+        console.log('🟡 HOMEOWNER: Navigating to ContactInfoPage');
         navigate(createPageUrl('ContactInfoPage'));
       }
       
     } catch (err) {
+      console.error('❌ Measurement save error:', err);
       setError(`Failed to save measurement: ${err.message}. Please try again.`);
       setSaving(false);
     }
-  }, [capturedImages, liveMapSections, address, measurementId, navigate, calculateRoofComponents, getTotalArea]);
+  }, [capturedImages, liveMapSections, address, measurementId, leadData, searchParams, navigate, calculateRoofComponents, getTotalArea]);
 
   if (loading) {
     return (
