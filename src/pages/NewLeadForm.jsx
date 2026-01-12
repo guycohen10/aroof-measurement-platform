@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
@@ -11,6 +11,9 @@ import { ArrowLeft, User, Phone, Mail, MapPin, Tag, FileText } from 'lucide-reac
 
 export default function NewLeadForm() {
   const navigate = useNavigate();
+  const addressInputRef = useRef(null);
+  const autocompleteRef = useRef(null);
+  
   const [formData, setFormData] = useState({
     customerName: '',
     email: '',
@@ -20,6 +23,8 @@ export default function NewLeadForm() {
     notes: ''
   });
   const [saving, setSaving] = useState(false);
+  
+  const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
   const leadSources = [
     { value: 'purchased_lead', label: 'Purchased Lead' },
@@ -31,6 +36,64 @@ export default function NewLeadForm() {
     { value: 'social_media', label: 'Social Media' },
     { value: 'other', label: 'Other' }
   ];
+
+  // Load Google Places API
+  useEffect(() => {
+    const loadGooglePlaces = () => {
+      // Check if already loaded
+      if (window.google?.maps?.places) {
+        initAutocomplete();
+        return;
+      }
+
+      // Check if script exists
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        const checkInterval = setInterval(() => {
+          if (window.google?.maps?.places) {
+            clearInterval(checkInterval);
+            initAutocomplete();
+          }
+        }, 100);
+        setTimeout(() => clearInterval(checkInterval), 5000);
+        return;
+      }
+
+      // Load script
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+      script.async = true;
+      script.onload = initAutocomplete;
+      document.head.appendChild(script);
+    };
+
+    loadGooglePlaces();
+  }, []);
+
+  const initAutocomplete = () => {
+    if (!addressInputRef.current || !window.google?.maps?.places) return;
+
+    autocompleteRef.current = new window.google.maps.places.Autocomplete(
+      addressInputRef.current,
+      {
+        types: ['address'],
+        componentRestrictions: { country: 'us' },
+        fields: ['formatted_address', 'geometry']
+      }
+    );
+
+    autocompleteRef.current.addListener('place_changed', () => {
+      const place = autocompleteRef.current.getPlace();
+      
+      if (place.geometry) {
+        setFormData(prev => ({
+          ...prev,
+          propertyAddress: place.formatted_address
+        }));
+        console.log('✅ Address selected:', place.formatted_address);
+      }
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -144,12 +207,17 @@ export default function NewLeadForm() {
                   Property Address *
                 </Label>
                 <Input
+                  ref={addressInputRef}
                   value={formData.propertyAddress}
                   onChange={(e) => setFormData({...formData, propertyAddress: e.target.value})}
-                  placeholder="123 Main St, Dallas, TX 75001"
+                  placeholder="Start typing address..."
                   required
                   className="h-11"
+                  autoComplete="off"
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  Start typing and select from suggestions
+                </p>
               </div>
 
               <div>
