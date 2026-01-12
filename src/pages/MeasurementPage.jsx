@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ const PITCH_OPTIONS = [
 
 export default function MeasurementPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const mapRef = useRef(null);
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
@@ -77,6 +78,10 @@ export default function MeasurementPage() {
   
   const [currentZoom, setCurrentZoom] = useState(20);
   const [capturing, setCapturing] = useState(false);
+  
+  // Lead data state for roofers
+  const [leadData, setLeadData] = useState(null);
+  const [addressLoaded, setAddressLoaded] = useState(false);
   
   const [drawingShape, setDrawingShape] = useState('polygon');
   const [lineThickness, setLineThickness] = useState(3);
