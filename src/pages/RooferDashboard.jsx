@@ -39,6 +39,10 @@ export default function RooferDashboard() {
       const demoUser = localStorage.getItem('demo_user');
       if (demoUser) {
         const user = JSON.parse(demoUser);
+        console.log('🔍 RooferDashboard - Demo user loaded');
+        console.log('📧 Email:', user.email);
+        console.log('🎭 Role:', user.aroof_role);
+        console.log('🏢 Company ID:', user.company_id);
         setUser(user);
         setMeasurements([]);
         setLoading(false);
@@ -47,13 +51,25 @@ export default function RooferDashboard() {
 
       const currentUser = await base44.auth.me();
       
+      // DEBUG: Log user details
+      console.log('🔍 RooferDashboard - Current user loaded');
+      console.log('📧 Email:', currentUser.email);
+      console.log('👤 Full name:', currentUser.full_name);
+      console.log('🏢 Company ID:', currentUser.company_id);
+      console.log('🎭 Role:', currentUser.role);
+      console.log('🎭 Aroof Role:', currentUser.aroof_role);
+      console.log('📋 Full user object:', JSON.stringify(currentUser, null, 2));
+      
       // Check if user is external roofer
       if (currentUser.aroof_role !== 'external_roofer') {
-        alert('Access denied. This dashboard is for external roofers only.');
+        console.warn('⚠️ Access denied - user is not external_roofer');
+        console.warn('Current aroof_role:', currentUser.aroof_role || 'Not set');
+        alert(`Access denied. This dashboard is for external roofers only.\n\nYour current role: ${currentUser.aroof_role || 'Not set'}\n\nPlease contact support to get your account set up.`);
         navigate(createPageUrl("Homepage"));
         return;
       }
 
+      console.log('✅ Roofer access verified');
       setUser(currentUser);
 
       // Load all users in this company

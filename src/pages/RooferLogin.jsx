@@ -41,14 +41,19 @@ export default function RooferLogin() {
     setLoading(true);
 
     try {
-      // Demo credentials for testing
+      // Demo credentials for testing - uses localStorage mock
       if (formData.email === "demo@roofer.com" && formData.password === "demo123") {
+        console.log('✅ DEMO LOGIN SUCCESS');
+        console.log('📧 Logged in as: demo@roofer.com');
+        console.log('🎭 Role: external_roofer (demo mode)');
+        
         localStorage.setItem('demo_user', JSON.stringify({
           email: "demo@roofer.com",
           full_name: "Demo Roofing Company",
           role: "user",
           aroof_role: "external_roofer",
           company_name: "Demo Roofing Co",
+          company_id: "DEMO_COMPANY",
           subscription_plan: "pro",
           subscription_status: "active",
           measurements_limit: 100,
@@ -64,25 +69,40 @@ export default function RooferLogin() {
       // Verify user is external roofer
       const user = await base44.auth.me();
       
+      // DEBUG: Log user details
+      console.log('✅ LOGIN SUCCESS');
+      console.log('📧 Logged in as:', user.email);
+      console.log('👤 Full name:', user.full_name);
+      console.log('🏢 Company ID:', user.company_id);
+      console.log('🎭 Role:', user.role);
+      console.log('🎭 Aroof Role:', user.aroof_role);
+      console.log('📋 Full user object:', JSON.stringify(user, null, 2));
+      
       if (user.aroof_role !== 'external_roofer') {
-        setError("This login is for roofing contractors only. Please use the main login.");
+        console.warn('⚠️ User does not have external_roofer role');
+        console.warn('Current aroof_role:', user.aroof_role || 'Not set');
+        
+        // Show detailed error for debugging
+        setError(`This login is for roofing contractors only.\n\nYour account role: ${user.aroof_role || 'Not set'}\n\nPlease contact support to get your account set up as a roofer.`);
         await base44.auth.logout();
         setLoading(false);
         return;
       }
 
       // Success - redirect to dashboard
+      console.log('✅ Roofer role verified, redirecting to dashboard...');
       navigate(createPageUrl("RooferDashboard"));
       
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('❌ Login error:', err);
+      console.error('Error message:', err.message);
       
-      if (err.message.includes('Invalid credentials') || err.message.includes('401')) {
+      if (err.message?.includes('Invalid credentials') || err.message?.includes('401')) {
         setError("Invalid email or password. Please try again.");
-      } else if (err.message.includes('User not found')) {
+      } else if (err.message?.includes('User not found')) {
         setError("No account found with this email. Please sign up first.");
       } else {
-        setError("Login failed. Please try again or contact support.");
+        setError(`Login failed: ${err.message || 'Unknown error'}. Please try again or contact support.`);
       }
       
       setLoading(false);
