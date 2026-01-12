@@ -9,6 +9,24 @@ Deno.serve(async (req) => {
 
     const base44 = createClientFromRequest(req);
 
+    // DEBUG: Log available methods
+    console.log('🔍 DEBUG: base44 keys:', Object.keys(base44));
+    console.log('🔍 DEBUG: base44.auth keys:', base44.auth ? Object.keys(base44.auth) : 'auth is undefined');
+    console.log('🔍 DEBUG: base44.asServiceRole keys:', base44.asServiceRole ? Object.keys(base44.asServiceRole) : 'asServiceRole is undefined');
+    
+    if (base44.auth) {
+      console.log('🔍 DEBUG: base44.auth methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(base44.auth)));
+    }
+    
+    if (base44.asServiceRole && base44.asServiceRole.auth) {
+      console.log('🔍 DEBUG: base44.asServiceRole.auth keys:', Object.keys(base44.asServiceRole.auth));
+    }
+    
+    console.log('🔍 DEBUG: base44.users exists?', !!base44.users);
+    if (base44.users) {
+      console.log('🔍 DEBUG: base44.users methods:', Object.keys(base44.users));
+    }
+
     // Step 1: Create Company (via service role for public signup)
     console.log('📦 Creating company...');
     const company = await base44.asServiceRole.entities.Company.create({
@@ -27,23 +45,16 @@ Deno.serve(async (req) => {
 
     console.log('✅ Company created:', company.id);
 
-    // Step 2: Create User directly via service role
-    console.log('👤 Creating user account...');
-    const user = await base44.asServiceRole.entities.User.create({
-      email,
-      full_name: fullName,
-      role: 'user',
-      company_id: company.id,
-      aroof_role: 'external_roofer'
-    });
+    // Step 2: Use inviteUser (automated invite flow)
+    console.log('📧 Inviting user...');
+    await base44.users.inviteUser(email, 'user');
 
-    console.log('✅ User created:', user.id);
+    console.log('✅ User invited');
 
     return Response.json({
       success: true,
-      message: 'Account created successfully',
+      message: 'Account created! Please check your email to set your password.',
       companyId: company.id,
-      userId: user.id,
       email
     });
 
