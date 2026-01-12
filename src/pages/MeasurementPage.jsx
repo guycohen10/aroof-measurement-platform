@@ -128,36 +128,96 @@ export default function MeasurementPage() {
     checkPublicAccess();
   }, []);
 
-  // Load address from URL or localStorage or from active lead
-  useEffect(() => {
-    const loadLeadInfo = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const addressParam = urlParams.get('address');
-      const latParam = urlParams.get('lat');
-      const lngParam = urlParams.get('lng');
-      const measurementIdParam = urlParams.get('measurementId');
-      const leadIdParam = urlParams.get('leadId');
-      
-      // Check for active lead from session
-      const activeLead = sessionStorage.getItem('active_lead_id');
-      const leadAddress = sessionStorage.getItem('lead_address');
-      
-      // Priority: leadId from URL > session storage > address param > localStorage
-      if (leadIdParam || activeLead) {
-        const leadId = leadIdParam || activeLead;
-        try {
-          const lead = await base44.entities.Measurement.get(leadId);
-          if (lead && lead.property_address) {
-            setAddress(lead.property_address);
-            setMeasurementId(leadId);
-            localStorage.setItem('measurementAddress', lead.property_address);
-            setLoading(false);
-            return;
+  // Geocode address function
+  const geocodeAddress = useCallback(async (addressToGeocode) => {
+    if (!window.google || !window.google.maps) {
+      console.error('Google Maps not loaded yet for geocoding');
+      return null;
+    }
+
+    try {
+      console.log('🔍 Geocoding address:', addressToGeocode);
+      const geocoder = new window.google.maps.Geocoder();
+      const result = await new Promise((resolve, reject) => {
+        geocoder.geocode({ address: addressToGeocode }, (results, status) => {
+          if (status === 'OK' && results[0]) {
+            resolve(results[0]);
+          } else {
+            reject(new Error('Geocoding failed: ' + status));
           }
-        } catch (err) {
-          console.error('Failed to load lead:', err);
-        }
+        });
+      });
+
+      const coords = {
+        lat: result.geometry.location.lat(),
+        lng: result.geometry.location.lng()
+      };
+
+      console.log('✅ Address geocoded:', coords);
+      return coords;
+
+    } catch (err) {
+      console.error('Geocoding error:', err);
+      return null;
+    }
+  }, []);
+
+  // Load lead data if leadId is in URL or session
+  useEffect(() => {
+    const loadLeadData = async () => {
+      const leadId = searchParams.get('leadId') || sessionStorage.getItem('active_lead_id');
+      
+      if (!leadId) {
+        console.log('🟢 MeasurementPage: No lead ID, starting fresh measurement');
+        setLoading(false);
+        return;
       }
+
+      try {
+        console.log('🟢 MeasurementPage: Loading lead data for ID:', leadId);
+        
+        // Load the lead from database
+        const lead = await base44.entities.Measurement.get(leadId);
+        
+        console.log('🟢 MeasurementPage: Lead loaded:', {
+          id: lead.id,
+          customer: lead.customer_name,
+          address: lead.property_address
+        });
+
+        setLeadData(lead);
+        setMeasurementId(leadId);
+        
+        // Pre-fill address
+        if (lead.property_address) {
+          setAddress(lead.property_address);
+          localStorage.setItem('measurementAddress', lead.property_address);
+          console.log('✅ Address loaded from lead:', lead.property_address);
+          setAddressLoaded(true);
+        }
+        
+        setLoading(false);
+        
+      } catch (err) {
+        console.error('❌ Failed to load lead:', err);
+        setError('Failed to load lead data: ' + err.message);
+        setLoading(false);
+      }
+    };
+
+    loadLeadData();
+  }, [searchParams]);
+
+  // Fallback: Load address from URL or localStorage (for homeowners without lead)
+  useEffect(() => {
+    if (leadData) return; // Skip if we already have lead data
+    
+    const loadAddressFromParams = async () => {
+      const addressParam = searchParams.get('address');
+      const latParam = searchParams.get('lat');
+      const lngParam = searchParams.get('lng');
+      const measurementIdParam = searchParams.get('measurementId');
+      const leadAddress = sessionStorage.getItem('lead_address');
       
       if (leadAddress) {
         setAddress(leadAddress);
@@ -201,8 +261,8 @@ export default function MeasurementPage() {
       setLoading(false);
     };
     
-    loadLeadInfo();
-  }, []);
+    loadAddressFromParams();
+  }, [searchParams, leadData]);
 
   const createMap = useCallback((center) => {
     if (!mapRef.current) {
