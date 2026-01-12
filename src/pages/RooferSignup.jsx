@@ -164,7 +164,7 @@ export default function RooferSignup() {
       }
 
       // Step 2: Create User Auth via frontend
-      await base44.auth.signUp({
+      await base44.auth.signup({
         email: formData.email,
         password: formData.password,
         options: {
