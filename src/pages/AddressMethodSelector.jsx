@@ -135,14 +135,20 @@ export default function AddressMethodSelector() {
                   Property Address *
                 </Label>
                 <Input
-                  id="address"
-                  ref={addressInputRef}
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="123 Main St, Dallas, TX..."
-                  className="text-lg p-4 h-14"
-                  autoComplete="off"
-                />
+                   id="address"
+                   ref={addressInputRef}
+                   value={address}
+                   onChange={(e) => setAddress(e.target.value)}
+                   placeholder="123 Main St, Dallas, TX..."
+                   className="text-lg p-4 h-14"
+                   autoComplete="off"
+                   autoCorrect="off"
+                   autoCapitalize="off"
+                   spellCheck="false"
+                   name="property_address_new"
+                   data-lpignore="true"
+                   data-form-type="other"
+                 />
                 <p className="text-sm text-slate-500 mt-2">
                   Start typing and select from the dropdown
                 </p>
