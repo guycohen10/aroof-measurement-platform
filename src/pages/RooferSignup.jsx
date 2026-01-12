@@ -142,6 +142,21 @@ export default function RooferSignup() {
     }
 
     try {
+      // Check if backend functions are enabled
+      if (!base44.functions || typeof base44.functions.call !== 'function') {
+        alert('⚠️ BACKEND FUNCTIONS NOT ENABLED\n\n' +
+              'To enable self-service signup:\n\n' +
+              '1. Go to Base44 Dashboard\n' +
+              '2. Settings → Backend Functions\n' +
+              '3. Click "Enable Backend Functions"\n' +
+              '4. Try signing up again\n\n' +
+              'OR\n\n' +
+              'Contact support to manually create your account:\n' +
+              'Email: ' + formData.email + '\n' +
+              'Company: ' + formData.companyName);
+        return;
+      }
+
       // Call backend function to create account
       const result = await base44.functions.call('createRooferAccount', {
         email: formData.email,
