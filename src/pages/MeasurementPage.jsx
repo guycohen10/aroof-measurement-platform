@@ -1520,8 +1520,12 @@ export default function MeasurementPage() {
       // Check if user is logged in
       const currentUser = await base44.auth.me().catch(() => null);
       
+      console.log('🟢 MeasurementPage: Current user:', currentUser?.email, 'Role:', currentUser?.aroof_role);
+      
       // Determine if this is a roofer (logged in with external_roofer role)
       const isRoofer = currentUser?.aroof_role === 'external_roofer';
+      
+      console.log('🟢 MeasurementPage: isRoofer =', isRoofer);
 
       const capturedSections = capturedImages.flatMap((img, imgIndex) => 
         (img.sections || []).map(section => ({
