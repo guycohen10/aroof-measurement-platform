@@ -24,6 +24,7 @@ export default function Results() {
   const [materialType, setMaterialType] = useState("asphalt_shingles");
   const [downloadCount, setDownloadCount] = useState(0);
   const [currentUser, setCurrentUser] = useState(null);
+  const [isRoofer, setIsRoofer] = useState(false);
   const [mapScriptLoaded, setMapScriptLoaded] = useState(false);
   const scriptLoadedRef = useRef(false);
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
@@ -115,8 +116,10 @@ export default function Results() {
       try {
         const user = await base44.auth.me();
         setCurrentUser(user);
+        setIsRoofer(user && user.aroof_role === 'external_roofer');
       } catch (err) {
         setCurrentUser(null);
+        setIsRoofer(false);
       }
     };
 
