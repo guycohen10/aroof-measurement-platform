@@ -50,6 +50,7 @@ import SubscriptionDetail from './pages/SubscriptionDetail';
 import Subscriptions from './pages/Subscriptions';
 import Windows from './pages/Windows';
 import AddressMethodSelector from './pages/AddressMethodSelector';
+import EmailVerification from './pages/EmailVerification';
 import __Layout from './Layout.jsx';
 
 
@@ -106,6 +107,7 @@ export const PAGES = {
     "Subscriptions": Subscriptions,
     "Windows": Windows,
     "AddressMethodSelector": AddressMethodSelector,
+    "EmailVerification": EmailVerification,
 }
 
 export const pagesConfig = {
