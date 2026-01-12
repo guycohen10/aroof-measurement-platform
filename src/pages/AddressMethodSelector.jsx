@@ -65,14 +65,33 @@ export default function AddressMethodSelector() {
       return;
     }
 
+    console.log('🚀 ═══════════════════════════════════');
+    console.log('🚀 CONTINUING TO MEASUREMENT');
+    console.log('🚀 Address:', address);
+    console.log('🚀 Method:', method);
+    console.log('🚀 ═══════════════════════════════════');
+
     // Save to session storage
     sessionStorage.setItem('homeowner_address', address);
     sessionStorage.setItem('measurement_method', method);
+    
+    // IMPORTANT: Clear any old measurement data
+    sessionStorage.removeItem('active_lead_id');
+    sessionStorage.removeItem('lead_address');
+    sessionStorage.removeItem('pending_measurement_id');
+    
+    console.log('✅ Saved to session storage');
+    console.log('📦 homeowner_address:', sessionStorage.getItem('homeowner_address'));
+    console.log('📦 measurement_method:', sessionStorage.getItem('measurement_method'));
 
     if (method === 'solar') {
-      navigate(`${createPageUrl('Results')}?address=${encodeURIComponent(address)}&method=solar`);
+      const url = `/results?address=${encodeURIComponent(address)}&method=solar`;
+      console.log('🚀 Navigating to:', url);
+      navigate(url);
     } else {
-      navigate(`${createPageUrl('MeasurementPage')}?address=${encodeURIComponent(address)}`);
+      const url = `/measurementpage?address=${encodeURIComponent(address)}&homeowner=true`;
+      console.log('🚀 Navigating to:', url);
+      navigate(url);
     }
   };
 
