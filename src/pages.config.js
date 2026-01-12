@@ -1,4 +1,3 @@
-import AddressEntry from './pages/AddressEntry';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminGodMode from './pages/AdminGodMode';
 import Booking from './pages/Booking';
@@ -20,11 +19,8 @@ import EstimatorLeadDetail from './pages/EstimatorLeadDetail';
 import ExistingLeadSelector from './pages/ExistingLeadSelector';
 import FollowUpSettings from './pages/FollowUpSettings';
 import ForgotPassword from './pages/ForgotPassword';
-import FormPage from './pages/FormPage';
 import Gutters from './pages/Gutters';
 import Home from './pages/Home';
-import HomeownerForm from './pages/HomeownerForm';
-import HomeownerStart from './pages/HomeownerStart';
 import Homepage from './pages/Homepage';
 import Insurance from './pages/Insurance';
 import JobScheduling from './pages/JobScheduling';
@@ -42,29 +38,24 @@ import RoofRepair from './pages/RoofRepair';
 import RoofReplacement from './pages/RoofReplacement';
 import RooferBilling from './pages/RooferBilling';
 import RooferDashboard from './pages/RooferDashboard';
-import RooferForm from './pages/RooferForm';
 import RooferLogin from './pages/RooferLogin';
 import RooferPlans from './pages/RooferPlans';
 import RooferSettings from './pages/RooferSettings';
 import RooferSignup from './pages/RooferSignup';
-import RooferStart from './pages/RooferStart';
 import SelectReportType from './pages/SelectReportType';
 import Services from './pages/Services';
 import Siding from './pages/Siding';
-import SimpleResults from './pages/SimpleResults';
 import StormDamage from './pages/StormDamage';
 import StormTracking from './pages/StormTracking';
 import StripeCanceled from './pages/StripeCanceled';
 import StripeSuccess from './pages/StripeSuccess';
 import SubscriptionDetail from './pages/SubscriptionDetail';
 import Subscriptions from './pages/Subscriptions';
-import UserTypeSelection from './pages/UserTypeSelection';
 import Windows from './pages/Windows';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
-    "AddressEntry": AddressEntry,
     "AdminDashboard": AdminDashboard,
     "AdminGodMode": AdminGodMode,
     "Booking": Booking,
@@ -86,11 +77,8 @@ export const PAGES = {
     "ExistingLeadSelector": ExistingLeadSelector,
     "FollowUpSettings": FollowUpSettings,
     "ForgotPassword": ForgotPassword,
-    "FormPage": FormPage,
     "Gutters": Gutters,
     "Home": Home,
-    "HomeownerForm": HomeownerForm,
-    "HomeownerStart": HomeownerStart,
     "Homepage": Homepage,
     "Insurance": Insurance,
     "JobScheduling": JobScheduling,
@@ -108,23 +96,19 @@ export const PAGES = {
     "RoofReplacement": RoofReplacement,
     "RooferBilling": RooferBilling,
     "RooferDashboard": RooferDashboard,
-    "RooferForm": RooferForm,
     "RooferLogin": RooferLogin,
     "RooferPlans": RooferPlans,
     "RooferSettings": RooferSettings,
     "RooferSignup": RooferSignup,
-    "RooferStart": RooferStart,
     "SelectReportType": SelectReportType,
     "Services": Services,
     "Siding": Siding,
-    "SimpleResults": SimpleResults,
     "StormDamage": StormDamage,
     "StormTracking": StormTracking,
     "StripeCanceled": StripeCanceled,
     "StripeSuccess": StripeSuccess,
     "SubscriptionDetail": SubscriptionDetail,
     "Subscriptions": Subscriptions,
-    "UserTypeSelection": UserTypeSelection,
     "Windows": Windows,
 }
 
