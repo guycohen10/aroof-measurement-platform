@@ -142,49 +142,28 @@ export default function RooferSignup() {
     }
 
     try {
-      // Step 1: Invite user (creates account)
-      await base44.users.inviteUser(formData.email, "user");
-
-      // Step 2: User will receive email with setup link
-      // For testing, we'll create company and update user directly
-      
-      // Create Company first (as system/you're logged in as admin testing)
-      const company = await base44.entities.Company.create({
-        company_name: formData.companyName,
-        contact_phone: formData.companyPhone,
-        contact_email: formData.email,
-        contact_name: formData.fullName,
-        address_street: formData.address,
-        address_city: formData.city,
-        address_state: formData.state,
-        address_zip: formData.zip,
-        is_active: true,
-        subscription_tier: selectedPlan || 'basic',
-        subscription_status: 'trial',
-        trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+      // Call backend function to create account
+      const result = await base44.functions.call('createRooferAccount', {
+        email: formData.email,
+        password: formData.password,
+        fullName: formData.fullName,
+        companyData: {
+          companyName: formData.companyName,
+          companyPhone: formData.companyPhone,
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          zip: formData.zip
+        },
+        selectedPlan: selectedPlan
       });
 
-      // Find the invited user and update with company data
-      const users = await base44.entities.User.filter({ email: formData.email });
-      if (users && users.length > 0) {
-        await base44.entities.User.update(users[0].id, {
-          full_name: formData.fullName,
-          company_id: company.id,
-          company_name: formData.companyName,
-          aroof_role: 'external_roofer',
-          phone: formData.phone,
-          subscription_plan: selectedPlan || 'free',
-          subscription_status: 'active',
-          measurements_used_this_month: 0,
-          measurements_limit: plans[selectedPlan]?.measurements || 3,
-          next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-        });
+      if (result.success) {
+        alert(`✅ Account created successfully!\n\nCompany: ${formData.companyName}\nPlan: ${plans[selectedPlan].name}\n\nCheck ${formData.email} for your account setup link. After clicking the link and setting your password, you can log in.`);
+        navigate(createPageUrl("RooferLogin"));
+      } else {
+        throw new Error(result.error || 'Failed to create account');
       }
-      
-      alert(`✅ Account invitation sent!\n\nCompany: ${formData.companyName}\nPlan: ${plans[selectedPlan].name}\n\nCheck ${formData.email} for your account setup link. After clicking the link and setting your password, you can log in.`);
-      
-      // Redirect to login
-      navigate(createPageUrl("RooferLogin"));
       
     } catch (err) {
       console.error('Signup error:', err);
