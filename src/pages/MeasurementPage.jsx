@@ -102,6 +102,7 @@ export default function MeasurementPage() {
   const [shapeOpacity, setShapeOpacity] = useState(0.5);
   const [showTreeHelper, setShowTreeHelper] = useState(false);
   const [deletedSectionsCount, setDeletedSectionsCount] = useState(0);
+  const [isInspectionMode, setIsInspectionMode] = useState(false);
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
@@ -1014,11 +1015,29 @@ export default function MeasurementPage() {
       console.log('📏 Drawing started - Forcing 2D View for accuracy');
       mapInstanceRef.current.setTilt(0);    // Reset Tilt to 0 (Top down)
       mapInstanceRef.current.setHeading(0); // Reset Rotation to North
+      
+      // Wait for the snap animation, then enable drawing and restore polygons
+      setTimeout(() => {
+        setIsDrawing(true);
+        setError("");
+        drawingManagerRef.current.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON);
+        
+        // Ensure all polygons are visible again
+        if (polygonsRef.current) {
+          polygonsRef.current.forEach(poly => {
+            poly.setOptions({ 
+              strokeOpacity: 1.0, 
+              fillOpacity: 0.35,
+              clickable: true
+            });
+          });
+        }
+      }, 300);
+    } else {
+      setIsDrawing(true);
+      setError("");
+      drawingManagerRef.current.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON);
     }
-    
-    setIsDrawing(true);
-    setError("");
-    drawingManagerRef.current.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON);
   }, []);
 
   const deleteLiveMapSection = useCallback((sectionId) => {
@@ -1535,6 +1554,41 @@ export default function MeasurementPage() {
       setShowTreeHelper(true);
     }
   }, [deletedSectionsCount]);
+
+  // Smart View Manager: Hides drawings during 3D rotation to prevent visual errors
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    const handleViewChange = () => {
+      const tilt = mapInstanceRef.current.getTilt() || 0;
+      const heading = mapInstanceRef.current.getHeading() || 0;
+      const is3D = tilt > 0 || heading !== 0;
+
+      // Update inspection mode state
+      setIsInspectionMode(is3D);
+
+      // Get all polygons and adjust visibility
+      if (polygonsRef.current && polygonsRef.current.length > 0) {
+        polygonsRef.current.forEach(poly => {
+          if (poly && poly.setOptions) {
+            // Fade out in 3D, Show fully in 2D
+            poly.setOptions({ 
+              strokeOpacity: is3D ? 0.0 : 1.0, 
+              fillOpacity: is3D ? 0.0 : 0.35,
+              clickable: !is3D // Disable clicking in 3D to prevent errors
+            });
+          }
+        });
+      }
+    };
+
+    const listeners = [
+      mapInstanceRef.current.addListener('tilt_changed', handleViewChange),
+      mapInstanceRef.current.addListener('heading_changed', handleViewChange)
+    ];
+
+    return () => listeners.forEach(l => window.google.maps.event.removeListener(l));
+  }, [mapInstanceRef.current, polygonsRef.current]);
 
   const getTotalArea = () => {
     const liveTotal = liveMapSections.reduce((sum, s) => sum + s.adjusted_area_sqft, 0);
@@ -2954,7 +3008,14 @@ export default function MeasurementPage() {
           )}
         </div>
 
-        <div className="flex-1 bg-slate-900 p-6 overflow-y-auto">
+        <div className="flex-1 bg-slate-900 p-6 overflow-y-auto relative">
+          {/* Inspection Mode Badge */}
+          {isInspectionMode && measurementMode === 'detailed' && !isDrawingMode && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-4 py-2 rounded-full text-sm shadow-lg font-semibold animate-pulse">
+              👀 Inspection Mode - Drawings Hidden
+            </div>
+          )}
+
           {measurementMode === 'quick' ? (
             /* QUICK ESTIMATE VIEW - MAP ALWAYS VISIBLE */
             <div className="relative w-full h-full min-h-[80vh]">
