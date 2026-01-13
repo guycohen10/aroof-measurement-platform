@@ -52,7 +52,7 @@ export default function Homepage() {
             "longitude": -96.8236
           },
           "telephone": "+1-850-238-9727",
-          "email": "contact@aroof.build",
+          "email": "support@aroof.build",
           "url": "https://aroof.build",
           "priceRange": "$3-$5",
           "openingHoursSpecification": [
@@ -106,7 +106,7 @@ export default function Homepage() {
             "@type": "RoofingContractor",
             "name": "Aroof",
             "telephone": "+1-850-238-9727",
-            "email": "contact@aroof.build",
+            "email": "support@aroof.build",
             "url": "https://aroof.build"
           },
           "areaServed": {
@@ -599,9 +599,9 @@ export default function Homepage() {
                   <Phone className="w-4 h-4" />
                   (850) 238-9727
                 </a>
-                <a href="mailto:contact@aroof.build" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+                <a href="mailto:support@aroof.build" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                   <Mail className="w-4 h-4" />
-                  contact@aroof.build
+                  support@aroof.build
                 </a>
                 <div className="flex items-start gap-2 text-slate-400">
                   <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
