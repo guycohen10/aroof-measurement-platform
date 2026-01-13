@@ -276,11 +276,33 @@ export default function RooferSignup() {
 
   const handleResendCode = async () => {
     setLoading(true);
+    setError('');
+    
     try {
-      await base44.auth.resendOtp({ email: registeredEmail });
-      alert('✅ Verification code resent to ' + registeredEmail);
+      console.log('🔄 Resending verification code to:', registeredEmail);
+      
+      const response = await fetch(`https://base44.app/api/apps/${import.meta.env.VITE_BASE44_APP_ID}/auth/resend-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: registeredEmail
+        })
+      });
+      
+      const data = await response.json();
+      console.log('📡 Resend response:', response.status, data);
+      
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to resend verification code');
+      }
+      
+      alert('✅ New verification code sent! Check your email.');
+      console.log('✅ Verification code resent successfully');
     } catch (err) {
-      alert('❌ Failed to resend code: ' + err.message);
+      console.error('❌ Resend error:', err);
+      setError(err.message || 'Failed to resend code. Please try again.');
     } finally {
       setLoading(false);
     }
