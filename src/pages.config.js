@@ -27,7 +27,6 @@ import Insurance from './pages/Insurance';
 import JobScheduling from './pages/JobScheduling';
 import LeadManagement from './pages/LeadManagement';
 import MaintenancePlans from './pages/MaintenancePlans';
-import MeasurementPage from './pages/MeasurementPage';
 import NewLeadForm from './pages/NewLeadForm';
 import PDFDownload from './pages/PDFDownload';
 import Payment from './pages/Payment';
@@ -51,6 +50,7 @@ import StripeSuccess from './pages/StripeSuccess';
 import SubscriptionDetail from './pages/SubscriptionDetail';
 import Subscriptions from './pages/Subscriptions';
 import Windows from './pages/Windows';
+import MeasurementPage from './pages/MeasurementPage';
 import __Layout from './Layout.jsx';
 
 
@@ -84,7 +84,6 @@ export const PAGES = {
     "JobScheduling": JobScheduling,
     "LeadManagement": LeadManagement,
     "MaintenancePlans": MaintenancePlans,
-    "MeasurementPage": MeasurementPage,
     "NewLeadForm": NewLeadForm,
     "PDFDownload": PDFDownload,
     "Payment": Payment,
@@ -108,6 +107,7 @@ export const PAGES = {
     "SubscriptionDetail": SubscriptionDetail,
     "Subscriptions": Subscriptions,
     "Windows": Windows,
+    "MeasurementPage": MeasurementPage,
 }
 
 export const pagesConfig = {

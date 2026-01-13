@@ -492,10 +492,16 @@ export default function MeasurementPage() {
       });
 
       mapInstanceRef.current = map;
+      console.log("✅ Map instance created");
       
-      // Force maxZoom to 25 to ensure UI buttons work
-      map.setOptions({ maxZoom: 25 });
-      console.log("✅ Map instance created with maxZoom: 25");
+      // Safe "Unlock" Listener - waits for map to finish loading address BEFORE applying zoom rules
+      map.addListener('idle', () => {
+        const currentMax = map.get('maxZoom');
+        if (currentMax !== 25) {
+          console.log('✅ Map is idle/ready. Safely unlocking maxZoom to 25.');
+          map.setOptions({ maxZoom: 25 });
+        }
+      });
       
       window.google.maps.event.addListenerOnce(map, 'tilesloaded', () => {
         console.log("✅ Map tiles loaded!");
@@ -924,15 +930,18 @@ export default function MeasurementPage() {
   }, []);
 
   const handleZoomIn = useCallback(() => {
-    if (mapInstanceRef.current) {
-      const currentZoom = mapInstanceRef.current.getZoom();
-      if (currentZoom < 25) {
-        const newZoom = currentZoom + 1;
+    if (mapZoom < 25) {
+      const newZoom = mapZoom + 1;
+      setMapZoom(newZoom);
+      
+      if (mapInstanceRef.current) {
+        // "Just in Time" Unlock - Safe because user triggered it
+        mapInstanceRef.current.setOptions({ maxZoom: 25 });
         mapInstanceRef.current.setZoom(newZoom);
         console.log('🔍 Zooming to:', newZoom);
       }
     }
-  }, []);
+  }, [mapZoom]);
 
   const handleZoomOut = useCallback(() => {
     if (mapInstanceRef.current) {
