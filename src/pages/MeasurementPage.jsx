@@ -87,6 +87,9 @@ export default function MeasurementPage() {
   const [leadData, setLeadData] = useState(null);
   const [addressLoaded, setAddressLoaded] = useState(false);
   
+  // Solar center coordinates for re-mounting map
+  const [solarCenter, setSolarCenter] = useState(null);
+  
   const [drawingShape, setDrawingShape] = useState('polygon');
   const [lineThickness, setLineThickness] = useState(3);
   const [selectedColor, setSelectedColor] = useState(SECTION_COLORS[0]);
@@ -144,16 +147,16 @@ export default function MeasurementPage() {
         }
         
         // Draw the box
-        if (data.boundingBox && mapInstanceRef.current) {
+        if (data.boundingBox) {
           const box = data.boundingBox;
           
           // 1. Calculate the EXACT center of the Solar Box
           const centerLat = (box.sw.latitude + box.ne.latitude) / 2;
           const centerLng = (box.sw.longitude + box.ne.longitude) / 2;
-          const solarCenter = { lat: centerLat, lng: centerLng };
-          console.log('🎯 Solar Center Calculated:', solarCenter);
+          const calculatedCenter = { lat: centerLat, lng: centerLng };
+          console.log('🎯 Solar Center Calculated:', calculatedCenter);
           
-          // 2. Draw the Green Polygon
+          // 2. Draw the Green Polygon coordinates (store for later)
           const boxCoords = [
             { lat: box.sw.latitude, lng: box.sw.longitude },
             { lat: box.ne.latitude, lng: box.sw.longitude },
@@ -161,35 +164,10 @@ export default function MeasurementPage() {
             { lat: box.sw.latitude, lng: box.ne.longitude }
           ];
           
-          if (solarPolygonRef.current) {
-            solarPolygonRef.current.setMap(null);
-          }
+          // SAVE THE COORDINATES & TRIGGER RE-MOUNT
+          setSolarCenter({ ...calculatedCenter, boxCoords });
           
-          solarPolygonRef.current = new window.google.maps.Polygon({
-            paths: boxCoords,
-            strokeColor: '#10B981',
-            strokeOpacity: 1.0,
-            strokeWeight: 3,
-            fillColor: '#10B981',
-            fillOpacity: 0.15,
-            map: mapInstanceRef.current,
-            zIndex: 1
-          });
-          
-          // 3. FORCE MAP RESET (The Fix for Leads)
-          mapInstanceRef.current.setCenter(solarCenter);
-          mapInstanceRef.current.setZoom(19); // Safe Zoom
-          mapInstanceRef.current.setMapTypeId('hybrid');
-          
-          // 4. Double-Check Resize (Fixes "Grey Box" glitch)
-          requestAnimationFrame(() => {
-            if (mapInstanceRef.current) {
-              window.google.maps.event.trigger(mapInstanceRef.current, "resize");
-              mapInstanceRef.current.setCenter(solarCenter); // Re-center after resize
-            }
-          });
-          
-          console.log('✅ AI Auto-Draw Complete');
+          console.log('✅ Solar coordinates saved - Map will re-mount');
         }
       } else {
         console.warn('⚠️ No solar potential found for this building.');
@@ -530,21 +508,31 @@ export default function MeasurementPage() {
       return;
     }
 
+    // Decide which center to use - prioritize solarCenter
+    let finalCenter = center;
+    let useZoom = 21;
+    
+    if (solarCenter) {
+      console.log('🌟 Initializing NEW MAP with Solar Center:', solarCenter);
+      finalCenter = { lat: solarCenter.lat, lng: solarCenter.lng };
+      useZoom = 19; // Use safe zoom 19 for Solar
+    }
+
     // If map already exists, update its center instead of recreating
-    if (mapInstanceRef.current) {
-      console.log("🔄 Map exists - Updating center AND marker to:", center);
+    if (mapInstanceRef.current && !solarCenter) {
+      console.log("🔄 Map exists - Updating center AND marker to:", finalCenter);
       
       // 1. Move the Camera
-      mapInstanceRef.current.setCenter(center);
-      mapInstanceRef.current.setZoom(21);
+      mapInstanceRef.current.setCenter(finalCenter);
+      mapInstanceRef.current.setZoom(useZoom);
       
       // 2. Move the Red Dot (Marker)
       if (markerRef.current) {
-        markerRef.current.setPosition(center);
+        markerRef.current.setPosition(finalCenter);
       } else {
         // If marker doesn't exist for some reason, create it
         markerRef.current = new window.google.maps.Marker({
-          position: center,
+          position: finalCenter,
           map: mapInstanceRef.current,
           title: address,
           icon: {
@@ -563,11 +551,11 @@ export default function MeasurementPage() {
     }
 
     try {
-      console.log("✅ Creating Google Map with center:", center);
-      
+      console.log("✅ Creating Google Map with center:", finalCenter);
+
       const map = new window.google.maps.Map(mapRef.current, {
-        center: center,
-        zoom: 21,              // Start much closer
+        center: finalCenter,
+        zoom: useZoom,         // Use calculated zoom (19 for Solar, 21 otherwise)
         minZoom: 18,
         maxZoom: 25,           // Allow maximum possible detail
         mapTypeId: "hybrid",   // Satellite + Labels
@@ -616,7 +604,7 @@ export default function MeasurementPage() {
       });
 
       markerRef.current = new window.google.maps.Marker({
-        position: center,
+        position: finalCenter,
         map: map,
         title: address,
         icon: {
@@ -628,6 +616,21 @@ export default function MeasurementPage() {
           scale: 10,
         }
       });
+
+      // Re-draw Green Box if Solar data is available
+      if (solarCenter && solarCenter.boxCoords) {
+        console.log('🎨 Drawing Solar Polygon on new map');
+        solarPolygonRef.current = new window.google.maps.Polygon({
+          paths: solarCenter.boxCoords,
+          strokeColor: '#10B981',
+          strokeOpacity: 1.0,
+          strokeWeight: 3,
+          fillColor: '#10B981',
+          fillOpacity: 0.15,
+          map: map,
+          zIndex: 1
+        });
+      }
 
       // Initialize Drawing Manager
       const drawingManager = new window.google.maps.drawing.DrawingManager({
@@ -757,8 +760,8 @@ export default function MeasurementPage() {
       console.error("❌ Error creating map:", err);
       setMapError(`Error creating map: ${err.message}`);
       setMapLoading(false);
-    }
-  }, [address]);
+      }
+      }, [address, solarCenter]);
 
   const initializeMap = useCallback(async () => {
     console.log("🔄 initializeMap called");
@@ -3119,6 +3122,7 @@ export default function MeasurementPage() {
                   <>
                     <div 
                       ref={mapRef}
+                      key={solarCenter ? "solar-map" : "manual-map"}
                       className="w-full"
                       style={{ 
                         width: '100%',
