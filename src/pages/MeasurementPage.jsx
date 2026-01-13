@@ -840,20 +840,6 @@ export default function MeasurementPage() {
     initializeMap();
   }, [mapScriptLoaded, address, coordinates, initializeMap]);
 
-  // FORCE maxZoom to 25 after map loads (Google resets it for satellite)
-  useEffect(() => {
-    if (mapInstanceRef.current) {
-      const timer = setTimeout(() => {
-        console.log('💪 FORCING maxZoom to 25 (overriding Google defaults)');
-        mapInstanceRef.current.setOptions({ 
-          maxZoom: 25,
-          minZoom: 15
-        });
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [mapInstanceRef.current]);
-
   const handleRetryMap = () => {
     if (retryCount >= 3) {
       alert('Unable to load Google Maps after 3 attempts. Please check your internet connection and refresh the page.');
@@ -942,11 +928,8 @@ export default function MeasurementPage() {
       const currentZoom = mapInstanceRef.current.getZoom();
       if (currentZoom < 25) {
         const newZoom = currentZoom + 1;
-        
-        // Force maxZoom on every click to override Google's satellite limits
-        mapInstanceRef.current.setOptions({ maxZoom: 25 });
         mapInstanceRef.current.setZoom(newZoom);
-        console.log('🔍 Forcing zoom to:', newZoom, '(maxZoom enforced: 25)');
+        console.log('🔍 Zooming to:', newZoom);
       }
     }
   }, []);
