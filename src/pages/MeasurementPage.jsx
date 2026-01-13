@@ -170,9 +170,22 @@ export default function MeasurementPage() {
             zIndex: 1
           });
           
-          const bounds = new window.google.maps.LatLngBounds();
-          boxCoords.forEach(coord => bounds.extend(coord));
-          mapInstanceRef.current.fitBounds(bounds);
+          // SAFE CAMERA UPDATE (Forced Zoom 19)
+          console.log('📷 Forcing Safe Camera View (Zoom 19)...');
+          
+          // A. Center on the house
+          const centerLat = (box.sw.latitude + box.ne.latitude) / 2;
+          const centerLng = (box.sw.longitude + box.ne.longitude) / 2;
+          
+          mapInstanceRef.current.setCenter({ lat: centerLat, lng: centerLng });
+          
+          // B. Hard-set Zoom to 19 (Guaranteed to have imagery)
+          mapInstanceRef.current.setZoom(19);
+          
+          // C. Force a Resize Trigger (Just in case)
+          setTimeout(() => {
+            window.google.maps.event.trigger(mapInstanceRef.current, "resize");
+          }, 100);
           
           console.log('✅ AI Auto-Draw Complete');
         }
