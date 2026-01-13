@@ -950,6 +950,41 @@ export default function MeasurementPage() {
     }
   }, [measurementMode, coordinates, totalSqft]);
 
+  // FORCE MAP RECOVERY when AI Data Loads
+  useEffect(() => {
+    if (totalSqft > 0 && mapInstanceRef.current) {
+      console.log('🚑 EMERGENCY MAP FIX: AI Data detected, resetting view...');
+      
+      // 1. Get coordinates (from session or state)
+      const lat = parseFloat(sessionStorage.getItem('homeowner_lat')) || mapCenter?.lat || coordinates?.lat;
+      const lng = parseFloat(sessionStorage.getItem('homeowner_lng')) || mapCenter?.lng || coordinates?.lng;
+      
+      if (lat && lng) {
+        const center = { lat, lng };
+        
+        // 2. Force Map Properties
+        mapInstanceRef.current.setCenter(center);
+        mapInstanceRef.current.setZoom(18); // SAFE ZOOM (18 is always available)
+        mapInstanceRef.current.setMapTypeId('hybrid'); // Ensure Satellite View
+        
+        // 3. Trigger Resize to fix "Black Screen"
+        setTimeout(() => {
+          window.google.maps.event.trigger(mapInstanceRef.current, "resize");
+          mapInstanceRef.current.setCenter(center); // Re-center after resize
+        }, 500);
+        
+        // 4. Re-draw the Green Box if needed (optional backup)
+        if (solarPolygonRef.current) {
+          solarPolygonRef.current.setMap(mapInstanceRef.current);
+        }
+        
+        console.log('✅ Map force-reset complete');
+      } else {
+        console.error('❌ Cannot reset map: Missing coordinates', { lat, lng, mapCenter, coordinates });
+      }
+    }
+  }, [totalSqft, mapCenter, coordinates]);
+
   const handleRetryMap = () => {
     if (retryCount >= 3) {
       alert('Unable to load Google Maps after 3 attempts. Please check your internet connection and refresh the page.');
