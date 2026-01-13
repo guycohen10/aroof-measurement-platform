@@ -944,8 +944,14 @@ export default function MeasurementPage() {
     }
 
     console.log("✅ Script loaded AND address/coords ready - initializing map now");
-    initializeMap();
-  }, [mapScriptLoaded, address, coordinates, initializeMap]);
+    
+    // Add delay to ensure new div is ready after tab switch
+    const timer = setTimeout(() => {
+      initializeMap();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [mapScriptLoaded, address, coordinates, measurementMode, initializeMap]);
 
   // Auto-fetch Solar data when in Quick Estimate mode and coordinates are available
   useEffect(() => {
@@ -3122,7 +3128,7 @@ export default function MeasurementPage() {
                   <>
                     <div 
                       ref={mapRef}
-                      key={solarCenter ? "solar-map" : "manual-map"}
+                      key={`map-view-${measurementMode}`}
                       className="w-full"
                       style={{ 
                         width: '100%',
