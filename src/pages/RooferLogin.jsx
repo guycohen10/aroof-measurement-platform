@@ -1,208 +1,157 @@
-import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Home, ArrowLeft, Loader2, AlertCircle, Building2, Lock, Mail } from "lucide-react";
+import { Home, ArrowLeft, Loader2, AlertCircle, Building2 } from "lucide-react";
 
 export default function RooferLogin() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    rememberMe: false
-  });
+  const [email, setEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [showVerification, setShowVerification] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    checkIfAlreadyLoggedIn();
-  }, []);
-
-  const checkIfAlreadyLoggedIn = async () => {
-    try {
-      const user = await base44.auth.me();
-      if (user.aroof_role === 'external_roofer') {
-        navigate(createPageUrl("RooferDashboard"));
-      }
-    } catch (err) {
-      // Not logged in, stay on login page
-    }
-  };
-
-  const testDemoAccount = async () => {
-    try {
-      console.log('🧪 ═══════════════════════════════════════════════');
-      console.log('🧪 TESTING DEMO ACCOUNT');
-      console.log('🧪 ═══════════════════════════════════════════════');
-      
-      // Step 1: Check if company exists
-      console.log('📋 Step 1: Checking for demo company...');
-      const companies = await base44.entities.Company.list();
-      let demoCompany = companies.find(c => c.contact_email === 'demo@roofer.com');
-      
-      if (!demoCompany) {
-        console.log('📋 Creating demo company...');
-        demoCompany = await base44.entities.Company.create({
-          company_name: 'Demo Roofing Company',
-          contact_name: 'Demo Roofer',
-          contact_email: 'demo@roofer.com',
-          contact_phone: '(214) 555-0000',
-          address_street: '123 Demo St',
-          address_city: 'Dallas',
-          address_state: 'TX',
-          address_zip: '75001',
-          is_active: true,
-          subscription_tier: 'pro',
-          subscription_status: 'active'
-        });
-        console.log('✅ Demo company created:', demoCompany.id);
-      } else {
-        console.log('✅ Demo company exists:', demoCompany.id);
-      }
-      
-      // Step 2: Try to login
-      console.log('🔐 Step 2: Testing login...');
-      try {
-        await base44.auth.loginViaEmailPassword('demo@roofer.com', 'demo123');
-        console.log('✅ Login successful');
-      } catch (loginErr) {
-        console.log('❌ Login failed - account may not exist');
-        console.log('Creating account via register...');
-        try {
-          await base44.auth.register({
-            email: 'demo@roofer.com',
-            password: 'demo123',
-            full_name: 'Demo Roofer',
-            aroof_role: 'external_roofer',
-            company_id: demoCompany.id
-          });
-          console.log('✅ Account created, logging in...');
-          await base44.auth.loginViaEmailPassword('demo@roofer.com', 'demo123');
-        } catch (signupErr) {
-          console.error('Signup error:', signupErr);
-          throw new Error(`Failed to create account: ${signupErr.message}`);
-        }
-      }
-      
-      // Step 3: Get user and update
-      console.log('👤 Step 3: Getting user data...');
-      const user = await base44.auth.me();
-      console.log('Current user data:', JSON.stringify(user, null, 2));
-      
-      // Step 4: Update user with aroof_role if missing
-      console.log('🔧 Step 4: Checking user role...');
-      if (!user.aroof_role || user.aroof_role !== 'external_roofer' || !user.company_id) {
-        console.log('Updating user with correct role and company...');
-        await base44.auth.updateMe({
-          aroof_role: 'external_roofer',
-          company_id: demoCompany.id,
-          company_name: 'Demo Roofing Company',
-          phone: '(214) 555-0000'
-        });
-        console.log('✅ User updated');
-        
-        // Verify update
-        const updatedUser = await base44.auth.me();
-        console.log('Updated user data:', JSON.stringify(updatedUser, null, 2));
-      } else {
-        console.log('✅ User already has correct role and company');
-      }
-      
-      // Step 5: Test creating a lead
-      console.log('📝 Step 5: Testing lead creation...');
-      const testLead = await base44.entities.Lead.create({
-        name: 'Test Customer',
-        email: 'test@example.com',
-        phone: '214-555-1234',
-        address: '123 Test St, Dallas, TX 75001'
-      });
-      console.log('✅ Test lead created:', testLead.id);
-      
-      // Clean up test lead
-      await base44.entities.Lead.delete(testLead.id);
-      console.log('✅ Test lead deleted');
-      
-      console.log('🧪 ═══════════════════════════════════════════════');
-      console.log('🧪 ALL TESTS PASSED ✅');
-      console.log('🧪 ═══════════════════════════════════════════════');
-      
-      alert('✅ Demo account test passed!\n\nYou can now login with:\nEmail: demo@roofer.com\nPassword: demo123\n\nCheck console for details.');
-      return true;
-      
-    } catch (err) {
-      console.error('❌ ═══════════════════════════════════════════════');
-      console.error('❌ DEMO ACCOUNT TEST FAILED');
-      console.error('❌ ═══════════════════════════════════════════════');
-      console.error('Error:', err);
-      console.error('Message:', err.message);
-      console.error('Stack:', err.stack);
-      alert(`❌ Demo account test failed:\n\n${err.message}\n\nCheck console for full details.`);
-      return false;
-    }
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSendOTP = async (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    setError('');
+    setIsLoading(true);
 
     try {
-      // Use loginViaEmailPassword method
-      await base44.auth.loginViaEmailPassword(formData.email, formData.password);
+      console.log('📧 Sending OTP to:', email);
 
-      // Verify user is external roofer
-      const user = await base44.auth.me();
-      
-      // DEBUG: Log user details
-      console.log('✅ LOGIN SUCCESS');
-      console.log('📧 Logged in as:', user.email);
-      console.log('👤 Full name:', user.full_name);
-      console.log('🏢 Company ID:', user.company_id);
-      console.log('🎭 Role:', user.role);
-      console.log('🎭 Aroof Role:', user.aroof_role);
-      console.log('📋 Full user object:', JSON.stringify(user, null, 2));
-      
-      if (user.aroof_role !== 'external_roofer') {
-        console.warn('⚠️ User does not have external_roofer role');
-        console.warn('Current aroof_role:', user.aroof_role || 'Not set');
-        
-        // Show detailed error for debugging
-        setError(`This login is for roofing contractors only.\n\nYour account role: ${user.aroof_role || 'Not set'}\n\nPlease contact support to get your account set up as a roofer.`);
-        await base44.auth.logout();
-        setLoading(false);
-        return;
+      const response = await fetch(`https://base44.app/api/apps/${import.meta.env.VITE_BASE44_APP_ID}/auth/send-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email
+        })
+      });
+
+      const data = await response.json();
+      console.log('📡 Send OTP response:', response.status, data);
+
+      if (!response.ok) {
+        throw new Error(data.detail || data.message || 'Failed to send verification code');
       }
 
-      // Success - redirect to dashboard
-      console.log('✅ Roofer role verified, redirecting to dashboard...');
-      navigate(createPageUrl("RooferDashboard"));
-      
+      console.log('✅ OTP sent successfully');
+      setShowVerification(true);
+      alert('Verification code sent to your email!');
+
+    } catch (err) {
+      console.error('❌ Send OTP error:', err);
+      setError(err.message || 'Failed to send verification code. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyAndLogin = async (e) => {
+    e.preventDefault();
+    
+    if (!verificationCode || verificationCode.length !== 6) {
+      setError('Please enter a valid 6-digit code');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      console.log('🔐 Verifying OTP for:', email);
+
+      // Verify OTP
+      const response = await fetch(`https://base44.app/api/apps/${import.meta.env.VITE_BASE44_APP_ID}/auth/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          otp_code: verificationCode
+        })
+      });
+
+      const data = await response.json();
+      console.log('📡 Verify OTP response:', response.status, data);
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Invalid verification code');
+      }
+
+      console.log('✅ Verification successful!');
+
+      // Store auth tokens
+      if (data.access_token) {
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('refresh_token', data.refresh_token);
+        base44.setAccessToken(data.access_token);
+      }
+
+      // Verify user is a roofer
+      try {
+        const user = await base44.auth.me();
+        console.log('👤 User data:', user);
+
+        if (user.aroof_role !== 'external_roofer') {
+          throw new Error('This login is for roofers only. Homeowners should use the main site.');
+        }
+
+        console.log('✅ User verified as roofer');
+        alert('Login successful! Redirecting to dashboard...');
+        navigate(createPageUrl("RooferDashboard"));
+
+      } catch (userErr) {
+        console.error('❌ User verification error:', userErr);
+        throw new Error('Failed to verify user account');
+      }
+
     } catch (err) {
       console.error('❌ Login error:', err);
-      console.error('Error message:', err.message);
-      
-      // Check if error is about unverified email
-      if (err.message?.includes('verify') || err.message?.includes('verification') || err.message?.includes('email')) {
-        console.log('📧 Redirecting to email verification...');
-        navigate(`${createPageUrl('EmailVerification')}?email=${encodeURIComponent(formData.email)}`);
-        return;
+      setError(err.message || 'Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    setError('');
+    setIsLoading(true);
+
+    try {
+      console.log('🔄 Resending OTP to:', email);
+
+      const response = await fetch(`https://base44.app/api/apps/${import.meta.env.VITE_BASE44_APP_ID}/auth/send-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email
+        })
+      });
+
+      const data = await response.json();
+      console.log('📡 Resend OTP response:', response.status, data);
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to resend code');
       }
-      
-      if (err.message?.includes('Invalid credentials') || err.message?.includes('401')) {
-        setError("Invalid email or password. Please try again.");
-      } else if (err.message?.includes('User not found')) {
-        setError("No account found with this email. Please sign up first.");
-      } else {
-        setError(`Login failed: ${err.message || 'Unknown error'}. Please try again or contact support.`);
-      }
-      
-      setLoading(false);
+
+      alert('New verification code sent!');
+
+    } catch (err) {
+      console.error('❌ Resend error:', err);
+      setError(err.message || 'Failed to resend code. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -248,94 +197,109 @@ export default function RooferLogin() {
           </CardHeader>
           <CardContent className="p-8">
             {error && (
-              <Alert variant="destructive" className="mb-6">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm">{error}</div>
+                </div>
+              </div>
             )}
 
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-900 font-semibold">🔑 Demo Login:</p>
-              <p className="text-xs text-green-800 mt-1">
-                Email: <code className="bg-white px-2 py-0.5 rounded">demo@roofer.com</code><br/>
-                Password: <code className="bg-white px-2 py-0.5 rounded">demo123</code>
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <Label htmlFor="email" className="text-base font-medium flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-blue-600" />
-                  Email Address
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  required
-                  placeholder="your@email.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="mt-2 h-12 text-lg"
-                  disabled={loading}
-                  autoComplete="email"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="password" className="text-base font-medium flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-blue-600" />
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  placeholder="Enter your password"
-                  value={formData.password}
-                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                  className="mt-2 h-12 text-lg"
-                  disabled={loading}
-                  autoComplete="current-password"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="remember"
-                    checked={formData.rememberMe}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, rememberMe: checked }))}
+            {!showVerification ? (
+              <form onSubmit={handleSendOTP} className="space-y-6">
+                <div>
+                  <Label htmlFor="email" className="text-base font-medium">
+                    Email Address
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="mt-2 h-12 text-lg"
+                    placeholder="your@email.com"
+                    disabled={isLoading}
                   />
-                  <label
-                    htmlFor="remember"
-                    className="text-sm text-slate-600 cursor-pointer"
-                  >
-                    Remember me
-                  </label>
                 </div>
-                <Link
-                  to={createPageUrl("ForgotPassword")}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Forgot password?
-                </Link>
-              </div>
 
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full h-14 text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  'Sign In'
-                )}
-              </Button>
-            </form>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full h-14 text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Sending Code...
+                    </>
+                  ) : (
+                    'Send Verification Code'
+                  )}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyAndLogin} className="space-y-6">
+                <div>
+                  <Label htmlFor="code" className="text-base font-medium">
+                    Verification Code
+                  </Label>
+                  <Input
+                    id="code"
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    required
+                    maxLength={6}
+                    className="mt-2 h-12 text-center text-2xl tracking-widest"
+                    placeholder="000000"
+                    disabled={isLoading}
+                  />
+                  <p className="text-sm text-slate-500 mt-2 text-center">
+                    Enter the 6-digit code sent to {email}
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full h-14 text-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    'Verify & Login'
+                  )}
+                </Button>
+
+                <div className="flex gap-4">
+                  <Button
+                    type="button"
+                    onClick={handleResendOTP}
+                    disabled={isLoading}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Resend Code
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setShowVerification(false);
+                      setVerificationCode('');
+                      setError('');
+                    }}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Change Email
+                  </Button>
+                </div>
+              </form>
+            )}
 
             {/* Divider */}
             <div className="relative my-8">
@@ -356,23 +320,6 @@ export default function RooferLogin() {
                 Create Contractor Account
               </Button>
             </Link>
-
-            {/* DEMO ACCOUNT TEST BUTTON */}
-            <div className="mt-6 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
-              <p className="text-sm text-yellow-800 mb-3 font-semibold">
-                🧪 Developer Tools
-              </p>
-              <p className="text-xs text-yellow-700 mb-3">
-                Setup and test the demo account. Creates company, user, and verifies permissions.
-              </p>
-              <Button 
-                type="button"
-                onClick={testDemoAccount}
-                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
-              >
-                🧪 Test & Setup Demo Account
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
@@ -392,7 +339,7 @@ export default function RooferLogin() {
               <p className="text-sm text-slate-600 mb-2">
                 <strong>Homeowner?</strong> You don't need an account.
               </p>
-              <Link to={createPageUrl("MeasurementPage")}>
+              <Link to={createPageUrl("AddressMethodSelector")}>
                 <Button variant="link" className="text-blue-600 font-semibold p-0 h-auto">
                   Get FREE roof measurement →
                 </Button>
