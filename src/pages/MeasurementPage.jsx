@@ -106,6 +106,80 @@ export default function MeasurementPage() {
   const [mapZoom, setMapZoom] = useState(21);
   const [mapHeading, setMapHeading] = useState(0);
 
+  // Fetch Solar API Data
+  const fetchSolarData = async (lat, lng) => {
+    console.log('🚀 STARTING SOLAR FETCH for:', lat, lng);
+    
+    try {
+      const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat}&location.longitude=${lng}&requiredQuality=HIGH&key=${GOOGLE_MAPS_API_KEY}`;
+      console.log('🌐 API URL:', url);
+      
+      const response = await fetch(url);
+      console.log('📡 Response Status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ API ERROR:', errorText);
+        alert(`Solar API Failed: ${response.status} - ${errorText}`);
+        return;
+      }
+      
+      const data = await response.json();
+      console.log('📦 API Data received:', data);
+      
+      if (data.solarPotential) {
+        const areaSqM = data.solarPotential.wholeRoofStats.areaMeters2;
+        const areaSqFt = Math.round(areaSqM * 10.764);
+        
+        console.log('✅ AI SUCCESS! Area:', areaSqFt);
+        
+        // FORCE UPDATE STATE
+        setTotalSqft(areaSqFt);
+        setIsCalculationDone(true);
+        
+        // Draw the box
+        if (data.boundingBox && mapInstanceRef.current) {
+          console.log('🎨 Drawing Green Box...');
+          const box = data.boundingBox;
+          
+          const boxCoords = [
+            { lat: box.sw.latitude, lng: box.sw.longitude },
+            { lat: box.ne.latitude, lng: box.sw.longitude },
+            { lat: box.ne.latitude, lng: box.ne.longitude },
+            { lat: box.sw.latitude, lng: box.ne.longitude }
+          ];
+          
+          if (solarPolygonRef.current) {
+            solarPolygonRef.current.setMap(null);
+          }
+          
+          solarPolygonRef.current = new window.google.maps.Polygon({
+            paths: boxCoords,
+            strokeColor: '#10B981',
+            strokeOpacity: 1.0,
+            strokeWeight: 3,
+            fillColor: '#10B981',
+            fillOpacity: 0.15,
+            map: mapInstanceRef.current,
+            zIndex: 1
+          });
+          
+          const bounds = new window.google.maps.LatLngBounds();
+          boxCoords.forEach(coord => bounds.extend(coord));
+          mapInstanceRef.current.fitBounds(bounds);
+          
+          console.log('✅ AI Auto-Draw Complete');
+        }
+      } else {
+        console.warn('⚠️ No solar potential found for this building.');
+        alert('AI could not measure this specific roof. Please enter square footage manually.');
+      }
+    } catch (error) {
+      console.error('💥 CRITICAL FETCH ERROR:', error);
+      alert('System Error: ' + error.message);
+    }
+  };
+
   // Helper function to geocode and center map
   const geocodeAndCenterMap = async (address) => {
     if (!window.google?.maps) {
@@ -848,6 +922,14 @@ export default function MeasurementPage() {
     console.log("✅ Script loaded AND address/coords ready - initializing map now");
     initializeMap();
   }, [mapScriptLoaded, address, coordinates, initializeMap]);
+
+  // Auto-fetch Solar data when in Quick Estimate mode and coordinates are available
+  useEffect(() => {
+    if (measurementMode === 'quick' && coordinates && mapInstanceRef.current && !totalSqft) {
+      console.log('🤖 Auto-triggering Solar API for Quick Estimate...');
+      fetchSolarData(coordinates.lat, coordinates.lng);
+    }
+  }, [measurementMode, coordinates, totalSqft]);
 
   const handleRetryMap = () => {
     if (retryCount >= 3) {
@@ -1707,9 +1789,14 @@ export default function MeasurementPage() {
       let method;
       let inputSqft = null;
 
-      // Try Solar API first if we have coordinates
-      if (coordinates) {
+      // Use totalSqft if already set by auto-fetch, otherwise use fallback
+      if (totalSqft) {
+        roofSqft = totalSqft;
+        method = 'solar_api';
+        inputSqft = null;
+      } else if (coordinates) {
         try {
+          // Try manual Solar API call as fallback
           const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${coordinates.lat}&location.longitude=${coordinates.lng}&requiredQuality=HIGH&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
           
           const response = await fetch(solarApiUrl);
@@ -1719,51 +1806,10 @@ export default function MeasurementPage() {
             const roofAreaM2 = data.solarPotential?.wholeRoofStats?.areaMeters2;
             
             if (roofAreaM2 && roofAreaM2 > 0) {
-              roofSqft = Math.round(roofAreaM2 * 10.7639); // Convert m² to ft²
+              roofSqft = Math.round(roofAreaM2 * 10.7639);
               method = 'solar_api';
               inputSqft = buildingSqft ? parseInt(buildingSqft) : null;
               console.log('✅ Solar API success:', roofSqft, 'sq ft');
-              
-              // Update UI state
-              setTotalSqft(roofSqft);
-              setIsCalculationDone(true);
-              
-              // Draw AI Auto-Box on Map
-              if (data.boundingBox && mapInstanceRef.current) {
-                const box = data.boundingBox;
-                
-                // Define Rectangle Coordinates
-                const boxCoords = [
-                  { lat: box.sw.latitude, lng: box.sw.longitude }, // SW
-                  { lat: box.ne.latitude, lng: box.sw.longitude }, // NW
-                  { lat: box.ne.latitude, lng: box.ne.longitude }, // NE
-                  { lat: box.sw.latitude, lng: box.ne.longitude }  // SE
-                ];
-                
-                // Remove old AI drawing if exists
-                if (solarPolygonRef.current) {
-                  solarPolygonRef.current.setMap(null);
-                }
-                
-                // Draw the New AI Box
-                solarPolygonRef.current = new window.google.maps.Polygon({
-                  paths: boxCoords,
-                  strokeColor: '#10B981',
-                  strokeOpacity: 1.0,
-                  strokeWeight: 3,
-                  fillColor: '#10B981',
-                  fillOpacity: 0.15,
-                  map: mapInstanceRef.current,
-                  zIndex: 1
-                });
-                
-                // Center View on House
-                const bounds = new window.google.maps.LatLngBounds();
-                boxCoords.forEach(coord => bounds.extend(coord));
-                mapInstanceRef.current.fitBounds(bounds);
-                
-                console.log('✅ AI Auto-Draw Complete');
-              }
             } else {
               throw new Error('No roof data from Solar API');
             }
