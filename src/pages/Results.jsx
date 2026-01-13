@@ -29,6 +29,120 @@ export default function Results() {
   const [mapScriptLoaded, setMapScriptLoaded] = useState(false);
   const scriptLoadedRef = useRef(false);
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+  
+  const [selectedMaterial, setSelectedMaterial] = useState({
+    name: 'Asphalt Shingles (Architectural)',
+    pricePerSqFt: 4.50,
+    laborMultiplier: 1.0,
+    category: 'standard'
+  });
+
+  const roofingMaterials = [
+    {
+      name: 'Asphalt Shingles (3-Tab)',
+      pricePerSqFt: 3.50,
+      laborMultiplier: 1.0,
+      category: 'economy',
+      description: 'Most affordable option, 15-20 year lifespan',
+      warranty: '15-20 years'
+    },
+    {
+      name: 'Asphalt Shingles (Architectural)',
+      pricePerSqFt: 4.50,
+      laborMultiplier: 1.0,
+      category: 'standard',
+      description: 'Popular choice, 25-30 year lifespan, dimensional look',
+      warranty: '25-30 years'
+    },
+    {
+      name: 'Metal Roofing (Standing Seam)',
+      pricePerSqFt: 9.00,
+      laborMultiplier: 1.3,
+      category: 'premium',
+      description: 'Energy efficient, 40-70 year lifespan, modern look',
+      warranty: '40-50 years'
+    },
+    {
+      name: 'Metal Roofing (Metal Shingles)',
+      pricePerSqFt: 8.00,
+      laborMultiplier: 1.2,
+      category: 'premium',
+      description: 'Lightweight, durable, 40-60 year lifespan',
+      warranty: '40-50 years'
+    },
+    {
+      name: 'Clay Tile',
+      pricePerSqFt: 12.00,
+      laborMultiplier: 1.5,
+      category: 'luxury',
+      description: 'Classic Mediterranean look, 50-100 year lifespan',
+      warranty: '50+ years'
+    },
+    {
+      name: 'Concrete Tile',
+      pricePerSqFt: 10.00,
+      laborMultiplier: 1.4,
+      category: 'premium',
+      description: 'Versatile styles, 40-50 year lifespan, fire resistant',
+      warranty: '40-50 years'
+    },
+    {
+      name: 'Natural Slate',
+      pricePerSqFt: 18.00,
+      laborMultiplier: 1.8,
+      category: 'luxury',
+      description: 'Premium natural stone, 75-200 year lifespan',
+      warranty: '75-100+ years'
+    },
+    {
+      name: 'Cedar Shingles/Shakes',
+      pricePerSqFt: 7.00,
+      laborMultiplier: 1.2,
+      category: 'premium',
+      description: 'Natural wood beauty, 20-40 year lifespan',
+      warranty: '20-30 years'
+    },
+    {
+      name: 'TPO (Flat Roof)',
+      pricePerSqFt: 5.50,
+      laborMultiplier: 1.1,
+      category: 'standard',
+      description: 'Energy efficient for flat/low-slope, 15-20 year lifespan',
+      warranty: '15-20 years'
+    },
+    {
+      name: 'EPDM Rubber (Flat Roof)',
+      pricePerSqFt: 5.00,
+      laborMultiplier: 1.0,
+      category: 'economy',
+      description: 'Durable flat roof option, 20-25 year lifespan',
+      warranty: '20-25 years'
+    },
+    {
+      name: 'Composite/Synthetic',
+      pricePerSqFt: 8.50,
+      laborMultiplier: 1.1,
+      category: 'premium',
+      description: 'Mimics natural materials, 30-50 year lifespan',
+      warranty: '30-50 years'
+    },
+    {
+      name: 'Solar Tiles',
+      pricePerSqFt: 25.00,
+      laborMultiplier: 2.0,
+      category: 'luxury',
+      description: 'Generate electricity, 25-30 year lifespan',
+      warranty: '25 years'
+    },
+    {
+      name: 'Green/Living Roof',
+      pricePerSqFt: 15.00,
+      laborMultiplier: 2.5,
+      category: 'luxury',
+      description: 'Eco-friendly vegetation layer, 30-50 year lifespan',
+      warranty: '30-40 years'
+    }
+  ];
 
   // Load Google Maps script once for entire Results page
   useEffect(() => {
@@ -362,6 +476,39 @@ export default function Results() {
       link.href = dataUrl;
       link.click();
     }
+  };
+
+  const calculatePriceWithMaterial = () => {
+    const totalArea = measurement?.total_sqft || measurement?.measurement_data?.total_adjusted_sqft || 0;
+    const materialCost = totalArea * selectedMaterial.pricePerSqFt;
+    const laborCost = totalArea * (3.00 * selectedMaterial.laborMultiplier);
+    const totalCost = materialCost + laborCost;
+    
+    return {
+      materialCost: Math.round(materialCost),
+      laborCost: Math.round(laborCost),
+      totalCost: Math.round(totalCost),
+      lowEstimate: Math.round(totalCost * 0.85),
+      highEstimate: Math.round(totalCost * 1.15)
+    };
+  };
+
+  const saveMaterialSelection = async (material) => {
+    try {
+      await base44.entities.Measurement.update(measurement.id, {
+        selected_material: material.name,
+        material_price_per_sqft: material.pricePerSqFt,
+        material_labor_multiplier: material.laborMultiplier
+      });
+      console.log('✅ Material selection saved');
+    } catch (err) {
+      console.error('⚠️ Failed to save material selection:', err);
+    }
+  };
+
+  const handleMaterialChange = (material) => {
+    setSelectedMaterial(material);
+    saveMaterialSelection(material);
   };
 
   const materialMultipliers = {
@@ -900,53 +1047,121 @@ export default function Results() {
             )}
 
             {isHomeowner && (
-              <Card className="shadow-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white">
-                <CardHeader>
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    <DollarSign className="w-6 h-6 text-green-600" />
-                    Estimated Cost
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div>
-                    <label className="text-sm font-medium text-slate-700 mb-2 block">
-                      Select Material:
-                    </label>
-                    <Select value={materialType} onValueChange={setMaterialType}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="asphalt_shingles">Asphalt Shingles</SelectItem>
-                        <SelectItem value="architectural_shingles">Architectural (+25%)</SelectItem>
-                        <SelectItem value="metal_roofing">Metal (+60%)</SelectItem>
-                        <SelectItem value="tile_roofing">Tile (+100%)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <>
+                <Card className="shadow-xl border-2 border-blue-200">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
+                    <CardTitle className="text-xl flex items-center gap-2">
+                      <Box className="w-6 h-6 text-blue-600" />
+                      Select Roofing Material
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <p className="text-slate-600 mb-4 text-sm">
+                      Choose your preferred roofing material. Pricing will adjust automatically.
+                    </p>
 
-                  <div className="space-y-3">
-                    <div className="flex justify-between p-3 bg-white rounded-lg">
-                      <span className="text-slate-600">Materials</span>
-                      <span className="font-bold">${materialCost.toLocaleString()}</span>
+                    <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                      {['economy', 'standard', 'premium', 'luxury'].map((category) => (
+                        <button
+                          key={category}
+                          onClick={() => {
+                            const filtered = roofingMaterials.filter(m => m.category === category);
+                            if (filtered.length > 0) {
+                              handleMaterialChange(filtered[0]);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors text-sm ${
+                            selectedMaterial.category === category
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {category.charAt(0).toUpperCase() + category.slice(1)}
+                        </button>
+                      ))}
                     </div>
-                    <div className="flex justify-between p-3 bg-white rounded-lg">
-                      <span className="text-slate-600">Labor</span>
-                      <span className="font-bold">${laborCost.toLocaleString()}</span>
+
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {roofingMaterials.map((material) => (
+                        <div
+                          key={material.name}
+                          onClick={() => handleMaterialChange(material)}
+                          className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                            selectedMaterial.name === material.name
+                              ? 'border-blue-600 bg-blue-50 shadow-md'
+                              : 'border-gray-200 hover:border-blue-300'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between mb-1">
+                            <h3 className="font-bold text-gray-900 text-sm">{material.name}</h3>
+                            {selectedMaterial.name === material.name && (
+                              <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                            )}
+                          </div>
+                          
+                          <p className="text-xs text-gray-600 mb-2">{material.description}</p>
+                          
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-lg font-bold text-blue-600">
+                              ${material.pricePerSqFt.toFixed(2)}
+                            </span>
+                            <span className="text-xs text-gray-500">per sq ft</span>
+                            <span className="text-xs text-gray-400 ml-auto">
+                              {material.warranty}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="flex justify-between p-3 bg-white rounded-lg">
-                      <span className="text-slate-600">Waste (10%)</span>
-                      <span className="font-bold">${wasteCost.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between p-4 bg-green-600 text-white rounded-lg font-bold">
-                      <span className="text-lg">Cost Range</span>
-                      <span className="text-2xl">
-                        ${lowEstimate.toLocaleString()} - ${highEstimate.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white">
+                  <CardHeader>
+                    <CardTitle className="text-xl flex items-center gap-2">
+                      <DollarSign className="w-6 h-6 text-green-600" />
+                      Estimated Project Cost
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {(() => {
+                      const pricing = calculatePriceWithMaterial();
+                      return (
+                        <>
+                          <div className="bg-white rounded-lg p-4 space-y-3">
+                            <div className="flex justify-between items-center pb-3 border-b">
+                              <span className="text-slate-700 font-medium text-sm">Selected Material:</span>
+                              <span className="font-bold text-slate-900 text-sm">{selectedMaterial.name}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-600 text-sm">Materials ({area?.toLocaleString()} sq ft × ${selectedMaterial.pricePerSqFt})</span>
+                              <span className="font-bold text-slate-900">${pricing.materialCost.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-600 text-sm">Labor ({area?.toLocaleString()} sq ft × ${(3.00 * selectedMaterial.laborMultiplier).toFixed(2)})</span>
+                              <span className="font-bold text-slate-900">${pricing.laborCost.toLocaleString()}</span>
+                            </div>
+                          </div>
+
+                          <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl p-4 text-center">
+                            <p className="text-sm font-medium mb-1 opacity-90">Estimated Cost Range</p>
+                            <p className="text-3xl font-bold mb-1">
+                              ${pricing.lowEstimate.toLocaleString()} - ${pricing.highEstimate.toLocaleString()}
+                            </p>
+                            <p className="text-xs opacity-90">Based on {selectedMaterial.name}</p>
+                          </div>
+
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                            <p className="text-xs text-amber-800">
+                              <strong>Note:</strong> This is a preliminary estimate based on standard conditions. Contact us for a detailed quote.
+                            </p>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              </>
             )}
 
             <Card className="shadow-2xl border-none overflow-hidden">

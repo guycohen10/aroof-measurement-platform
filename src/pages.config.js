@@ -50,8 +50,8 @@ import StripeCanceled from './pages/StripeCanceled';
 import StripeSuccess from './pages/StripeSuccess';
 import SubscriptionDetail from './pages/SubscriptionDetail';
 import Subscriptions from './pages/Subscriptions';
-import Windows from './pages/Windows';
 import VerifyEmail from './pages/VerifyEmail';
+import Windows from './pages/Windows';
 import __Layout from './Layout.jsx';
 
 
@@ -108,8 +108,8 @@ export const PAGES = {
     "StripeSuccess": StripeSuccess,
     "SubscriptionDetail": SubscriptionDetail,
     "Subscriptions": Subscriptions,
-    "Windows": Windows,
     "VerifyEmail": VerifyEmail,
+    "Windows": Windows,
 }
 
 export const pagesConfig = {
