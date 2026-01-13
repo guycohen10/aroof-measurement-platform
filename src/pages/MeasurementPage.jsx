@@ -58,6 +58,8 @@ export default function MeasurementPage() {
   const [buildingSqft, setBuildingSqft] = useState("");
   const [autoEstimate, setAutoEstimate] = useState(false);
   const [quickEstimateLoading, setQuickEstimateLoading] = useState(false);
+  const [totalSqft, setTotalSqft] = useState(null);
+  const [isCalculationDone, setIsCalculationDone] = useState(false);
   
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
@@ -1722,6 +1724,10 @@ export default function MeasurementPage() {
               inputSqft = buildingSqft ? parseInt(buildingSqft) : null;
               console.log('✅ Solar API success:', roofSqft, 'sq ft');
               
+              // Update UI state
+              setTotalSqft(roofSqft);
+              setIsCalculationDone(true);
+              
               // Draw AI Auto-Box on Map
               if (data.boundingBox && mapInstanceRef.current) {
                 const box = data.boundingBox;
@@ -2139,64 +2145,87 @@ export default function MeasurementPage() {
                     <h3 className="text-lg font-bold text-green-900">Get Instant Roof Estimate</h3>
                   </div>
 
-                  <div className="bg-white rounded-lg p-4 border-2 border-green-200">
-                    <Label className="text-sm font-bold text-slate-700">Building Square Footage</Label>
-                    <Input
-                      type="number"
-                      value={buildingSqft}
-                      onChange={(e) => setBuildingSqft(e.target.value)}
-                      placeholder="e.g., 2000"
-                      disabled={autoEstimate}
-                      className="mt-2 h-12 text-lg"
-                    />
-                    <p className="text-xs text-slate-500 mt-2">Enter your home's total living area</p>
-                  </div>
+                  {totalSqft ? (
+                    <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                      <h3 className="font-bold text-green-800 flex items-center gap-2 mb-2">
+                        ⚡ AI Measurement Complete
+                      </h3>
+                      <p className="text-3xl font-bold text-green-700 my-2">
+                        {totalSqft.toLocaleString()} sq ft
+                      </p>
+                      <p className="text-sm text-green-600 mb-3">
+                        Based on Google Solar data
+                      </p>
+                      <Button
+                        onClick={handleQuickEstimate}
+                        className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        Continue to Results
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="bg-white rounded-lg p-4 border-2 border-green-200">
+                        <Label className="text-sm font-bold text-slate-700">Building Square Footage</Label>
+                        <Input
+                          type="number"
+                          value={buildingSqft}
+                          onChange={(e) => setBuildingSqft(e.target.value)}
+                          placeholder="e.g., 2000"
+                          disabled={autoEstimate}
+                          className="mt-2 h-12 text-lg"
+                        />
+                        <p className="text-xs text-slate-500 mt-2">Enter your home's total living area</p>
+                      </div>
 
-                  <div className="flex items-start gap-2">
-                    <input
-                      type="checkbox"
-                      checked={autoEstimate}
-                      onChange={(e) => {
-                        setAutoEstimate(e.target.checked);
-                        if (e.target.checked) setBuildingSqft("");
-                      }}
-                      className="mt-1"
-                    />
-                    <label className="text-sm text-slate-700">
-                      <strong>I don't know</strong> - estimate it for me based on my ZIP code
-                    </label>
-                  </div>
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          checked={autoEstimate}
+                          onChange={(e) => {
+                            setAutoEstimate(e.target.checked);
+                            if (e.target.checked) setBuildingSqft("");
+                          }}
+                          className="mt-1"
+                        />
+                        <label className="text-sm text-slate-700">
+                          <strong>I don't know</strong> - estimate it for me based on my ZIP code
+                        </label>
+                      </div>
 
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <Info className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="text-xs text-blue-900">
-                      <strong>How it works:</strong> We calculate roof area using building size × 1.3 (standard roof multiplier). This gives you a quick ballpark estimate.
-                    </AlertDescription>
-                  </Alert>
+                      <Alert className="bg-blue-50 border-blue-200">
+                        <Info className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-xs text-blue-900">
+                          <strong>How it works:</strong> We calculate roof area using building size × 1.3 (standard roof multiplier). This gives you a quick ballpark estimate.
+                        </AlertDescription>
+                      </Alert>
 
-                  <Button
-                    onClick={handleQuickEstimate}
-                    disabled={quickEstimateLoading || (!buildingSqft && !autoEstimate)}
-                    className="w-full h-14 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold"
-                  >
-                    {quickEstimateLoading ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Calculating...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="w-5 h-5 mr-2" />
-                        Calculate Roof Size
-                      </>
-                    )}
-                  </Button>
+                      <Button
+                        onClick={handleQuickEstimate}
+                        disabled={quickEstimateLoading || (!buildingSqft && !autoEstimate)}
+                        className="w-full h-14 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold"
+                      >
+                        {quickEstimateLoading ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Calculating...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-5 h-5 mr-2" />
+                            Calculate Roof Size
+                          </>
+                        )}
+                      </Button>
 
-                  <div className="pt-4 border-t border-green-200">
-                    <p className="text-xs text-slate-600 mb-2">
-                      <strong>Want more accuracy?</strong> Switch to Detailed Measurement mode to draw exact roof sections for ±2% precision.
-                    </p>
-                  </div>
+                      <div className="pt-4 border-t border-green-200">
+                        <p className="text-xs text-slate-600 mb-2">
+                          <strong>Want more accuracy?</strong> Switch to Detailed Measurement mode to draw exact roof sections for ±2% precision.
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </Card>
             ) : null}
@@ -2843,41 +2872,43 @@ export default function MeasurementPage() {
           {measurementMode === 'quick' ? (
             /* QUICK ESTIMATE VIEW */
             <div className="flex items-center justify-center h-full">
-              <Card className="max-w-2xl w-full bg-white/95 backdrop-blur-sm">
-                <CardContent className="p-12 text-center">
-                  <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Zap className="w-12 h-12 text-green-600" />
-                  </div>
-                  <h2 className="text-3xl font-bold text-slate-900 mb-4">Quick Roof Estimate</h2>
-                  <p className="text-lg text-slate-600 mb-6">
-                    Get an instant estimate based on your building size
-                  </p>
-                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-left">
-                    <h3 className="font-bold text-blue-900 mb-3">How Quick Estimates Work:</h3>
-                    <ul className="space-y-2 text-sm text-blue-800">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <span>Based on building size × 1.3 (standard roof multiplier)</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <span>Provides ballpark estimate in seconds</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <span>Great for initial quotes and screening leads</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-orange-600" />
-                        <span><strong>Accuracy:</strong> ±15-20% (use Detailed mode for ±2% precision)</span>
-                      </li>
-                    </ul>
-                  </div>
-                  <p className="text-sm text-slate-500 mt-6">
-                    ← Use the form on the left to calculate your estimate
-                  </p>
-                </CardContent>
-              </Card>
+              {!totalSqft && (
+                <Card className="max-w-2xl w-full bg-white/95 backdrop-blur-sm">
+                  <CardContent className="p-12 text-center">
+                    <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Zap className="w-12 h-12 text-green-600" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-slate-900 mb-4">Quick Roof Estimate</h2>
+                    <p className="text-lg text-slate-600 mb-6">
+                      Get an instant estimate based on your building size
+                    </p>
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-left">
+                      <h3 className="font-bold text-blue-900 mb-3">How Quick Estimates Work:</h3>
+                      <ul className="space-y-2 text-sm text-blue-800">
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span>Based on building size × 1.3 (standard roof multiplier)</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span>Provides ballpark estimate in seconds</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span>Great for initial quotes and screening leads</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-orange-600" />
+                          <span><strong>Accuracy:</strong> ±15-20% (use Detailed mode for ±2% precision)</span>
+                        </li>
+                      </ul>
+                    </div>
+                    <p className="text-sm text-slate-500 mt-6">
+                      ← Use the form on the left to calculate your estimate
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           ) : !isDrawingMode ? (
             <div style={{ marginBottom: '50px' }}>
