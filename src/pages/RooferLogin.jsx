@@ -96,8 +96,9 @@ export default function RooferLogin() {
       // Store auth tokens
       if (data.access_token) {
         localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('refresh_token', data.refresh_token);
-        base44.setAccessToken(data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem('refresh_token', data.refresh_token);
+        }
       }
 
       // Verify user is a roofer
