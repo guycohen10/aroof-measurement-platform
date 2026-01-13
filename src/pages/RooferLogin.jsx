@@ -22,9 +22,10 @@ export default function RooferLogin() {
     setIsLoading(true);
 
     try {
-      console.log('📧 Sending OTP to:', email);
+      console.log('📧 Requesting OTP for login:', email);
 
-      const response = await fetch(`https://base44.app/api/apps/${import.meta.env.VITE_BASE44_APP_ID}/auth/send-otp`, {
+      // First, check if user exists and request OTP
+      const response = await fetch(`https://base44.app/api/apps/${import.meta.env.VITE_BASE44_APP_ID}/auth/resend-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -35,9 +36,13 @@ export default function RooferLogin() {
       });
 
       const data = await response.json();
-      console.log('📡 Send OTP response:', response.status, data);
+      console.log('📡 Request OTP response:', response.status, data);
 
       if (!response.ok) {
+        // If resend-otp fails, user might not exist or account not verified
+        if (response.status === 404 || response.status === 400) {
+          throw new Error('Account not found or not verified. Please sign up first.');
+        }
         throw new Error(data.detail || data.message || 'Failed to send verification code');
       }
 
@@ -128,7 +133,7 @@ export default function RooferLogin() {
     try {
       console.log('🔄 Resending OTP to:', email);
 
-      const response = await fetch(`https://base44.app/api/apps/${import.meta.env.VITE_BASE44_APP_ID}/auth/send-otp`, {
+      const response = await fetch(`https://base44.app/api/apps/${import.meta.env.VITE_BASE44_APP_ID}/auth/resend-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
