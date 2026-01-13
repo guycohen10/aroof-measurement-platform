@@ -923,7 +923,7 @@ export default function MeasurementPage() {
   const handleZoomIn = useCallback(() => {
     if (mapInstanceRef.current) {
       const currentZoom = mapInstanceRef.current.getZoom();
-      if (currentZoom < 22) mapInstanceRef.current.setZoom(currentZoom + 1);
+      if (currentZoom < 25) mapInstanceRef.current.setZoom(currentZoom + 1);
     }
   }, []);
 
@@ -2291,7 +2291,7 @@ export default function MeasurementPage() {
                       <Button size="sm" variant="outline" onClick={handleOptimalZoom} className="flex-1">
                         <Maximize2 className="w-4 h-4" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={handleZoomIn} disabled={currentZoom >= 22} className="flex-1">
+                      <Button size="sm" variant="outline" onClick={handleZoomIn} disabled={currentZoom >= 25} className="flex-1">
                         <ZoomIn className="w-4 h-4" />
                       </Button>
                     </div>
