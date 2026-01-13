@@ -145,9 +145,15 @@ export default function MeasurementPage() {
         
         // Draw the box
         if (data.boundingBox && mapInstanceRef.current) {
-          console.log('🎨 Drawing Green Box...');
           const box = data.boundingBox;
           
+          // 1. Calculate the EXACT center of the Solar Box
+          const centerLat = (box.sw.latitude + box.ne.latitude) / 2;
+          const centerLng = (box.sw.longitude + box.ne.longitude) / 2;
+          const solarCenter = { lat: centerLat, lng: centerLng };
+          console.log('🎯 Solar Center Calculated:', solarCenter);
+          
+          // 2. Draw the Green Polygon
           const boxCoords = [
             { lat: box.sw.latitude, lng: box.sw.longitude },
             { lat: box.ne.latitude, lng: box.sw.longitude },
@@ -170,22 +176,18 @@ export default function MeasurementPage() {
             zIndex: 1
           });
           
-          // SAFE CAMERA UPDATE (Forced Zoom 19)
-          console.log('📷 Forcing Safe Camera View (Zoom 19)...');
+          // 3. FORCE MAP RESET (The Fix for Leads)
+          mapInstanceRef.current.setCenter(solarCenter);
+          mapInstanceRef.current.setZoom(19); // Safe Zoom
+          mapInstanceRef.current.setMapTypeId('hybrid');
           
-          // A. Center on the house
-          const centerLat = (box.sw.latitude + box.ne.latitude) / 2;
-          const centerLng = (box.sw.longitude + box.ne.longitude) / 2;
-          
-          mapInstanceRef.current.setCenter({ lat: centerLat, lng: centerLng });
-          
-          // B. Hard-set Zoom to 19 (Guaranteed to have imagery)
-          mapInstanceRef.current.setZoom(19);
-          
-          // C. Force a Resize Trigger (Just in case)
-          setTimeout(() => {
-            window.google.maps.event.trigger(mapInstanceRef.current, "resize");
-          }, 100);
+          // 4. Double-Check Resize (Fixes "Grey Box" glitch)
+          requestAnimationFrame(() => {
+            if (mapInstanceRef.current) {
+              window.google.maps.event.trigger(mapInstanceRef.current, "resize");
+              mapInstanceRef.current.setCenter(solarCenter); // Re-center after resize
+            }
+          });
           
           console.log('✅ AI Auto-Draw Complete');
         }
@@ -949,41 +951,6 @@ export default function MeasurementPage() {
       fetchSolarData(coordinates.lat, coordinates.lng);
     }
   }, [measurementMode, coordinates, totalSqft]);
-
-  // FORCE MAP RECOVERY when AI Data Loads
-  useEffect(() => {
-    if (totalSqft > 0 && mapInstanceRef.current) {
-      console.log('🚑 EMERGENCY MAP FIX: AI Data detected, resetting view...');
-      
-      // 1. Get coordinates (from session or state)
-      const lat = parseFloat(sessionStorage.getItem('homeowner_lat')) || mapCenter?.lat || coordinates?.lat;
-      const lng = parseFloat(sessionStorage.getItem('homeowner_lng')) || mapCenter?.lng || coordinates?.lng;
-      
-      if (lat && lng) {
-        const center = { lat, lng };
-        
-        // 2. Force Map Properties
-        mapInstanceRef.current.setCenter(center);
-        mapInstanceRef.current.setZoom(18); // SAFE ZOOM (18 is always available)
-        mapInstanceRef.current.setMapTypeId('hybrid'); // Ensure Satellite View
-        
-        // 3. Trigger Resize to fix "Black Screen"
-        setTimeout(() => {
-          window.google.maps.event.trigger(mapInstanceRef.current, "resize");
-          mapInstanceRef.current.setCenter(center); // Re-center after resize
-        }, 500);
-        
-        // 4. Re-draw the Green Box if needed (optional backup)
-        if (solarPolygonRef.current) {
-          solarPolygonRef.current.setMap(mapInstanceRef.current);
-        }
-        
-        console.log('✅ Map force-reset complete');
-      } else {
-        console.error('❌ Cannot reset map: Missing coordinates', { lat, lng, mapCenter, coordinates });
-      }
-    }
-  }, [totalSqft, mapCenter, coordinates]);
 
   const handleRetryMap = () => {
     if (retryCount >= 3) {
