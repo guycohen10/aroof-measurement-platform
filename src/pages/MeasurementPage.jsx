@@ -46,6 +46,7 @@ export default function MeasurementPage() {
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
   const drawingManagerRef = useRef(null);
   const polygonsRef = useRef([]);
   const containerRef = useRef(null);
@@ -432,9 +433,32 @@ export default function MeasurementPage() {
 
     // If map already exists, update its center instead of recreating
     if (mapInstanceRef.current) {
-      console.log("🔄 Map exists - Updating center to:", center);
+      console.log("🔄 Map exists - Updating center AND marker to:", center);
+      
+      // 1. Move the Camera
       mapInstanceRef.current.setCenter(center);
       mapInstanceRef.current.setZoom(20);
+      
+      // 2. Move the Red Dot (Marker)
+      if (markerRef.current) {
+        markerRef.current.setPosition(center);
+      } else {
+        // If marker doesn't exist for some reason, create it
+        markerRef.current = new window.google.maps.Marker({
+          position: center,
+          map: mapInstanceRef.current,
+          title: address,
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            fillColor: "#FF0000",
+            fillOpacity: 1,
+            strokeColor: "#FFFFFF",
+            strokeWeight: 3,
+            scale: 10,
+          }
+        });
+      }
+      
       setMapLoading(false);
       return;
     }
@@ -478,7 +502,7 @@ export default function MeasurementPage() {
         setCurrentZoom(map.getZoom());
       });
 
-      new window.google.maps.Marker({
+      markerRef.current = new window.google.maps.Marker({
         position: center,
         map: map,
         title: address,
