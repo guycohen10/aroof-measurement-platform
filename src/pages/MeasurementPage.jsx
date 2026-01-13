@@ -1950,7 +1950,9 @@ export default function MeasurementPage() {
 
   const totalArea = getTotalArea();
   const getZoomAdvice = () => {
-    if (currentZoom >= 21) {
+    if (currentZoom >= 23) {
+      return { type: 'success', message: 'Maximum detail - excellent!', icon: '✓✓' };
+    } else if (currentZoom >= 21) {
       return { type: 'success', message: 'Perfect zoom - ready to capture', icon: '✓' };
     } else if (currentZoom >= 20) {
       return { type: 'success', message: 'Good zoom level', icon: '✓' };
@@ -2271,16 +2273,19 @@ export default function MeasurementPage() {
                     </div>
 
                     <div className={`p-2 rounded text-xs ${
+                      currentZoom >= 23 ? 'bg-green-50 text-green-800' :
                       currentZoom >= 21 ? 'bg-green-50 text-green-800' :
                       currentZoom >= 20 ? 'bg-blue-50 text-blue-800' :
                       'bg-yellow-50 text-yellow-800'
                     }`}>
-                      {currentZoom >= 21 ? (
-                        <div>✅ <strong>Perfect zoom!</strong> This resolution is ideal for accuracy.</div>
+                      {currentZoom >= 23 ? (
+                        <div>✅✅ <strong>Maximum detail!</strong> This is the highest resolution available.</div>
+                      ) : currentZoom >= 21 ? (
+                        <div>✅ <strong>Perfect zoom!</strong> Can zoom to 25 for even more detail.</div>
                       ) : currentZoom >= 20 ? (
                         <div>✓ <strong>Good zoom level</strong> for measurements.</div>
                       ) : (
-                        <div>🔍 <strong>Tip:</strong> Zoom in closer (21-22) for better detail and accuracy.</div>
+                        <div>🔍 <strong>Tip:</strong> Zoom in closer (21-25) for better detail and accuracy.</div>
                       )}
                     </div>
                     
