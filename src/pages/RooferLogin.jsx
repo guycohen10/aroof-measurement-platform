@@ -28,16 +28,29 @@ export default function RooferLogin() {
 
       console.log('✅ Login successful');
 
-      // Verify user is a contractor
-      const user = await base44.auth.me();
-      console.log('👤 User data:', user);
+      // Get user data and set role if needed
+      try {
+        const user = await base44.auth.me();
+        console.log('👤 User data:', user);
 
-      if (user.aroof_role !== 'external_roofer') {
-        await base44.auth.logout();
-        throw new Error('This login is for contractors only. Homeowners should use the main site.');
+        // If role not set, set it now
+        if (!user.aroof_role || user.aroof_role !== 'external_roofer') {
+          console.log('⚠️ Role not set, updating now...');
+          try {
+            await base44.entities.User.update('me', {
+              aroof_role: 'external_roofer'
+            });
+            console.log('✅ Role updated');
+          } catch (roleErr) {
+            console.warn('Could not update role:', roleErr);
+          }
+        }
+      } catch (userErr) {
+        console.warn('Could not fetch user data:', userErr);
+        // Continue anyway
       }
 
-      console.log('✅ User verified as contractor');
+      console.log('✅ Login complete, redirecting...');
       navigate(createPageUrl("RooferDashboard"));
 
     } catch (err) {

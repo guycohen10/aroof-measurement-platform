@@ -244,21 +244,25 @@ export default function RooferSignup() {
         }
       }
 
-      // Update user custom field
+      // Update user profile with role and company info
       try {
         await base44.entities.User.update('me', {
-          aroof_role: 'external_roofer'
+          aroof_role: 'external_roofer',
+          company_name: formData.companyName,
+          phone: formData.phone
         });
-        console.log('✅ User role updated to external_roofer');
-      } catch (roleError) {
-        console.warn('⚠️ Could not update user role (non-critical):', roleError);
+        console.log('✅ User profile updated with contractor role');
+      } catch (err) {
+        console.error('⚠️ Profile update error:', err);
+        // Continue anyway - can be updated later
       }
 
       // Auto-redirect to dashboard
       console.log('✅ Redirecting to dashboard...');
+      alert('Welcome to Aroof!');
       setTimeout(() => {
         navigate(createPageUrl("RooferDashboard"));
-      }, 1000);
+      }, 1500);
 
     } catch (err) {
       console.error('❌ VERIFICATION ERROR:', err);
