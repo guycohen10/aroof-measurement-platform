@@ -256,7 +256,7 @@ The Aroof Team
       // Try to send admin notification email (if admin email is in the system)
       try {
         await base44.integrations.Core.SendEmail({
-          to: 'contact@aroof.build',
+          to: 'support@aroof.build',
           subject: `🔔 NEW APPOINTMENT BOOKED - ${appointmentDateFormatted} at ${selectedTime}`,
           body: `New roof inspection appointment:
 

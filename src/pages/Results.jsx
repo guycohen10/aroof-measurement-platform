@@ -1009,8 +1009,8 @@ export default function Results() {
                     <Phone className="w-4 h-4" />
                     <strong>(850) 238-9727</strong>
                   </a>
-                  <a href="mailto:contact@aroof.build" className="flex items-center justify-center gap-2 hover:text-blue-600">
-                    <strong>contact@aroof.build</strong>
+                  <a href="mailto:support@aroof.build" className="flex items-center justify-center gap-2 hover:text-blue-600">
+                    <strong>support@aroof.build</strong>
                   </a>
                 </div>
               </CardContent>
