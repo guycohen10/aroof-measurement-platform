@@ -1099,10 +1099,25 @@ export default function MeasurementPage() {
 
   const handleResetZoom = useCallback(() => {
     if (mapInstanceRef.current && coordinates) {
+      console.log('🔄 Resetting to 2D View...');
+      // Force 2D mode - set tilt and heading first
+      mapInstanceRef.current.setTilt(0);
+      mapInstanceRef.current.setHeading(0);
       mapInstanceRef.current.setZoom(21);
       mapInstanceRef.current.setCenter(coordinates);
-      mapInstanceRef.current.setHeading(0);
-      mapInstanceRef.current.setTilt(0);
+      
+      // Ensure polygons are visible after reset
+      if (polygonsRef.current && polygonsRef.current.length > 0) {
+        polygonsRef.current.forEach(poly => {
+          if (poly && poly.setOptions) {
+            poly.setOptions({ 
+              strokeOpacity: 1.0, 
+              fillOpacity: 0.35,
+              clickable: true
+            });
+          }
+        });
+      }
     }
   }, [coordinates]);
 
@@ -1588,7 +1603,7 @@ export default function MeasurementPage() {
     ];
 
     return () => listeners.forEach(l => window.google.maps.event.removeListener(l));
-  }, [mapInstanceRef.current, polygonsRef.current]);
+  }, []); // Empty dependency array - only set up listeners once
 
   const getTotalArea = () => {
     const liveTotal = liveMapSections.reduce((sum, s) => sum + s.adjusted_area_sqft, 0);
