@@ -492,7 +492,10 @@ export default function MeasurementPage() {
       });
 
       mapInstanceRef.current = map;
-      console.log("✅ Map instance created");
+      
+      // Force maxZoom to 25 to ensure UI buttons work
+      map.setOptions({ maxZoom: 25 });
+      console.log("✅ Map instance created with maxZoom: 25");
       
       window.google.maps.event.addListenerOnce(map, 'tilesloaded', () => {
         console.log("✅ Map tiles loaded!");
@@ -923,7 +926,11 @@ export default function MeasurementPage() {
   const handleZoomIn = useCallback(() => {
     if (mapInstanceRef.current) {
       const currentZoom = mapInstanceRef.current.getZoom();
-      if (currentZoom < 25) mapInstanceRef.current.setZoom(currentZoom + 1);
+      if (currentZoom < 25) {
+        const newZoom = currentZoom + 1;
+        mapInstanceRef.current.setZoom(newZoom);
+        console.log('🔍 Zooming to:', newZoom);
+      }
     }
   }, []);
 
@@ -2203,7 +2210,7 @@ export default function MeasurementPage() {
                       </div>
 
                       <div className="space-y-1 text-xs text-blue-900">
-                        <div>✅ <strong>Zoom in closer</strong> (level 21-22) for highest resolution</div>
+                        <div>✅ <strong>Zoom in closer</strong> (level 21-25) for highest resolution</div>
                         <div>✅ <strong>Look for roof edges</strong> visible between tree gaps</div>
                         <div>✅ <strong>Use building corners</strong> as reference points</div>
                         <div>✅ <strong>Draw your best estimate</strong> - we'll verify during free inspection</div>
