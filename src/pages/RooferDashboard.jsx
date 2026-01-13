@@ -58,16 +58,10 @@ export default function RooferDashboard() {
       console.log('✅ Roofer access verified');
       setUser(currentUser);
 
-      // Load all users in this company
-      const companyUsers = await base44.entities.User.list();
-      const companyUserIds = companyUsers
-        .filter(u => u.company_id === currentUser.company_id)
-        .map(u => u.email);
-
-      // Load measurements for all users in this company, sorted by created_date descending, limited to 10
+      // Load measurements created by this roofer only
       const allMeasurements = await base44.entities.Measurement.list('-created_date', 100);
       const userMeasurements = allMeasurements.filter(m => 
-        m.company_id === currentUser.company_id || companyUserIds.includes(m.created_by)
+        m.created_by === currentUser.email
       );
       
       setMeasurements(userMeasurements.slice(0, 10));
