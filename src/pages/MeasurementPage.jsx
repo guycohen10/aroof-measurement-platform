@@ -137,6 +137,13 @@ export default function MeasurementPage() {
         setTotalSqft(areaSqFt);
         setIsCalculationDone(true);
         
+        // FORCE MAP TO WAKE UP
+        if (mapInstanceRef.current) {
+          window.google.maps.event.trigger(mapInstanceRef.current, "resize");
+          mapInstanceRef.current.setZoom(20);
+          console.log('🔄 Map resize triggered');
+        }
+        
         // Draw the box
         if (data.boundingBox && mapInstanceRef.current) {
           console.log('🎨 Drawing Green Box...');
@@ -3094,14 +3101,20 @@ export default function MeasurementPage() {
                 ) : (
                   <>
                     <div 
-                      ref={mapRef} 
+                      ref={mapRef}
+                      className="w-full"
                       style={{ 
-                        width: '100%', 
+                        width: '100%',
+                        minWidth: '100%',
                         height: '700px',
+                        minHeight: '700px',
+                        maxHeight: '700px',
                         borderRadius: '0 0 16px 16px',
                         border: '3px solid #3b82f6',
                         boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-                        backgroundColor: '#1e293b'
+                        backgroundColor: '#1e293b',
+                        display: 'block',
+                        position: 'relative'
                       }} 
                     />
                     {mapLoading && (
