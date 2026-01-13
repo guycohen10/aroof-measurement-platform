@@ -554,14 +554,15 @@ export default function MeasurementPage() {
     try {
       console.log("✅ Creating Google Map with center:", finalCenter);
 
-      const map = new window.google.maps.Map(mapRef.current, {
+      // Memoized map options to prevent reset on re-render
+      const mapOptions = {
         center: finalCenter,
         zoom: useZoom,         // Use calculated zoom (19 for Solar, 21 otherwise)
         minZoom: 18,
         maxZoom: 25,           // Allow maximum possible detail
         mapTypeId: "hybrid",   // Satellite + Labels
-        tilt: 0,               // Start top-down
-        heading: 0,            // Start facing North
+        tilt: 0,               // ALWAYS start top-down
+        heading: 0,            // ALWAYS start facing North
         zoomControl: true,
         scrollwheel: true,
         gestureHandling: 'greedy',
@@ -576,7 +577,9 @@ export default function MeasurementPage() {
         fullscreenControlOptions: { position: window.google.maps.ControlPosition.TOP_RIGHT },
         rotateControl: true,   // Allow user to rotate map
         scaleControl: true
-      });
+      };
+
+      const map = new window.google.maps.Map(mapRef.current, mapOptions);
 
       mapInstanceRef.current = map;
       console.log("✅ Map instance created");
@@ -952,7 +955,7 @@ export default function MeasurementPage() {
     }, 100);
     
     return () => clearTimeout(timer);
-  }, [mapScriptLoaded, address, coordinates, measurementMode, initializeMap]);
+  }, [mapScriptLoaded, address, coordinates, measurementMode]); // Removed initializeMap from dependencies to prevent re-init
 
   // Auto-fetch Solar data when in Quick Estimate mode and coordinates are available
   useEffect(() => {
@@ -1099,8 +1102,13 @@ export default function MeasurementPage() {
 
   const handleResetZoom = useCallback(() => {
     if (mapInstanceRef.current && coordinates) {
-      console.log('🔄 Resetting to 2D View...');
-      // Force 2D mode - set tilt and heading first
+      console.log('🔒 HARD LOCK: Forcing 2D View...');
+      
+      // Temporarily clear tilt listeners to prevent fighting
+      window.google.maps.event.clearListeners(mapInstanceRef.current, 'tilt_changed');
+      window.google.maps.event.clearListeners(mapInstanceRef.current, 'heading_changed');
+      
+      // Force 2D mode - set tilt and heading to 0
       mapInstanceRef.current.setTilt(0);
       mapInstanceRef.current.setHeading(0);
       mapInstanceRef.current.setZoom(21);
@@ -1118,6 +1126,36 @@ export default function MeasurementPage() {
           }
         });
       }
+      
+      // Re-attach listeners after 500ms
+      setTimeout(() => {
+        if (!mapInstanceRef.current) return;
+        
+        const handleViewChange = () => {
+          const tilt = mapInstanceRef.current.getTilt() || 0;
+          const heading = mapInstanceRef.current.getHeading() || 0;
+          const is3D = tilt > 0 || heading !== 0;
+          
+          setIsInspectionMode(is3D);
+          
+          if (polygonsRef.current && polygonsRef.current.length > 0) {
+            polygonsRef.current.forEach(poly => {
+              if (poly && poly.setOptions) {
+                poly.setOptions({ 
+                  strokeOpacity: is3D ? 0.0 : 1.0, 
+                  fillOpacity: is3D ? 0.0 : 0.35,
+                  clickable: !is3D
+                });
+              }
+            });
+          }
+        };
+        
+        mapInstanceRef.current.addListener('tilt_changed', handleViewChange);
+        mapInstanceRef.current.addListener('heading_changed', handleViewChange);
+        
+        console.log('✅ View listeners re-attached');
+      }, 500);
     }
   }, [coordinates]);
 
