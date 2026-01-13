@@ -198,17 +198,44 @@ export default function RooferSignup() {
     try {
       console.log('🔵 ═══════════════════════════════════');
       console.log('🔵 VERIFICATION ATTEMPT');
+      console.log('🔵 Email:', registeredEmail);
+      console.log('🔵 Code:', verificationCode);
+      console.log('🔵 Code type:', typeof verificationCode);
       console.log('🔵 ═══════════════════════════════════');
-      console.log('Email:', registeredEmail);
-      console.log('Code:', verificationCode);
-      console.log('Code length:', verificationCode.length);
 
+      // Convert code to integer
+      const codeAsInt = parseInt(verificationCode, 10);
+      const codeAsString = String(verificationCode);
+
+      // Try EVERY possible format
       const attempts = [
-        { email: registeredEmail, otp_code: verificationCode },
-        { email: registeredEmail, code: verificationCode },
-        { email: registeredEmail, otp: verificationCode },
-        { otp_code: verificationCode },
-        { code: verificationCode }
+        // Try as integer
+        { email: registeredEmail, otp_code: codeAsInt },
+        { otp_code: codeAsInt },
+        { email: registeredEmail, code: codeAsInt },
+        { code: codeAsInt },
+        
+        // Try as string
+        { email: registeredEmail, otp_code: codeAsString },
+        { otp_code: codeAsString },
+        { email: registeredEmail, code: codeAsString },
+        { code: codeAsString },
+        
+        // Try with different email field names
+        { user_email: registeredEmail, otp_code: codeAsString },
+        { userEmail: registeredEmail, otp_code: codeAsString },
+        
+        // Try with otp instead
+        { email: registeredEmail, otp: codeAsString },
+        { otp: codeAsString },
+        
+        // Try with token
+        { email: registeredEmail, token: codeAsString },
+        { token: codeAsString },
+        
+        // Try with verification_code
+        { email: registeredEmail, verification_code: codeAsString },
+        { verification_code: codeAsString }
       ];
 
       let success = false;
@@ -216,45 +243,57 @@ export default function RooferSignup() {
 
       for (let i = 0; i < attempts.length; i++) {
         try {
-          console.log(`\n🔵 Attempt ${i + 1}:`, JSON.stringify(attempts[i]));
+          console.log(`\n🔵 Attempt ${i + 1}/${attempts.length}`);
+          console.log('Payload:', JSON.stringify(attempts[i]));
           
-          await base44.auth.verifyOtp(attempts[i]);
+          const result = await base44.auth.verifyOtp(attempts[i]);
           
-          console.log(`✅ SUCCESS with format ${i + 1}!`);
+          console.log(`✅ ✅ ✅ SUCCESS WITH ATTEMPT ${i + 1}! ✅ ✅ ✅`);
+          console.log('Winning format:', JSON.stringify(attempts[i]));
+          console.log('Result:', result);
+          
           success = true;
           break;
           
         } catch (err) {
           console.log(`❌ Attempt ${i + 1} failed`);
-          console.log('Error:', err.message);
           
+          // Log detailed error
           if (err.response?.data) {
             console.log('Response data:', JSON.stringify(err.response.data, null, 2));
+          } else if (err.data) {
+            console.log('Error data:', JSON.stringify(err.data, null, 2));
+          } else {
+            console.log('Error:', err.message);
           }
           
           lastError = err;
-          
-          if (!err.message?.includes('422')) break;
         }
       }
 
       if (!success) {
-        console.error('❌ ALL ATTEMPTS FAILED:', lastError);
+        console.log('\n❌ ═══════════════════════════════════');
+        console.log('❌ ALL ' + attempts.length + ' ATTEMPTS FAILED');
+        console.log('❌ ═══════════════════════════════════');
         throw lastError;
       }
 
-      console.log('✅ Email verified');
+      console.log('\n✅ ═══════════════════════════════════');
+      console.log('✅ VERIFICATION SUCCESSFUL');
+      console.log('✅ ═══════════════════════════════════');
 
+      // Login after successful verification
       await base44.auth.loginViaEmailPassword(registeredEmail, registeredPassword);
+      
       const user = await base44.auth.me();
       console.log('✅ Logged in:', user.email);
 
-      alert('✅ Email verified! Welcome to Aroof.');
+      alert('Email verified! Welcome to Aroof.');
       navigate(createPageUrl("RooferDashboard"));
 
     } catch (err) {
-      console.error('❌ Verification error:', err);
-      alert('❌ Verification failed. Check browser console for details.');
+      console.error('\n❌ FINAL ERROR:', err);
+      alert('Verification failed. Please contact support with error code: OTP_VERIFY_FAIL');
     } finally {
       setLoading(false);
     }
