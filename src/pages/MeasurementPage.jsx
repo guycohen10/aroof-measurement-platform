@@ -140,7 +140,6 @@ export default function MeasurementPage() {
         // FORCE MAP TO WAKE UP
         if (mapInstanceRef.current) {
           window.google.maps.event.trigger(mapInstanceRef.current, "resize");
-          mapInstanceRef.current.setZoom(20);
           console.log('🔄 Map resize triggered');
         }
         
