@@ -1009,6 +1009,13 @@ export default function MeasurementPage() {
       solarPolygonRef.current = null;
     }
     
+    // FORCE TOP-DOWN VIEW FOR ACCURACY (Fix parallax issue)
+    if (mapInstanceRef.current) {
+      console.log('📏 Drawing started - Forcing 2D View for accuracy');
+      mapInstanceRef.current.setTilt(0);    // Reset Tilt to 0 (Top down)
+      mapInstanceRef.current.setHeading(0); // Reset Rotation to North
+    }
+    
     setIsDrawing(true);
     setError("");
     drawingManagerRef.current.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON);
