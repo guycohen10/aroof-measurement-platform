@@ -100,7 +100,8 @@ export default function MeasurementPage() {
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
   const [mapCenter, setMapCenter] = useState(null);
-  const [mapZoom, setMapZoom] = useState(20);
+  const [mapZoom, setMapZoom] = useState(21);
+  const [mapHeading, setMapHeading] = useState(0);
 
   // Helper function to geocode and center map
   const geocodeAndCenterMap = async (address) => {
@@ -128,7 +129,7 @@ export default function MeasurementPage() {
       console.log('📍 Geocoded coordinates:', coords);
 
       setMapCenter(coords);
-      setMapZoom(20);
+      setMapZoom(21);
 
     } catch (err) {
       console.error('Geocoding error:', err);
@@ -187,7 +188,7 @@ export default function MeasurementPage() {
             };
             console.log('✅ Using EXACT coordinates from selection:', coords);
             setMapCenter(coords);
-            setMapZoom(20);
+            setMapZoom(21);
             setCoordinates(coords);
             setAddressLoaded(true);
           } else {
@@ -342,7 +343,7 @@ export default function MeasurementPage() {
             
             // Set map center and zoom
             setCoordinates(coords);
-            setCurrentZoom(20);
+            setCurrentZoom(21);
             setAddressLoaded(true);
           } else {
             // No coordinates - need to geocode the address
@@ -437,7 +438,7 @@ export default function MeasurementPage() {
       
       // 1. Move the Camera
       mapInstanceRef.current.setCenter(center);
-      mapInstanceRef.current.setZoom(20);
+      mapInstanceRef.current.setZoom(21);
       
       // 2. Move the Red Dot (Marker)
       if (markerRef.current) {
@@ -468,11 +469,12 @@ export default function MeasurementPage() {
       
       const map = new window.google.maps.Map(mapRef.current, {
         center: center,
-        zoom: 20,
+        zoom: 21,              // Start much closer
         minZoom: 18,
-        maxZoom: 22,
-        mapTypeId: "satellite",
-        tilt: 0,
+        maxZoom: 25,           // Allow maximum possible detail
+        mapTypeId: "hybrid",   // Satellite + Labels
+        tilt: 0,               // Start top-down
+        heading: 0,            // Start facing North
         zoomControl: true,
         scrollwheel: true,
         gestureHandling: 'greedy',
@@ -485,7 +487,7 @@ export default function MeasurementPage() {
         streetViewControl: false,
         fullscreenControl: true,
         fullscreenControlOptions: { position: window.google.maps.ControlPosition.TOP_RIGHT },
-        rotateControl: false,
+        rotateControl: true,   // Allow user to rotate map
         scaleControl: true
       });
 
@@ -500,6 +502,10 @@ export default function MeasurementPage() {
 
       window.google.maps.event.addListener(map, 'zoom_changed', () => {
         setCurrentZoom(map.getZoom());
+      });
+
+      window.google.maps.event.addListener(map, 'heading_changed', () => {
+        setMapHeading(map.getHeading() || 0);
       });
 
       markerRef.current = new window.google.maps.Marker({
@@ -930,13 +936,29 @@ export default function MeasurementPage() {
 
   const handleResetZoom = useCallback(() => {
     if (mapInstanceRef.current && coordinates) {
-      mapInstanceRef.current.setZoom(20);
+      mapInstanceRef.current.setZoom(21);
       mapInstanceRef.current.setCenter(coordinates);
+      mapInstanceRef.current.setHeading(0);
+      mapInstanceRef.current.setTilt(0);
     }
   }, [coordinates]);
 
   const handleOptimalZoom = useCallback(() => {
-    if (mapInstanceRef.current) mapInstanceRef.current.setZoom(20);
+    if (mapInstanceRef.current) mapInstanceRef.current.setZoom(21);
+  }, []);
+
+  const handleRotateLeft = useCallback(() => {
+    if (mapInstanceRef.current) {
+      const currentHeading = mapInstanceRef.current.getHeading() || 0;
+      mapInstanceRef.current.setHeading(currentHeading - 90);
+    }
+  }, []);
+
+  const handleRotateRight = useCallback(() => {
+    if (mapInstanceRef.current) {
+      const currentHeading = mapInstanceRef.current.getHeading() || 0;
+      mapInstanceRef.current.setHeading(currentHeading + 90);
+    }
   }, []);
 
   const handleCaptureView = useCallback(async () => {
@@ -2278,6 +2300,30 @@ export default function MeasurementPage() {
                       <RotateCcw className="w-4 h-4 mr-2" />
                       Reset View
                     </Button>
+                  </div>
+                </Card>
+
+                <Card className="p-3 bg-white border-2 border-slate-200">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-2 pb-2 border-b">
+                      <span className="text-xs font-bold text-slate-700">🧭 Rotate Map</span>
+                      <span className="text-xs font-bold px-2 py-1 rounded bg-blue-100 text-blue-800">
+                        {Math.round(mapHeading)}°
+                      </span>
+                    </div>
+
+                    <div className="p-2 rounded text-xs bg-blue-50 text-blue-800">
+                      <div>💡 <strong>Tip:</strong> Rotate the map to see under trees from different angles</div>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={handleRotateLeft} className="flex-1">
+                        ↺ Rotate Left
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={handleRotateRight} className="flex-1">
+                        ↻ Rotate Right
+                      </Button>
+                    </div>
                   </div>
                 </Card>
 
