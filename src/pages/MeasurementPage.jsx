@@ -2198,24 +2198,27 @@ export default function MeasurementPage() {
                   </div>
 
                   {totalSqft ? (
-                    <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
-                      <h3 className="font-bold text-green-800 flex items-center gap-2 mb-2">
-                        ⚡ AI Measurement Complete
-                      </h3>
-                      <p className="text-3xl font-bold text-green-700 my-2">
-                        {totalSqft.toLocaleString()} sq ft
-                      </p>
-                      <p className="text-sm text-green-600 mb-3">
-                        Based on Google Solar data
-                      </p>
-                      <Button
-                        onClick={handleQuickEstimate}
-                        className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        <CheckCircle className="w-5 h-5 mr-2" />
-                        Continue to Results
-                      </Button>
-                    </div>
+                   <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                     <h3 className="font-bold text-green-800 flex items-center gap-2 mb-2">
+                       ⚡ AI Measurement Complete
+                     </h3>
+                     <p className="text-3xl font-bold text-green-700 my-2">
+                       {totalSqft.toLocaleString()} sq ft
+                     </p>
+                     <p className="text-lg font-semibold text-green-600 mb-3">
+                       ({(totalSqft / 100).toFixed(1)} Squares)
+                     </p>
+                     <p className="text-xs text-green-600 mb-3">
+                       Based on Google Solar data
+                     </p>
+                     <Button
+                       onClick={handleQuickEstimate}
+                       className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
+                     >
+                       <CheckCircle className="w-5 h-5 mr-2" />
+                       Continue to Results
+                     </Button>
+                   </div>
                   ) : (
                     <>
                       <div className="bg-white rounded-lg p-4 border-2 border-green-200">
