@@ -195,7 +195,7 @@ export default function MeasurementPage() {
     };
 
     initializePage();
-  }, []); // Empty dependency array - run once on mount
+  }, [searchParams]); // FIXED: React to URL parameter changes
 
   // Check if roofer is accessing public page incorrectly
   useEffect(() => {

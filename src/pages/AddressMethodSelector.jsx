@@ -12,24 +12,27 @@ export default function AddressMethodSelector() {
   const autocompleteRef = useRef(null);
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
+  // 1. Clear old data on load
   useEffect(() => {
+    sessionStorage.removeItem('homeowner_address');
+    sessionStorage.removeItem('measurement_method');
+    sessionStorage.removeItem('active_lead_id');
+    console.log('🧹 Session cleared for new measurement');
+
+    // Load Google Maps
     const loadGooglePlaces = () => {
-      // CHECK IF SCRIPT EXISTS WITH CORRECT LIBRARIES
       const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
       if (window.google?.maps?.places && window.google?.maps?.drawing) {
         initAutocomplete();
         return;
       }
-
       if (!existingScript) {
         const script = document.createElement('script');
-        // CRITICAL FIX: Load ALL libraries (places, drawing, geometry) here
         script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,drawing,geometry`;
         script.async = true;
         script.onload = initAutocomplete;
         document.head.appendChild(script);
       } else {
-        // If script exists but isn't loaded yet, wait for it
         setTimeout(initAutocomplete, 500);
       }
     };
@@ -37,6 +40,7 @@ export default function AddressMethodSelector() {
   }, []);
 
   const initAutocomplete = () => {
+    // CRITICAL FIX: addressInputRef.current was null because of typo
     if (!addressInputRef.current || !window.google?.maps?.places) return;
 
     try {
@@ -51,6 +55,7 @@ export default function AddressMethodSelector() {
       autocompleteRef.current.addListener('place_changed', () => {
         const place = autocompleteRef.current.getPlace();
         if (place.formatted_address) {
+          console.log('📍 Selected:', place.formatted_address);
           setAddress(place.formatted_address);
         }
       });
@@ -59,22 +64,21 @@ export default function AddressMethodSelector() {
     }
   };
 
-  const handleStartMeasurement = () => {
+  const handleStartMeasurement = (e) => {
+    if (e) e.preventDefault(); // Handle form submit
+
     if (!address) {
       alert('Please enter a property address');
       return;
     }
-
+    
+    console.log('🚀 Starting measurement for:', address);
+    
     // Save address and defaults
     sessionStorage.setItem('homeowner_address', address);
-    sessionStorage.setItem('measurement_method', 'manual'); // Default to manual
+    sessionStorage.setItem('measurement_method', 'manual');
     
-    // Clean up old session data
-    sessionStorage.removeItem('active_lead_id');
-    sessionStorage.removeItem('lead_address');
-    sessionStorage.removeItem('pending_measurement_id');
-
-    // Navigate immediately to measurement
+    // Navigate immediately
     navigate(`/measurementpage?address=${encodeURIComponent(address)}&homeowner=true`);
   };
 
@@ -98,7 +102,7 @@ export default function AddressMethodSelector() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <div className="space-y-6">
+          <form onSubmit={handleStartMeasurement} className="space-y-6">
             <div>
               <Label htmlFor="address" className="text-lg mb-2 block">Property Address</Label>
               <Input
@@ -113,18 +117,18 @@ export default function AddressMethodSelector() {
             </div>
             
             <Button 
-              onClick={handleStartMeasurement}
+              type="submit"
               size="lg" 
               className="w-full text-xl py-8 font-bold shadow-lg hover:scale-105 transition-transform bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
               disabled={!address}
             >
               Start Measurement 🛰️
             </Button>
-            
-            <p className="text-center text-sm text-slate-400">
-              Uses satellite imagery for precision accuracy
-            </p>
-          </div>
+          </form>
+          
+          <p className="text-center text-sm text-slate-400 mt-4">
+            Uses satellite imagery for precision accuracy
+          </p>
         </div>
       </div>
     </div>
