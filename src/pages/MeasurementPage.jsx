@@ -2916,44 +2916,133 @@ export default function MeasurementPage() {
 
         <div className="flex-1 bg-slate-900 p-6 overflow-y-auto">
           {measurementMode === 'quick' ? (
-            /* QUICK ESTIMATE VIEW */
-            <div className="flex items-center justify-center h-full">
+            /* QUICK ESTIMATE VIEW - MAP ALWAYS VISIBLE */
+            <div className="relative w-full h-full min-h-[80vh]">
+              {/* THE MAP (Always Rendered) */}
+              <div style={{ marginBottom: '50px' }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                  color: 'white',
+                  padding: '14px 24px',
+                  borderRadius: '16px 16px 0 0',
+                  fontWeight: '600',
+                  fontSize: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                }}>
+                  <span style={{ fontSize: '24px' }}>🛰️</span>
+                  Live Satellite View
+                </div>
+                <div className="relative">
+                  {mapError ? (
+                    <div style={{
+                      width: '100%',
+                      height: '700px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: '#1e293b',
+                      borderRadius: '0 0 16px 16px',
+                      border: '3px solid #ef4444'
+                    }}>
+                      <div style={{ fontSize: '64px', marginBottom: '20px' }}>⚠️</div>
+                      <div style={{ color: '#ef4444', fontSize: '22px', fontWeight: '700', marginBottom: '12px' }}>
+                        Google Maps Failed to Load
+                      </div>
+                      <div style={{ color: '#94a3b8', fontSize: '15px', marginBottom: '24px', textAlign: 'center', maxWidth: '500px', lineHeight: '1.6' }}>
+                        There was an error loading the map. This may be due to network issues or API configuration.
+                      </div>
+                      <Button
+                        onClick={handleRetryMap}
+                        size="lg"
+                        className="bg-blue-600 hover:bg-blue-700 h-14 px-8 text-lg"
+                      >
+                        <RotateCcw className="w-5 h-5 mr-2" />
+                        Retry Loading Map
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div 
+                        ref={mapRef} 
+                        style={{ 
+                          width: '100%', 
+                          height: '700px',
+                          borderRadius: '0 0 16px 16px',
+                          border: '3px solid #3b82f6',
+                          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+                          backgroundColor: '#1e293b'
+                        }} 
+                      />
+                      {mapLoading && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '0',
+                          left: '0',
+                          width: '100%',
+                          height: '100%',
+                          backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '0 0 16px 16px',
+                          zIndex: 10
+                        }}>
+                          <Loader2 className="w-16 h-16 animate-spin text-blue-400 mx-auto mb-4" />
+                          <p className="text-xl font-semibold text-white">{geocodingStatus}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* THE OVERLAY (Only show when NO data) */}
               {!totalSqft && (
-                <Card className="max-w-2xl w-full bg-white/95 backdrop-blur-sm">
-                  <CardContent className="p-12 text-center">
-                    <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <Zap className="w-12 h-12 text-green-600" />
-                    </div>
-                    <h2 className="text-3xl font-bold text-slate-900 mb-4">Quick Roof Estimate</h2>
-                    <p className="text-lg text-slate-600 mb-6">
-                      Get an instant estimate based on your building size
-                    </p>
-                    <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-left">
-                      <h3 className="font-bold text-blue-900 mb-3">How Quick Estimates Work:</h3>
-                      <ul className="space-y-2 text-sm text-blue-800">
-                        <li className="flex items-start gap-2">
-                          <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          <span>Based on building size × 1.3 (standard roof multiplier)</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          <span>Provides ballpark estimate in seconds</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          <span>Great for initial quotes and screening leads</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-orange-600" />
-                          <span><strong>Accuracy:</strong> ±15-20% (use Detailed mode for ±2% precision)</span>
-                        </li>
-                      </ul>
-                    </div>
-                    <p className="text-sm text-slate-500 mt-6">
-                      ← Use the form on the left to calculate your estimate
-                    </p>
-                  </CardContent>
-                </Card>
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+                  <Card className="max-w-2xl w-full bg-white/95 backdrop-blur-sm">
+                    <CardContent className="p-12 text-center">
+                      <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Zap className="w-12 h-12 text-green-600" />
+                      </div>
+                      <h2 className="text-3xl font-bold text-slate-900 mb-4">Quick Roof Estimate</h2>
+                      <p className="text-lg text-slate-600 mb-6">
+                        AI is analyzing your roof from satellite data...
+                      </p>
+                      <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-left">
+                        <h3 className="font-bold text-blue-900 mb-3">How Quick Estimates Work:</h3>
+                        <ul className="space-y-2 text-sm text-blue-800">
+                          <li className="flex items-start gap-2">
+                            <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            <span>Based on building size × 1.3 (standard roof multiplier)</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            <span>Provides ballpark estimate in seconds</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            <span>Great for initial quotes and screening leads</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-orange-600" />
+                            <span><strong>Accuracy:</strong> ±15-20% (use Detailed mode for ±2% precision)</span>
+                          </li>
+                        </ul>
+                      </div>
+                      <div className="mt-6 flex items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                        <p className="text-sm text-slate-600">
+                          Waiting for AI measurement...
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               )}
             </div>
           ) : !isDrawingMode ? (
