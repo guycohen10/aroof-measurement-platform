@@ -54,9 +54,18 @@ export default function AddressMethodSelector() {
       );
       autocompleteRef.current.addListener('place_changed', () => {
         const place = autocompleteRef.current.getPlace();
-        if (place.formatted_address) {
+        if (place.formatted_address && place.geometry) {
+          const lat = place.geometry.location.lat();
+          const lng = place.geometry.location.lng();
+          
           console.log('📍 Selected:', place.formatted_address);
+          console.log('📍 Coords:', lat, lng);
+          
           setAddress(place.formatted_address);
+          
+          // SAVE COORDS TO SESSION
+          sessionStorage.setItem('homeowner_lat', lat);
+          sessionStorage.setItem('homeowner_lng', lng);
         }
       });
     } catch (err) {

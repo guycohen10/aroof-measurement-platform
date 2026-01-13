@@ -175,8 +175,25 @@ export default function MeasurementPage() {
           sessionStorage.removeItem('lead_address');
           sessionStorage.removeItem('pending_measurement_id');
 
-          // Geocode and center map on this address
-          await geocodeAndCenterMap(finalAddress);
+          // Check for saved coordinates FIRST (to avoid re-geocoding)
+          const sessionLat = sessionStorage.getItem('homeowner_lat');
+          const sessionLng = sessionStorage.getItem('homeowner_lng');
+          
+          if (sessionLat && sessionLng) {
+            const coords = {
+              lat: parseFloat(sessionLat),
+              lng: parseFloat(sessionLng)
+            };
+            console.log('✅ Using EXACT coordinates from selection:', coords);
+            setMapCenter(coords);
+            setMapZoom(20);
+            setCoordinates(coords);
+            setAddressLoaded(true);
+          } else {
+            // Only geocode if we DON'T have coords (fallback)
+            console.log('⚠️ No saved coordinates, geocoding address...');
+            await geocodeAndCenterMap(finalAddress);
+          }
         } else {
           console.log('⚠️ No address provided - homeowner should not be here');
           // Redirect back to address selector
