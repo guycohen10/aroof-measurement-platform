@@ -430,9 +430,12 @@ export default function MeasurementPage() {
       return;
     }
 
-    // If map already exists, don't recreate it
+    // If map already exists, update its center instead of recreating
     if (mapInstanceRef.current) {
-      console.log("✅ Map already exists, skipping creation");
+      console.log("🔄 Map exists - Updating center to:", center);
+      mapInstanceRef.current.setCenter(center);
+      mapInstanceRef.current.setZoom(20);
+      setMapLoading(false);
       return;
     }
 
