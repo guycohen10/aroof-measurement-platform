@@ -236,13 +236,12 @@ export default function RooferSignup() {
       console.log('✅ Verification successful!');
       console.log('✅ Response:', data);
 
-      // Store auth token if returned
+      // Store auth tokens
       if (data.access_token) {
         localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('refresh_token', data.refresh_token);
-        
-        // Initialize Base44 with the token
-        base44.setAccessToken(data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem('refresh_token', data.refresh_token);
+        }
       }
 
       // Update user custom field
@@ -255,8 +254,11 @@ export default function RooferSignup() {
         console.warn('⚠️ Could not update user role (non-critical):', roleError);
       }
 
-      alert('✅ Email verified! Redirecting to dashboard...');
-      navigate(createPageUrl("RooferDashboard"));
+      // Auto-redirect to dashboard
+      console.log('✅ Redirecting to dashboard...');
+      setTimeout(() => {
+        navigate(createPageUrl("RooferDashboard"));
+      }, 1000);
 
     } catch (err) {
       console.error('❌ VERIFICATION ERROR:', err);
