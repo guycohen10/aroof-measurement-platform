@@ -68,6 +68,8 @@ import Subscriptions from './pages/Subscriptions';
 import TPO from './pages/TPO';
 import VerifyEmail from './pages/VerifyEmail';
 import Windows from './pages/Windows';
+import RooferDirectory from './pages/RooferDirectory';
+import RooferProfile from './pages/RooferProfile';
 import __Layout from './Layout.jsx';
 
 
@@ -142,6 +144,8 @@ export const PAGES = {
     "TPO": TPO,
     "VerifyEmail": VerifyEmail,
     "Windows": Windows,
+    "RooferDirectory": RooferDirectory,
+    "RooferProfile": RooferProfile,
 }
 
 export const pagesConfig = {
