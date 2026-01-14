@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import MaterialTakeoffModal from "../components/leads/MaterialTakeoffModal";
+import ProposalWizard from "../components/leads/ProposalWizard";
 import { 
   Home,
   Zap,
@@ -582,7 +582,7 @@ export default function RooferDashboard() {
       </div>
 
       {showTakeoffModal && (
-        <MaterialTakeoffModal
+        <ProposalWizard
           lead={null}
           onClose={() => setShowTakeoffModal(false)}
           onSave={null}
