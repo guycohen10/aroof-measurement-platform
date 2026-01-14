@@ -4,19 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { X, ArrowRight, ArrowLeft, Sparkles, Download, Mail, Check } from "lucide-react";
+import { X, ArrowRight, ArrowLeft, Sparkles, Download, Mail, Check, MessageSquare, FileText } from "lucide-react";
 import { toast } from "sonner";
+import AIEstimatorChat from './AIEstimatorChat';
 
 export default function ProposalWizard({ lead, onClose, onSave }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [generating, setGenerating] = useState(false);
+  const [inputMode, setInputMode] = useState('form'); // 'form' or 'chat'
   
   // Manual input mode
   const [manualSqft, setManualSqft] = useState('');
   const [manualPitch, setManualPitch] = useState('4/12');
   
-  // Step 1: Questionnaire
-  const [shingleSystem, setShingleSystem] = useState('GAF Timberline HDZ');
+  // Step 1: Questionnaire with expanded materials
+  const [materialCategory, setMaterialCategory] = useState('asphalt');
+  const [specificMaterial, setSpecificMaterial] = useState('GAF Timberline HDZ');
   const [shingleColor, setShingleColor] = useState('Charcoal');
   const [difficulty, setDifficulty] = useState(lead?.pitch_breakdown ? Object.keys(lead.pitch_breakdown)[0] : '4/12');
   const [addOns, setAddOns] = useState({
@@ -31,6 +34,94 @@ export default function ProposalWizard({ lead, onClose, onSave }) {
   
   // Step 3: AI Generated Scope
   const [scopeOfWork, setScopeOfWork] = useState('');
+  
+  // Material database with categories
+  const materialDatabase = {
+    asphalt: {
+      label: 'Asphalt Shingles',
+      icon: '🏠',
+      defaultPrice: 450,
+      wasteRange: '10-15%',
+      options: [
+        'GAF Timberline HDZ',
+        'Owens Corning Duration',
+        'CertainTeed Landmark',
+        'GAF Grand Sequoia',
+        'IKO Cambridge'
+      ]
+    },
+    metal: {
+      label: 'Metal Roofing',
+      icon: '⚡',
+      defaultPrice: 900,
+      wasteRange: '15-20%',
+      options: [
+        'Standing Seam',
+        'Corrugated Metal',
+        'R-Panel',
+        'Stone-Coated Steel'
+      ]
+    },
+    tile: {
+      label: 'Tile Roofing',
+      icon: '🎨',
+      defaultPrice: 1100,
+      wasteRange: '20-25%',
+      options: [
+        'Spanish Clay Tile',
+        'Concrete S-Tile',
+        'Flat Concrete Tile',
+        'Slate-Style Tile'
+      ]
+    },
+    flat: {
+      label: 'Flat/Commercial',
+      icon: '🏢',
+      defaultPrice: 650,
+      wasteRange: '10-15%',
+      options: [
+        'TPO Membrane',
+        'EPDM Rubber',
+        'Modified Bitumen',
+        'PVC Membrane'
+      ]
+    },
+    slate: {
+      label: 'Natural Slate',
+      icon: '💎',
+      defaultPrice: 1500,
+      wasteRange: '15-20%',
+      options: [
+        'Pennsylvania Slate',
+        'Vermont Slate',
+        'Synthetic Slate'
+      ]
+    }
+  };
+  
+  // Update price when category changes
+  const handleCategoryChange = (category) => {
+    setMaterialCategory(category);
+    const newDefaultPrice = materialDatabase[category].defaultPrice;
+    setPricePerSquare(newDefaultPrice);
+    setSpecificMaterial(materialDatabase[category].options[0]);
+  };
+  
+  // Handle data from AI chat
+  const handleChatDataExtracted = (data) => {
+    if (data.materialCategory) setMaterialCategory(data.materialCategory);
+    if (data.specificMaterial) setSpecificMaterial(data.specificMaterial);
+    if (data.pricePerSquare) setPricePerSquare(data.pricePerSquare);
+    if (data.addOns) {
+      const newAddOns = { ...addOns };
+      data.addOns.forEach(addon => {
+        if (addon === 'pipe_boots') newAddOns.pipeBoots = true;
+        if (addon === 'ridge_vent') newAddOns.ridgeVent = true;
+        if (addon === 'drip_edge') newAddOns.dripEdge = true;
+      });
+      setAddOns(newAddOns);
+    }
+  };
   
   // Calculations
   const totalSqft = lead?.total_sqft || lead?.total_adjusted_sqft || parseFloat(manualSqft) || 0;
@@ -62,21 +153,23 @@ export default function ProposalWizard({ lead, onClose, onSave }) {
   const handleGenerateScopeOfWork = async () => {
     setGenerating(true);
     try {
-      const prompt = `Write a professional "Scope of Work" for a residential roofing project with these details:
+      const materialInfo = materialDatabase[materialCategory];
+      const prompt = `Write a professional "Scope of Work" for a roofing project with these details:
 
 Property: ${lead?.property_address || 'Customer Property'}
 Total Area: ${totalSqft.toLocaleString()} square feet (${squares.toFixed(1)} squares)
 Roof Pitch: ${difficulty}
-Shingle System: ${shingleSystem} - ${shingleColor}
+Material Category: ${materialInfo.label}
+Specific Material: ${specificMaterial} - ${shingleColor}
 Add-ons: ${Object.entries(addOns).filter(([k,v]) => v).map(([k]) => k.replace(/([A-Z])/g, ' $1').trim()).join(', ')}
 
 Write 3-4 paragraphs describing:
-1. Tear-off and preparation
-2. Installation of ${shingleSystem} system
+1. Tear-off and preparation (adjust for material type)
+2. Installation of ${specificMaterial} system with proper techniques for this material
 3. Details about add-ons and finishing work
 4. Cleanup and final walkthrough
 
-Keep it professional, detailed, and homeowner-friendly. No pricing in the text.`;
+Keep it professional, detailed, and homeowner-friendly. No pricing in the text. Emphasize quality and craftsmanship specific to ${materialInfo.label}.`;
 
       const response = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -116,116 +209,171 @@ Keep it professional, detailed, and homeowner-friendly. No pricing in the text.`
   
   const renderStep1 = () => (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-xl font-bold text-slate-900 mb-4">📋 Project Details</h3>
-        
-        {!lead && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="mb-2 block">Square Footage *</Label>
-                <Input
-                  type="number"
-                  placeholder="e.g. 2500"
-                  value={manualSqft}
-                  onChange={(e) => setManualSqft(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label className="mb-2 block">Roof Pitch</Label>
-                <select
-                  value={manualPitch}
-                  onChange={(e) => setManualPitch(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md"
-                >
-                  <option value="3/12">3/12 (Low)</option>
-                  <option value="4/12">4/12 (Standard)</option>
-                  <option value="5/12">5/12</option>
-                  <option value="6/12">6/12</option>
-                  <option value="8/12">8/12 (Steep)</option>
-                  <option value="10/12">10/12 (Very Steep)</option>
-                  <option value="12/12">12/12 (45°)</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {lead && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-sm text-slate-600">Total Area</p>
-                <p className="text-2xl font-bold text-blue-600">{totalSqft.toLocaleString()} sqft</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600">Squares</p>
-                <p className="text-2xl font-bold text-blue-600">{squares.toFixed(1)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600">Pitch</p>
-                <p className="text-2xl font-bold text-blue-600">{difficulty}</p>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div className="space-y-4">
-          <div>
-            <Label className="mb-2 block">Shingle System</Label>
-            <select
-              value={shingleSystem}
-              onChange={(e) => setShingleSystem(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md"
-            >
-              <option value="GAF Timberline HDZ">GAF Timberline HDZ</option>
-              <option value="Owens Corning Duration">Owens Corning Duration</option>
-              <option value="CertainTeed Landmark">CertainTeed Landmark</option>
-              <option value="GAF Grand Sequoia">GAF Grand Sequoia (Premium)</option>
-              <option value="IKO Cambridge">IKO Cambridge</option>
-            </select>
-          </div>
+      {/* Mode Toggle */}
+      <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
+        <button
+          onClick={() => setInputMode('form')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
+            inputMode === 'form'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          Form Mode
+        </button>
+        <button
+          onClick={() => setInputMode('chat')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all ${
+            inputMode === 'chat'
+              ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4" />
+          AI Chat Mode
+          <Sparkles className="w-3 h-3" />
+        </button>
+      </div>
+
+      {inputMode === 'chat' ? (
+        <AIEstimatorChat lead={lead} onDataExtracted={handleChatDataExtracted} />
+      ) : (
+        <div>
+          <h3 className="text-xl font-bold text-slate-900 mb-4">📋 Project Details</h3>
           
-          <div>
-            <Label className="mb-2 block">Shingle Color</Label>
-            <select
-              value={shingleColor}
-              onChange={(e) => setShingleColor(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md"
-            >
-              <option value="Charcoal">Charcoal</option>
-              <option value="Weathered Wood">Weathered Wood</option>
-              <option value="Mission Brown">Mission Brown</option>
-              <option value="Pewter Gray">Pewter Gray</option>
-              <option value="Hickory">Hickory</option>
-              <option value="Hunter Green">Hunter Green</option>
-            </select>
-          </div>
-          
-          <div>
-            <Label className="mb-3 block">Add-Ons & Services</Label>
-            <div className="space-y-2">
-              {[
-                { key: 'pipeBoots', label: 'Replace Pipe Boots', price: '$150' },
-                { key: 'ridgeVent', label: 'Install Ridge Vent', price: `$${Math.round(squares * 15)}` },
-                { key: 'dripEdge', label: 'Replace Drip Edge', price: '$200' },
-                { key: 'gutterCleaning', label: 'Gutter Cleaning', price: '$300' }
-              ].map(addon => (
-                <label key={addon.key} className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={addOns[addon.key]}
-                    onChange={() => toggleAddOn(addon.key)}
-                    className="w-5 h-5"
+          {!lead && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="mb-2 block">Square Footage *</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g. 2500"
+                    value={manualSqft}
+                    onChange={(e) => setManualSqft(e.target.value)}
                   />
-                  <span className="flex-1 font-medium text-slate-900">{addon.label}</span>
-                  <span className="text-slate-600">{addon.price}</span>
-                </label>
-              ))}
+                </div>
+                <div>
+                  <Label className="mb-2 block">Roof Pitch</Label>
+                  <select
+                    value={manualPitch}
+                    onChange={(e) => setManualPitch(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                  >
+                    <option value="3/12">3/12 (Low)</option>
+                    <option value="4/12">4/12 (Standard)</option>
+                    <option value="5/12">5/12</option>
+                    <option value="6/12">6/12</option>
+                    <option value="8/12">8/12 (Steep)</option>
+                    <option value="10/12">10/12 (Very Steep)</option>
+                    <option value="12/12">12/12 (45°)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {lead && (
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-xl p-4 mb-6 backdrop-blur-sm">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-sm text-slate-600">Total Area</p>
+                  <p className="text-2xl font-bold text-blue-600">{totalSqft.toLocaleString()} sqft</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-600">Squares</p>
+                  <p className="text-2xl font-bold text-blue-600">{squares.toFixed(1)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-600">Pitch</p>
+                  <p className="text-2xl font-bold text-blue-600">{difficulty}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div className="space-y-4">
+            <div>
+              <Label className="mb-3 block">Material Category</Label>
+              <div className="grid grid-cols-3 gap-3">
+                {Object.entries(materialDatabase).map(([key, data]) => (
+                  <button
+                    key={key}
+                    onClick={() => handleCategoryChange(key)}
+                    className={`p-4 border-2 rounded-xl transition-all ${
+                      materialCategory === key
+                        ? 'border-blue-600 bg-blue-50 shadow-md'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="text-3xl mb-2">{data.icon}</div>
+                    <div className="font-bold text-sm text-slate-900">{data.label}</div>
+                    <div className="text-xs text-slate-500 mt-1">${data.defaultPrice}/sq</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <Label className="mb-2 block">Specific Material</Label>
+              <select
+                value={specificMaterial}
+                onChange={(e) => setSpecificMaterial(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md"
+              >
+                {materialDatabase[materialCategory].options.map(option => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500 mt-1">
+                Typical waste: {materialDatabase[materialCategory].wasteRange}
+              </p>
+            </div>
+            
+            <div>
+              <Label className="mb-2 block">Color/Finish</Label>
+              <select
+                value={shingleColor}
+                onChange={(e) => setShingleColor(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md"
+              >
+                <option value="Charcoal">Charcoal</option>
+                <option value="Weathered Wood">Weathered Wood</option>
+                <option value="Mission Brown">Mission Brown</option>
+                <option value="Pewter Gray">Pewter Gray</option>
+                <option value="Hickory">Hickory</option>
+                <option value="Hunter Green">Hunter Green</option>
+                <option value="Copper">Copper</option>
+                <option value="Galvalume">Galvalume</option>
+              </select>
+            </div>
+          
+            <div>
+              <Label className="mb-3 block">Add-Ons & Services</Label>
+              <div className="space-y-2">
+                {[
+                  { key: 'pipeBoots', label: 'Replace Pipe Boots', price: '$150' },
+                  { key: 'ridgeVent', label: 'Install Ridge Vent', price: `$${Math.round(squares * 15)}` },
+                  { key: 'dripEdge', label: 'Replace Drip Edge', price: '$200' },
+                  { key: 'gutterCleaning', label: 'Gutter Cleaning', price: '$300' }
+                ].map(addon => (
+                  <label key={addon.key} className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-all">
+                    <input
+                      type="checkbox"
+                      checked={addOns[addon.key]}
+                      onChange={() => toggleAddOn(addon.key)}
+                      className="w-5 h-5"
+                    />
+                    <span className="flex-1 font-medium text-slate-900">{addon.label}</span>
+                    <span className="text-slate-600">{addon.price}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
   
@@ -313,18 +461,27 @@ Keep it professional, detailed, and homeowner-friendly. No pricing in the text.`
   
   const renderStep3 = () => (
     <div className="text-center py-12">
-      <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-        <Sparkles className="w-10 h-10 text-purple-600" />
+      <div className="relative">
+        <div className="w-20 h-20 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+          <Sparkles className="w-10 h-10 text-purple-600" />
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-24 h-24 bg-purple-400 opacity-20 rounded-full animate-ping"></div>
+        </div>
       </div>
       <h3 className="text-2xl font-bold text-slate-900 mb-4">Ready to Generate Your Proposal</h3>
       <p className="text-slate-600 mb-8 max-w-md mx-auto">
         Our AI will write a professional scope of work based on your selections
       </p>
-      <div className="bg-slate-50 rounded-lg p-6 max-w-lg mx-auto text-left">
+      <div className="bg-gradient-to-br from-slate-50 to-white border-2 border-slate-200 rounded-xl p-6 max-w-lg mx-auto text-left shadow-xl">
         <div className="space-y-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-slate-600">Shingle System:</span>
-            <span className="font-semibold">{shingleSystem}</span>
+            <span className="text-slate-600">Material Category:</span>
+            <span className="font-semibold">{materialDatabase[materialCategory].label}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-600">Material:</span>
+            <span className="font-semibold">{specificMaterial}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-600">Color:</span>
@@ -338,8 +495,8 @@ Keep it professional, detailed, and homeowner-friendly. No pricing in the text.`
             <span className="text-slate-600">Add-ons:</span>
             <span className="font-semibold">{Object.values(addOns).filter(v => v).length} selected</span>
           </div>
-          <div className="flex justify-between pt-3 border-t">
-            <span className="text-slate-600">Total Price:</span>
+          <div className="flex justify-between pt-3 border-t-2 border-slate-300">
+            <span className="text-slate-600">Total Investment:</span>
             <span className="font-bold text-green-600 text-lg">${totalPrice.toLocaleString()}</span>
           </div>
         </div>
@@ -377,15 +534,15 @@ Keep it professional, detailed, and homeowner-friendly. No pricing in the text.`
       <div>
         <h4 className="font-bold text-slate-900 mb-3">Project Details</h4>
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-slate-50 rounded-lg p-4">
-            <p className="text-sm text-slate-600 mb-1">Shingle System</p>
-            <p className="font-semibold">{shingleSystem}</p>
+          <div className="bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-lg p-4">
+            <p className="text-sm text-slate-600 mb-1">Material System</p>
+            <p className="font-semibold">{specificMaterial}</p>
             <p className="text-sm text-slate-500">{shingleColor}</p>
           </div>
-          <div className="bg-slate-50 rounded-lg p-4">
+          <div className="bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-lg p-4">
             <p className="text-sm text-slate-600 mb-1">Roof Area</p>
             <p className="font-semibold">{totalSqft.toLocaleString()} sqft</p>
-            <p className="text-sm text-slate-500">{squares.toFixed(1)} squares</p>
+            <p className="text-sm text-slate-500">{squares.toFixed(1)} squares • {materialDatabase[materialCategory].label}</p>
           </div>
         </div>
       </div>
