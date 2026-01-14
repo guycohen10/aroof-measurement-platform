@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import MaterialTakeoffModal from "../components/leads/MaterialTakeoffModal";
 import { 
   Home,
   Zap,
@@ -19,7 +21,8 @@ import {
   Crown,
   LogOut,
   Loader2,
-  Users
+  Users,
+  Calculator
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -30,6 +33,7 @@ export default function RooferDashboard() {
   const [measurements, setMeasurements] = useState([]);
   const [activeTab, setActiveTab] = useState('purchased');
   const [purchasedLeadsCount, setPurchasedLeadsCount] = useState(0);
+  const [showTakeoffModal, setShowTakeoffModal] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -45,7 +49,7 @@ export default function RooferDashboard() {
       
       if (currentUser.aroof_role !== 'external_roofer') {
         console.warn('⚠️ Access denied - user is not external_roofer');
-        alert(`Access denied. This dashboard is for external roofers only.\n\nYour current role: ${currentUser.aroof_role || 'Not set'}`);
+        toast.error('Access denied. This dashboard is for external roofers only.');
         navigate(createPageUrl("Homepage"));
         return;
       }
@@ -85,7 +89,7 @@ export default function RooferDashboard() {
         return;
       }
       
-      alert('Failed to load dashboard. Please try logging in again.');
+      toast.error('Failed to load dashboard. Please try logging in again.');
       navigate(createPageUrl("RooferLogin"));
     }
   };
@@ -106,7 +110,7 @@ export default function RooferDashboard() {
     const used = user.measurements_used_this_month || 0;
 
     if (user.subscription_plan !== 'unlimited' && used >= limit) {
-      alert(`You've reached your monthly limit of ${limit} measurements.\n\nUpgrade to ${getNextPlan(user.subscription_plan)} for more measurements!`);
+      toast.error(`You've reached your monthly limit of ${limit} measurements. Upgrade to ${getNextPlan(user.subscription_plan)} for more!`);
       return;
     }
 
@@ -225,6 +229,15 @@ export default function RooferDashboard() {
                   Follow-Ups
                 </Button>
               </Link>
+              <Button 
+                variant="ghost" 
+                className="text-white hover:bg-white/10" 
+                size="sm"
+                onClick={() => setShowTakeoffModal(true)}
+              >
+                <Calculator className="w-4 h-4 mr-1" />
+                AI Estimator
+              </Button>
               <Button variant="ghost" className="text-white hover:bg-white/10" size="sm" onClick={handleLogout}>
                 <LogOut className="w-4 h-4 mr-1" />
                 Logout
@@ -567,6 +580,14 @@ export default function RooferDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {showTakeoffModal && (
+        <MaterialTakeoffModal
+          lead={null}
+          onClose={() => setShowTakeoffModal(false)}
+          onSave={null}
+        />
+      )}
     </div>
   );
 }
