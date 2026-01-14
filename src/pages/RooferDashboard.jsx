@@ -27,6 +27,8 @@ export default function RooferDashboard() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [measurements, setMeasurements] = useState([]);
+  const [activeTab, setActiveTab] = useState('purchased');
+  const [purchasedLeadsCount, setPurchasedLeadsCount] = useState(0);
 
   useEffect(() => {
     loadDashboardData();
@@ -34,42 +36,49 @@ export default function RooferDashboard() {
 
   const loadDashboardData = async () => {
     try {
-      // ALWAYS use real authentication - no fake demo mode
       const currentUser = await base44.auth.me();
       
-      // DEBUG: Log user details
       console.log('🔍 RooferDashboard - Current user loaded');
-      console.log('📧 Email:', currentUser.email);
-      console.log('👤 Full name:', currentUser.full_name);
       console.log('🏢 Company ID:', currentUser.company_id);
-      console.log('🎭 Role:', currentUser.role);
       console.log('🎭 Aroof Role:', currentUser.aroof_role);
-      console.log('📋 Full user object:', JSON.stringify(currentUser, null, 2));
       
-      // Check if user is external roofer
       if (currentUser.aroof_role !== 'external_roofer') {
         console.warn('⚠️ Access denied - user is not external_roofer');
-        console.warn('Current aroof_role:', currentUser.aroof_role || 'Not set');
-        alert(`Access denied. This dashboard is for external roofers only.\n\nYour current role: ${currentUser.aroof_role || 'Not set'}\n\nPlease contact support to get your account set up.`);
+        alert(`Access denied. This dashboard is for external roofers only.\n\nYour current role: ${currentUser.aroof_role || 'Not set'}`);
         navigate(createPageUrl("Homepage"));
         return;
       }
 
-      console.log('✅ Roofer access verified');
       setUser(currentUser);
 
-      // Load measurements created by this roofer only
+      const companyId = currentUser.company_id;
+      if (!companyId) {
+        console.warn('No company_id found for user');
+        setLoading(false);
+        return;
+      }
+
+      // Load ALL measurements for this roofer (created by them OR purchased)
       const allMeasurements = await base44.entities.Measurement.list('-created_date', 100);
-      const userMeasurements = allMeasurements.filter(m => 
-        m.created_by === currentUser.email
+      
+      // Filter to measurements that belong to this roofer
+      const relevantMeasurements = allMeasurements.filter(m => 
+        m.company_id === companyId || // Their own measurements
+        m.purchased_by_companies?.includes(companyId) // Purchased leads
       );
       
-      setMeasurements(userMeasurements.slice(0, 10));
+      setMeasurements(relevantMeasurements);
+      
+      // Count purchased leads
+      const purchased = relevantMeasurements.filter(m => 
+        m.purchased_by_companies?.includes(companyId) && m.user_type === 'homeowner'
+      );
+      setPurchasedLeadsCount(purchased.length);
+      
       setLoading(false);
     } catch (err) {
       console.error('Error loading dashboard:', err);
       
-      // Not authenticated - redirect to login
       if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
         navigate(createPageUrl("RooferLogin"));
         return;
@@ -127,6 +136,19 @@ export default function RooferDashboard() {
   const getPlanPrice = (plan) => {
     const prices = { free: 0, starter: 49, pro: 99, unlimited: 199 };
     return prices[plan] || 0;
+  };
+
+  const getFilteredMeasurements = () => {
+    if (!user?.company_id) return [];
+    
+    if (activeTab === 'own') {
+      return measurements.filter(m => m.company_id === user.company_id);
+    } else {
+      return measurements.filter(m => 
+        m.purchased_by_companies?.includes(user.company_id) && 
+        m.user_type === 'homeowner'
+      );
+    }
   };
 
   if (loading) {
@@ -276,6 +298,22 @@ export default function RooferDashboard() {
             </CardContent>
           </Card>
 
+          {/* Purchased Leads Stats */}
+          <Card className="shadow-lg bg-gradient-to-br from-green-500 to-green-600 text-white border-none">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="bg-white bg-opacity-20 p-3 rounded-lg">
+                  <Users className="w-6 h-6" />
+                </div>
+                <span className="text-4xl font-bold">{purchasedLeadsCount || 0}</span>
+              </div>
+              <h3 className="text-lg font-semibold mb-1">Purchased Leads</h3>
+              <p className="text-sm text-green-100">
+                Homeowners waiting for quotes
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Usage Stats */}
           <Card className="shadow-lg">
             <CardHeader>
@@ -322,12 +360,36 @@ export default function RooferDashboard() {
         <Card className="shadow-lg mb-8">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Recent Measurements</CardTitle>
+              <CardTitle>Measurements & Leads</CardTitle>
               <Badge variant="outline">{measurements.length} total</Badge>
             </div>
           </CardHeader>
           <CardContent>
-            {measurements.length === 0 ? (
+            {/* Tabs */}
+            <div className="flex gap-4 mb-6 border-b">
+              <button
+                onClick={() => setActiveTab('purchased')}
+                className={`px-4 py-2 font-medium transition-colors ${
+                  activeTab === 'purchased'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Purchased Leads ({purchasedLeadsCount})
+              </button>
+              <button
+                onClick={() => setActiveTab('own')}
+                className={`px-4 py-2 font-medium transition-colors ${
+                  activeTab === 'own'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                My Measurements ({measurements.filter(m => m.company_id === user?.company_id).length})
+              </button>
+            </div>
+
+            {getFilteredMeasurements().length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Home className="w-8 h-8 text-slate-400" />
@@ -344,7 +406,10 @@ export default function RooferDashboard() {
                   <thead className="bg-slate-50 border-b-2 border-slate-200">
                     <tr>
                       <th className="text-left p-3 font-semibold text-slate-700 text-sm">Date</th>
-                      <th className="text-left p-3 font-semibold text-slate-700 text-sm">Property Address</th>
+                      <th className="text-left p-3 font-semibold text-slate-700 text-sm">Property</th>
+                      {activeTab === 'purchased' && (
+                        <th className="text-left p-3 font-semibold text-slate-700 text-sm">Customer</th>
+                      )}
                       <th className="text-left p-3 font-semibold text-slate-700 text-sm">Area</th>
                       <th className="text-left p-3 font-semibold text-slate-700 text-sm">Type</th>
                       <th className="text-left p-3 font-semibold text-slate-700 text-sm">Status</th>
@@ -352,7 +417,7 @@ export default function RooferDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {measurements.slice(0, 10).map((measurement) => (
+                    {getFilteredMeasurements().slice(0, 10).map((measurement) => (
                       <tr key={measurement.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="p-3 text-sm text-slate-600">
                           {format(new Date(measurement.created_date), 'MMM d, yyyy')}
@@ -360,6 +425,13 @@ export default function RooferDashboard() {
                         <td className="p-3">
                           <p className="font-medium text-slate-900">{measurement.property_address}</p>
                         </td>
+                        {activeTab === 'purchased' && (
+                          <td className="p-3">
+                            <p className="text-sm font-medium text-slate-900">{measurement.customer_name || 'N/A'}</p>
+                            <p className="text-xs text-slate-600">{measurement.customer_email}</p>
+                            <p className="text-xs text-slate-600">{measurement.customer_phone}</p>
+                          </td>
+                        )}
                         <td className="p-3 font-semibold text-slate-900">
                           {Math.round(measurement.total_adjusted_sqft || measurement.total_sqft || 0).toLocaleString()} sq ft
                         </td>
