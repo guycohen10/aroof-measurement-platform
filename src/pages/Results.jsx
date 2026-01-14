@@ -29,6 +29,8 @@ export default function Results() {
   const [mapScriptLoaded, setMapScriptLoaded] = useState(false);
   const scriptLoadedRef = useRef(false);
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+  const [sendingToTop5, setSendingToTop5] = useState(false);
+  const [top5Success, setTop5Success] = useState(false);
   
   const [selectedMaterial, setSelectedMaterial] = useState({
     name: 'Asphalt Shingles (Architectural)',
@@ -250,6 +252,44 @@ export default function Results() {
 
   const handlePhotosUpdate = (updatedPhotos) => {
     setMeasurement({ ...measurement, photos: updatedPhotos });
+  };
+
+  const handleSendToTop5 = async () => {
+    setSendingToTop5(true);
+    
+    try {
+      // Get top 5 roofers in service area
+      const companies = await base44.entities.Company.list('-created_date', 5);
+      const activeCompanies = companies.filter(c => c.is_active);
+      const top5 = activeCompanies.slice(0, 5);
+
+      if (top5.length === 0) {
+        alert('No active roofers available at this time. Please try again later.');
+        setSendingToTop5(false);
+        return;
+      }
+
+      // Update measurement with shared roofers list
+      const sharedWith = top5.map(r => r.id);
+      await base44.entities.Measurement.update(measurement.id, {
+        lead_status: 'contacted',
+        shared_with_roofers: sharedWith
+      });
+
+      setMeasurement({
+        ...measurement,
+        lead_status: 'contacted',
+        shared_with_roofers: sharedWith
+      });
+
+      setTop5Success(true);
+      
+    } catch (err) {
+      console.error('Error sending to top 5:', err);
+      alert('Failed to send to roofers. Please try again.');
+    } finally {
+      setSendingToTop5(false);
+    }
   };
 
   const handlePDFDownload = () => {
@@ -838,6 +878,87 @@ export default function Results() {
             <DetailedMeasurements measurement={measurement} />
 
             <PhotoUpload measurement={measurement} onPhotosUpdate={handlePhotosUpdate} />
+
+            {measurement?.user_type === 'homeowner' && !top5Success && (
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg p-8 mb-8 border-2 border-blue-200">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="bg-blue-600 p-3 rounded-lg">
+                    <Users className="w-6 h-6 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900">Next Step: Choose Your Roofer</h2>
+                </div>
+
+                <p className="text-gray-700 mb-6">
+                  Connect with top-rated local roofers who can provide accurate quotes based on your measurements.
+                </p>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Link
+                    to={createPageUrl(`RooferDirectory?measurement=${measurement.id}`)}
+                    className="bg-white rounded-xl p-6 border-2 border-blue-300 hover:border-blue-500 hover:shadow-xl transition-all group"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="bg-blue-100 p-3 rounded-lg group-hover:bg-blue-200 transition-colors">
+                        <MapPin className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg mb-2 group-hover:text-blue-600 transition-colors">
+                          Browse Roofer Directory
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          View profiles, read reviews, compare pricing, and choose your preferred roofer.
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+
+                  <button
+                    onClick={handleSendToTop5}
+                    disabled={sendingToTop5}
+                    className="bg-blue-600 text-white rounded-xl p-6 border-2 border-blue-600 hover:bg-blue-700 hover:shadow-xl transition-all group text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="bg-blue-500 p-3 rounded-lg group-hover:bg-blue-600 transition-colors">
+                        <Zap className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg mb-2">
+                          Send to Top 5 Roofers
+                        </h3>
+                        <p className="text-sm text-blue-100">
+                          Automatically share your measurements with the top-rated roofers in your area. Get multiple quotes fast.
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                {sendingToTop5 && (
+                  <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                    <span className="text-blue-700 font-medium">Sending your information to top roofers...</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {measurement?.user_type === 'homeowner' && top5Success && (
+              <div className="bg-green-50 border-2 border-green-200 rounded-2xl shadow-lg p-8 mb-8">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-bold text-xl text-green-800 mb-2">Successfully sent to 5 top-rated roofers!</h3>
+                    <p className="text-green-700 mb-4">You'll receive quotes within 24-48 hours via email and phone.</p>
+                    <Link to={createPageUrl(`RooferDirectory?measurement=${measurement.id}`)}>
+                      <Button variant="outline" className="border-green-600 text-green-600 hover:bg-green-50">
+                        <MapPin className="w-4 h-4 mr-2" />
+                        View All Roofers
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <Card className="shadow-lg border-2 border-slate-200">
               <CardContent className="p-6">

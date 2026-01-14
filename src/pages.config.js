@@ -3,6 +3,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminGodMode from './pages/AdminGodMode';
 import AsphaltShingles3Tab from './pages/AsphaltShingles3Tab';
 import AsphaltShinglesArchitectural from './pages/AsphaltShinglesArchitectural';
+import BlogHome from './pages/BlogHome';
+import BlogPost from './pages/BlogPost';
 import Booking from './pages/Booking';
 import BookingConfirmation from './pages/BookingConfirmation';
 import BookingSuccess from './pages/BookingSuccess';
@@ -66,8 +68,6 @@ import Subscriptions from './pages/Subscriptions';
 import TPO from './pages/TPO';
 import VerifyEmail from './pages/VerifyEmail';
 import Windows from './pages/Windows';
-import BlogHome from './pages/BlogHome';
-import BlogPost from './pages/BlogPost';
 import __Layout from './Layout.jsx';
 
 
@@ -77,6 +77,8 @@ export const PAGES = {
     "AdminGodMode": AdminGodMode,
     "AsphaltShingles3Tab": AsphaltShingles3Tab,
     "AsphaltShinglesArchitectural": AsphaltShinglesArchitectural,
+    "BlogHome": BlogHome,
+    "BlogPost": BlogPost,
     "Booking": Booking,
     "BookingConfirmation": BookingConfirmation,
     "BookingSuccess": BookingSuccess,
@@ -140,8 +142,6 @@ export const PAGES = {
     "TPO": TPO,
     "VerifyEmail": VerifyEmail,
     "Windows": Windows,
-    "BlogHome": BlogHome,
-    "BlogPost": BlogPost,
 }
 
 export const pagesConfig = {
