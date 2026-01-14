@@ -52,6 +52,9 @@ import SubscriptionDetail from './pages/SubscriptionDetail';
 import Subscriptions from './pages/Subscriptions';
 import VerifyEmail from './pages/VerifyEmail';
 import Windows from './pages/Windows';
+import AsphaltShingles3Tab from './pages/AsphaltShingles3Tab';
+import AsphaltShinglesArchitectural from './pages/AsphaltShinglesArchitectural';
+import RoofingTypesIndex from './pages/RoofingTypesIndex';
 import __Layout from './Layout.jsx';
 
 
@@ -110,6 +113,9 @@ export const PAGES = {
     "Subscriptions": Subscriptions,
     "VerifyEmail": VerifyEmail,
     "Windows": Windows,
+    "AsphaltShingles3Tab": AsphaltShingles3Tab,
+    "AsphaltShinglesArchitectural": AsphaltShinglesArchitectural,
+    "RoofingTypesIndex": RoofingTypesIndex,
 }
 
 export const pagesConfig = {
