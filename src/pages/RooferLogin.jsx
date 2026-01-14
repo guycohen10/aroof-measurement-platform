@@ -29,10 +29,36 @@ export default function RooferLogin() {
 
       console.log('✅ Login successful');
 
-      // Get user data and set role if needed
+      // Get user data and migrate legacy users
       try {
         const user = await base44.auth.me();
         console.log('👤 User data:', user);
+
+        // Legacy user migration: create company if missing
+        if (!user.company_id && user.aroof_role === 'external_roofer') {
+          console.log('⚠️ Legacy user detected, creating company...');
+          
+          try {
+            const newCompany = await base44.entities.Company.create({
+              company_name: user.company_name || 'My Roofing Company',
+              contact_email: user.email,
+              contact_phone: user.phone || '',
+              address_city: 'Dallas',
+              address_state: 'TX',
+              is_active: true,
+              subscription_tier: 'basic',
+              subscription_status: 'active'
+            });
+
+            await base44.entities.User.update('me', {
+              company_id: newCompany.id
+            });
+
+            console.log('✅ Company created and user migrated');
+          } catch (migrationErr) {
+            console.error('Migration error:', migrationErr);
+          }
+        }
 
         // If role not set, set it now
         if (!user.aroof_role || user.aroof_role !== 'external_roofer') {

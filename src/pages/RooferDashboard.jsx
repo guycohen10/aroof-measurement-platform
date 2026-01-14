@@ -236,6 +236,33 @@ export default function RooferDashboard() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Company Header */}
+        {user?.company_id && (
+          <Card className="shadow-lg mb-8 bg-gradient-to-br from-blue-50 to-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="bg-blue-100 w-16 h-16 rounded-xl flex items-center justify-center">
+                    <span className="text-3xl">🏢</span>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">{user.company_name}</h2>
+                    <p className="text-slate-600 text-sm">Company ID: {user.company_id.slice(0, 8)}...</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge className="bg-blue-100 text-blue-800 text-xs">
+                        {user.aroof_role?.replace('_', ' ').toUpperCase()}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                <Button variant="outline" className="font-medium">
+                  Company Settings →
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Usage Alert */}
         {nearLimit && user.subscription_plan !== 'unlimited' && (
           <Card className="mb-8 border-orange-200 bg-orange-50">

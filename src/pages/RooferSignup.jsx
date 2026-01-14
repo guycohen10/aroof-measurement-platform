@@ -246,17 +246,45 @@ export default function RooferSignup() {
         }
       }
 
-      // Update user profile with role and company info
+      // Create company and link user
       try {
+        console.log('🏢 Creating company entity...');
+        
+        // Step 1: Create Company entity
+        const newCompany = await base44.entities.Company.create({
+          company_name: formData.companyName,
+          contact_name: formData.fullName,
+          contact_email: formData.email,
+          contact_phone: formData.companyPhone || formData.phone || '',
+          address_street: formData.address || '',
+          address_city: formData.city || 'Dallas',
+          address_state: formData.state || 'TX',
+          address_zip: formData.zip || '',
+          service_area_zips: [],
+          is_active: true,
+          subscription_tier: 'basic',
+          subscription_status: 'trial',
+          trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+        });
+        
+        console.log('✅ Company created:', newCompany.id);
+
+        // Step 2: Get current user ID
+        const currentUser = await base44.auth.me();
+        
+        // Step 3: Link user to company and set as owner
         await base44.entities.User.update('me', {
           aroof_role: 'external_roofer',
+          company_id: newCompany.id,
           company_name: formData.companyName,
-          phone: formData.phone
+          phone: formData.phone || formData.companyPhone
         });
-        console.log('✅ User profile updated with contractor role');
+
+        console.log('✅ User linked to company');
+        
       } catch (err) {
-        console.error('⚠️ Profile update error:', err);
-        // Continue anyway - can be updated later
+        console.error('⚠️ Company/User setup error:', err);
+        // Continue anyway - user can complete setup in dashboard
       }
 
       // Auto-redirect to dashboard
