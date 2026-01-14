@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import MaterialTakeoffModal from "./MaterialTakeoffModal";
+import ProposalWizard from "./ProposalWizard";
 
 export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate }) {
   const [note, setNote] = useState("");
@@ -286,7 +286,7 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate }) {
       </DialogContent>
 
       {showTakeoffModal && (
-        <MaterialTakeoffModal
+        <ProposalWizard
           lead={lead}
           onClose={() => setShowTakeoffModal(false)}
           onSave={handleSaveTakeoff}
