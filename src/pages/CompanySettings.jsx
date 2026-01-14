@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -95,11 +96,10 @@ export default function CompanySettings() {
 
     try {
       await base44.entities.Company.update(company.id, companyForm);
-      setSuccess('Company profile updated successfully!');
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success('Company profile updated successfully!');
     } catch (err) {
       console.error('Error saving:', err);
-      setError('Failed to save changes');
+      toast.error('Failed to save changes');
     } finally {
       setSaving(false);
     }
@@ -141,7 +141,7 @@ export default function CompanySettings() {
 
     } catch (err) {
       console.error('Error inviting team member:', err);
-      setError('Failed to invite team member. Email may already exist.');
+      toast.error('Failed to invite team member. Email may already exist.');
     } finally {
       setSaving(false);
     }

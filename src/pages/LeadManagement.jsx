@@ -29,7 +29,7 @@ export default function LeadManagement() {
       const currentUser = await base44.auth.me();
       
       if (currentUser.aroof_role !== 'external_roofer') {
-        alert('Access denied');
+        toast.error('Access denied');
         navigate(createPageUrl("Homepage"));
         return;
       }
@@ -55,7 +55,7 @@ export default function LeadManagement() {
       setLoading(false);
     } catch (err) {
       console.error('Failed to load:', err);
-      alert('Failed to load lead data');
+      toast.error('Failed to load lead data');
       navigate(createPageUrl("RooferDashboard"));
     }
   };

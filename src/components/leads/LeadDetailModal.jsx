@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -58,7 +59,7 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate }) {
       setNote("");
       loadCommunications();
     } catch (err) {
-      alert('Failed to save note: ' + err.message);
+      toast.error('Failed to save note: ' + err.message);
     }
     setLoading(false);
   };
@@ -71,8 +72,9 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate }) {
         priority: priority
       });
       onUpdate();
+      toast.success('Lead updated successfully');
     } catch (err) {
-      alert('Failed to update: ' + err.message);
+      toast.error('Failed to update: ' + err.message);
     }
     setLoading(false);
   };
@@ -90,9 +92,9 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate }) {
       
       loadCommunications();
       setShowTakeoffModal(false);
-      alert('Material takeoff saved to notes!');
+      toast.success('Material takeoff saved to notes!');
     } catch (err) {
-      alert('Failed to save takeoff: ' + err.message);
+      toast.error('Failed to save takeoff: ' + err.message);
     }
   };
 

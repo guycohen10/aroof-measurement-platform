@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -130,22 +131,22 @@ export default function RooferSignup() {
   const handleSignup = async () => {
     // Validation
     if (!formData.companyName || !formData.fullName || !formData.email || !formData.password) {
-      alert('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match');
+      toast.error('Passwords do not match');
       return;
     }
 
     if (!formData.agreeToTerms) {
-      alert('Please agree to the terms and conditions');
+      toast.error('Please agree to the terms and conditions');
       return;
     }
 
     if (formData.password.length < 8) {
-      alert('Password must be at least 8 characters long');
+      toast.error('Password must be at least 8 characters long');
       return;
     }
 
@@ -178,16 +179,16 @@ export default function RooferSignup() {
       setPassword(formData.password);
       setStep(2);
 
-      alert('✅ Check your email for a verification code.');
+      toast.success('Check your email for a verification code');
       
     } catch (err) {
       console.error('Signup error:', err);
       
       if (err.message?.includes('already exists') || err.message?.includes('duplicate') || err.message?.includes('already registered')) {
-        alert('❌ An account with this email already exists.\n\nPlease try logging in instead.');
+        toast.error('An account with this email already exists. Please try logging in instead.');
         navigate(createPageUrl("RooferLogin"));
       } else {
-        alert('❌ Registration failed.\n\n' + (err.message || 'Please try again or contact support.'));
+        toast.error('Registration failed: ' + (err.message || 'Please try again or contact support.'));
       }
     } finally {
       setLoading(false);
@@ -289,7 +290,7 @@ export default function RooferSignup() {
 
       // Auto-redirect to dashboard
       console.log('✅ Redirecting to dashboard...');
-      alert('Welcome to Aroof!');
+      toast.success('Welcome to Aroof!');
       setTimeout(() => {
         navigate(createPageUrl("RooferDashboard"));
       }, 1500);
@@ -326,7 +327,7 @@ export default function RooferSignup() {
         throw new Error(data.detail || 'Failed to resend verification code');
       }
       
-      alert('✅ New verification code sent! Check your email.');
+      toast.success('New verification code sent! Check your email.');
       console.log('✅ Verification code resent successfully');
     } catch (err) {
       console.error('❌ Resend error:', err);

@@ -12,6 +12,7 @@ import CedarShingles from './pages/CedarShingles';
 import ClayTile from './pages/ClayTile';
 import Commercial from './pages/Commercial';
 import CompanyProfile from './pages/CompanyProfile';
+import CompanySettings from './pages/CompanySettings';
 import Composite from './pages/Composite';
 import ConcreteTile from './pages/ConcreteTile';
 import ContactInfoPage from './pages/ContactInfoPage';
@@ -50,8 +51,10 @@ import RoofRepair from './pages/RoofRepair';
 import RoofReplacement from './pages/RoofReplacement';
 import RooferBilling from './pages/RooferBilling';
 import RooferDashboard from './pages/RooferDashboard';
+import RooferDirectory from './pages/RooferDirectory';
 import RooferLogin from './pages/RooferLogin';
 import RooferPlans from './pages/RooferPlans';
+import RooferProfile from './pages/RooferProfile';
 import RooferSettings from './pages/RooferSettings';
 import RooferSignup from './pages/RooferSignup';
 import RoofingTypesIndex from './pages/RoofingTypesIndex';
@@ -68,9 +71,6 @@ import Subscriptions from './pages/Subscriptions';
 import TPO from './pages/TPO';
 import VerifyEmail from './pages/VerifyEmail';
 import Windows from './pages/Windows';
-import RooferDirectory from './pages/RooferDirectory';
-import RooferProfile from './pages/RooferProfile';
-import CompanySettings from './pages/CompanySettings';
 import __Layout from './Layout.jsx';
 
 
@@ -89,6 +89,7 @@ export const PAGES = {
     "ClayTile": ClayTile,
     "Commercial": Commercial,
     "CompanyProfile": CompanyProfile,
+    "CompanySettings": CompanySettings,
     "Composite": Composite,
     "ConcreteTile": ConcreteTile,
     "ContactInfoPage": ContactInfoPage,
@@ -127,8 +128,10 @@ export const PAGES = {
     "RoofReplacement": RoofReplacement,
     "RooferBilling": RooferBilling,
     "RooferDashboard": RooferDashboard,
+    "RooferDirectory": RooferDirectory,
     "RooferLogin": RooferLogin,
     "RooferPlans": RooferPlans,
+    "RooferProfile": RooferProfile,
     "RooferSettings": RooferSettings,
     "RooferSignup": RooferSignup,
     "RoofingTypesIndex": RoofingTypesIndex,
@@ -145,9 +148,6 @@ export const PAGES = {
     "TPO": TPO,
     "VerifyEmail": VerifyEmail,
     "Windows": Windows,
-    "RooferDirectory": RooferDirectory,
-    "RooferProfile": RooferProfile,
-    "CompanySettings": CompanySettings,
 }
 
 export const pagesConfig = {

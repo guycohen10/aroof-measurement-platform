@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { Toaster } from "sonner";
 import ChatWidget from "./components/chat/ChatWidget";
 import Navigation from "./components/Navigation";
 
@@ -27,6 +28,7 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <div className="min-h-screen">
+      <Toaster position="top-center" richColors />
       {shouldShowNav && <Navigation />}
       <div className={shouldShowNav ? 'pt-16' : ''}>
         {children}
