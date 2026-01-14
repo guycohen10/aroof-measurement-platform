@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Toaster } from "sonner";
 import ChatWidget from "./components/chat/ChatWidget";
 import Navigation from "./components/Navigation";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 export default function Layout({ children, currentPageName }) {
   const [measurement, setMeasurement] = useState(null);
@@ -27,13 +28,15 @@ export default function Layout({ children, currentPageName }) {
   const shouldShowNav = !pagesWithoutNav.includes(currentPageName);
 
   return (
-    <div className="min-h-screen">
-      <Toaster position="top-center" richColors />
-      {shouldShowNav && <Navigation />}
-      <div className={shouldShowNav ? 'pt-16' : ''}>
-        {children}
+    <ErrorBoundary>
+      <div className="min-h-screen">
+        <Toaster position="top-center" richColors />
+        {shouldShowNav && <Navigation />}
+        <div className={shouldShowNav ? 'pt-16' : ''}>
+          {children}
+        </div>
+        <ChatWidget currentPage={currentPageName} measurement={measurement} />
       </div>
-      <ChatWidget currentPage={currentPageName} measurement={measurement} />
-    </div>
+    </ErrorBoundary>
   );
 }
