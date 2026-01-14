@@ -28,6 +28,7 @@ import {
 export default function Homepage() {
   const navigate = useNavigate();
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
+  const [audienceTab, setAudienceTab] = useState('homeowner');
 
   return (
     <>
@@ -254,65 +255,83 @@ export default function Homepage() {
       </nav>
 
       {/* Hero Section */}
-      <header className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0em0tNiAwYzAgMi4yMSAxLjc5IDQgNCA0czQtMS43OSA0LTQtMS43OS00LTQtNC00IDEuNzktNCA0eiIvPjwvZz48L2c+PC9zdmc+')] opacity-10"></div>
+      <header className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 text-white overflow-hidden pt-16">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0" style={{
+            backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.4\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'
+          }}></div>
         </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 mb-8">
-            <Award className="w-4 h-4 text-yellow-400" aria-hidden="true" />
-            <span className="text-white text-sm font-semibold">Rated #1 Roofing Service in DFW</span>
-          </div>
+        <div className="container mx-auto px-4 py-20 relative z-10">
+          <div className="max-w-4xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 bg-blue-800 bg-opacity-50 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
+              <Shield className="w-5 h-5 text-blue-300" />
+              <span className="text-sm font-semibold text-blue-100">Trusted Platform for DFW Roofing</span>
+            </div>
 
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-6 leading-tight">
-            Get Your Roof Measured for FREE
-          </h1>
-
-          <p className="text-xl md:text-2xl text-blue-100 mb-4 max-w-3xl mx-auto">
-            Instant satellite measurements • Accurate pricing • DFW's most trusted roofing company
-          </p>
-          
-          <p className="text-lg text-green-300 mb-12 font-semibold">📄 Download detailed PDF report for just $3 (optional)
-
+            <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
+              Connect Homeowners with<br />
+              <span className="text-blue-300">Top-Rated Roofers</span>
+            </h1>
+            
+            <p className="text-xl text-blue-100 mb-12 max-w-2xl mx-auto">
+              Get accurate roof measurements in 60 seconds, then choose from verified local contractors. No pressure, no hassle.
             </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button
-                size="lg"
-                className="h-16 px-10 text-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-2xl shadow-green-500/50 hover:shadow-green-500/75 transition-all duration-300 transform hover:scale-105"
-                aria-label="Get free roof measurement now"
-                onClick={async () => {
-                  try {
-                    const user = await base44.auth.me();
-                    if (user && user.aroof_role === 'external_roofer') {
-                      navigate(createPageUrl("RooferDashboard"));
-                    } else {
-                       navigate(createPageUrl("AddressMethodSelector"));
-                     }
+            <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+              <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-6 border-2 border-white border-opacity-20 hover:border-opacity-40 transition-all">
+                <div className="text-4xl mb-3">🏠</div>
+                <h3 className="text-xl font-bold mb-2">For Homeowners</h3>
+                <p className="text-blue-100 text-sm mb-4">
+                  Measure your roof instantly and connect with local roofers
+                </p>
+                <Button
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl"
+                  onClick={async () => {
+                    try {
+                      const user = await base44.auth.me();
+                      if (user && user.aroof_role === 'external_roofer') {
+                        navigate(createPageUrl("RooferDashboard"));
+                      } else {
+                        navigate(createPageUrl("AddressMethodSelector"));
+                      }
                     } catch {
-                     navigate(createPageUrl("AddressMethodSelector"));
+                      navigate(createPageUrl("AddressMethodSelector"));
                     }
-                }}
-              >
-              <Zap className="w-6 h-6 mr-2" aria-hidden="true" />
-              Get FREE Measurement Now
-              <ArrowRight className="w-5 h-5 ml-2" aria-hidden="true" />
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
-            {[
-              { icon: Users, text: "5000+ Roofs Measured", color: "text-green-400" },
-              { icon: Shield, text: "Licensed in Texas", color: "text-blue-400" },
-              { icon: Award, text: "A+ BBB Rating", color: "text-yellow-400" },
-              { icon: Star, text: "4.9/5 Star Rating", color: "text-orange-400" }].
-              map((badge, index) =>
-              <div key={index} className="flex flex-col items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 hover:bg-white/20 transition-all duration-300">
-                <badge.icon className={`w-8 h-8 ${badge.color}`} aria-hidden="true" />
-                <p className="text-sm font-semibold text-white text-center">{badge.text}</p>
+                  }}
+                >
+                  Measure My Roof - $3
+                </Button>
               </div>
-              )}
+
+              <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-6 border-2 border-white border-opacity-20 hover:border-opacity-40 transition-all">
+                <div className="text-4xl mb-3">🔨</div>
+                <h3 className="text-xl font-bold mb-2">For Roofers</h3>
+                <p className="text-blue-100 text-sm mb-4">
+                  Get qualified leads and grow your roofing business
+                </p>
+                <Link to={createPageUrl("RooferSignup")}>
+                  <Button className="w-full bg-white hover:bg-gray-100 text-blue-900 font-bold py-3 px-6 rounded-xl">
+                    Join as Roofer
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-8 mt-12 text-blue-200">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                <span className="text-sm">All Roofers Verified</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <FileCheck className="w-5 h-5" />
+                <span className="text-sm">5,000+ Measurements</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5" />
+                <span className="text-sm">4.9★ Average Rating</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -324,61 +343,136 @@ export default function Homepage() {
       </header>
 
       <main>
-        {/* How It Works Section */}
-        <section id="how-it-works" className="py-20 bg-gradient-to-br from-slate-50 to-white" aria-labelledby="how-it-works-heading">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 id="how-it-works-heading" className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-              How It Works
-            </h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              Get professional roof measurements in three simple steps - completely FREE
-            </p>
+        {/* Platform Stats */}
+        <section className="bg-gradient-to-br from-blue-50 to-blue-100 py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid md:grid-cols-4 gap-8 text-center">
+              <div>
+                <div className="text-4xl font-bold text-blue-600 mb-2">5,000+</div>
+                <div className="text-slate-600">Roofs Measured</div>
+              </div>
+              <div>
+                <div className="text-4xl font-bold text-blue-600 mb-2">50+</div>
+                <div className="text-slate-600">Verified Roofers</div>
+              </div>
+              <div>
+                <div className="text-4xl font-bold text-blue-600 mb-2">4.9★</div>
+                <div className="text-slate-600">Average Rating</div>
+              </div>
+              <div>
+                <div className="text-4xl font-bold text-blue-600 mb-2">$2M+</div>
+                <div className="text-slate-600">Projects Connected</div>
+              </div>
+            </div>
           </div>
+        </section>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-                {
-                  step: "1",
-                  icon: MapPin,
-                  title: "Enter Your Address",
-                  description: "Type your property address and we'll locate it instantly using satellite imagery - no payment required",
-                  color: "from-blue-600 to-blue-700"
-                },
-                {
-                  step: "2",
-                  icon: Home,
-                  title: "Measure Your Roof",
-                  description: "Our advanced tool lets you outline your roof precisely with just a few clicks - 100% FREE",
-                  color: "from-orange-600 to-orange-700"
-                },
-                {
-                  step: "3",
-                  icon: FileCheck,
-                  title: "View Results Instantly",
-                  description: "See accurate measurements and pricing. Download detailed PDF report for just $3 (optional)",
-                  color: "from-green-600 to-green-700"
-                }].
-                map((step, index) =>
-                <Card key={index} className="relative overflow-hidden border-none shadow-2xl hover:shadow-3xl transition-all duration-500 transform hover:-translate-y-2 group">
-                <div className={`absolute top-0 left-0 right-0 h-2 bg-gradient-to-r ${step.color}`}></div>
-                <CardContent className="p-8 relative">
-                  <div className="absolute -top-4 -right-4 w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center opacity-50">
-                    <span className="text-6xl font-bold text-slate-300">{step.step}</span>
+        {/* How It Works - Dual Audience */}
+        <section id="how-it-works" className="py-20 bg-white" aria-labelledby="how-it-works-heading">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 id="how-it-works-heading" className="text-4xl font-bold text-center mb-4">How Aroof Works</h2>
+            <p className="text-center text-slate-600 mb-16 max-w-2xl mx-auto">
+              Simple, transparent process for homeowners and roofers
+            </p>
+
+            <div className="flex justify-center gap-4 mb-12">
+              <button
+                onClick={() => setAudienceTab('homeowner')}
+                className={`px-8 py-3 rounded-xl font-semibold transition-all ${
+                  audienceTab === 'homeowner'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                🏠 For Homeowners
+              </button>
+              <button
+                onClick={() => setAudienceTab('roofer')}
+                className={`px-8 py-3 rounded-xl font-semibold transition-all ${
+                  audienceTab === 'roofer'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                🔨 For Roofers
+              </button>
+            </div>
+
+            {audienceTab === 'homeowner' && (
+              <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <div className="text-center">
+                  <div className="bg-blue-100 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <span className="text-4xl">📍</span>
                   </div>
-                  
-                  <div className={`w-16 h-16 bg-gradient-to-br ${step.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                    <step.icon className="w-8 h-8 text-white" aria-hidden="true" />
+                  <div className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-4 font-bold">1</div>
+                  <h3 className="text-xl font-bold mb-3">Enter Your Address</h3>
+                  <p className="text-slate-600">
+                    Type your address and we'll load satellite imagery of your roof
+                  </p>
+                </div>
+
+                <div className="text-center">
+                  <div className="bg-blue-100 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <span className="text-4xl">📐</span>
                   </div>
-                  
-                  <h3 className="text-2xl font-bold text-slate-900 mb-3">{step.title}</h3>
-                  <p className="text-slate-600 leading-relaxed">{step.description}</p>
-                </CardContent>
-              </Card>
-                )}
+                  <div className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-4 font-bold">2</div>
+                  <h3 className="text-xl font-bold mb-3">Get Instant Measurement</h3>
+                  <p className="text-slate-600">
+                    Click around your roof perimeter. We calculate area, pitch, and material costs
+                  </p>
+                </div>
+
+                <div className="text-center">
+                  <div className="bg-blue-100 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <span className="text-4xl">🤝</span>
+                  </div>
+                  <div className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-4 font-bold">3</div>
+                  <h3 className="text-xl font-bold mb-3">Choose Your Roofer</h3>
+                  <p className="text-slate-600">
+                    Browse verified roofers, read reviews, and connect with your preferred contractor
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {audienceTab === 'roofer' && (
+              <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <div className="text-center">
+                  <div className="bg-orange-100 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <span className="text-4xl">📝</span>
+                  </div>
+                  <div className="bg-orange-600 text-white w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-4 font-bold">1</div>
+                  <h3 className="text-xl font-bold mb-3">Create Your Profile</h3>
+                  <p className="text-slate-600">
+                    Sign up, verify your license, and set up your company profile with photos and services
+                  </p>
+                </div>
+
+                <div className="text-center">
+                  <div className="bg-orange-100 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <span className="text-4xl">📨</span>
+                  </div>
+                  <div className="bg-orange-600 text-white w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-4 font-bold">2</div>
+                  <h3 className="text-xl font-bold mb-3">Receive Qualified Leads</h3>
+                  <p className="text-slate-600">
+                    Homeowners with measurements choose you from the directory. Only pay $25 per lead.
+                  </p>
+                </div>
+
+                <div className="text-center">
+                  <div className="bg-orange-100 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <span className="text-4xl">💰</span>
+                  </div>
+                  <div className="bg-orange-600 text-white w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-4 font-bold">3</div>
+                  <h3 className="text-xl font-bold mb-3">Close More Jobs</h3>
+                  <p className="text-slate-600">
+                    Get accurate measurements and customer info. Quote accurately and win more contracts.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
 
       {/* Why Choose Aroof Section */}
       <section id="benefits" className="py-20 bg-gradient-to-br from-blue-900 to-slate-900" aria-labelledby="benefits-heading">
@@ -575,56 +669,35 @@ export default function Homepage() {
                 <span className="text-2xl font-bold">Aroof</span>
               </div>
               <p className="text-slate-400 text-sm mb-4">
-                DFW's most trusted roofing company. Licensed, insured, and committed to excellence.
+                Connecting homeowners with top-rated roofers across the DFW metroplex.
               </p>
-              <div className="space-y-2 text-sm">
-                <p className="text-slate-400">Texas Licensed Roofing Contractor</p>
-              </div>
             </div>
 
             <div>
-              <h4 className="font-bold mb-4">Quick Links</h4>
+              <h4 className="font-bold mb-4">For Homeowners</h4>
               <div className="space-y-2 text-sm text-slate-400">
-                <a href="#how-it-works" className="block hover:text-white">How It Works</a>
-                <a href="#benefits" className="block hover:text-white">Why Aroof</a>
-                <a href="#reviews" className="block hover:text-white">Reviews</a>
-                <Link to={createPageUrl("BlogHome")} className="block hover:text-white">Blog</Link>
-                <Link to={createPageUrl("Services")} className="block hover:text-white">Services</Link>
+                <Link to={createPageUrl("AddressMethodSelector")} className="block hover:text-white">Measure Your Roof</Link>
+                <Link to={createPageUrl("RooferDirectory")} className="block hover:text-white">Find Roofers</Link>
                 <Link to={createPageUrl("RoofingTypesIndex")} className="block hover:text-white">Roofing Materials</Link>
-                <Link to={createPageUrl("MeasurementPage")} className="block hover:text-white">Get Started FREE</Link>
+                <Link to={createPageUrl("BlogHome")} className="block hover:text-white">Blog & Guides</Link>
               </div>
             </div>
 
             <div>
-              <h4 className="font-bold mb-4">Contact Us</h4>
-              <div className="space-y-3 text-sm">
-                <a href="tel:+18502389727" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
-                  <Phone className="w-4 h-4" />
-                  (850) 238-9727
-                </a>
-                <a href="mailto:support@aroof.build" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
-                  <Mail className="w-4 h-4" />
-                  support@aroof.build
-                </a>
-                <div className="flex items-start gap-2 text-slate-400">
-                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p>6810 Windrock Rd</p>
-                    <p>Dallas, TX 75252</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-bold mb-4">Service Areas</h4>
+              <h4 className="font-bold mb-4">For Roofers</h4>
               <div className="space-y-2 text-sm text-slate-400">
-                <p>Dallas, TX</p>
-                <p>Plano, TX</p>
-                <p>Frisco, TX</p>
-                <p>McKinney, TX</p>
-                <p>Allen, TX</p>
-                <p className="pt-2 font-semibold text-slate-300">Proudly serving the entire Dallas-Fort Worth area</p>
+                <Link to={createPageUrl("RooferSignup")} className="block hover:text-white">Join Platform</Link>
+                <Link to={createPageUrl("RooferLogin")} className="block hover:text-white">Roofer Login</Link>
+                <Link to={createPageUrl("RooferDirectory")} className="block hover:text-white">Directory</Link>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-bold mb-4">Support</h4>
+              <div className="space-y-2 text-sm text-slate-400">
+                <a href="mailto:support@aroof.build" className="block hover:text-white">Contact Us</a>
+                <a href="tel:8502389727" className="block hover:text-white">(850) 238-9727</a>
+                <p className="text-slate-500">Dallas, TX</p>
               </div>
             </div>
           </div>
@@ -632,7 +705,7 @@ export default function Homepage() {
           <div className="border-t border-slate-800 pt-8">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
               <div className="text-sm text-slate-400 text-center sm:text-left">
-                <p>© {new Date().getFullYear()} Aroof. All rights reserved. Licensed & Insured in Texas.</p>
+                <p>© {new Date().getFullYear()} Aroof Platform. All rights reserved.</p>
                 <div className="flex gap-6 mt-4 text-xs justify-center sm:justify-start">
                   <a href="#" className="hover:text-white">Privacy Policy</a>
                   <a href="#" className="hover:text-white">Terms of Service</a>
