@@ -55,6 +55,17 @@ import Windows from './pages/Windows';
 import AsphaltShingles3Tab from './pages/AsphaltShingles3Tab';
 import AsphaltShinglesArchitectural from './pages/AsphaltShinglesArchitectural';
 import RoofingTypesIndex from './pages/RoofingTypesIndex';
+import MetalStandingSeam from './pages/MetalStandingSeam';
+import MetalShingles from './pages/MetalShingles';
+import ClayTile from './pages/ClayTile';
+import ConcreteTile from './pages/ConcreteTile';
+import NaturalSlate from './pages/NaturalSlate';
+import CedarShingles from './pages/CedarShingles';
+import TPO from './pages/TPO';
+import EPDM from './pages/EPDM';
+import Composite from './pages/Composite';
+import SolarTiles from './pages/SolarTiles';
+import GreenRoof from './pages/GreenRoof';
 import __Layout from './Layout.jsx';
 
 
@@ -116,6 +127,17 @@ export const PAGES = {
     "AsphaltShingles3Tab": AsphaltShingles3Tab,
     "AsphaltShinglesArchitectural": AsphaltShinglesArchitectural,
     "RoofingTypesIndex": RoofingTypesIndex,
+    "MetalStandingSeam": MetalStandingSeam,
+    "MetalShingles": MetalShingles,
+    "ClayTile": ClayTile,
+    "ConcreteTile": ConcreteTile,
+    "NaturalSlate": NaturalSlate,
+    "CedarShingles": CedarShingles,
+    "TPO": TPO,
+    "EPDM": EPDM,
+    "Composite": Composite,
+    "SolarTiles": SolarTiles,
+    "GreenRoof": GreenRoof,
 }
 
 export const pagesConfig = {
