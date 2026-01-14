@@ -255,7 +255,11 @@ export default function RooferDashboard() {
                     </div>
                   </div>
                 </div>
-                <Button variant="outline" className="font-medium">
+                <Button 
+                  variant="outline" 
+                  className="font-medium"
+                  onClick={() => navigate(createPageUrl("CompanySettings"))}
+                >
                   Company Settings →
                 </Button>
               </div>
