@@ -236,6 +236,7 @@ export default function Homepage() {
               <a href="#how-it-works" className="text-slate-600 hover:text-blue-900 font-medium">How It Works</a>
               <a href="#benefits" className="text-slate-600 hover:text-blue-900 font-medium">Why Aroof</a>
               <a href="#reviews" className="text-slate-600 hover:text-blue-900 font-medium">Reviews</a>
+              <Link to={createPageUrl("RoofingTypesIndex")} className="text-slate-600 hover:text-blue-900 font-medium">Materials</Link>
               
               {/* Contractor Links */}
               <Link to={createPageUrl("RooferLogin")} className="text-blue-600 hover:text-blue-900 font-semibold flex items-center gap-1">
