@@ -18,7 +18,8 @@ import {
   AlertCircle,
   Crown,
   LogOut,
-  Loader2 // Added Loader2 import
+  Loader2,
+  Users
 } from "lucide-react";
 import { format } from "date-fns";
 
