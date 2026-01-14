@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera, X, Info, Square, Circle as CircleIcon, Pentagon, Eraser, MousePointer, Zap } from "lucide-react";
+import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera, X, Info, Square, Circle as CircleIcon, Pentagon, Eraser, MousePointer, Zap, Palette } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
+import RoofVisualizer from "../components/RoofVisualizer";
 
 const SECTION_COLORS = [
   { stroke: '#4A90E2', fill: '#4A90E2', name: 'Blue' },
@@ -103,6 +104,7 @@ export default function MeasurementPage() {
   const [showTreeHelper, setShowTreeHelper] = useState(false);
   const [deletedSectionsCount, setDeletedSectionsCount] = useState(0);
   const [isInspectionMode, setIsInspectionMode] = useState(false);
+  const [isDesignMode, setIsDesignMode] = useState(false);
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
@@ -2247,27 +2249,40 @@ export default function MeasurementPage() {
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
             <p className="text-sm text-slate-600">Choose your measurement method</p>
             
-            <div className="flex bg-slate-100 rounded-lg p-1 mt-4">
-              <button
-                onClick={() => setMeasurementMode('quick')}
-                className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
-                  measurementMode === 'quick' 
-                    ? 'bg-green-600 text-white shadow' 
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                ⚡ Quick Estimate
-              </button>
-              <button
-                onClick={() => setMeasurementMode('detailed')}
-                className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
-                  measurementMode === 'detailed' 
-                    ? 'bg-blue-600 text-white shadow' 
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                📐 Detailed Measurement
-              </button>
+            <div className="space-y-2 mt-4">
+              <div className="flex bg-slate-100 rounded-lg p-1">
+                <button
+                  onClick={() => setMeasurementMode('quick')}
+                  className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                    measurementMode === 'quick' 
+                      ? 'bg-green-600 text-white shadow' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  ⚡ Quick Estimate
+                </button>
+                <button
+                  onClick={() => setMeasurementMode('detailed')}
+                  className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                    measurementMode === 'detailed' 
+                      ? 'bg-blue-600 text-white shadow' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📐 Detailed Measurement
+                </button>
+              </div>
+              
+              {(liveMapSections.length > 0 || solarPolygonRef.current) && (
+                <Button
+                  onClick={() => setIsDesignMode(true)}
+                  variant="outline"
+                  className="w-full border-2 border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold"
+                >
+                  <Palette className="w-4 h-4 mr-2" />
+                  🎨 Design Studio
+                </Button>
+              )}
             </div>
           </div>
 
@@ -3374,6 +3389,16 @@ export default function MeasurementPage() {
           )}
         </div>
       </div>
+      
+      {/* Roof Visualizer Overlay */}
+      {isDesignMode && (
+        <RoofVisualizer
+          mapInstance={mapInstanceRef.current}
+          roofPolygon={solarPolygonRef.current}
+          polygonsArray={polygonsRef.current}
+          onClose={() => setIsDesignMode(false)}
+        />
+      )}
     </div>
   );
 }
