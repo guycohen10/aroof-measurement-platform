@@ -70,6 +70,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import Windows from './pages/Windows';
 import RooferDirectory from './pages/RooferDirectory';
 import RooferProfile from './pages/RooferProfile';
+import CompanySettings from './pages/CompanySettings';
 import __Layout from './Layout.jsx';
 
 
@@ -146,6 +147,7 @@ export const PAGES = {
     "Windows": Windows,
     "RooferDirectory": RooferDirectory,
     "RooferProfile": RooferProfile,
+    "CompanySettings": CompanySettings,
 }
 
 export const pagesConfig = {
