@@ -588,7 +588,9 @@ export default function Homepage() {
                 <a href="#how-it-works" className="block hover:text-white">How It Works</a>
                 <a href="#benefits" className="block hover:text-white">Why Aroof</a>
                 <a href="#reviews" className="block hover:text-white">Reviews</a>
+                <Link to={createPageUrl("BlogHome")} className="block hover:text-white">Blog</Link>
                 <Link to={createPageUrl("Services")} className="block hover:text-white">Services</Link>
+                <Link to={createPageUrl("RoofingTypesIndex")} className="block hover:text-white">Roofing Materials</Link>
                 <Link to={createPageUrl("MeasurementPage")} className="block hover:text-white">Get Started FREE</Link>
               </div>
             </div>
