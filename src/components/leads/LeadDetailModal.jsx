@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { X, User, Mail, Phone, MapPin, Ruler, Calendar, MessageSquare, FileText } from "lucide-react";
+import { X, User, Mail, Phone, MapPin, Ruler, Calendar, MessageSquare, FileText, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import {
   Dialog,
@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import MaterialTakeoffModal from "./MaterialTakeoffModal";
 
 export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate }) {
   const [note, setNote] = useState("");
@@ -19,6 +20,7 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate }) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(lead?.lead_status || 'new');
   const [priority, setPriority] = useState(lead?.priority || 'medium');
+  const [showTakeoffModal, setShowTakeoffModal] = useState(false);
 
   useEffect(() => {
     if (lead && isOpen) {
@@ -73,6 +75,25 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate }) {
       alert('Failed to update: ' + err.message);
     }
     setLoading(false);
+  };
+
+  const handleSaveTakeoff = async (takeoffText) => {
+    try {
+      await base44.entities.LeadCommunication.create({
+        measurement_id: lead.id,
+        company_id: lead.company_id,
+        channel: 'note',
+        direction: 'inbound',
+        message: takeoffText,
+        sent_via: 'manual'
+      });
+      
+      loadCommunications();
+      setShowTakeoffModal(false);
+      alert('Material takeoff saved to notes!');
+    } catch (err) {
+      alert('Failed to save takeoff: ' + err.message);
+    }
   };
 
   if (!lead) return null;
@@ -244,6 +265,15 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate }) {
           <Button variant="outline" onClick={onClose} className="flex-1">
             Close
           </Button>
+          {(lead.total_sqft > 0 || lead.total_adjusted_sqft > 0) && (
+            <Button 
+              onClick={() => setShowTakeoffModal(true)}
+              className="flex-1 bg-purple-600 hover:bg-purple-700"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              AI Takeoff
+            </Button>
+          )}
           <Button className="flex-1">
             View Full Measurement
           </Button>
@@ -252,6 +282,14 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onUpdate }) {
           </Button>
         </div>
       </DialogContent>
+
+      {showTakeoffModal && (
+        <MaterialTakeoffModal
+          lead={lead}
+          onClose={() => setShowTakeoffModal(false)}
+          onSave={handleSaveTakeoff}
+        />
+      )}
     </Dialog>
   );
 }
