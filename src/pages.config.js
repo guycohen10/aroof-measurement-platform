@@ -66,6 +66,8 @@ import Subscriptions from './pages/Subscriptions';
 import TPO from './pages/TPO';
 import VerifyEmail from './pages/VerifyEmail';
 import Windows from './pages/Windows';
+import BlogHome from './pages/BlogHome';
+import BlogPost from './pages/BlogPost';
 import __Layout from './Layout.jsx';
 
 
@@ -138,6 +140,8 @@ export const PAGES = {
     "TPO": TPO,
     "VerifyEmail": VerifyEmail,
     "Windows": Windows,
+    "BlogHome": BlogHome,
+    "BlogPost": BlogPost,
 }
 
 export const pagesConfig = {
