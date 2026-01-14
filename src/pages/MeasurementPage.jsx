@@ -3337,21 +3337,22 @@ export default function MeasurementPage() {
                     />
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* Roof Visualizer Overlay */}
-      {isDesignMode && (
-        <RoofVisualizer
-          mapInstance={mapInstanceRef.current}
-          roofPolygon={solarPolygonRef.current}
-          polygonsArray={polygonsRef.current}
-          onClose={() => setIsDesignMode(false)}
-        />
-      )}
-    </div>
-  );
-}
+                </div>
+                </div>
+                </div>
+                )}
+                </div>
+                </div>
+
+                {/* Roof Visualizer Overlay */}
+                {isDesignMode && (
+                <RoofVisualizer
+                mapInstance={mapInstanceRef.current}
+                roofPolygon={solarPolygonRef.current}
+                polygonsArray={polygonsRef.current}
+                onClose={() => setIsDesignMode(false)}
+                />
+                )}
+                </div>
+                );
+                }
