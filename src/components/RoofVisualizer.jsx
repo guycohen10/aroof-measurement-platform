@@ -8,6 +8,32 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
   const [selectedColor, setSelectedColor] = useState('#3b3b3b');
   const [opacity, setOpacity] = useState(0.7);
   
+  // Safety Check: Ensure we have valid polygon data
+  const hasValidPolygon = (roofPolygon && roofPolygon.setOptions) || (polygonsArray && polygonsArray.length > 0);
+  
+  if (!mapInstance || !hasValidPolygon) {
+    return (
+      <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
+        <div className="max-w-7xl mx-auto px-6 pb-6 pointer-events-auto">
+          <Card className="bg-white/95 backdrop-blur-xl border-2 border-yellow-300 shadow-2xl">
+            <CardContent className="p-8 text-center">
+              <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Palette className="w-10 h-10 text-yellow-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">⚠️ No Measurement Found</h3>
+              <p className="text-slate-600 mb-6">
+                Please run a <strong>Quick Estimate</strong> or <strong>Draw a Roof Section</strong> first before using the Design Studio.
+              </p>
+              <Button onClick={onClose} className="bg-blue-600 hover:bg-blue-700">
+                Got It
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+  
   // Material database with realistic roof colors
   const materials = {
     asphalt: {
@@ -49,7 +75,7 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
   };
   
   // Original polygon styles (for reverting)
-  const originalStyles = useRef({});
+  const originalStyles = React.useRef({});
   
   useEffect(() => {
     // Store original styles when component mounts

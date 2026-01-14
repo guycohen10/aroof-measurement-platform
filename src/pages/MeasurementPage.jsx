@@ -3076,7 +3076,7 @@ export default function MeasurementPage() {
           )}
         </div>
 
-        <div className="flex-1 bg-slate-900 p-6 overflow-y-auto relative">
+        <div className="flex-1 bg-slate-900 relative overflow-hidden">
           {/* Inspection Mode Badge */}
           {isInspectionMode && measurementMode === 'detailed' && !isDrawingMode && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-4 py-2 rounded-full text-sm shadow-lg font-semibold animate-pulse">
@@ -3085,95 +3085,48 @@ export default function MeasurementPage() {
           )}
 
           {measurementMode === 'quick' ? (
-            /* QUICK ESTIMATE VIEW - MAP ALWAYS VISIBLE */
-            <div className="relative w-full h-full min-h-[80vh]">
-              {/* THE MAP (Always Rendered) */}
-              <div style={{ marginBottom: '50px' }}>
-                <div style={{
-                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                  color: 'white',
-                  padding: '14px 24px',
-                  borderRadius: '16px 16px 0 0',
-                  fontWeight: '600',
-                  fontSize: '18px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-                }}>
-                  <span style={{ fontSize: '24px' }}>🛰️</span>
-                  Live Satellite View
-                </div>
-                <div className="relative">
-                  {mapError ? (
-                    <div style={{
-                      width: '100%',
-                      height: '700px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: '#1e293b',
-                      borderRadius: '0 0 16px 16px',
-                      border: '3px solid #ef4444'
-                    }}>
-                      <div style={{ fontSize: '64px', marginBottom: '20px' }}>⚠️</div>
-                      <div style={{ color: '#ef4444', fontSize: '22px', fontWeight: '700', marginBottom: '12px' }}>
-                        Google Maps Failed to Load
-                      </div>
-                      <div style={{ color: '#94a3b8', fontSize: '15px', marginBottom: '24px', textAlign: 'center', maxWidth: '500px', lineHeight: '1.6' }}>
-                        There was an error loading the map. This may be due to network issues or API configuration.
-                      </div>
-                      <Button
-                        onClick={handleRetryMap}
-                        size="lg"
-                        className="bg-blue-600 hover:bg-blue-700 h-14 px-8 text-lg"
-                      >
-                        <RotateCcw className="w-5 h-5 mr-2" />
-                        Retry Loading Map
-                      </Button>
+            /* QUICK ESTIMATE VIEW - MAP AS BACKGROUND LAYER */
+            <div className="relative w-full h-full">
+              {/* MAP - ALWAYS BACKGROUND LAYER */}
+              <div className="absolute inset-0 z-0">
+                {mapError ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800">
+                    <div className="text-6xl mb-4">⚠️</div>
+                    <div className="text-red-400 text-2xl font-bold mb-3">
+                      Google Maps Failed to Load
                     </div>
-                  ) : (
-                    <>
-                      <div 
-                        ref={mapRef} 
-                        style={{ 
-                          width: '100%', 
-                          height: '700px',
-                          borderRadius: '0 0 16px 16px',
-                          border: '3px solid #3b82f6',
-                          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-                          backgroundColor: '#1e293b'
-                        }} 
-                      />
-                      {mapLoading && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '0',
-                          left: '0',
-                          width: '100%',
-                          height: '100%',
-                          backgroundColor: 'rgba(30, 41, 59, 0.9)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRadius: '0 0 16px 16px',
-                          zIndex: 10
-                        }}>
-                          <Loader2 className="w-16 h-16 animate-spin text-blue-400 mx-auto mb-4" />
-                          <p className="text-xl font-semibold text-white">{geocodingStatus}</p>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
+                    <div className="text-slate-400 text-sm mb-6 text-center max-w-md">
+                      There was an error loading the map. This may be due to network issues or API configuration.
+                    </div>
+                    <Button
+                      onClick={handleRetryMap}
+                      size="lg"
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <RotateCcw className="w-5 h-5 mr-2" />
+                      Retry Loading Map
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div 
+                      ref={mapRef} 
+                      className="w-full h-full"
+                    />
+                    {mapLoading && (
+                      <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center z-10">
+                        <Loader2 className="w-16 h-16 animate-spin text-blue-400 mb-4" />
+                        <p className="text-xl font-semibold text-white">{geocodingStatus}</p>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
-              {/* THE OVERLAY (Only show when NO data) */}
-              {!totalSqft && (
-                <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
-                  <Card className="max-w-2xl w-full bg-white/95 backdrop-blur-sm">
+              {/* UI OVERLAY - FLOATING ON TOP */}
+              <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center p-6">
+                {!totalSqft && (
+                  <Card className="max-w-2xl w-full bg-white/95 backdrop-blur-sm shadow-2xl pointer-events-auto">
                     <CardContent className="p-12 text-center">
                       <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                         <Zap className="w-12 h-12 text-green-600" />
@@ -3211,50 +3164,26 @@ export default function MeasurementPage() {
                       </div>
                     </CardContent>
                   </Card>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ) : !isDrawingMode ? (
-            <div style={{ marginBottom: '50px' }}>
-              <div style={{
-                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                color: 'white',
-                padding: '14px 24px',
-                borderRadius: '16px 16px 0 0',
-                fontWeight: '600',
-                fontSize: '18px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-              }}>
-                <span style={{ fontSize: '24px' }}>🛰️</span>
-                Live Satellite View
-              </div>
-              <div className="relative">
+            <div className="relative w-full h-full p-6">
+              {/* MAP - BACKGROUND LAYER */}
+              <div className="absolute inset-0 z-0">
                 {mapError ? (
-                  <div style={{
-                    width: '100%',
-                    height: '700px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: '#1e293b',
-                    borderRadius: '0 0 16px 16px',
-                    border: '3px solid #ef4444'
-                  }}>
-                    <div style={{ fontSize: '64px', marginBottom: '20px' }}>⚠️</div>
-                    <div style={{ color: '#ef4444', fontSize: '22px', fontWeight: '700', marginBottom: '12px' }}>
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800">
+                    <div className="text-6xl mb-4">⚠️</div>
+                    <div className="text-red-400 text-2xl font-bold mb-3">
                       Google Maps Failed to Load
                     </div>
-                    <div style={{ color: '#94a3b8', fontSize: '15px', marginBottom: '24px', textAlign: 'center', maxWidth: '500px', lineHeight: '1.6' }}>
+                    <div className="text-slate-400 text-sm mb-6 text-center max-w-md">
                       There was an error loading the map. This may be due to network issues or API configuration.
                     </div>
                     <Button
                       onClick={handleRetryMap}
                       size="lg"
-                      className="bg-blue-600 hover:bg-blue-700 h-14 px-8 text-lg"
+                      className="bg-blue-600 hover:bg-blue-700"
                     >
                       <RotateCcw className="w-5 h-5 mr-2" />
                       Retry Loading Map
@@ -3265,57 +3194,80 @@ export default function MeasurementPage() {
                     <div 
                       ref={mapRef}
                       key={`map-view-${measurementMode}`}
-                      className="w-full"
-                      style={{ 
-                        width: '100%',
-                        minWidth: '100%',
-                        height: '700px',
-                        minHeight: '700px',
-                        maxHeight: '700px',
-                        borderRadius: '0 0 16px 16px',
-                        border: '3px solid #3b82f6',
-                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-                        backgroundColor: '#1e293b',
-                        display: 'block',
-                        position: 'relative'
-                      }} 
+                      className="w-full h-full"
                     />
                     {mapLoading && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '0',
-                        left: '0',
-                        width: '100%',
-                        height: '100%',
-                        backgroundColor: 'rgba(30, 41, 59, 0.9)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: '0 0 16px 16px',
-                        zIndex: 10
-                      }}>
-                        <Loader2 className="w-16 h-16 animate-spin text-blue-400 mx-auto mb-4" />
+                      <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center z-10">
+                        <Loader2 className="w-16 h-16 animate-spin text-blue-400 mb-4" />
                         <p className="text-xl font-semibold text-white">{geocodingStatus}</p>
                       </div>
                     )}
                   </>
                 )}
               </div>
+              
+              {/* UI HEADER - FLOATING ON TOP */}
+              <div className="absolute top-6 left-6 right-6 z-20 pointer-events-none">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-sm pointer-events-auto">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🛰️</span>
+                    <span className="font-bold text-lg">Live Satellite View</span>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center">
-              <div style={{
-                marginBottom: '30px',
-                background: 'linear-gradient(135deg, #a855f7, #9333ea)',
-                color: 'white',
-                padding: '20px 32px',
-                borderRadius: '16px',
-                boxShadow: '0 8px 24px rgba(168, 85, 247, 0.5)',
-                textAlign: 'center',
-                width: '100%',
-                maxWidth: '1200px'
-              }}>
+            <div className="relative w-full h-full">
+              {/* MAP - BACKGROUND LAYER */}
+              <div className="absolute inset-0 z-0">
+                {mapError ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800">
+                    <div className="text-6xl mb-4">⚠️</div>
+                    <div className="text-red-400 text-2xl font-bold mb-3">
+                      Google Maps Failed to Load
+                    </div>
+                    <div className="text-slate-400 text-sm mb-6 text-center max-w-md">
+                      There was an error loading the map. This may be due to network issues or API configuration.
+                    </div>
+                    <Button
+                      onClick={handleRetryMap}
+                      size="lg"
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <RotateCcw className="w-5 h-5 mr-2" />
+                      Retry Loading Map
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div 
+                      ref={mapRef}
+                      key={`map-view-${measurementMode}`}
+                      className="w-full h-full"
+                    />
+                    {mapLoading && (
+                      <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center z-10">
+                        <Loader2 className="w-16 h-16 animate-spin text-blue-400 mb-4" />
+                        <p className="text-xl font-semibold text-white">{geocodingStatus}</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              
+              {/* DRAWING CANVAS OVERLAY */}
+              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 pointer-events-none">
+                <div className="pointer-events-auto" style={{
+                  marginBottom: '30px',
+                  background: 'linear-gradient(135deg, #a855f7, #9333ea)',
+                  color: 'white',
+                  padding: '20px 32px',
+                  borderRadius: '16px',
+                  boxShadow: '0 8px 24px rgba(168, 85, 247, 0.5)',
+                  textAlign: 'center',
+                  width: '100%',
+                  maxWidth: '1200px'
+                }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <p style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>
@@ -3339,19 +3291,20 @@ export default function MeasurementPage() {
                 </div>
               </div>
               
-              <div 
-                ref={containerRef}
-                style={{ 
-                  position: 'relative', 
-                  width: '100%', 
-                  maxWidth: '1200px',
-                  overflow: 'auto',
-                  border: '4px solid #a855f7',
-                  borderRadius: '16px',
-                  boxShadow: '0 12px 40px rgba(168, 85, 247, 0.4)',
-                  background: '#1e293b'
-                }}
-              >
+                <div 
+                  ref={containerRef}
+                  className="pointer-events-auto"
+                  style={{ 
+                    position: 'relative', 
+                    width: '100%', 
+                    maxWidth: '1200px',
+                    overflow: 'auto',
+                    border: '4px solid #a855f7',
+                    borderRadius: '16px',
+                    boxShadow: '0 12px 40px rgba(168, 85, 247, 0.4)',
+                    background: '#1e293b'
+                  }}
+                >
                 <div style={{
                   transform: `scale(${canvasZoom}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
                   transformOrigin: 'top left',
