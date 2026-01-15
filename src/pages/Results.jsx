@@ -199,6 +199,14 @@ export default function Results() {
     const loadData = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const measurementId = urlParams.get('measurementid');
+      
+      // Read URL parameters immediately as source of truth
+      const latParam = urlParams.get('lat');
+      const lngParam = urlParams.get('lng');
+      const areaParam = urlParams.get('area');
+      const zipParam = urlParams.get('zip');
+      
+      console.log('🚀 Results Page URL Params:', { lat: latParam, lng: lngParam, area: areaParam, zip: zipParam });
 
       if (!measurementId) {
         navigate(createPageUrl("Homepage"));
@@ -209,7 +217,25 @@ export default function Results() {
         const measurements = await base44.entities.Measurement.filter({ id: measurementId });
         
         if (measurements.length > 0) {
-          const meas = measurements[0];
+          let meas = measurements[0];
+          
+          // Override with URL params if available (source of truth)
+          if (latParam && lngParam) {
+            meas = {
+              ...meas,
+              latitude: parseFloat(latParam),
+              longitude: parseFloat(lngParam)
+            };
+            console.log('✅ Using coordinates from URL:', { lat: latParam, lng: lngParam });
+          }
+          
+          if (areaParam) {
+            meas = {
+              ...meas,
+              total_sqft: parseFloat(areaParam),
+              total_adjusted_sqft: parseFloat(areaParam)
+            };
+          }
           
           // Check if this is a homeowner measurement without contact info
           if (meas.user_type === 'homeowner' && !meas.customer_name) {

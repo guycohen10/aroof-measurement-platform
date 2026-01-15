@@ -2063,7 +2063,16 @@ export default function MeasurementPage() {
       const savedMeasurement = await base44.entities.Measurement.create(measurementData);
       
       setIsMeasurementComplete(true);
-      navigate(createPageUrl(`Results?measurementid=${savedMeasurement.id}`));
+      
+      // Extract ZIP from address
+      const zipMatch = address.match(/\b\d{5}\b/);
+      const zipCode = zipMatch ? zipMatch[0] : '';
+      
+      // Navigate with URL parameters for reliable data transfer
+      const resultUrl = createPageUrl(
+        `Results?measurementid=${savedMeasurement.id}&lat=${coordinates?.lat || ''}&lng=${coordinates?.lng || ''}&area=${roofSqft}&zip=${zipCode}`
+      );
+      navigate(resultUrl);
 
     } catch (err) {
       console.error('Quick estimate error:', err);
@@ -2180,11 +2189,13 @@ export default function MeasurementPage() {
       } else {
         // Homeowner flow
         console.log('👤 HOMEOWNER PATH: Creating new measurement');
-        
+
         const measurementData = {
             company_id: null,
             user_id: null,
             property_address: address,
+            latitude: coordinates?.lat || null,
+            longitude: coordinates?.lng || null,
             user_type: 'homeowner',
             measurement_type: 'detailed_polygon',
             estimation_method: 'manual_polygon',
@@ -2206,9 +2217,9 @@ export default function MeasurementPage() {
             measurement_completed: true,
             contact_info_provided: false
           };
-  
+
         const measurement = await base44.entities.Measurement.create(measurementData);
-  
+
         sessionStorage.setItem('pending_measurement_id', measurement.id);
         console.log('🟡 Navigating to ContactInfoPage');
         navigate('/contactinfopage');

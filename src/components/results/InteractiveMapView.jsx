@@ -99,13 +99,13 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
       try {
         console.log("Initializing Interactive Map with", sections?.length || 0, "sections");
 
-        // Calculate center - prioritize measurement lat/lng, fallback to section coordinates
+        // Calculate center - STRICT PRIORITY: measurement lat/lng from URL params
         let centerLat, centerLng;
         
         if (measurement?.latitude && measurement?.longitude) {
           centerLat = measurement.latitude;
           centerLng = measurement.longitude;
-          console.log("Using measurement coordinates:", { lat: centerLat, lng: centerLng });
+          console.log("✅ Using measurement coordinates (from URL):", { lat: centerLat, lng: centerLng });
         } else if (sections && sections.length > 0) {
           const allCoords = [];
           sections.forEach(section => {
@@ -116,17 +116,15 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
             }
           });
 
-          if (allCoords.length === 0) {
-            setError("No valid coordinates found");
-            setLoading(false);
-            return;
+          if (allCoords.length > 0) {
+            centerLat = allCoords.reduce((sum, c) => sum + c.lat, 0) / allCoords.length;
+            centerLng = allCoords.reduce((sum, c) => sum + c.lng, 0) / allCoords.length;
+            console.log("✅ Calculated center from sections:", { lat: centerLat, lng: centerLng });
           }
-
-          centerLat = allCoords.reduce((sum, c) => sum + c.lat, 0) / allCoords.length;
-          centerLng = allCoords.reduce((sum, c) => sum + c.lng, 0) / allCoords.length;
-          console.log("Calculated center from sections:", { lat: centerLat, lng: centerLng });
-        } else {
-          setError("No coordinates available");
+        }
+        
+        if (!centerLat || !centerLng) {
+          setError("Missing coordinates - cannot render map");
           setLoading(false);
           return;
         }
