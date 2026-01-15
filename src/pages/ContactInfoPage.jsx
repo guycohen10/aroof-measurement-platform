@@ -115,13 +115,22 @@ export default function ContactInfoPage() {
 
       console.log('✅ Lead saved:', pendingMeasurementId);
 
+      // Extract ZIP from address
+      const zipMatch = measurement.property_address?.match(/\b\d{5}\b/);
+      const zipCode = zipMatch ? zipMatch[0] : '';
+      
+      // Navigate with URL parameters for reliable data transfer
+      const resultUrl = createPageUrl(
+        `Results?measurementid=${pendingMeasurementId}&lat=${measurement.latitude || ''}&lng=${measurement.longitude || ''}&area=${measurement.total_sqft || ''}&zip=${zipCode}`
+      );
+
       // Clear session
       sessionStorage.removeItem('pending_measurement_id');
       sessionStorage.removeItem('homeowner_address');
       sessionStorage.removeItem('measurement_method');
 
-      // Navigate to results
-      navigate(`/results?measurementid=${pendingMeasurementId}`);
+      console.log('✅ Navigating to results with params');
+      navigate(resultUrl);
 
     } catch (err) {
       console.error('❌ Error saving lead:', err);
