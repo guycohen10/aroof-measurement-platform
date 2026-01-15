@@ -143,9 +143,20 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
     }
   }, [selectedColor, opacity, roofPolygon, polygonsArray, mapInstance]);
   
-  // Cleanup on unmount - reset to green
+  // Cleanup on unmount - ONLY reset if no design is saved
   useEffect(() => {
     return () => {
+      // Check if design was saved
+      const savedDesignCheck = sessionStorage.getItem('roof_design_preferences');
+      
+      if (savedDesignCheck) {
+        console.log('⚠️ Design saved - preserving polygon styles on unmount');
+        return; // DO NOT reset - keep the design
+      }
+      
+      // Only reset if no design saved (user closed without saving)
+      console.log('🔄 No saved design - resetting to green');
+      
       // Reset Standard Polygons
       if (polygonsArray && polygonsArray.length > 0) {
         polygonsArray.forEach(polygon => {
@@ -181,6 +192,18 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
   }, []);
   
   const handleClose = () => {
+    // Check if design was saved
+    const savedDesignCheck = sessionStorage.getItem('roof_design_preferences');
+    
+    if (savedDesignCheck) {
+      console.log('✅ Design saved - keeping overlay on map');
+      onClose(); // Just close modal, keep the design
+      return;
+    }
+    
+    // Only reset if user closed without saving
+    console.log('🔄 No saved design - resetting to green');
+    
     // Reset Standard Polygons
     if (polygonsArray && polygonsArray.length > 0) {
       polygonsArray.forEach(polygon => {
@@ -230,31 +253,45 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
     // Save to sessionStorage
     sessionStorage.setItem('roof_design_preferences', JSON.stringify(designData));
     
-    // CRITICAL: Immediately update existing polygons on the map
+    // CRITICAL: Lock polygons FIRST, then apply styles
     if (polygonsArray && polygonsArray.length > 0) {
       polygonsArray.forEach(polygon => {
-        if (polygon && polygon.setOptions) {
-          polygon.setOptions({
-            fillColor: selectedColor,
-            fillOpacity: opacity,
-            strokeColor: selectedColor,
-            strokeOpacity: 0, // Remove border
-            strokeWeight: 0
-          });
-          console.log(`✅ Polygon updated - Color: ${selectedColor}, Opacity: ${opacity}`);
+        if (polygon) {
+          // STEP 1: Lock the polygon (stops green outline)
+          if (polygon.setEditable) polygon.setEditable(false);
+          if (polygon.setDraggable) polygon.setDraggable(false);
+          
+          // STEP 2: Apply design styles
+          if (polygon.setOptions) {
+            polygon.setOptions({
+              fillColor: selectedColor,
+              fillOpacity: opacity,
+              strokeColor: selectedColor,
+              strokeOpacity: 0,
+              strokeWeight: 0
+            });
+            console.log(`✅ Polygon locked & styled - Color: ${selectedColor}, Opacity: ${opacity}`);
+          }
         }
       });
     }
     
-    if (roofPolygon && roofPolygon.setOptions) {
-      roofPolygon.setOptions({
-        fillColor: selectedColor,
-        fillOpacity: opacity,
-        strokeColor: selectedColor,
-        strokeOpacity: 0, // Remove border
-        strokeWeight: 0
-      });
-      console.log(`✅ Solar polygon updated - Color: ${selectedColor}, Opacity: ${opacity}`);
+    if (roofPolygon) {
+      // STEP 1: Lock the polygon
+      if (roofPolygon.setEditable) roofPolygon.setEditable(false);
+      if (roofPolygon.setDraggable) roofPolygon.setDraggable(false);
+      
+      // STEP 2: Apply design styles
+      if (roofPolygon.setOptions) {
+        roofPolygon.setOptions({
+          fillColor: selectedColor,
+          fillOpacity: opacity,
+          strokeColor: selectedColor,
+          strokeOpacity: 0,
+          strokeWeight: 0
+        });
+        console.log(`✅ Solar polygon locked & styled - Color: ${selectedColor}, Opacity: ${opacity}`);
+      }
     }
     
     // Notify parent component to show Design Summary
