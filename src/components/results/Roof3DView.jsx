@@ -8,12 +8,14 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const scriptLoadedRef = useRef(false);
+  const polygonsRef = useRef([]);
   const [mapScriptLoaded, setMapScriptLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mapTilt, setMapTilt] = useState(45);
   const [mapHeading, setMapHeading] = useState(0);
   const [view3DAvailable, setView3DAvailable] = useState(true);
+  const [savedDesign, setSavedDesign] = useState(null);
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
@@ -50,6 +52,20 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
       return;
     }
   }, [parentScriptLoaded]);
+
+  // Load saved design from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const designData = sessionStorage.getItem('roof_design_preferences');
+      if (designData) {
+        const parsed = JSON.parse(designData);
+        setSavedDesign(parsed);
+        console.log('✅ Loaded saved design:', parsed);
+      }
+    } catch (err) {
+      console.log('No saved design found');
+    }
+  }, []);
 
   // Initialize map after script loads
   useEffect(() => {
@@ -107,22 +123,30 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
 
         mapInstanceRef.current = map;
 
-        // Draw polygons
+        // Draw polygons with saved design overlay
         if (sections && sections.length > 0) {
           sections.forEach((section, idx) => {
             if (!section.coordinates || section.coordinates.length === 0) return;
 
             const coords = section.coordinates.map(c => ({ lat: c.lat, lng: c.lng }));
 
-            new window.google.maps.Polygon({
+            // Use saved design color if available, otherwise default
+            const fillColor = savedDesign?.colorHex || section.color || '#ef4444';
+            // Convert saved opacity (e.g., 70%) to fill opacity (e.g., 0.3 to see through)
+            const fillOpacity = savedDesign?.opacity ? (1 - savedDesign.opacity) : 0.4;
+
+            const polygon = new window.google.maps.Polygon({
               paths: coords,
-              strokeColor: section.color || '#ef4444',
-              strokeOpacity: 0.9,
+              strokeColor: fillColor,
+              strokeOpacity: 1.0,
               strokeWeight: 3,
-              fillColor: section.color || '#ef4444',
-              fillOpacity: 0.4,
-              map: map
+              fillColor: fillColor,
+              fillOpacity: fillOpacity,
+              map: map,
+              zIndex: 1000 // Render ON TOP of satellite
             });
+            
+            polygonsRef.current.push(polygon);
           });
         }
 
@@ -144,7 +168,7 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
     };
 
     initializeMap();
-  }, [mapScriptLoaded, sections, mapTilt, mapRef.current]);
+  }, [mapScriptLoaded, sections, mapTilt, mapRef.current, savedDesign]);
 
   const rotateView = useCallback(() => {
     if (!mapInstanceRef.current) return;
