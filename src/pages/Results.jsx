@@ -1061,6 +1061,9 @@ export default function Results() {
           </div>
 
           <div className="lg:col-span-1 space-y-8">
+            {/* Design Preview Widget */}
+            <DesignPreview />
+
             {isRoofer && (
               <Card className="bg-blue-50 border-2 border-blue-200 shadow-xl">
                 <CardHeader className="bg-gradient-to-r from-blue-100 to-blue-50">
