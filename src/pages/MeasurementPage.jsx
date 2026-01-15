@@ -2223,8 +2223,9 @@ export default function MeasurementPage() {
   const zoomAdvice = getZoomAdvice();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
-      <header className="border-b bg-white/80 backdrop-blur-sm">
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
+        <header className="border-b bg-white/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <Link to={createPageUrl("Homepage")} className="flex items-center gap-2">
@@ -3299,6 +3300,7 @@ export default function MeasurementPage() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
