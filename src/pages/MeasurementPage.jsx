@@ -3300,7 +3300,6 @@ export default function MeasurementPage() {
           )}
         </div>
       </div>
-      </div>
     </>
   );
 }
