@@ -589,17 +589,22 @@ export default function Results() {
   };
 
   const roofCenter = calculateRoofCenter();
+  
+  // Use measurement lat/lng if available, otherwise calculate from sections
+  const mapCenter = (measurement?.latitude && measurement?.longitude) 
+    ? { lat: measurement.latitude, lng: measurement.longitude }
+    : roofCenter;
 
-  const editMeasurementUrl = roofCenter 
-    ? createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&lat=${roofCenter.lat}&lng=${roofCenter.lng}&measurementId=${measurement.id}`)
+  const editMeasurementUrl = mapCenter 
+    ? createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&lat=${mapCenter.lat}&lng=${mapCenter.lng}&measurementId=${measurement.id}`)
     : createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&measurementId=${measurement.id}`);
 
-  const satelliteUrl = roofCenter 
-    ? `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`
+  const satelliteUrl = mapCenter 
+    ? `https://maps.googleapis.com/maps/api/staticmap?center=${mapCenter.lat},${mapCenter.lng}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`
     : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
   
   const diagramUrl = (() => {
-    if (sections.length === 0 || !roofCenter) return null;
+    if (sections.length === 0 || !mapCenter) return null;
     const colors = ['0xff0000', '0x00ff00', '0x0000ff', '0xffff00', '0xff00ff', '0x00ffff'];
     let pathsString = '';
     sections.forEach((section, index) => {
@@ -610,7 +615,7 @@ export default function Results() {
         pathsString += `&path=color:${color}|weight:3|fillcolor:${color}44|${points}|${firstPoint}`;
       }
     });
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${roofCenter.lat},${roofCenter.lng}&zoom=21&size=800x400&maptype=satellite${pathsString}&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${mapCenter.lat},${mapCenter.lng}&zoom=21&size=800x400&maptype=satellite${pathsString}&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
   })();
 
   return (

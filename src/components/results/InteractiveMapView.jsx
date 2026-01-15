@@ -6,12 +6,28 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const scriptLoadedRef = useRef(false);
+  const polygonsRef = useRef([]);
   const [loading, setLoading] = useState(true);
   const [mapScriptLoaded, setMapScriptLoaded] = useState(false);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
+  const [savedDesign, setSavedDesign] = useState(null);
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+
+  // Load saved design from sessionStorage
+  useEffect(() => {
+    try {
+      const designData = sessionStorage.getItem('roof_design_preferences');
+      if (designData) {
+        const parsed = JSON.parse(designData);
+        setSavedDesign(parsed);
+        console.log('✅ InteractiveMapView: Loaded saved design:', parsed);
+      }
+    } catch (err) {
+      console.log('No saved design found');
+    }
+  }, []);
 
   // Use parent script loaded state or load locally
   useEffect(() => {
@@ -60,8 +76,12 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
       return;
     }
 
-    if (!sections || sections.length === 0) {
-      setError("No measurement sections available");
+    // Check for coordinates from measurement entity as fallback
+    const hasCoordinates = measurement?.latitude && measurement?.longitude;
+    const hasSections = sections && sections.length > 0;
+
+    if (!hasSections && !hasCoordinates) {
+      setError("No measurement data available");
       setLoading(false);
       return;
     }
@@ -77,28 +97,39 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
       }
 
       try {
-        console.log("Initializing Interactive Map with", sections.length, "sections");
+        console.log("Initializing Interactive Map with", sections?.length || 0, "sections");
 
-        // Calculate center from all coordinates
-        const allCoords = [];
-        sections.forEach(section => {
-          if (section.coordinates && section.coordinates.length > 0) {
-            section.coordinates.forEach(coord => {
-              allCoords.push({ lat: coord.lat, lng: coord.lng });
-            });
+        // Calculate center - prioritize measurement lat/lng, fallback to section coordinates
+        let centerLat, centerLng;
+        
+        if (measurement?.latitude && measurement?.longitude) {
+          centerLat = measurement.latitude;
+          centerLng = measurement.longitude;
+          console.log("Using measurement coordinates:", { lat: centerLat, lng: centerLng });
+        } else if (sections && sections.length > 0) {
+          const allCoords = [];
+          sections.forEach(section => {
+            if (section.coordinates && section.coordinates.length > 0) {
+              section.coordinates.forEach(coord => {
+                allCoords.push({ lat: coord.lat, lng: coord.lng });
+              });
+            }
+          });
+
+          if (allCoords.length === 0) {
+            setError("No valid coordinates found");
+            setLoading(false);
+            return;
           }
-        });
 
-        if (allCoords.length === 0) {
-          setError("No valid coordinates found");
+          centerLat = allCoords.reduce((sum, c) => sum + c.lat, 0) / allCoords.length;
+          centerLng = allCoords.reduce((sum, c) => sum + c.lng, 0) / allCoords.length;
+          console.log("Calculated center from sections:", { lat: centerLat, lng: centerLng });
+        } else {
+          setError("No coordinates available");
           setLoading(false);
           return;
         }
-
-        const centerLat = allCoords.reduce((sum, c) => sum + c.lat, 0) / allCoords.length;
-        const centerLng = allCoords.reduce((sum, c) => sum + c.lng, 0) / allCoords.length;
-
-        console.log("Map center:", { lat: centerLat, lng: centerLng });
 
         // Create map
         const map = new window.google.maps.Map(mapRef.current, {
@@ -117,26 +148,35 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
         // Create bounds
         const bounds = new window.google.maps.LatLngBounds();
 
-        // Draw sections
-        sections.forEach((section, idx) => {
-          if (!section.coordinates || section.coordinates.length === 0) return;
+        // Draw sections with saved design overlay
+        if (sections && sections.length > 0) {
+          sections.forEach((section, idx) => {
+            if (!section.coordinates || section.coordinates.length === 0) return;
 
-          const coords = section.coordinates.map(c => ({ lat: c.lat, lng: c.lng }));
-          
-          // Extend bounds
-          coords.forEach(c => bounds.extend(c));
+            const coords = section.coordinates.map(c => ({ lat: c.lat, lng: c.lng }));
+            
+            // Extend bounds
+            coords.forEach(c => bounds.extend(c));
 
-          // Create polygon
-          const polygon = new window.google.maps.Polygon({
-            paths: coords,
-            strokeColor: section.color || '#3b82f6',
-            strokeOpacity: 0.9,
-            strokeWeight: 3,
-            fillColor: section.color || '#3b82f6',
-            fillOpacity: 0.35,
-            map: map,
-            clickable: false
-          });
+            // Use saved design color if available, otherwise default
+            const fillColor = savedDesign?.colorHex || section.color || '#3b82f6';
+            // Convert saved opacity (e.g., 70%) to fill opacity (e.g., 0.3 to see through)
+            const fillOpacity = savedDesign?.opacity ? (1 - savedDesign.opacity) : 0.35;
+
+            // Create polygon with design overlay
+            const polygon = new window.google.maps.Polygon({
+              paths: coords,
+              strokeColor: fillColor,
+              strokeOpacity: 1.0,
+              strokeWeight: 3,
+              fillColor: fillColor,
+              fillOpacity: fillOpacity,
+              map: map,
+              clickable: false,
+              zIndex: 1000 // Render ON TOP of satellite
+            });
+            
+            polygonsRef.current.push(polygon);
 
           // Add label
           const centerLat = coords.reduce((sum, c) => sum + c.lat, 0) / coords.length;
@@ -157,11 +197,14 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
             }
           });
 
-          console.log(`Section ${idx + 1} drawn:`, section.name, coords.length, "points");
-        });
+            console.log(`Section ${idx + 1} drawn:`, section.name, coords.length, "points");
+          });
+        }
 
-        // Fit to bounds
-        map.fitBounds(bounds);
+        // Fit to bounds if we have any
+        if (sections && sections.length > 0) {
+          map.fitBounds(bounds);
+        }
         
         // Adjust zoom if too close
         window.google.maps.event.addListenerOnce(map, 'idle', () => {
@@ -182,7 +225,7 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
 
     // Start initialization immediately
     initializeMap();
-  }, [mapScriptLoaded, sections, mapRef.current]);
+  }, [mapScriptLoaded, sections, mapRef.current, savedDesign]);
 
   const downloadImage = async () => {
     if (!mapRef.current) return;
