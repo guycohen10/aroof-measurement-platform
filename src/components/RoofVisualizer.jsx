@@ -78,8 +78,8 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
   // Original polygon styles (for reverting)
   const originalStyles = React.useRef({});
   
+  // Store original styles on mount
   useEffect(() => {
-    // Store original styles when component mounts
     if (polygonsArray && polygonsArray.length > 0) {
       polygonsArray.forEach((polygon, idx) => {
         if (polygon && polygon.get) {
@@ -93,7 +93,6 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
       });
     }
     
-    // Store solar polygon original style
     if (roofPolygon && roofPolygon.get) {
       originalStyles.current['solar'] = {
         fillColor: roofPolygon.get('fillColor'),
@@ -102,22 +101,10 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
         strokeOpacity: roofPolygon.get('strokeOpacity')
       };
     }
-    
-    // Apply initial visualization
-    applyVisualization();
-    
-    // Cleanup on unmount - CRITICAL: Revert to original
-    return () => {
-      revertToOriginal();
-    };
   }, []);
   
+  // Apply visualization whenever color or opacity changes
   useEffect(() => {
-    applyVisualization();
-  }, [selectedColor, opacity]);
-  
-  const applyVisualization = () => {
-    // Apply to all user-drawn polygons
     if (polygonsArray && polygonsArray.length > 0) {
       polygonsArray.forEach(polygon => {
         if (polygon && polygon.setOptions) {
@@ -125,65 +112,79 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
             fillColor: selectedColor,
             fillOpacity: opacity,
             strokeColor: selectedColor,
-            strokeOpacity: 1.0
+            strokeOpacity: 1.0,
+            strokeWeight: 2
           });
         }
       });
     }
     
-    // Apply to solar polygon if it exists
     if (roofPolygon && roofPolygon.setOptions) {
       roofPolygon.setOptions({
         fillColor: selectedColor,
         fillOpacity: opacity,
         strokeColor: selectedColor,
-        strokeOpacity: 1.0
+        strokeOpacity: 1.0,
+        strokeWeight: 2
       });
     }
-  };
+  }, [selectedColor, opacity, roofPolygon, polygonsArray]);
   
-  const revertToOriginal = () => {
-    console.log('🔄 Reverting polygons to original measurement green');
-    
-    // Revert user-drawn polygons
-    if (polygonsArray && polygonsArray.length > 0) {
-      polygonsArray.forEach((polygon, idx) => {
-        if (polygon && polygon.setOptions) {
-          const original = originalStyles.current[idx];
-          if (original) {
-            polygon.setOptions(original);
-          } else {
-            // Fallback to standard measurement green
+  // Cleanup on unmount - reset to green
+  useEffect(() => {
+    return () => {
+      if (polygonsArray && polygonsArray.length > 0) {
+        polygonsArray.forEach(polygon => {
+          if (polygon && polygon.setOptions) {
             polygon.setOptions({
               fillColor: '#22c55e',
               fillOpacity: 0.35,
               strokeColor: '#22c55e',
-              strokeOpacity: 1.0
+              strokeOpacity: 1.0,
+              strokeWeight: 3
             });
           }
-        }
-      });
-    }
-    
-    // Revert solar polygon
-    if (roofPolygon && roofPolygon.setOptions) {
-      const original = originalStyles.current['solar'];
-      if (original) {
-        roofPolygon.setOptions(original);
-      } else {
-        // Fallback to standard measurement green
+        });
+      }
+      
+      if (roofPolygon && roofPolygon.setOptions) {
         roofPolygon.setOptions({
           fillColor: '#10B981',
           fillOpacity: 0.15,
           strokeColor: '#10B981',
-          strokeOpacity: 1.0
+          strokeOpacity: 1.0,
+          strokeWeight: 3
         });
       }
-    }
-  };
+    };
+  }, []);
   
   const handleClose = () => {
-    revertToOriginal();
+    // Reset polygons to green before closing
+    if (polygonsArray && polygonsArray.length > 0) {
+      polygonsArray.forEach(polygon => {
+        if (polygon && polygon.setOptions) {
+          polygon.setOptions({
+            fillColor: '#22c55e',
+            fillOpacity: 0.35,
+            strokeColor: '#22c55e',
+            strokeOpacity: 1.0,
+            strokeWeight: 3
+          });
+        }
+      });
+    }
+    
+    if (roofPolygon && roofPolygon.setOptions) {
+      roofPolygon.setOptions({
+        fillColor: '#10B981',
+        fillOpacity: 0.15,
+        strokeColor: '#10B981',
+        strokeOpacity: 1.0,
+        strokeWeight: 3
+      });
+    }
+    
     onClose();
   };
   
