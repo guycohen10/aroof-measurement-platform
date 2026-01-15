@@ -12,6 +12,7 @@ import InteractiveMapView from "../components/results/InteractiveMapView";
 import DetailedMeasurements from "../components/results/DetailedMeasurements";
 import PhotoUpload from "../components/results/PhotoUpload";
 import PDFReportGenerator from "../components/results/PDFReportGenerator";
+import DesignPreview from "../components/results/DesignPreview";
 import RoofDiagram from "../components/results/RoofDiagram";
 import Roof3DView from "../components/results/Roof3DView";
 

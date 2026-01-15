@@ -158,23 +158,47 @@ export default function InteractiveMapView({ measurement, sections, mapScriptLoa
             // Extend bounds
             coords.forEach(c => bounds.extend(c));
 
-            // Use saved design color if available, otherwise default
-            const fillColor = savedDesign?.colorHex || section.color || '#3b82f6';
-            // Convert saved opacity (e.g., 70%) to fill opacity (e.g., 0.3 to see through)
-            const fillOpacity = savedDesign?.opacity ? (1 - savedDesign.opacity) : 0.35;
+            // Determine fill color based on saved design or material type
+            let fillColor = '#3b82f6'; // default blue
+            let fillOpacity = 0.35;
 
-            // Create polygon with design overlay
+            if (savedDesign?.colorHex) {
+              // Use exact saved design color
+              fillColor = savedDesign.colorHex;
+              fillOpacity = savedDesign.opacity || 0.35;
+            } else if (savedDesign?.material) {
+              // Fallback: conditional colors based on material type
+              const materialName = savedDesign.material.toLowerCase();
+              
+              if (materialName.includes('tile')) {
+                fillColor = '#E2725B'; // Terracotta
+                fillOpacity = 0.3;
+              } else if (materialName.includes('asphalt')) {
+                fillColor = '#4A4A4A'; // Dark Grey
+                fillOpacity = 0.4;
+              } else if (materialName.includes('metal')) {
+                fillColor = '#B0B0B0'; // Metallic
+                fillOpacity = 0.35;
+              }
+            } else {
+              // Use section default color
+              fillColor = section.color || '#3b82f6';
+            }
+
+            // Create polygon with design overlay - FORCE visible fill
             const polygon = new window.google.maps.Polygon({
               paths: coords,
               strokeColor: fillColor,
               strokeOpacity: 1.0,
-              strokeWeight: 3,
-              fillColor: fillColor,
-              fillOpacity: fillOpacity,
+              strokeWeight: 2, // CRITICAL: Outline stroke
+              fillColor: fillColor, // CRITICAL: Must have fill color
+              fillOpacity: fillOpacity, // CRITICAL: Must be visible
               map: map,
               clickable: false,
               zIndex: 1000 // Render ON TOP of satellite
             });
+            
+            console.log(`Polygon rendered with fill: ${fillColor}, opacity: ${fillOpacity}`);
             
             polygonsRef.current.push(polygon);
 

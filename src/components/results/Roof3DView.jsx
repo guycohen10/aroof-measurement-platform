@@ -130,22 +130,45 @@ export default function Roof3DView({ measurement, sections, mapScriptLoaded: par
 
             const coords = section.coordinates.map(c => ({ lat: c.lat, lng: c.lng }));
 
-            // Use saved design color if available, otherwise default
-            const fillColor = savedDesign?.colorHex || section.color || '#ef4444';
-            // Convert saved opacity (e.g., 70%) to fill opacity (e.g., 0.3 to see through)
-            const fillOpacity = savedDesign?.opacity ? (1 - savedDesign.opacity) : 0.4;
+            // Determine fill color based on saved design or material type
+            let fillColor = '#ef4444'; // default red
+            let fillOpacity = 0.4;
+
+            if (savedDesign?.colorHex) {
+              // Use exact saved design color
+              fillColor = savedDesign.colorHex;
+              fillOpacity = savedDesign.opacity || 0.4;
+            } else if (savedDesign?.material) {
+              // Fallback: conditional colors based on material type
+              const materialName = savedDesign.material.toLowerCase();
+              
+              if (materialName.includes('tile')) {
+                fillColor = '#E2725B'; // Terracotta
+                fillOpacity = 0.3;
+              } else if (materialName.includes('asphalt')) {
+                fillColor = '#4A4A4A'; // Dark Grey
+                fillOpacity = 0.4;
+              } else if (materialName.includes('metal')) {
+                fillColor = '#B0B0B0'; // Metallic
+                fillOpacity = 0.35;
+              }
+            } else {
+              // Use section default color
+              fillColor = section.color || '#ef4444';
+            }
 
             const polygon = new window.google.maps.Polygon({
               paths: coords,
               strokeColor: fillColor,
               strokeOpacity: 1.0,
-              strokeWeight: 3,
-              fillColor: fillColor,
-              fillOpacity: fillOpacity,
+              strokeWeight: 2, // CRITICAL: Outline stroke
+              fillColor: fillColor, // CRITICAL: Must have fill color
+              fillOpacity: fillOpacity, // CRITICAL: Must be visible
               map: map,
               zIndex: 1000 // Render ON TOP of satellite
             });
             
+            console.log(`3D Polygon rendered with fill: ${fillColor}, opacity: ${fillOpacity}`);
             polygonsRef.current.push(polygon);
           });
         }
