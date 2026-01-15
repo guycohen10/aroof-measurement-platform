@@ -2380,11 +2380,82 @@ export default function MeasurementPage() {
                   </p>
                 )}
               </div>
-            </div>
-          </div>
+              </div>
+              </div>
 
-          <div className="p-4 space-y-3">
-            {isDesignMode ? (
+              {/* Design Summary Widget */}
+              {savedDesign && !isDesignMode && (
+              <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 border-b-2 border-purple-300">
+              <div className="flex items-center gap-2 mb-3">
+                <Palette className="w-5 h-5 text-purple-600" />
+                <h3 className="font-bold text-purple-900 text-sm">✨ Saved Design</h3>
+              </div>
+
+              <div className="bg-white rounded-lg p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-600 font-medium">Total Area:</span>
+                  <span className="text-base font-bold text-slate-900">
+                    {totalSqft ? totalSqft.toLocaleString() : totalArea.toLocaleString()} sq ft
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-600 font-medium">Material:</span>
+                  <span className="text-sm font-bold text-slate-900">{savedDesign.material}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-12 h-12 rounded-lg border-4 border-white shadow-lg flex-shrink-0"
+                    style={{ 
+                      backgroundColor: savedDesign.colorHex,
+                      opacity: savedDesign.opacity
+                    }}
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-slate-900">{savedDesign.color}</p>
+                    <p className="text-xs text-slate-600">{Math.round(savedDesign.opacity * 100)}% opacity</p>
+                  </div>
+                </div>
+
+                {(() => {
+                  const sqft = totalSqft || totalArea;
+                  let pricePerSqft = 4.50; // default asphalt
+
+                  if (savedDesign.material.toLowerCase().includes('tile')) {
+                    pricePerSqft = 10.00;
+                  } else if (savedDesign.material.toLowerCase().includes('metal')) {
+                    pricePerSqft = 8.50;
+                  }
+
+                  const estimatedCost = Math.round(sqft * pricePerSqft);
+
+                  return (
+                    <div className="bg-green-50 rounded-lg p-3 border-2 border-green-200">
+                      <p className="text-xs text-green-700 font-medium mb-1">Est. Material Cost:</p>
+                      <p className="text-2xl font-bold text-green-900">
+                        ${estimatedCost.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-green-600 mt-1">
+                        Based on ${pricePerSqft}/sq ft
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <Button
+                onClick={() => setIsDesignMode(true)}
+                variant="outline"
+                className="w-full mt-3 border-purple-300 text-purple-700 hover:bg-purple-50"
+              >
+                Edit Design
+              </Button>
+              </div>
+              )}
+
+              <div className="p-4 space-y-3">
+              {isDesignMode ? (
               <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-300">
                 <div className="text-center space-y-4">
                   <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto">

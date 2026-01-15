@@ -230,6 +230,33 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
     // Save to sessionStorage
     sessionStorage.setItem('roof_design_preferences', JSON.stringify(designData));
     
+    // CRITICAL: Immediately update existing polygons on the map
+    if (polygonsArray && polygonsArray.length > 0) {
+      polygonsArray.forEach(polygon => {
+        if (polygon && polygon.setOptions) {
+          polygon.setOptions({
+            fillColor: selectedColor,
+            fillOpacity: opacity,
+            strokeColor: selectedColor,
+            strokeOpacity: 0, // Remove border
+            strokeWeight: 0
+          });
+          console.log(`✅ Polygon updated - Color: ${selectedColor}, Opacity: ${opacity}`);
+        }
+      });
+    }
+    
+    if (roofPolygon && roofPolygon.setOptions) {
+      roofPolygon.setOptions({
+        fillColor: selectedColor,
+        fillOpacity: opacity,
+        strokeColor: selectedColor,
+        strokeOpacity: 0, // Remove border
+        strokeWeight: 0
+      });
+      console.log(`✅ Solar polygon updated - Color: ${selectedColor}, Opacity: ${opacity}`);
+    }
+    
     // Notify parent component to show Design Summary
     if (onSaveDesign) {
       onSaveDesign(designData);
@@ -240,7 +267,7 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
       description: `${materialName} - ${colorName} (${Math.round(opacity * 100)}% opacity)`
     });
     
-    console.log('💾 Design saved:', designData);
+    console.log('💾 Design saved and applied to map:', designData);
   };
   
   return (
