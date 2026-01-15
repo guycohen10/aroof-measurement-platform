@@ -4,15 +4,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { X, Palette, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 
-export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray, onClose }) {
+export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray, isMeasurementComplete, totalSqft, onClose, onSaveDesign }) {
   const [selectedMaterial, setSelectedMaterial] = useState('asphalt');
   const [selectedColor, setSelectedColor] = useState('#3b3b3b');
   const [opacity, setOpacity] = useState(0.7);
   
-  // Safety Check: Ensure we have valid polygon data
-  const hasValidPolygon = (roofPolygon && roofPolygon.setOptions) || (polygonsArray && polygonsArray.length > 0);
+  // Safety Check: Ensure we have valid measurement data
+  const hasValidMeasurement = isMeasurementComplete || totalSqft || (roofPolygon && roofPolygon.setOptions) || (polygonsArray && polygonsArray.length > 0);
   
-  if (!mapInstance || !hasValidPolygon) {
+  if (!mapInstance || !hasValidMeasurement) {
     return (
       <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
         <div className="max-w-7xl mx-auto px-6 pb-6 pointer-events-auto">
@@ -229,6 +229,11 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
     
     // Save to sessionStorage
     sessionStorage.setItem('roof_design_preferences', JSON.stringify(designData));
+    
+    // Notify parent component to show Design Summary
+    if (onSaveDesign) {
+      onSaveDesign(designData);
+    }
     
     // Show success notification
     toast.success('✅ Design saved to project notes', {

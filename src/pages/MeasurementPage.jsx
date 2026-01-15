@@ -61,6 +61,8 @@ export default function MeasurementPage() {
   const [quickEstimateLoading, setQuickEstimateLoading] = useState(false);
   const [totalSqft, setTotalSqft] = useState(null);
   const [isCalculationDone, setIsCalculationDone] = useState(false);
+  const [isMeasurementComplete, setIsMeasurementComplete] = useState(false);
+  const [savedDesign, setSavedDesign] = useState(null);
   
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
@@ -142,6 +144,7 @@ export default function MeasurementPage() {
         // FORCE UPDATE STATE
         setTotalSqft(areaSqFt);
         setIsCalculationDone(true);
+        setIsMeasurementComplete(true);
         
         // FORCE MAP TO WAKE UP
         if (mapInstanceRef.current) {
@@ -2037,6 +2040,7 @@ export default function MeasurementPage() {
 
       const savedMeasurement = await base44.entities.Measurement.create(measurementData);
       
+      setIsMeasurementComplete(true);
       navigate(createPageUrl(`Results?measurementid=${savedMeasurement.id}`));
 
     } catch (err) {
@@ -3295,8 +3299,67 @@ export default function MeasurementPage() {
               mapInstance={mapInstanceRef.current}
               roofPolygon={solarPolygonRef.current}
               polygonsArray={polygonsRef.current}
+              isMeasurementComplete={isMeasurementComplete}
+              totalSqft={totalSqft}
               onClose={() => setIsDesignMode(false)}
+              onSaveDesign={(designData) => setSavedDesign(designData)}
             />
+          )}
+          
+          {/* Design Summary Card */}
+          {savedDesign && !isDesignMode && (
+            <div className="absolute bottom-6 left-6 right-6 z-30 pointer-events-none">
+              <Card className="bg-white/95 backdrop-blur-xl border-2 border-purple-300 shadow-2xl pointer-events-auto">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
+                        <Palette className="w-7 h-7 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900">Saved Design</h3>
+                        <p className="text-xs text-slate-600">Your roof visualization preferences</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSavedDesign(null)}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-50 rounded-lg p-4">
+                      <p className="text-xs text-slate-600 mb-1">Material</p>
+                      <p className="text-base font-bold text-slate-900">{savedDesign.material}</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-4">
+                      <p className="text-xs text-slate-600 mb-1">Color</p>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-6 h-6 rounded-full border-2 border-white shadow"
+                          style={{ backgroundColor: savedDesign.colorHex }}
+                        />
+                        <p className="text-base font-bold text-slate-900">{savedDesign.color}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsDesignMode(true)}
+                      className="flex-1"
+                    >
+                      Edit Design
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
       </div>
