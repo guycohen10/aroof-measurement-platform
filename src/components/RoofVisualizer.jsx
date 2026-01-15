@@ -130,13 +130,15 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
       });
     }
     
-    // 2. Target Solar API Data Layers (Quick Estimate)
+    // 2. Target Solar API Data Layers (Quick Estimate) - Force Override
     if (mapInstance && mapInstance.data) {
-      mapInstance.data.setStyle({
-        fillColor: selectedColor,
-        strokeColor: selectedColor,
-        fillOpacity: opacity,
-        strokeWeight: 2
+      mapInstance.data.forEach((feature) => {
+        mapInstance.data.overrideStyle(feature, {
+          fillColor: selectedColor,
+          strokeColor: selectedColor,
+          fillOpacity: opacity,
+          strokeWeight: 2
+        });
       });
     }
   }, [selectedColor, opacity, roofPolygon, polygonsArray, mapInstance]);
@@ -169,13 +171,10 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
         });
       }
       
-      // Reset Solar Data Layer
+      // Reset Solar Data Layer - Revert Override
       if (mapInstance && mapInstance.data) {
-        mapInstance.data.setStyle({
-          fillColor: '#10B981',
-          strokeColor: '#10B981',
-          fillOpacity: 0.15,
-          strokeWeight: 3
+        mapInstance.data.forEach((feature) => {
+          mapInstance.data.revertStyle(feature);
         });
       }
     };
@@ -207,13 +206,10 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
       });
     }
     
-    // Reset Solar Data Layer
+    // Reset Solar Data Layer - Revert Override
     if (mapInstance && mapInstance.data) {
-      mapInstance.data.setStyle({
-        fillColor: '#10B981',
-        strokeColor: '#10B981',
-        fillOpacity: 0.15,
-        strokeWeight: 3
+      mapInstance.data.forEach((feature) => {
+        mapInstance.data.revertStyle(feature);
       });
     }
     

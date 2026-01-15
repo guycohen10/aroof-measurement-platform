@@ -3112,11 +3112,8 @@ export default function MeasurementPage() {
             </div>
           )}
 
-          {measurementMode === 'quick' ? (
-            /* QUICK ESTIMATE VIEW - MAP AS BACKGROUND LAYER */
-            <div className="relative w-full h-full">
-              {/* MAP - ALWAYS BACKGROUND LAYER */}
-              <div className="absolute inset-0 z-0">
+          {/* MAP - ALWAYS RENDERED AS BACKGROUND (z-0) */}
+          <div className="absolute inset-0 z-0">
                 {mapError ? (
                   <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800">
                     <div className="text-6xl mb-4">⚠️</div>
@@ -3149,10 +3146,11 @@ export default function MeasurementPage() {
                     )}
                   </>
                 )}
-              </div>
+          </div>
 
-              {/* UI OVERLAY - FLOATING ON TOP */}
-              <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center p-6">
+          {/* UI OVERLAYS - CONDITIONAL BASED ON MODE */}
+          {measurementMode === 'quick' ? (
+            <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center p-6">
                 {!totalSqft && (
                   <Card className="max-w-2xl w-full bg-white/95 backdrop-blur-sm shadow-2xl pointer-events-auto">
                     <CardContent className="p-12 text-center">
@@ -3193,48 +3191,10 @@ export default function MeasurementPage() {
                     </CardContent>
                   </Card>
                 )}
-              </div>
             </div>
           ) : !isDrawingMode ? (
+            {/* UI HEADER - FLOATING ON TOP */}
             <div className="relative w-full h-full p-6">
-              {/* MAP - BACKGROUND LAYER */}
-              <div className="absolute inset-0 z-0">
-                {mapError ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800">
-                    <div className="text-6xl mb-4">⚠️</div>
-                    <div className="text-red-400 text-2xl font-bold mb-3">
-                      Google Maps Failed to Load
-                    </div>
-                    <div className="text-slate-400 text-sm mb-6 text-center max-w-md">
-                      There was an error loading the map. This may be due to network issues or API configuration.
-                    </div>
-                    <Button
-                      onClick={handleRetryMap}
-                      size="lg"
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <RotateCcw className="w-5 h-5 mr-2" />
-                      Retry Loading Map
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div 
-                      ref={mapRef}
-                      key={`map-view-${measurementMode}`}
-                      className="w-full h-full"
-                    />
-                    {mapLoading && (
-                      <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center z-10">
-                        <Loader2 className="w-16 h-16 animate-spin text-blue-400 mb-4" />
-                        <p className="text-xl font-semibold text-white">{geocodingStatus}</p>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              
-              {/* UI HEADER - FLOATING ON TOP */}
               <div className="absolute top-6 left-6 right-6 z-20 pointer-events-none">
                 <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-sm pointer-events-auto">
                   <div className="flex items-center gap-3">
@@ -3246,43 +3206,6 @@ export default function MeasurementPage() {
             </div>
           ) : (
             <div className="relative w-full h-full">
-              {/* MAP - BACKGROUND LAYER */}
-              <div className="absolute inset-0 z-0">
-                {mapError ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800">
-                    <div className="text-6xl mb-4">⚠️</div>
-                    <div className="text-red-400 text-2xl font-bold mb-3">
-                      Google Maps Failed to Load
-                    </div>
-                    <div className="text-slate-400 text-sm mb-6 text-center max-w-md">
-                      There was an error loading the map. This may be due to network issues or API configuration.
-                    </div>
-                    <Button
-                      onClick={handleRetryMap}
-                      size="lg"
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <RotateCcw className="w-5 h-5 mr-2" />
-                      Retry Loading Map
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div 
-                      ref={mapRef}
-                      key={`map-view-${measurementMode}`}
-                      className="w-full h-full"
-                    />
-                    {mapLoading && (
-                      <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center z-10">
-                        <Loader2 className="w-16 h-16 animate-spin text-blue-400 mb-4" />
-                        <p className="text-xl font-semibold text-white">{geocodingStatus}</p>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              
               {/* DRAWING CANVAS OVERLAY */}
               <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 pointer-events-none">
                 <div className="pointer-events-auto" style={{
@@ -3366,11 +3289,10 @@ export default function MeasurementPage() {
                   </div>
                 </div>
                 </div>
-                </div>
-                </div>
-                )}
-                </div>
-                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
                 {/* Roof Visualizer Overlay */}
                 {isDesignMode && (
