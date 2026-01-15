@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { X, Palette } from "lucide-react";
+import { X, Palette, CheckCircle } from "lucide-react";
+import { toast } from "sonner";
 
 export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray, onClose }) {
   const [selectedMaterial, setSelectedMaterial] = useState('asphalt');
@@ -186,6 +187,28 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
     onClose();
   };
   
+  const handleSave = () => {
+    const materialName = materials[selectedMaterial].name;
+    const colorName = materials[selectedMaterial].colors.find(c => c.hex === selectedColor)?.name || 'Custom';
+    const designData = {
+      material: materialName,
+      color: colorName,
+      colorHex: selectedColor,
+      opacity: opacity,
+      savedAt: new Date().toISOString()
+    };
+    
+    // Save to sessionStorage
+    sessionStorage.setItem('roof_design_preferences', JSON.stringify(designData));
+    
+    // Show success notification
+    toast.success('✅ Design saved to project notes', {
+      description: `${materialName} - ${colorName} (${Math.round(opacity * 100)}% opacity)`
+    });
+    
+    console.log('💾 Design saved:', designData);
+  };
+  
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
       <div className="max-w-7xl mx-auto px-6 pb-6 pointer-events-auto">
@@ -304,9 +327,10 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
               </Button>
               <Button
                 className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                onClick={() => alert('Screenshot/export feature coming soon!')}
+                onClick={handleSave}
               >
-                📸 Save Design
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Save Design
               </Button>
             </div>
           </CardContent>

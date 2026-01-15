@@ -2252,37 +2252,42 @@ export default function MeasurementPage() {
             <div className="space-y-2 mt-4">
               <div className="flex bg-slate-100 rounded-lg p-1">
                 <button
-                  onClick={() => setMeasurementMode('quick')}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
-                    measurementMode === 'quick' 
+                  onClick={() => {
+                    setMeasurementMode('quick');
+                    setIsDesignMode(false);
+                  }}
+                  className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold transition-all ${
+                    measurementMode === 'quick' && !isDesignMode
                       ? 'bg-green-600 text-white shadow' 
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  ⚡ Quick Estimate
+                  ⚡ Quick
                 </button>
                 <button
-                  onClick={() => setMeasurementMode('detailed')}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
-                    measurementMode === 'detailed' 
+                  onClick={() => {
+                    setMeasurementMode('detailed');
+                    setIsDesignMode(false);
+                  }}
+                  className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold transition-all ${
+                    measurementMode === 'detailed' && !isDesignMode
                       ? 'bg-blue-600 text-white shadow' 
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  📐 Detailed Measurement
+                  📐 Detailed
+                </button>
+                <button
+                  onClick={() => setIsDesignMode(true)}
+                  className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold transition-all ${
+                    isDesignMode
+                      ? 'bg-purple-600 text-white shadow' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  🎨 Design
                 </button>
               </div>
-              
-              {(liveMapSections.length > 0 || solarPolygonRef.current) && (
-                <Button
-                  onClick={() => setIsDesignMode(true)}
-                  variant="outline"
-                  className="w-full border-2 border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold"
-                >
-                  <Palette className="w-4 h-4 mr-2" />
-                  🎨 Design Studio
-                </Button>
-              )}
             </div>
           </div>
 
@@ -2341,7 +2346,30 @@ export default function MeasurementPage() {
           </div>
 
           <div className="p-4 space-y-3">
-            {measurementMode === 'quick' ? (
+            {isDesignMode ? (
+              <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-300">
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto">
+                    <Palette className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-purple-900">AI Design Studio Active</h3>
+                  <p className="text-sm text-purple-700">
+                    Visualize different materials and colors on your roof. Changes are temporary and won't affect measurements.
+                  </p>
+                  <div className="bg-purple-100 border-2 border-purple-300 rounded-lg p-4 text-left">
+                    <p className="text-xs text-purple-900 mb-2">
+                      <strong>How to use:</strong>
+                    </p>
+                    <ul className="text-xs text-purple-800 space-y-1">
+                      <li>• Select material type from the panel</li>
+                      <li>• Choose your preferred color</li>
+                      <li>• Adjust opacity to see through</li>
+                      <li>• Click "Save Design" when done</li>
+                    </ul>
+                  </div>
+                </div>
+              </Card>
+            ) : measurementMode === 'quick' ? (
               /* QUICK ESTIMATE MODE */
               <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300">
                 <div className="space-y-4">
@@ -3076,7 +3104,7 @@ export default function MeasurementPage() {
           )}
         </div>
 
-        <div className="flex-1 bg-slate-900 relative overflow-hidden">
+        <div className="flex-1 relative overflow-hidden">
           {/* Inspection Mode Badge */}
           {isInspectionMode && measurementMode === 'detailed' && !isDrawingMode && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-4 py-2 rounded-full text-sm shadow-lg font-semibold animate-pulse">
