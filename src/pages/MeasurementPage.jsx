@@ -3193,116 +3193,112 @@ export default function MeasurementPage() {
                 )}
             </div>
           ) : !isDrawingMode ? (
-            {/* UI HEADER - FLOATING ON TOP */}
-            <div className="relative w-full h-full p-6">
-              <div className="absolute top-6 left-6 right-6 z-20 pointer-events-none">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-sm pointer-events-auto">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">🛰️</span>
-                    <span className="font-bold text-lg">Live Satellite View</span>
-                  </div>
+            <div className="absolute top-6 left-6 right-6 z-20 pointer-events-none">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-sm pointer-events-auto">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🛰️</span>
+                  <span className="font-bold text-lg">Live Satellite View</span>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="relative w-full h-full">
-              {/* DRAWING CANVAS OVERLAY */}
-              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 pointer-events-none">
-                <div className="pointer-events-auto" style={{
-                  marginBottom: '30px',
-                  background: 'linear-gradient(135deg, #a855f7, #9333ea)',
-                  color: 'white',
-                  padding: '20px 32px',
-                  borderRadius: '16px',
-                  boxShadow: '0 8px 24px rgba(168, 85, 247, 0.5)',
-                  textAlign: 'center',
-                  width: '100%',
-                  maxWidth: '1200px'
-                }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <p style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>
-                      {editMode ? '✏️ Edit Mode' : '🎨 Drawing Mode'} - View {selectedImageIndex + 1}
-                    </p>
-                    <p style={{ fontSize: '15px', opacity: 0.95 }}>
-                      {editMode ? 'Click shape to select, drag points to modify' : 'Click points around roof. Double-click to finish. Each section gets auto color.'}
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <Button size="sm" variant="secondary" onClick={handleCanvasZoomOut} disabled={canvasZoom <= 0.5}>
-                      <ZoomOut className="w-4 h-4" />
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={handleCanvasResetZoom}>
-                      <Maximize2 className="w-4 h-4" />
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={handleCanvasZoomIn} disabled={canvasZoom >= 3}>
-                      <ZoomIn className="w-4 h-4" />
-                    </Button>
-                  </div>
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 pointer-events-none">
+              <div className="pointer-events-auto" style={{
+                marginBottom: '30px',
+                background: 'linear-gradient(135deg, #a855f7, #9333ea)',
+                color: 'white',
+                padding: '20px 32px',
+                borderRadius: '16px',
+                boxShadow: '0 8px 24px rgba(168, 85, 247, 0.5)',
+                textAlign: 'center',
+                width: '100%',
+                maxWidth: '1200px'
+              }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>
+                    {editMode ? '✏️ Edit Mode' : '🎨 Drawing Mode'} - View {selectedImageIndex + 1}
+                  </p>
+                  <p style={{ fontSize: '15px', opacity: 0.95 }}>
+                    {editMode ? 'Click shape to select, drag points to modify' : 'Click points around roof. Double-click to finish. Each section gets auto color.'}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <Button size="sm" variant="secondary" onClick={handleCanvasZoomOut} disabled={canvasZoom <= 0.5}>
+                    <ZoomOut className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={handleCanvasResetZoom}>
+                    <Maximize2 className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={handleCanvasZoomIn} disabled={canvasZoom >= 3}>
+                    <ZoomIn className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
-              
-                <div 
-                  ref={containerRef}
-                  className="pointer-events-auto"
-                  style={{ 
-                    position: 'relative', 
-                    width: '100%', 
-                    maxWidth: '1200px',
-                    overflow: 'auto',
-                    border: '4px solid #a855f7',
-                    borderRadius: '16px',
-                    boxShadow: '0 12px 40px rgba(168, 85, 247, 0.4)',
-                    background: '#1e293b'
-                  }}
-                >
-                <div style={{
-                  transform: `scale(${canvasZoom}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
-                  transformOrigin: 'top left',
-                  transition: 'transform 0.2s ease-out'
-                }}>
-                  <div style={{ position: 'relative' }}>
-                    <img 
-                      ref={imageRef}
-                      src={capturedImages[selectedImageIndex]?.url}
-                      alt="Drawing surface"
-                      style={{
-                        width: '100%',
-                        height: 'auto',
-                        display: 'block'
-                      }}
-                      onLoad={setupDrawingCanvas}
-                    />
-                    <canvas
-                      ref={canvasRef}
-                      onClick={handleCanvasClick}
-                      onMouseMove={handleCanvasMouseMove}
-                      onMouseUp={handleCanvasMouseUp}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        cursor: editMode ? (draggedPointIndex !== null ? 'grabbing' : 'pointer') : (isDrawing ? 'crosshair' : 'default'),
-                        pointerEvents: 'all'
-                      }}
-                    />
-                  </div>
+            </div>
+            
+              <div 
+                ref={containerRef}
+                className="pointer-events-auto"
+                style={{ 
+                  position: 'relative', 
+                  width: '100%', 
+                  maxWidth: '1200px',
+                  overflow: 'auto',
+                  border: '4px solid #a855f7',
+                  borderRadius: '16px',
+                  boxShadow: '0 12px 40px rgba(168, 85, 247, 0.4)',
+                  background: '#1e293b'
+                }}
+              >
+              <div style={{
+                transform: `scale(${canvasZoom}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
+                transformOrigin: 'top left',
+                transition: 'transform 0.2s ease-out'
+              }}>
+                <div style={{ position: 'relative' }}>
+                  <img 
+                    ref={imageRef}
+                    src={capturedImages[selectedImageIndex]?.url}
+                    alt="Drawing surface"
+                    style={{
+                      width: '100%',
+                      height: 'auto',
+                      display: 'block'
+                    }}
+                    onLoad={setupDrawingCanvas}
+                  />
+                  <canvas
+                    ref={canvasRef}
+                    onClick={handleCanvasClick}
+                    onMouseMove={handleCanvasMouseMove}
+                    onMouseUp={handleCanvasMouseUp}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      cursor: editMode ? (draggedPointIndex !== null ? 'grabbing' : 'pointer') : (isDrawing ? 'crosshair' : 'default'),
+                      pointerEvents: 'all'
+                    }}
+                  />
                 </div>
-                </div>
+              </div>
               </div>
             </div>
           )}
         </div>
 
-                {/* Roof Visualizer Overlay */}
-                {isDesignMode && (
-                <RoofVisualizer
-                mapInstance={mapInstanceRef.current}
-                roofPolygon={solarPolygonRef.current}
-                polygonsArray={polygonsRef.current}
-                onClose={() => setIsDesignMode(false)}
-                />
-                )}
-                </div>
-                );
-                }
+          {/* Roof Visualizer Overlay */}
+          {isDesignMode && (
+            <RoofVisualizer
+              mapInstance={mapInstanceRef.current}
+              roofPolygon={solarPolygonRef.current}
+              polygonsArray={polygonsRef.current}
+              onClose={() => setIsDesignMode(false)}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
