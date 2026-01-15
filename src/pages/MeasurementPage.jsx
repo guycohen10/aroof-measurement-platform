@@ -2024,16 +2024,38 @@ export default function MeasurementPage() {
 
       const currentUser = await base44.auth.me().catch(() => null);
 
+      // Prepare polygon data if available from Solar API
+      const polygonSections = [];
+      if (solarCenter && solarCenter.boxCoords) {
+        polygonSections.push({
+          id: 'solar-polygon',
+          name: 'Roof Area',
+          coordinates: solarCenter.boxCoords,
+          flat_area_sqft: roofSqft,
+          adjusted_area_sqft: roofSqft,
+          pitch: 'flat',
+          pitch_multiplier: 1.0,
+          color: '#10B981',
+          source: 'solar_api'
+        });
+      }
+
       const measurementData = {
         company_id: currentUser?.company_id || null,
         user_id: currentUser?.id || null,
         property_address: address,
+        latitude: coordinates?.lat || null,
+        longitude: coordinates?.lng || null,
         user_type: currentUser?.aroof_role === 'external_roofer' ? 'roofer' : 'homeowner',
         measurement_type: 'quick_estimate',
         estimation_method: method,
         building_sqft_input: inputSqft,
         total_sqft: roofSqft,
         total_adjusted_sqft: roofSqft,
+        measurement_data: {
+          total_adjusted_sqft: roofSqft,
+          sections: polygonSections
+        },
         lead_status: 'new',
         payment_status: "pending"
       };
