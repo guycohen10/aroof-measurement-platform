@@ -105,6 +105,7 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
   
   // Apply visualization whenever color or opacity changes
   useEffect(() => {
+    // 1. Target Standard Polygons (manually drawn)
     if (polygonsArray && polygonsArray.length > 0) {
       polygonsArray.forEach(polygon => {
         if (polygon && polygon.setOptions) {
@@ -128,11 +129,22 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
         strokeWeight: 2
       });
     }
-  }, [selectedColor, opacity, roofPolygon, polygonsArray]);
+    
+    // 2. Target Solar API Data Layers (Quick Estimate)
+    if (mapInstance && mapInstance.data) {
+      mapInstance.data.setStyle({
+        fillColor: selectedColor,
+        strokeColor: selectedColor,
+        fillOpacity: opacity,
+        strokeWeight: 2
+      });
+    }
+  }, [selectedColor, opacity, roofPolygon, polygonsArray, mapInstance]);
   
   // Cleanup on unmount - reset to green
   useEffect(() => {
     return () => {
+      // Reset Standard Polygons
       if (polygonsArray && polygonsArray.length > 0) {
         polygonsArray.forEach(polygon => {
           if (polygon && polygon.setOptions) {
@@ -156,11 +168,21 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
           strokeWeight: 3
         });
       }
+      
+      // Reset Solar Data Layer
+      if (mapInstance && mapInstance.data) {
+        mapInstance.data.setStyle({
+          fillColor: '#10B981',
+          strokeColor: '#10B981',
+          fillOpacity: 0.15,
+          strokeWeight: 3
+        });
+      }
     };
   }, []);
   
   const handleClose = () => {
-    // Reset polygons to green before closing
+    // Reset Standard Polygons
     if (polygonsArray && polygonsArray.length > 0) {
       polygonsArray.forEach(polygon => {
         if (polygon && polygon.setOptions) {
@@ -181,6 +203,16 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
         fillOpacity: 0.15,
         strokeColor: '#10B981',
         strokeOpacity: 1.0,
+        strokeWeight: 3
+      });
+    }
+    
+    // Reset Solar Data Layer
+    if (mapInstance && mapInstance.data) {
+      mapInstance.data.setStyle({
+        fillColor: '#10B981',
+        strokeColor: '#10B981',
+        fillOpacity: 0.15,
         strokeWeight: 3
       });
     }
