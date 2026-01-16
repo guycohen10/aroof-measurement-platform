@@ -118,7 +118,7 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
     try {
       const materialName = materials[selectedMaterial].name;
 
-      // Extract polygon coordinates (optional - will auto-generate if missing)
+      // Extract polygon coordinates
       let polygonCoordinates = [];
 
       if (polygonsArray && polygonsArray.length > 0 && polygonsArray[0]) {
@@ -145,36 +145,68 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
       const center = mapInstance.getCenter();
       const address = `${center.lat()},${center.lng()}`;
 
-      console.log('🚀 DIAGNOSTIC TEST - Sending to backend:', {
-        address,
-        hasPolygon: polygonCoordinates.length > 0,
-        material: materialName
-      });
+      console.log('🚀 Starting AI generation...');
 
+      // Step 1: Start the prediction (backend returns immediately)
       const response = await base44.functions.invoke('GenerateRealisticRoof', {
         address: address,
         polygonCoordinates: polygonCoordinates.length > 0 ? polygonCoordinates : null,
         material: materialName
       });
 
-      console.log('📊 Backend Response:', response.data);
+      const prediction = response.data;
+      console.log('📋 Prediction started:', prediction.id);
 
-      // Check if it's diagnostic mode response
-      if (response.data.status === 'DIAGNOSTIC_COMPLETE') {
-        toast.success('✅ Diagnostic Complete! Check console for details.');
-        alert('DIAGNOSTIC RESULTS:\n\n' + JSON.stringify(response.data, null, 2));
-      } else if (response.data.imageUrl) {
-        setGeneratedImage(response.data.imageUrl);
-        setShowResultModal(true);
-        toast.success('✨ Realistic view generated!');
-      } else {
-        toast.error('Unexpected response from backend');
+      if (!prediction.urls || !prediction.urls.get) {
+        throw new Error('Invalid prediction response');
       }
+
+      toast.success('🎨 AI is generating your roof...');
+
+      // Step 2: Poll for results
+      const pollUrl = prediction.urls.get;
+      let attempts = 0;
+      const maxAttempts = 60; // 2 minutes
+
+      const pollInterval = setInterval(async () => {
+        attempts++;
+
+        try {
+          const statusRes = await fetch(pollUrl, {
+            headers: {
+              'Authorization': `Token r8_emR8qiw7RptiJEXpi9KKQMoh66EkAhI3ET1ZW`
+            }
+          });
+          const status = await statusRes.json();
+
+          console.log(`⏳ Poll ${attempts}: ${status.status}`);
+
+          if (status.status === 'succeeded') {
+            clearInterval(pollInterval);
+            const resultUrl = status.output?.[0] || status.output;
+            console.log('✅ Generation complete!');
+            setGeneratedImage(resultUrl);
+            setShowResultModal(true);
+            setIsGenerating(false);
+            toast.success('✨ Realistic view generated!');
+          } else if (status.status === 'failed') {
+            clearInterval(pollInterval);
+            console.error('❌ Generation failed:', status.error);
+            setIsGenerating(false);
+            toast.error('AI generation failed');
+          } else if (attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            setIsGenerating(false);
+            toast.error('Generation timeout');
+          }
+        } catch (pollError) {
+          console.error('Poll error:', pollError);
+        }
+      }, 2000); // Poll every 2 seconds
 
     } catch (error) {
       console.error('❌ Generation error:', error);
-      toast.error('Backend Error: ' + (error.message || 'Unknown error'));
-    } finally {
+      toast.error('Failed to start generation: ' + error.message);
       setIsGenerating(false);
     }
   };
