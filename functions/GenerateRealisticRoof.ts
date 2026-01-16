@@ -9,7 +9,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers });
 
   try {
-    const { address, polygonCoordinates, selectedMaterial } = await req.json();
+    // 1. EXTRACT COLOR (Crucial Fix)
+    const { address, polygonCoordinates, selectedMaterial, selectedColor } = await req.json();
 
     // --- KEYS (User Provided) ---
     const GOOGLE_KEY = "AIzaSyA1beAjeMHo2UgNlUBEgGlfzojuJ0GD0L0";
@@ -37,22 +38,18 @@ Deno.serve(async (req) => {
       return str;
     };
 
-    // --- 1. Prepare URLs ---
-    // Calculate Center (Raw precision for perfect alignment)
+    // --- 2. Prepare URLs ---
     let cLat = 0, cLng = 0;
     polygonCoordinates.forEach(p => { cLat += p.lat; cLng += p.lng; });
     const center = `${(cLat/polygonCoordinates.length).toFixed(6)},${(cLng/polygonCoordinates.length).toFixed(6)}`;
 
-    // Generate Safe Mask URL
     const encodedPath = encodePolyline(polygonCoordinates);
-    const safePath = encodeURIComponent(encodedPath); // Critical URL fix
+    const safePath = encodeURIComponent(encodedPath);
 
     const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&style=feature:all|visibility:off&path=fillcolor:0xFFFFFFFF|weight:0|enc:${safePath}&key=${GOOGLE_KEY}`;
     const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&key=${GOOGLE_KEY}`;
 
-    console.log("DEBUG: Using Map:", mapUrl);
-
-    // --- 2. Call Replicate ---
+    // --- 3. Call Replicate ---
     const prediction = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: {
@@ -65,18 +62,17 @@ Deno.serve(async (req) => {
         input: {
           image: mapUrl,
           mask: maskUrl,
-          prompt: `Aerial view of a residential house, replacing the roof with ${selectedMaterial} texture, seamless blend, photorealistic, 4k, drone photography`,
-          negative_prompt: "blur, shadows, dirty, old, rust, noise, distortion",
+          // 4. USE COLOR IN PROMPT
+          prompt: `Aerial drone photo of a residential home, replacing the roof with ${selectedColor || "clean"} ${selectedMaterial} texture, seamless, photorealistic, 4k, maintaining building geometry`,
+          negative_prompt: "cartoon, drawing, painting, glitch, distorted, low quality, blurred",
           strength: 0.65,
-          guidance_scale: 7.5,
+          guidance_scale: 9,
           num_inference_steps: 40
         }
       })
     });
 
     const result = await prediction.json();
-
-    // --- 3. Return Result ---
     return new Response(JSON.stringify(result), { headers, status: 200 });
 
   } catch (error) {
