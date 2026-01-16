@@ -9,10 +9,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers });
 
   try {
-    // 1. EXTRACT COLOR (Crucial Fix)
     const { address, polygonCoordinates, selectedMaterial, selectedColor } = await req.json();
 
-    // --- KEYS (User Provided) ---
+    // DEBUG: Verify we are actually receiving "Terracotta"
+    console.log("DEBUG INPUTS - Material:", selectedMaterial, "Color:", selectedColor);
+
+    // --- KEYS ---
     const GOOGLE_KEY = "AIzaSyA1beAjeMHo2UgNlUBEgGlfzojuJ0GD0L0";
     const REPLICATE_KEY = "r8_emR8qiw7RptiJEXpi9KKQMoh66EkAhI3ET1ZW";
 
@@ -38,7 +40,7 @@ Deno.serve(async (req) => {
       return str;
     };
 
-    // --- 2. Prepare URLs ---
+    // --- 1. Prepare URLs ---
     let cLat = 0, cLng = 0;
     polygonCoordinates.forEach(p => { cLat += p.lat; cLng += p.lng; });
     const center = `${(cLat/polygonCoordinates.length).toFixed(6)},${(cLng/polygonCoordinates.length).toFixed(6)}`;
@@ -49,7 +51,7 @@ Deno.serve(async (req) => {
     const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&style=feature:all|visibility:off&path=fillcolor:0xFFFFFFFF|weight:0|enc:${safePath}&key=${GOOGLE_KEY}`;
     const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&key=${GOOGLE_KEY}`;
 
-    // --- 3. Call Replicate ---
+    // --- 2. Call Replicate ---
     const prediction = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: {
@@ -62,11 +64,11 @@ Deno.serve(async (req) => {
         input: {
           image: mapUrl,
           mask: maskUrl,
-          // 4. USE COLOR IN PROMPT
-          prompt: `Aerial drone photo of a residential home, replacing the roof with ${selectedColor || "clean"} ${selectedMaterial} texture, seamless, photorealistic, 4k, maintaining building geometry`,
-          negative_prompt: "cartoon, drawing, painting, glitch, distorted, low quality, blurred",
-          strength: 0.65,
-          guidance_scale: 9,
+          // PROMPT: Force Color Priority
+          prompt: `(${selectedColor} colored roof:1.5), ${selectedMaterial} texture, aerial view, sunny day, highly detailed, photorealistic`,
+          negative_prompt: "cartoon, drawing, painting, glitch, distorted, low quality, blurred, grey, dull",
+          strength: 0.75, // Increased to allow color change
+          guidance_scale: 11, // Increased to force instruction following
           num_inference_steps: 40
         }
       })
