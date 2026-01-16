@@ -108,6 +108,10 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
     }
   }, []);
   
+  const handleClose = () => {
+    onClose();
+  };
+  
   // Generate canvas images for AI
   const generateCanvasImages = async () => {
     const mapDiv = mapInstance.getDiv();
