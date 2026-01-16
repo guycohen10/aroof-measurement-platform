@@ -10,7 +10,13 @@ Deno.serve(async (req) => {
 
   try {
     // 1. Inputs
-    const { address, polygonCoordinates, selectedMaterial, selectedColor } = await req.json();
+    let { address, polygonCoordinates, selectedMaterial, selectedColor } = await req.json();
+
+    // FALLBACK: If color is missing, force a default to prove it works
+    if (!selectedColor || selectedColor === "undefined") {
+      console.log("WARNING: Color was missing! Defaulting to Terracotta.");
+      selectedColor = "Terracotta"; 
+    }
 
     // --- KEYS (User Provided) ---
     const GOOGLE_KEY = "AIzaSyA1beAjeMHo2UgNlUBEgGlfzojuJ0GD0L0";
