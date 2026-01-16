@@ -10,76 +10,39 @@ Deno.serve(async (req) => {
 
   try {
     // 1. Inputs
-    let { address, polygonCoordinates, selectedMaterial, selectedColor } = await req.json();
+    let { address, polygonCoordinates, selectedColor } = await req.json();
 
-    // --- FORCE COLOR TEST ---
-    console.log("DEBUG: Frontend sent color:", selectedColor);
-    selectedColor = "Terracotta"; // <-- BYPASS FRONTEND
-    console.log("DEBUG: Forcing color to:", selectedColor);
-    // ------------------------
-
+    // --- KEYS (User Provided) ---
     const GOOGLE_KEY = "AIzaSyA1beAjeMHo2UgNlUBEgGlfzojuJ0GD0L0";
-    const REPLICATE_KEY = "r8_emR8qiw7RptiJEXpi9KKQMoh66EkAhI3ET1ZW";
 
-    // --- HELPER: Polyline Encoding ---
-    const encodePolyline = (points) => {
-      let str = '';
-      let lastLat = 0, lastLng = 0;
-      for (const point of points) {
-        let lat = Math.round(point.lat * 1e5);
-        let lng = Math.round(point.lng * 1e5);
-        let dLat = lat - lastLat;
-        let dLng = lng - lastLng;
-        lastLat = lat; lastLng = lng;
-        [dLat, dLng].forEach(val => {
-          let num = val < 0 ? ~(val << 1) : (val << 1);
-          while (num >= 0x20) {
-            str += String.fromCharCode((0x20 | (num & 0x1f)) + 63);
-            num >>= 5;
-          }
-          str += String.fromCharCode(num + 63);
-        });
-      }
-      return str;
-    };
+    // 2. Calculate Center (Simple Average)
+    let totalLat = 0, totalLng = 0;
+    polygonCoordinates.forEach(p => { totalLat += p.lat; totalLng += p.lng; });
+    const centerLat = (totalLat / polygonCoordinates.length).toFixed(6);
+    const centerLng = (totalLng / polygonCoordinates.length).toFixed(6);
+    const center = `${centerLat},${centerLng}`;
 
-    // --- 2. Prepare URLs ---
-    let cLat = 0, cLng = 0;
-    polygonCoordinates.forEach(p => { cLat += p.lat; cLng += p.lng; });
-    const center = `${(cLat/polygonCoordinates.length).toFixed(6)},${(cLng/polygonCoordinates.length).toFixed(6)}`;
+    // 3. Create Safe Path String (5 decimals to fit URL limit)
+    // We use manual string building to avoid encoding bugs
+    const pathPoints = polygonCoordinates.map(p => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join("|");
 
-    const encodedPath = encodePolyline(polygonCoordinates);
-    const safePath = encodeURIComponent(encodedPath);
-
-    const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&style=feature:all|visibility:off&path=fillcolor:0xFFFFFFFF|weight:0|enc:${safePath}&key=${GOOGLE_KEY}`;
+    // 4. Generate URLs
+    // MAP: The satellite photo
     const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&key=${GOOGLE_KEY}`;
 
-    // --- 3. Call Replicate ---
-    const prediction = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Token ${REPLICATE_KEY}`,
-        "Content-Type": "application/json",
-        "Prefer": "wait=30"
-      },
-      body: JSON.stringify({
-        version: "c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316",
-        input: {
-          image: mapUrl,
-          mask: maskUrl,
-          // BOOSTED PROMPT
-          prompt: `Aerial photograph of a home with a brand new (${selectedColor} color:1.5) ${selectedMaterial} roof installation, vivid color, highly detailed texture, sunny day, 8k resolution`,
-          negative_prompt: "cartoon, drawing, painting, glitch, distorted, low quality, blurred, dull, grey, old",
-          strength: 0.65,
-          guidance_scale: 9.0,
-          num_inference_steps: 40,
-          seed: 3242 // Locked
-        }
-      })
-    });
+    // MASK: The white shape (Must match Map center exactly)
+    const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&style=feature:all|visibility:off&path=color:0x00000000|weight:0|fillcolor:0xFFFFFFFF|${pathPoints}&key=${GOOGLE_KEY}`;
 
-    const result = await prediction.json();
-    return new Response(JSON.stringify(result), { headers, status: 200 });
+    console.log("DEBUG MAP:", mapUrl);
+    console.log("DEBUG MASK:", maskUrl);
+
+    // 5. Return URLs for Inspection
+    // We return the MASK as the image so you can see if the shape is correct on screen
+    return new Response(JSON.stringify({
+      output: [maskUrl], 
+      logs: { map: mapUrl, mask: maskUrl },
+      status: "succeeded"
+    }), { headers, status: 200 });
 
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), { headers, status: 500 });
