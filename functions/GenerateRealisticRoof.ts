@@ -1,3 +1,29 @@
+// Standard Google Polyline Encoding Algorithm
+function encodePolyline(points) {
+  let str = '';
+  let lastLat = 0;
+  let lastLng = 0;
+
+  for (const point of points) {
+    let lat = Math.round(point.lat * 1e5);
+    let lng = Math.round(point.lng * 1e5);
+    let dLat = lat - lastLat;
+    let dLng = lng - lastLng;
+    lastLat = lat;
+    lastLng = lng;
+
+    [dLat, dLng].forEach(val => {
+      let num = val < 0 ? ~(val << 1) : (val << 1);
+      while (num >= 0x20) {
+        str += String.fromCharCode((0x20 | (num & 0x1f)) + 63);
+        num >>= 5;
+      }
+      str += String.fromCharCode(num + 63);
+    });
+  }
+  return str;
+}
+
 Deno.serve(async (req) => {
   const headers = {
     "Access-Control-Allow-Origin": "*",
@@ -15,48 +41,35 @@ Deno.serve(async (req) => {
     const GOOGLE_KEY = "AIzaSyA1beAjeMHo2UgNlUBEgGlfzojuJ0GD0L0";
     const REPLICATE_KEY = "r8_emR8qiw7RptiJEXpi9KKQMoh66EkAhI3ET1ZW";
 
-    // 1. Coordinate Compression (Fix URL character limit)
-    let simplifiedCoords = polygonCoordinates;
+    // 1. Calculate Center (using raw coordinates for perfect alignment)
     let centerLat = 0;
     let centerLng = 0;
-    let pathString = "";
     
     if (polygonCoordinates && polygonCoordinates.length > 0) {
-      // Step A: Downsample if too many points
-      if (polygonCoordinates.length > 30) {
-        const step = Math.ceil(polygonCoordinates.length / 30);
-        simplifiedCoords = polygonCoordinates.filter((_, i) => i % step === 0);
-      }
-
-      // Step B: Round to 5 decimals and Calculate Center
-      pathString = simplifiedCoords.map(p => {
+      polygonCoordinates.forEach(p => {
         centerLat += p.lat;
         centerLng += p.lng;
-        return `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`; // Rounding saves space
-      }).join('|');
-
-      // Close the loop
-      const first = simplifiedCoords[0];
-      pathString += `|${first.lat.toFixed(5)},${first.lng.toFixed(5)}`;
-
-      // Finalize Center
-      centerLat = centerLat / simplifiedCoords.length;
-      centerLng = centerLng / simplifiedCoords.length;
+      });
+      centerLat = centerLat / polygonCoordinates.length;
+      centerLng = centerLng / polygonCoordinates.length;
     }
 
-    const centerParam = `${centerLat.toFixed(5)},${centerLng.toFixed(5)}`;
+    const centerParam = `${centerLat},${centerLng}`;
 
-    // 2. Generate URLs (Zoom 19 for better context)
-    const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerParam}&zoom=19&size=640x640&maptype=satellite&style=feature:all|visibility:off&path=color:0x00000000|weight:0|fillcolor:0xFFFFFFFF|${pathString}&key=${GOOGLE_KEY}`;
-    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerParam}&zoom=19&size=640x640&maptype=satellite&key=${GOOGLE_KEY}`;
+    // 2. Encode polygon using Google Polyline Encoding (keeps precision, reduces URL size)
+    const encodedPath = encodePolyline(polygonCoordinates);
 
-    // 2. Call Replicate (Wait for result)
+    // 3. Generate URLs with encoded path
+    const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerParam}&zoom=20&size=640x640&maptype=satellite&style=feature:all|visibility:off&path=weight:0|fillcolor:0xFFFFFFFF|enc:${encodedPath}&key=${GOOGLE_KEY}`;
+    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerParam}&zoom=20&size=640x640&maptype=satellite&key=${GOOGLE_KEY}`;
+
+    // 4. Call Replicate (Wait for result)
     const replicateResp = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: {
         "Authorization": `Token ${REPLICATE_KEY}`,
         "Content-Type": "application/json",
-        "Prefer": "wait=30" // Wait for generation
+        "Prefer": "wait=30"
       },
       body: JSON.stringify({
         version: "c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316",
@@ -72,7 +85,7 @@ Deno.serve(async (req) => {
 
     const data = await replicateResp.json();
 
-    // 3. Return the Data
+    // 5. Return the Data
     return new Response(JSON.stringify(data), { headers, status: 200 });
 
   } catch (error) {
