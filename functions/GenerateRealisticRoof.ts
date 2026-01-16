@@ -9,22 +9,38 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { address, polygonCoordinates, material } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      console.error('❌ JSON Parse Error:', parseError);
+      return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const { address, polygonCoordinates, material } = body;
     
     console.log('🔵 REQUEST:', { address, hasPolygon: !!polygonCoordinates, material });
     
-    // 1. Get API Keys from Environment
+    // 1. Validate Inputs
+    if (!address || !material) {
+      return Response.json({ error: 'Missing required fields: address or material' }, { status: 400 });
+    }
+    
+    // 2. Get API Keys from Environment
     const GOOGLE_MAPS_API_KEY = Deno.env.get('GOOGLE_MAPS_API_KEY') || 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
     const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
     
     if (!REPLICATE_API_KEY) {
-      throw new Error('REPLICATE_API_KEY not configured in environment');
+      console.error('❌ REPLICATE_API_KEY not found in environment');
+      return Response.json({ error: 'REPLICATE_API_KEY not configured' }, { status: 500 });
     }
+    
+    console.log('✅ API Keys loaded successfully');
     
     let centerLat, centerLng, finalPolygonCoords;
     
-    // 2. Auto-Box Safety Net for Quick Estimates
-    if (!polygonCoordinates || polygonCoordinates.length === 0) {
+    // 3. Auto-Box Safety Net for Quick Estimates
+    if (!polygonCoordinates || !Array.isArray(polygonCoordinates) || polygonCoordinates.length === 0) {
       console.log('🟡 No polygon - generating 40x40 ft default square');
       
       // Geocode address to get center
