@@ -9,14 +9,16 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers });
 
   try {
-    // 1. Inputs
+    // 1. FRESH INPUTS (No caching)
     let { address, polygonCoordinates, selectedMaterial, selectedColor } = await req.json();
 
-    // --- FORCE COLOR TEST ---
-    selectedColor = "Terracotta"; // <-- HARD CODED ORANGE
-    console.log("DEBUG: Forcing color to:", selectedColor);
-    // ------------------------
+    // Safety: Default color if button is broken, but DO NOT override user choice
+    if (!selectedColor || selectedColor === "undefined") {
+      console.log("Color missing, defaulting to Weathered Wood");
+      selectedColor = "Weathered Wood";
+    }
 
+    // --- KEYS (User Provided) ---
     const GOOGLE_KEY = "AIzaSyA1beAjeMHo2UgNlUBEgGlfzojuJ0GD0L0";
     const REPLICATE_KEY = "r8_emR8qiw7RptiJEXpi9KKQMoh66EkAhI3ET1ZW";
 
@@ -42,9 +44,10 @@ Deno.serve(async (req) => {
       return str;
     };
 
-    // --- 2. Prepare URLs ---
+    // --- 2. Calculate Center from FRESH Polygon ---
     let cLat = 0, cLng = 0;
     polygonCoordinates.forEach(p => { cLat += p.lat; cLng += p.lng; });
+    // Use 6 decimals for high precision centering
     const center = `${(cLat/polygonCoordinates.length).toFixed(6)},${(cLng/polygonCoordinates.length).toFixed(6)}`;
 
     const encodedPath = encodePolyline(polygonCoordinates);
@@ -66,13 +69,12 @@ Deno.serve(async (req) => {
         input: {
           image: mapUrl,
           mask: maskUrl,
-          // BOOSTED PROMPT
           prompt: `Aerial photography of a home with a brand new (${selectedColor} colored roof:1.5), ${selectedMaterial} texture, high quality, realistic, 8k, daylight`,
           negative_prompt: "cartoon, drawing, painting, glitch, distorted, low quality, blurred, dull, grey, old",
           strength: 0.75,
           guidance_scale: 9.0,
           num_inference_steps: 40,
-          seed: 3242 // Locked
+          seed: 3242
         }
       })
     });
