@@ -102,6 +102,8 @@ export default function ContactInfoPage() {
       }
 
       // Update the measurement with customer info
+      const agreeToQuotes = true; // Homeowners automatically agree to get quotes
+      
       await base44.entities.Measurement.update(pendingMeasurementId, {
         customer_name: formData.name,
         customer_email: formData.email,
@@ -110,10 +112,61 @@ export default function ContactInfoPage() {
         lead_status: 'new',
         lead_source: 'website',
         sms_opt_in: formData.smsOptIn,
-        measurement_completed: true
+        measurement_completed: true,
+        agrees_to_quotes: agreeToQuotes,
+        available_for_purchase: agreeToQuotes,
+        lead_price: 25.00
       });
 
       console.log('✅ Lead saved:', pendingMeasurementId);
+
+      // Send confirmation email to homeowner
+      try {
+        await base44.integrations.Core.SendEmail({
+          to: formData.email,
+          subject: 'Your Roof Measurement is Complete!',
+          body: `
+Hello ${formData.name},
+
+Thank you for using Aroof! Your roof measurement is complete.
+
+Property: ${measurement.property_address}
+Roof Area: ${measurement.total_sqft ? Math.round(measurement.total_sqft).toLocaleString() : 'Calculating...'} sq ft
+
+What happens next?
+✅ Top roofing contractors in your area will be notified
+📞 A qualified roofer will contact you within 24 hours
+💰 You'll receive competitive quotes for your project
+
+You can view your measurement results anytime at:
+https://aroof.build/results?measurementid=${pendingMeasurementId}
+
+Best regards,
+The Aroof Team
+          `
+        });
+        console.log('✅ Homeowner confirmation email sent');
+      } catch (emailErr) {
+        console.error('Failed to send homeowner confirmation:', emailErr);
+      }
+
+      // Notify all active roofers
+      try {
+        const zipMatch = measurement.property_address?.match(/\b\d{5}\b/);
+        const city = measurement.property_address?.split(',')[1]?.trim().split(/\s+\d/)[0] || '';
+        
+        await base44.functions.invoke('NotifyRoofersNewLead', {
+          measurementId: pendingMeasurementId,
+          address: measurement.property_address,
+          city: city,
+          sqft: measurement.total_sqft,
+          leadPrice: 25.00
+        });
+        
+        console.log('✅ Roofer notifications sent');
+      } catch (notifyErr) {
+        console.error('Failed to notify roofers:', notifyErr);
+      }
 
       // Extract ZIP from address
       const zipMatch = measurement.property_address?.match(/\b\d{5}\b/);
