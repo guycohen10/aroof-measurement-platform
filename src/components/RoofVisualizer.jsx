@@ -112,89 +112,47 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
     onClose();
   };
   
-  // Generate canvas images for AI
-  const generateCanvasImages = async () => {
-    const mapDiv = mapInstance.getDiv();
-    const mapRect = mapDiv.getBoundingClientRect();
-    
-    // Create source canvas (satellite view)
-    const sourceCanvas = document.createElement('canvas');
-    sourceCanvas.width = 800;
-    sourceCanvas.height = 600;
-    const sourceCtx = sourceCanvas.getContext('2d');
-    
-    // Create mask canvas (white polygon on black)
-    const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = 800;
-    maskCanvas.height = 600;
-    const maskCtx = maskCanvas.getContext('2d');
-    maskCtx.fillStyle = '#000000';
-    maskCtx.fillRect(0, 0, 800, 600);
-    
-    // Capture map tiles
-    const tiles = mapDiv.querySelectorAll('img');
-    tiles.forEach(tile => {
-      const rect = tile.getBoundingClientRect();
-      const x = (rect.left - mapRect.left) * (800 / mapRect.width);
-      const y = (rect.top - mapRect.top) * (600 / mapRect.height);
-      const w = rect.width * (800 / mapRect.width);
-      const h = rect.height * (600 / mapRect.height);
-      sourceCtx.drawImage(tile, x, y, w, h);
-    });
-    
-    // Draw white polygon on mask
-    maskCtx.fillStyle = '#ffffff';
-    maskCtx.beginPath();
-    
-    const coords = [];
-    if (polygonsArray && polygonsArray.length > 0 && polygonsArray[0]) {
-      const path = polygonsArray[0].getPath();
-      for (let i = 0; i < path.getLength(); i++) {
-        const latLng = path.getAt(i);
-        const point = mapInstance.getProjection().fromLatLngToPoint(latLng);
-        const pixel = {
-          x: (point.x - mapInstance.getBounds().getSouthWest().lng()) * (800 / (mapInstance.getBounds().getNorthEast().lng() - mapInstance.getBounds().getSouthWest().lng())),
-          y: (1 - (point.y - mapInstance.getBounds().getSouthWest().lat()) / (mapInstance.getBounds().getNorthEast().lat() - mapInstance.getBounds().getSouthWest().lat())) * 600
-        };
-        coords.push(pixel);
-        if (i === 0) maskCtx.moveTo(pixel.x, pixel.y);
-        else maskCtx.lineTo(pixel.x, pixel.y);
-      }
-    } else if (roofPolygon) {
-      const path = roofPolygon.getPath();
-      for (let i = 0; i < path.getLength(); i++) {
-        const latLng = path.getAt(i);
-        const bounds = mapInstance.getBounds();
-        const ne = bounds.getNorthEast();
-        const sw = bounds.getSouthWest();
-        const x = ((latLng.lng() - sw.lng()) / (ne.lng() - sw.lng())) * 800;
-        const y = ((ne.lat() - latLng.lat()) / (ne.lat() - sw.lat())) * 600;
-        if (i === 0) maskCtx.moveTo(x, y);
-        else maskCtx.lineTo(x, y);
-      }
-    }
-    
-    maskCtx.closePath();
-    maskCtx.fill();
-    
-    return {
-      source: sourceCanvas.toDataURL('image/png'),
-      mask: maskCanvas.toDataURL('image/png')
-    };
-  };
-  
   const handleGenerateRealisticView = async () => {
     setIsGenerating(true);
     
     try {
       const materialName = materials[selectedMaterial].name;
-      const { source, mask } = await generateCanvasImages();
+      
+      // Extract polygon coordinates
+      let polygonCoordinates = [];
+      
+      if (polygonsArray && polygonsArray.length > 0 && polygonsArray[0]) {
+        const path = polygonsArray[0].getPath();
+        for (let i = 0; i < path.getLength(); i++) {
+          const latLng = path.getAt(i);
+          polygonCoordinates.push({
+            lat: latLng.lat(),
+            lng: latLng.lng()
+          });
+        }
+      } else if (roofPolygon) {
+        const path = roofPolygon.getPath();
+        for (let i = 0; i < path.getLength(); i++) {
+          const latLng = path.getAt(i);
+          polygonCoordinates.push({
+            lat: latLng.lat(),
+            lng: latLng.lng()
+          });
+        }
+      }
+      
+      if (polygonCoordinates.length === 0) {
+        throw new Error('No roof polygon found');
+      }
+      
+      // Get address from map center
+      const center = mapInstance.getCenter();
+      const address = `${center.lat()},${center.lng()}`;
       
       const response = await base44.functions.invoke('GenerateRealisticRoof', {
-        sourceImage: source,
-        maskImage: mask,
-        material: materialName,
-        color: selectedColor
+        address: address,
+        polygonCoordinates: polygonCoordinates,
+        material: materialName
       });
       
       setGeneratedImage(response.data.imageUrl);
