@@ -13,20 +13,56 @@ Deno.serve(async (req) => {
     
     const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
     
-    // Calculate center from polygon coordinates
-    let centerLat = 0, centerLng = 0;
-    polygonCoordinates.forEach(coord => {
-      centerLat += coord.lat;
-      centerLng += coord.lng;
-    });
-    centerLat /= polygonCoordinates.length;
-    centerLng /= polygonCoordinates.length;
+    let centerLat, centerLng, finalPolygonCoords;
     
-    // Step A: Generate Source Image URL (Satellite View)
+    // Step A: Auto-Box Safety Net for Quick Estimates
+    if (!polygonCoordinates || polygonCoordinates.length === 0) {
+      console.log('🟡 No polygon provided - generating 40x40 ft default square');
+      
+      // Geocode address to get center
+      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+      const geocodeResponse = await fetch(geocodeUrl);
+      const geocodeData = await geocodeResponse.json();
+      
+      if (!geocodeData.results || geocodeData.results.length === 0) {
+        throw new Error('Could not geocode address');
+      }
+      
+      centerLat = geocodeData.results[0].geometry.location.lat;
+      centerLng = geocodeData.results[0].geometry.location.lng;
+      
+      // Create 40x40 ft square (approx 0.00011 degrees per foot at mid-latitudes)
+      const offset = 0.0044; // 40 feet in degrees
+      finalPolygonCoords = [
+        { lat: centerLat + offset, lng: centerLng - offset },
+        { lat: centerLat + offset, lng: centerLng + offset },
+        { lat: centerLat - offset, lng: centerLng + offset },
+        { lat: centerLat - offset, lng: centerLng - offset }
+      ];
+      
+      console.log('✅ Generated default square at:', centerLat, centerLng);
+    } else {
+      // Use provided polygon coordinates
+      finalPolygonCoords = polygonCoordinates;
+      
+      // Calculate center from polygon
+      centerLat = 0;
+      centerLng = 0;
+      finalPolygonCoords.forEach(coord => {
+        centerLat += coord.lat;
+        centerLng += coord.lng;
+      });
+      centerLat /= finalPolygonCoords.length;
+      centerLng /= finalPolygonCoords.length;
+      
+      console.log('✅ Using provided polygon with', finalPolygonCoords.length, 'points');
+    }
+    
+    // Step B: Generate Source Image URL (Satellite View)
     const sourceImageUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=20&size=800x600&scale=2&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}`;
     
-    // Step B: Generate Mask Image URL (White Polygon on Black)
-    const pathCoords = polygonCoordinates.map(c => `${c.lat},${c.lng}`).join('|');
+    // Step C: Generate Mask Image URL (White Polygon on Black Background)
+    const pathCoords = finalPolygonCoords.map(c => `${c.lat},${c.lng}`).join('|');
     const maskImageUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=20&size=800x600&scale=2&style=feature:all|element:all|visibility:off&style=feature:all|element:geometry.fill|color:0x000000&path=fillcolor:0xFFFFFF|color:0x000000|${pathCoords}&key=${GOOGLE_MAPS_API_KEY}`;
     
     console.log('📸 Source URL:', sourceImageUrl);

@@ -118,7 +118,7 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
     try {
       const materialName = materials[selectedMaterial].name;
       
-      // Extract polygon coordinates
+      // Extract polygon coordinates (optional - will auto-generate if missing)
       let polygonCoordinates = [];
       
       if (polygonsArray && polygonsArray.length > 0 && polygonsArray[0]) {
@@ -141,17 +141,19 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
         }
       }
       
-      if (polygonCoordinates.length === 0) {
-        throw new Error('No roof polygon found');
-      }
-      
       // Get address from map center
       const center = mapInstance.getCenter();
       const address = `${center.lat()},${center.lng()}`;
       
+      console.log('🚀 Sending to backend:', {
+        address,
+        hasPolygon: polygonCoordinates.length > 0,
+        material: materialName
+      });
+      
       const response = await base44.functions.invoke('GenerateRealisticRoof', {
         address: address,
-        polygonCoordinates: polygonCoordinates,
+        polygonCoordinates: polygonCoordinates.length > 0 ? polygonCoordinates : null,
         material: materialName
       });
       
