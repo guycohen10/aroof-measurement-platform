@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import CompanyLogoDisplay from '../components/CompanyLogoDisplay';
 
 export default function RooferProfile() {
   const [searchParams] = useSearchParams();
@@ -145,17 +146,7 @@ export default function RooferProfile() {
             Back to Directory
           </Link>
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-            <div className="w-24 h-24 bg-white rounded-xl flex items-center justify-center p-3 flex-shrink-0">
-              {company.company_logo_url ? (
-                <img 
-                  src={company.company_logo_url} 
-                  alt={company.company_name} 
-                  className="max-w-full max-h-full object-contain"
-                />
-              ) : (
-                <div className="text-4xl">🏠</div>
-              )}
-            </div>
+            <CompanyLogoDisplay company={company} size="xl" className="bg-white" />
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-4xl font-bold">{company.company_name}</h1>
