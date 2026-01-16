@@ -76,10 +76,12 @@ Deno.serve(async (req) => {
         input: {
           image: mapUrl,
           mask: maskUrl,
-          prompt: `Aerial top-down view of a roof with ${selectedMaterial} texture, 8k resolution, highly detailed, sharp focus, maintaining original house structure`,
+          prompt: `${selectedMaterial} roof texture, aerial photography, daylight, realistic`,
           negative_prompt: "blur, distortion, new buildings, changing house shape, cartoon, low quality",
-          strength: 0.55,
-          guidance_scale: 15
+          strength: 0.60,
+          guidance_scale: 9,
+          num_inference_steps: 40,
+          scheduler: "K_EULER_ANCESTRAL"
         }
       })
     });
