@@ -62,12 +62,13 @@ Deno.serve(async (req) => {
         input: {
           image: mapUrl,
           mask: maskUrl,
-          // STABLE PROMPT: No complex weights, no 'Close up', just Aerial context
-          prompt: `Aerial drone photography of a residential home, replacing the roof with ${selectedColor || "clean"} ${selectedMaterial}, realistic 4k, highly detailed, daylight`,
+          // LOCKED SEED & COLOR BOOST
+          prompt: `Aerial photography of a home, new roof installation, ${selectedColor || "clean"} ${selectedMaterial} texture, high quality, realistic, 8k, daylight`,
           negative_prompt: "cartoon, drawing, painting, glitch, distorted, low quality, blurred, noise",
-          strength: 0.65, // Safe limit for structure
-          guidance_scale: 7.5, // Standard realism
-          num_inference_steps: 40
+          strength: 0.65, 
+          guidance_scale: 8.0, 
+          num_inference_steps: 40,
+          seed: 3242 // <--- THE FIX for Randomness
         }
       })
     });
