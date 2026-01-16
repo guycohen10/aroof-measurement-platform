@@ -114,13 +114,13 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
   
   const handleGenerateRealisticView = async () => {
     setIsGenerating(true);
-    
+
     try {
       const materialName = materials[selectedMaterial].name;
-      
+
       // Extract polygon coordinates (optional - will auto-generate if missing)
       let polygonCoordinates = [];
-      
+
       if (polygonsArray && polygonsArray.length > 0 && polygonsArray[0]) {
         const path = polygonsArray[0].getPath();
         for (let i = 0; i < path.getLength(); i++) {
@@ -140,30 +140,40 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
           });
         }
       }
-      
+
       // Get address from map center
       const center = mapInstance.getCenter();
       const address = `${center.lat()},${center.lng()}`;
-      
-      console.log('🚀 Sending to backend:', {
+
+      console.log('🚀 DIAGNOSTIC TEST - Sending to backend:', {
         address,
         hasPolygon: polygonCoordinates.length > 0,
         material: materialName
       });
-      
+
       const response = await base44.functions.invoke('GenerateRealisticRoof', {
         address: address,
         polygonCoordinates: polygonCoordinates.length > 0 ? polygonCoordinates : null,
         material: materialName
       });
-      
-      setGeneratedImage(response.data.imageUrl);
-      setShowResultModal(true);
-      toast.success('✨ Realistic view generated!');
-      
+
+      console.log('📊 Backend Response:', response.data);
+
+      // Check if it's diagnostic mode response
+      if (response.data.status === 'DIAGNOSTIC_COMPLETE') {
+        toast.success('✅ Diagnostic Complete! Check console for details.');
+        alert('DIAGNOSTIC RESULTS:\n\n' + JSON.stringify(response.data, null, 2));
+      } else if (response.data.imageUrl) {
+        setGeneratedImage(response.data.imageUrl);
+        setShowResultModal(true);
+        toast.success('✨ Realistic view generated!');
+      } else {
+        toast.error('Unexpected response from backend');
+      }
+
     } catch (error) {
-      console.error('Generation error:', error);
-      toast.error('Failed to generate view: ' + error.message);
+      console.error('❌ Generation error:', error);
+      toast.error('Backend Error: ' + (error.message || 'Unknown error'));
     } finally {
       setIsGenerating(false);
     }
