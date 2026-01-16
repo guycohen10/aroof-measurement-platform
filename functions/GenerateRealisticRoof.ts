@@ -41,31 +41,28 @@ Deno.serve(async (req) => {
     const GOOGLE_KEY = "AIzaSyA1beAjeMHo2UgNlUBEgGlfzojuJ0GD0L0";
     const REPLICATE_KEY = "r8_emR8qiw7RptiJEXpi9KKQMoh66EkAhI3ET1ZW";
 
-    // 1. Calculate Center (using raw coordinates for perfect alignment)
-    let centerLat = 0;
-    let centerLng = 0;
-    
-    if (polygonCoordinates && polygonCoordinates.length > 0) {
-      polygonCoordinates.forEach(p => {
-        centerLat += p.lat;
-        centerLng += p.lng;
-      });
-      centerLat = centerLat / polygonCoordinates.length;
-      centerLng = centerLng / polygonCoordinates.length;
-    }
+    // 1. Prepare Safe Coordinates (5 decimals is ~1 meter precision, plenty for AI)
+    const pathParts = polygonCoordinates.map(p => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`);
 
-    const centerParam = `${centerLat},${centerLng}`;
+    // 2. Calculate Center
+    let cLat = 0, cLng = 0;
+    polygonCoordinates.forEach(p => {
+      cLat += p.lat;
+      cLng += p.lng;
+    });
+    const center = `${(cLat/polygonCoordinates.length).toFixed(5)},${(cLng/polygonCoordinates.length).toFixed(5)}`;
 
-    // 2. Encode polygon using Google Polyline Encoding (keeps precision, reduces URL size)
-    const safeEncodedPath = encodeURIComponent(encodePolyline(polygonCoordinates));
+    // 3. Construct URL manually (Prevent Encoding Errors)
+    const key = GOOGLE_KEY;
+    // Note: We use %7C instead of | to be safe
+    const style = "color:0x00000000%7Cweight:0%7Cfillcolor:0xFFFFFFFF";
+    const pathStr = pathParts.join("%7C");
 
-    // 3. Generate URLs with encoded path
-    const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerParam}&zoom=20&size=640x640&maptype=satellite&style=feature:all|visibility:off&path=weight:0|fillcolor:0xFFFFFFFF|enc:${safeEncodedPath}&key=${GOOGLE_KEY}`;
-    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerParam}&zoom=20&size=640x640&maptype=satellite&key=${GOOGLE_KEY}`;
+    const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&style=feature:all%7Cvisibility:off&path=${style}%7C${pathStr}&key=${key}`;
+    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&key=${key}`;
 
-    // Debug logging
-    console.log("DEBUG MAP:", mapUrl);
-    console.log("DEBUG MASK:", maskUrl);
+    // 4. Log for Debugging (This will show in your Base44 logs)
+    console.log("GENERATED MASK:", maskUrl);
 
     // 4. Call Replicate (Wait for result)
     const replicateResp = await fetch("https://api.replicate.com/v1/predictions", {
@@ -85,7 +82,8 @@ Deno.serve(async (req) => {
           strength: 0.55,
           guidance_scale: 7.5,
           num_inference_steps: 50,
-          scheduler: "K_EULER_ANCESTRAL"
+          scheduler: "K_EULER_ANCESTRAL",
+          seed: 42
         }
       })
     });
