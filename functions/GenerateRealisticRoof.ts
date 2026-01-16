@@ -12,13 +12,12 @@ Deno.serve(async (req) => {
     // 1. Inputs
     let { address, polygonCoordinates, selectedMaterial, selectedColor } = await req.json();
 
-    // FALLBACK: If color is missing, force a default to prove it works
-    if (!selectedColor || selectedColor === "undefined") {
-      console.log("WARNING: Color was missing! Defaulting to Terracotta.");
-      selectedColor = "Terracotta"; 
-    }
+    // --- FORCE COLOR TEST ---
+    console.log("DEBUG: Frontend sent color:", selectedColor);
+    selectedColor = "Terracotta"; // <-- BYPASS FRONTEND
+    console.log("DEBUG: Forcing color to:", selectedColor);
+    // ------------------------
 
-    // --- KEYS (User Provided) ---
     const GOOGLE_KEY = "AIzaSyA1beAjeMHo2UgNlUBEgGlfzojuJ0GD0L0";
     const REPLICATE_KEY = "r8_emR8qiw7RptiJEXpi9KKQMoh66EkAhI3ET1ZW";
 
@@ -68,13 +67,13 @@ Deno.serve(async (req) => {
         input: {
           image: mapUrl,
           mask: maskUrl,
-          // LOCKED SEED & COLOR BOOST
-          prompt: `Aerial photography of a home, new roof installation, ${selectedColor || "clean"} ${selectedMaterial} texture, high quality, realistic, 8k, daylight`,
-          negative_prompt: "cartoon, drawing, painting, glitch, distorted, low quality, blurred, noise",
-          strength: 0.65, 
-          guidance_scale: 8.0, 
+          // BOOSTED PROMPT
+          prompt: `Aerial photograph of a home with a brand new (${selectedColor} color:1.5) ${selectedMaterial} roof installation, vivid color, highly detailed texture, sunny day, 8k resolution`,
+          negative_prompt: "cartoon, drawing, painting, glitch, distorted, low quality, blurred, dull, grey, old",
+          strength: 0.65,
+          guidance_scale: 9.0,
           num_inference_steps: 40,
-          seed: 3242 // <--- THE FIX for Randomness
+          seed: 3242 // Locked
         }
       })
     });
