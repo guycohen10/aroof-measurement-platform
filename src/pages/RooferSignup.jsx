@@ -53,68 +53,52 @@ export default function RooferSignup() {
   });
 
   const plans = {
-    free: {
-      name: "Free",
-      priceMonthly: 0,
-      priceAnnual: 0,
-      measurements: 3,
-      features: [
-        "3 measurements/month",
-        "Basic PDF reports",
-        "Satellite imagery",
-        "Area calculations",
-        "Email support"
-      ],
-      limitations: [
-        "No custom branding",
-        "Standard reports only"
-      ]
-    },
     starter: {
       name: "Starter",
-      priceMonthly: 49,
-      priceAnnual: 470,
-      measurements: 20,
+      priceMonthly: 19.95,
+      priceAnnual: 215,
+      measurements: 0,
       popular: false,
       features: [
-        "20 measurements/month",
-        "Standard PDF reports",
-        "All measurement tools",
-        "Line measurements",
-        "Email support",
-        "14-day free trial"
-      ]
+        "7-day free trial",
+        "Dashboard access",
+        "Profile listing in directory",
+        "Lead notifications",
+        "Buy leads separately",
+        "Email support"
+      ],
+      description: "Access platform + buy leads as you need them"
     },
     pro: {
       name: "Pro",
       priceMonthly: 99,
-      priceAnnual: 950,
-      measurements: 100,
+      priceAnnual: 1070,
+      measurements: 10,
       popular: true,
       features: [
-        "100 measurements/month",
+        "10 free leads/month",
         "Custom branded PDFs",
         "Priority support",
         "API access",
         "Advanced reports",
-        "Waste calculations",
-        "14-day free trial"
-      ]
+        "Additional leads: $5 each"
+      ],
+      description: "Includes 10 free leads/month + platform access"
     },
-    unlimited: {
-      name: "Unlimited",
-      priceMonthly: 199,
-      priceAnnual: 1910,
+    enterprise: {
+      name: "Enterprise",
+      priceMonthly: 299,
+      priceAnnual: 3230,
       measurements: "Unlimited",
       features: [
-        "Unlimited measurements",
+        "Unlimited leads",
         "White label PDFs",
         "Dedicated support",
         "Full API access",
         "Custom integrations",
-        "Priority processing",
-        "14-day free trial"
-      ]
+        "Priority processing"
+      ],
+      description: "Unlimited leads + premium features"
     }
   };
 
@@ -251,7 +235,7 @@ export default function RooferSignup() {
       try {
         console.log('🏢 Creating company entity...');
         
-        // Step 1: Create Company entity
+        // Step 1: Create Company entity with Starter plan (7-day trial)
         const newCompany = await base44.entities.Company.create({
           company_name: formData.companyName,
           contact_name: formData.fullName,
@@ -263,9 +247,9 @@ export default function RooferSignup() {
           address_zip: formData.zip || '',
           service_area_zips: [],
           is_active: true,
-          subscription_tier: 'basic',
+          subscription_tier: 'starter',
           subscription_status: 'trial',
-          trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+          trial_end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
         });
         
         console.log('✅ Company created:', newCompany.id);
@@ -381,9 +365,9 @@ export default function RooferSignup() {
             <Button 
               size="lg" 
               className="h-16 px-10 text-xl bg-green-600 hover:bg-green-700 shadow-2xl"
-              onClick={() => handleSelectPlan('free')}
+              onClick={() => handleSelectPlan('starter')}
             >
-              Start Free - No Credit Card Required
+              Start 7-Day Free Trial - Only $19.95/mo After
             </Button>
             <Button 
               size="lg" 
@@ -537,8 +521,13 @@ export default function RooferSignup() {
                       ${plan.priceAnnual}/year (save ${(plan.priceMonthly * 12) - plan.priceAnnual})
                     </p>
                   )}
+                  <p className="text-sm text-slate-600 italic mb-2">
+                    {plan.description}
+                  </p>
                   <p className="text-lg font-semibold text-blue-600 mt-2">
-                    {plan.measurements === "Unlimited" ? "Unlimited" : `${plan.measurements} measurements`}/month
+                    {plan.measurements === "Unlimited" ? "Unlimited leads" : 
+                     plan.measurements === 0 ? "Pay per lead" : 
+                     `${plan.measurements} free leads/month`}
                   </p>
                 </CardHeader>
 
@@ -560,7 +549,7 @@ export default function RooferSignup() {
                     }`}
                     onClick={() => handleSelectPlan(key)}
                   >
-                    {key === 'free' ? 'Start Free' : 'Start 14-Day Trial'}
+                    {key === 'starter' ? 'Start 7-Day Free Trial' : `Start Trial - $${plan.priceMonthly}/mo`}
                   </Button>
                 </CardContent>
               </Card>
@@ -568,7 +557,7 @@ export default function RooferSignup() {
           </div>
 
           <p className="text-center text-slate-600 mt-8">
-            All paid plans include a 14-day free trial. No credit card required for Free plan.
+            Starter plan includes a 7-day free trial. Credit card required but not charged during trial.
           </p>
         </div>
       </section>
@@ -588,9 +577,9 @@ export default function RooferSignup() {
                     Selected Plan: <strong>{plans[selectedPlan]?.name}</strong> - 
                     ${getPrice(plans[selectedPlan])}/month
                   </p>
-                  {selectedPlan !== 'free' && (
+                  {selectedPlan === 'starter' && (
                     <Badge className="mt-2 bg-green-100 text-green-800">
-                      14-Day Free Trial Included
+                      7-Day Free Trial Included
                     </Badge>
                   )}
                 </div>
@@ -758,13 +747,13 @@ export default function RooferSignup() {
                    onClick={handleSignup}
                    disabled={loading}
                  >
-                   {loading ? 'Creating Account...' : (selectedPlan === 'free' ? 'Create Free Account' : 'Start 14-Day Free Trial')}
+                   {loading ? 'Creating Account...' : (selectedPlan === 'starter' ? 'Start 7-Day Free Trial' : `Start Trial - $${plans[selectedPlan]?.priceMonthly}/mo`)}
                  </Button>
 
                  <p className="text-center text-sm text-slate-600">
-                   {selectedPlan === 'free' 
-                     ? 'No credit card required for Free plan'
-                     : 'You won\'t be charged until after your 14-day trial ends'
+                   {selectedPlan === 'starter' 
+                     ? 'You won\'t be charged until after your 7-day trial ends'
+                     : 'Credit card required. First charge after trial period.'
                    }
                  </p>
                 </CardContent>
@@ -900,9 +889,9 @@ export default function RooferSignup() {
           <Button
             size="lg"
             className="h-16 px-12 text-xl bg-white text-blue-600 hover:bg-blue-50"
-            onClick={() => handleSelectPlan('free')}
+            onClick={() => handleSelectPlan('starter')}
           >
-            Start Free Today - No Credit Card Required
+            Start 7-Day Free Trial - Only $19.95/mo
           </Button>
         </div>
       </section>

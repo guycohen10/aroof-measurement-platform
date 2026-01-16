@@ -39,62 +39,53 @@ export default function RooferPlans() {
 
   const plans = [
     {
-      id: 'free',
-      name: 'Free',
-      price: 0,
-      measurements: 3,
-      features: [
-        '3 measurements per month',
-        'Basic PDF reports',
-        'Satellite imagery',
-        'Area calculations',
-        'Email support'
-      ]
-    },
-    {
       id: 'starter',
       name: 'Starter',
-      price: 49,
-      measurements: 20,
+      price: 19.95,
+      measurements: 0,
       stripePriceId: 'STRIPE_PRICE_STARTER',
       features: [
-        '20 measurements per month',
-        'Standard PDF reports',
-        'All measurement tools',
-        'Line measurements',
-        'Priority email support'
-      ]
+        '7-day free trial',
+        'Dashboard access',
+        'Profile listing in directory',
+        'Lead notifications',
+        'Buy leads separately (pay per lead)',
+        'Email support'
+      ],
+      description: 'Access platform + buy leads as you need them'
     },
     {
       id: 'pro',
       name: 'Pro',
       price: 99,
-      measurements: 100,
+      measurements: 10,
       popular: true,
       stripePriceId: 'STRIPE_PRICE_PRO',
       features: [
-        '100 measurements per month',
+        '10 free leads per month',
         'Custom branded PDFs',
-        'Your company logo',
-        'Custom colors',
         'Priority support',
-        'API access'
-      ]
+        'API access',
+        'Advanced reports',
+        'Additional leads: $5 each'
+      ],
+      description: 'Includes 10 free leads/month + platform access'
     },
     {
-      id: 'unlimited',
-      name: 'Unlimited',
-      price: 199,
+      id: 'enterprise',
+      name: 'Enterprise',
+      price: 299,
       measurements: 'Unlimited',
-      stripePriceId: 'STRIPE_PRICE_UNLIMITED',
+      stripePriceId: 'STRIPE_PRICE_ENTERPRISE',
       features: [
-        'Unlimited measurements',
+        'Unlimited leads',
         'White label PDFs',
-        'Full branding control',
         'Dedicated support',
         'Full API access',
-        'Custom integrations'
-      ]
+        'Custom integrations',
+        'Priority processing'
+      ],
+      description: 'Unlimited leads + premium features'
     }
   ];
 
@@ -278,8 +269,13 @@ export default function RooferPlans() {
                     </span>
                     <span className="text-slate-600">/month</span>
                   </div>
+                  <p className="text-sm text-slate-600 italic mb-2">
+                    {plan.description}
+                  </p>
                   <p className="text-lg font-semibold text-blue-600">
-                    {plan.measurements === 'Unlimited' ? 'Unlimited' : plan.measurements} measurements/month
+                    {plan.measurements === 'Unlimited' ? 'Unlimited leads' : 
+                     plan.measurements === 0 ? 'Pay per lead' : 
+                     `${plan.measurements} free leads/month`}
                   </p>
                 </CardHeader>
 
