@@ -76,9 +76,10 @@ Deno.serve(async (req) => {
         input: {
           image: mapUrl,
           mask: maskUrl,
-          prompt: `Satellite view of a residential home, replacing the roof with ${selectedMaterial}, photorealistic, 4k, maintaining building edges`,
-          negative_prompt: "cartoon, blurry, low quality",
-          strength: 0.75
+          prompt: `Aerial top-down view of a roof with ${selectedMaterial} texture, 8k resolution, highly detailed, sharp focus, maintaining original house structure`,
+          negative_prompt: "blur, distortion, new buildings, changing house shape, cartoon, low quality",
+          strength: 0.55,
+          guidance_scale: 15
         }
       })
     });
