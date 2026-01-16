@@ -75,6 +75,11 @@ import RooferBrowseLeads from './pages/RooferBrowseLeads';
 import LeaveReview from './pages/LeaveReview';
 import UpgradeProfile from './pages/UpgradeProfile';
 import CompanyProfilePublic from './pages/CompanyProfilePublic';
+import StartFunnel from './pages/StartFunnel';
+import Visualizing from './pages/Visualizing';
+import RoofPreview from './pages/RoofPreview';
+import MeasurementChoice from './pages/MeasurementChoice';
+import GetEstimate from './pages/GetEstimate';
 import __Layout from './Layout.jsx';
 
 
@@ -156,6 +161,11 @@ export const PAGES = {
     "LeaveReview": LeaveReview,
     "UpgradeProfile": UpgradeProfile,
     "CompanyProfilePublic": CompanyProfilePublic,
+    "StartFunnel": StartFunnel,
+    "Visualizing": Visualizing,
+    "RoofPreview": RoofPreview,
+    "MeasurementChoice": MeasurementChoice,
+    "GetEstimate": GetEstimate,
 }
 
 export const pagesConfig = {
