@@ -12,6 +12,7 @@ Deno.serve(async (req) => {
     // 1. Inputs
     let { address, polygonCoordinates, selectedMaterial, selectedColor } = await req.json();
 
+    // Safety Default
     if (!selectedColor || selectedColor === "undefined") {
       selectedColor = "Weathered Wood";
     }
@@ -20,19 +21,16 @@ Deno.serve(async (req) => {
     const GOOGLE_KEY = "AIzaSyA1beAjeMHo2UgNlUBEgGlfzojuJ0GD0L0";
     const REPLICATE_KEY = "r8_emR8qiw7RptiJEXpi9KKQMoh66EkAhI3ET1ZW";
 
-    // --- NEW CENTERING LOGIC (Bounding Box) ---
-    // Find the extreme edges of the drawing
+    // --- BOUNDING BOX CENTERING (Kept from last success) ---
     const lats = polygonCoordinates.map(p => p.lat);
     const lngs = polygonCoordinates.map(p => p.lng);
     const minLat = Math.min(...lats);
     const maxLat = Math.max(...lats);
     const minLng = Math.min(...lngs);
     const maxLng = Math.max(...lngs);
-    // Center is exactly in the middle of the box
     const centerLat = ((minLat + maxLat) / 2).toFixed(6);
     const centerLng = ((minLng + maxLng) / 2).toFixed(6);
     const center = `${centerLat},${centerLng}`;
-    console.log("DEBUG: Re-centered map to:", center);
 
     // --- HELPER: Polyline Encoding ---
     const encodePolyline = (points) => {
@@ -75,9 +73,11 @@ Deno.serve(async (req) => {
         input: {
           image: mapUrl,
           mask: maskUrl,
-          prompt: `Aerial photography of a home with a brand new (${selectedColor} colored roof:1.5), ${selectedMaterial} texture, high quality, realistic, 8k, daylight`,
-          negative_prompt: "cartoon, drawing, painting, glitch, distorted, low quality, blurred, dull, grey, old",
-          strength: 0.75,
+          // STRICT TEXTURE PROMPT
+          prompt: `Close up detailed texture of a ${selectedMaterial} roof, ${selectedColor} color, construction material, aerial view, 8k, highly detailed`,
+          // NO POOLS ALLOWED
+          negative_prompt: "pool, water, swimming pool, lake, blue water, yard, grass, trees, windows, walls, cartoon, drawing, painting, glitch, distorted, low quality, blurred",
+          strength: 0.70, // Reduced to keep structure
           guidance_scale: 9.0,
           num_inference_steps: 40,
           seed: 3242
