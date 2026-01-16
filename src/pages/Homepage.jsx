@@ -288,10 +288,10 @@ export default function Homepage() {
                   if (user && user.aroof_role === 'external_roofer') {
                     navigate(createPageUrl("RooferDashboard"));
                   } else {
-                    navigate(createPageUrl("StartFunnel"));
+                    navigate(createPageUrl("Start"));
                   }
                 } catch {
-                  navigate(createPageUrl("StartFunnel"));
+                  navigate(createPageUrl("Start"));
                 }
               }}
             >
@@ -573,10 +573,10 @@ export default function Homepage() {
                     if (user && user.aroof_role === 'external_roofer') {
                       navigate(createPageUrl("RooferDashboard"));
                     } else {
-                       navigate(createPageUrl("AddressMethodSelector"));
+                       navigate(createPageUrl("Start"));
                      }
                     } catch {
-                     navigate(createPageUrl("AddressMethodSelector"));
+                     navigate(createPageUrl("Start"));
                     }
                 }}
               >
@@ -600,7 +600,7 @@ export default function Homepage() {
             <div>
               <h4 className="font-bold mb-4 text-lg">For Homeowners</h4>
               <div className="space-y-2 text-sm text-slate-400">
-                <Link to={createPageUrl("StartFunnel")} className="block hover:text-white">Measure Your Roof</Link>
+                <Link to={createPageUrl("Start")} className="block hover:text-white">Measure Your Roof</Link>
                 <Link to={createPageUrl("RooferDirectory")} className="block hover:text-white">Find Roofers</Link>
                 <Link to={createPageUrl("RoofingTypesIndex")} className="block hover:text-white">Roofing Materials</Link>
                 <Link to={createPageUrl("BlogHome")} className="block hover:text-white">Blog & Guides</Link>
