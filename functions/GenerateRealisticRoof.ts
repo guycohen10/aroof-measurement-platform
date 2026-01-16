@@ -11,13 +11,21 @@ Deno.serve(async (req) => {
 
     const { address, polygonCoordinates, material } = await req.json();
     
-    const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+    console.log('🔵 REQUEST:', { address, hasPolygon: !!polygonCoordinates, material });
+    
+    // 1. Get API Keys from Environment
+    const GOOGLE_MAPS_API_KEY = Deno.env.get('GOOGLE_MAPS_API_KEY') || 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+    const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
+    
+    if (!REPLICATE_API_KEY) {
+      throw new Error('REPLICATE_API_KEY not configured in environment');
+    }
     
     let centerLat, centerLng, finalPolygonCoords;
     
-    // Step A: Auto-Box Safety Net for Quick Estimates
+    // 2. Auto-Box Safety Net for Quick Estimates
     if (!polygonCoordinates || polygonCoordinates.length === 0) {
-      console.log('🟡 No polygon provided - generating 40x40 ft default square');
+      console.log('🟡 No polygon - generating 40x40 ft default square');
       
       // Geocode address to get center
       const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
@@ -25,14 +33,14 @@ Deno.serve(async (req) => {
       const geocodeData = await geocodeResponse.json();
       
       if (!geocodeData.results || geocodeData.results.length === 0) {
-        throw new Error('Could not geocode address');
+        throw new Error('Could not geocode address: ' + geocodeData.status);
       }
       
       centerLat = geocodeData.results[0].geometry.location.lat;
       centerLng = geocodeData.results[0].geometry.location.lng;
       
-      // Create 40x40 ft square (approx 0.00011 degrees per foot at mid-latitudes)
-      const offset = 0.0044; // 40 feet in degrees
+      // Create 40x40 ft square (approx 0.00011 degrees per foot)
+      const offset = 0.0044;
       finalPolygonCoords = [
         { lat: centerLat + offset, lng: centerLng - offset },
         { lat: centerLat + offset, lng: centerLng + offset },
@@ -40,12 +48,11 @@ Deno.serve(async (req) => {
         { lat: centerLat - offset, lng: centerLng - offset }
       ];
       
-      console.log('✅ Generated default square at:', centerLat, centerLng);
+      console.log('✅ Default square at:', centerLat, centerLng);
     } else {
-      // Use provided polygon coordinates
+      // Use provided polygon
       finalPolygonCoords = polygonCoordinates;
       
-      // Calculate center from polygon
       centerLat = 0;
       centerLng = 0;
       finalPolygonCoords.forEach(coord => {
@@ -55,24 +62,24 @@ Deno.serve(async (req) => {
       centerLat /= finalPolygonCoords.length;
       centerLng /= finalPolygonCoords.length;
       
-      console.log('✅ Using provided polygon with', finalPolygonCoords.length, 'points');
+      console.log('✅ Using polygon with', finalPolygonCoords.length, 'points');
     }
     
-    // Step B: Generate Source Image URL (Satellite View)
-    const sourceImageUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=20&size=800x600&scale=2&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}`;
-    
-    // Step C: Generate Mask Image URL (White Polygon on Black Background)
+    // 3. Format Polygon Path (lat,lng|lat,lng|...) and close the loop
     const pathCoords = finalPolygonCoords.map(c => `${c.lat},${c.lng}`).join('|');
-    const maskImageUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=20&size=800x600&scale=2&style=feature:all|element:all|visibility:off&style=feature:all|element:geometry.fill|color:0x000000&path=fillcolor:0xFFFFFF|color:0x000000|${pathCoords}&key=${GOOGLE_MAPS_API_KEY}`;
+    const closedPath = pathCoords + `|${finalPolygonCoords[0].lat},${finalPolygonCoords[0].lng}`;
+    
+    // 4. Generate Google Static Maps URLs
+    const sourceImageUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=20&size=640x640&scale=2&maptype=satellite&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const maskImageUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=20&size=640x640&scale=2&maptype=satellite&style=feature:all|element:all|visibility:off&path=color:0x00000000|weight:0|fillcolor:0xFFFFFFFF|${closedPath}&key=${GOOGLE_MAPS_API_KEY}`;
     
     console.log('📸 Source URL:', sourceImageUrl);
     console.log('🎭 Mask URL:', maskImageUrl);
     
-    // Call Replicate API with Google URLs directly
-    const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
-    
-    const prompt = `A photorealistic residential house with a ${material} roof, 8k resolution, highly detailed textures, realistic lighting and shadows, professional architecture photography`;
-    const negativePrompt = 'cartoon, blurry, drawing, bad quality, low resolution, distorted, unrealistic';
+    // 5. Call Replicate API
+    const prompt = `A photorealistic residential house with a ${material} roof, 8k resolution, highly detailed textures, realistic lighting shadows, professional architecture photography`;
+    const negativePrompt = 'cartoon, blurry, drawing, bad quality, low resolution, distorted, unrealistic, text, watermark';
     
     const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
@@ -81,22 +88,28 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        version: '7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc',
+        version: 'c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316',
         input: {
           image: sourceImageUrl,
           mask: maskImageUrl,
           prompt: prompt,
           negative_prompt: negativePrompt,
+          strength: 0.9,
           num_inference_steps: 50,
           guidance_scale: 7.5
         }
       })
     });
     
+    if (!replicateResponse.ok) {
+      const errorData = await replicateResponse.json();
+      throw new Error('Replicate API error: ' + JSON.stringify(errorData));
+    }
+    
     const prediction = await replicateResponse.json();
     console.log('🔮 Replicate prediction started:', prediction.id);
     
-    // Poll for result
+    // 6. Poll for Result (max 2 minutes)
     let resultUrl = null;
     let attempts = 0;
     
@@ -110,9 +123,10 @@ Deno.serve(async (req) => {
       });
       
       const status = await statusResponse.json();
+      console.log(`📊 Status (${attempts + 1}/60):`, status.status);
       
       if (status.status === 'succeeded') {
-        resultUrl = status.output[0];
+        resultUrl = status.output && status.output.length > 0 ? status.output[0] : status.output;
         console.log('✅ Generation complete:', resultUrl);
         break;
       } else if (status.status === 'failed') {
@@ -132,9 +146,10 @@ Deno.serve(async (req) => {
     });
     
   } catch (error) {
-    console.error('❌ Generation error:', error);
+    console.error('❌ BACKEND ERROR:', error);
     return Response.json({ 
-      error: error.message 
+      error: error.message,
+      details: error.stack
     }, { status: 500 });
   }
 });
