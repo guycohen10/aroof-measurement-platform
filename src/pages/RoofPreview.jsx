@@ -4,8 +4,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Radio } from "@/components/ui/radio-group";
-import { ArrowRight, Home } from "lucide-react";
+import { ArrowRight, Home, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export default function RoofPreview() {
@@ -88,19 +87,18 @@ export default function RoofPreview() {
                   alt={viz.style}
                   className="w-full h-full object-cover"
                 />
+                {selectedStyle === viz.color && (
+                  <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+                    <CheckCircle className="w-16 h-16 text-white drop-shadow-lg" />
+                  </div>
+                )}
               </div>
 
               {/* Content */}
               <div className="p-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <Radio
-                    checked={selectedStyle === viz.color}
-                    onCheckedChange={() => setSelectedStyle(viz.color)}
-                  />
-                  <h3 className="font-bold text-lg text-slate-900">
-                    {viz.style}
-                  </h3>
-                </div>
+                <h3 className="font-bold text-lg text-slate-900">
+                  {viz.style}
+                </h3>
               </div>
             </Card>
           ))}
