@@ -11,8 +11,10 @@ export default function MeasurementChoice() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const addressJSON = sessionStorage.getItem("funnelAddress");
-    if (!addressJSON) {
+    const selectedAddress = sessionStorage.getItem("selectedAddress");
+    const addressJSON = sessionStorage.getItem("addressData");
+    
+    if (!selectedAddress || !addressJSON) {
       navigate(createPageUrl("Start"));
       return;
     }
@@ -35,10 +37,12 @@ export default function MeasurementChoice() {
         user_type: "homeowner",
         measurement_type: "quick_estimate",
         estimation_method: "building_sqft_multiplier",
+        lead_status: "new",
       });
 
       // Store measurement ID
       sessionStorage.setItem("measurementId", measurement.id);
+      sessionStorage.setItem("measurementMethod", "quick");
 
       // Proceed to contact capture
       navigate(createPageUrl("GetEstimate"));
@@ -60,10 +64,12 @@ export default function MeasurementChoice() {
         user_type: "homeowner",
         measurement_type: "detailed_polygon",
         estimation_method: "manual_polygon",
+        lead_status: "new",
       });
 
       // Store measurement ID
       sessionStorage.setItem("measurementId", measurement.id);
+      sessionStorage.setItem("measurementMethod", "detailed");
 
       // Navigate to detailed measurement tool with address pre-loaded
       navigate(createPageUrl("MeasurementPage") + `?id=${measurement.id}`);

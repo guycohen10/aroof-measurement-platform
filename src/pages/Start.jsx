@@ -51,11 +51,12 @@ export default function Start() {
       return;
     }
 
-    // Store address in sessionStorage for persistence
-    sessionStorage.setItem("funnelAddress", JSON.stringify(addressData));
+    // Store address in sessionStorage for persistence (STANDARD KEY)
+    sessionStorage.setItem("selectedAddress", addressData.formatted_address);
+    sessionStorage.setItem("addressData", JSON.stringify(addressData));
 
-    // Navigate to visualization page
-    navigate(createPageUrl("Visualizing"));
+    // Navigate to measurement choice (skip visualization for now)
+    navigate(createPageUrl("MeasurementChoice"));
   };
 
   return (

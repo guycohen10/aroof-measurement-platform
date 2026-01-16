@@ -22,10 +22,11 @@ export default function GetEstimate() {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    const addressJSON = sessionStorage.getItem("funnelAddress");
+    const selectedAddress = sessionStorage.getItem("selectedAddress");
+    const addressJSON = sessionStorage.getItem("addressData");
     const measId = sessionStorage.getItem("measurementId");
 
-    if (!addressJSON || !measId) {
+    if (!selectedAddress || !addressJSON || !measId) {
       navigate(createPageUrl("Start"));
       return;
     }
@@ -97,8 +98,13 @@ export default function GetEstimate() {
         }
       }
 
-      // Redirect to results
-      navigate(createPageUrl("Results") + `?id=${measurementId}`);
+      // Clear funnel session data and redirect to results
+      sessionStorage.removeItem("selectedAddress");
+      sessionStorage.removeItem("addressData");
+      sessionStorage.removeItem("measurementId");
+
+      // Redirect to results page
+      window.location.href = `/results?id=${measurementId}`;
     } catch (err) {
       console.error("Error updating measurement:", err);
       toast.error("An error occurred. Please try again.");
