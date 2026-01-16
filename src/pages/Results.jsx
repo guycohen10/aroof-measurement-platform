@@ -1349,6 +1349,17 @@ export default function Results() {
               </div>
             </Card>
 
+            {isHomeowner && (
+              <Button
+                size="lg"
+                className="w-full h-14 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-base"
+                onClick={() => navigate(createPageUrl(`LeaveReview?measurementid=${measurement.id}`))}
+              >
+                <Star className="w-5 h-5 mr-2" />
+                Leave a Review
+              </Button>
+            )}
+
             <Card className="shadow-lg border-l-4 border-l-yellow-400">
               <CardContent className="p-6">
                 <div className="flex gap-1 mb-3">
