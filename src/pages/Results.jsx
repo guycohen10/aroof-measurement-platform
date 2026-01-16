@@ -28,6 +28,7 @@ export default function Results() {
   const [isRoofer, setIsRoofer] = useState(false);
   const [userType, setUserType] = useState(null);
   const [mapScriptLoaded, setMapScriptLoaded] = useState(false);
+  const [selectedVisualization, setSelectedVisualization] = useState(null);
   const scriptLoadedRef = useRef(false);
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
   const [sendingToTop5, setSendingToTop5] = useState(false);
@@ -146,6 +147,18 @@ export default function Results() {
       warranty: '30-40 years'
     }
   ];
+
+  // Load visualization from funnel
+  useEffect(() => {
+    const vizJson = sessionStorage.getItem('funnel_selected_visualization');
+    if (vizJson) {
+      try {
+        setSelectedVisualization(JSON.parse(vizJson));
+      } catch (err) {
+        console.error('Failed to parse visualization:', err);
+      }
+    }
+  }, []);
 
   // Load Google Maps script once for entire Results page
   useEffect(() => {
@@ -687,6 +700,29 @@ export default function Results() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
+            {selectedVisualization && (
+              <Card className="shadow-xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-white">
+                <CardHeader className="bg-gradient-to-r from-purple-100 to-white">
+                  <CardTitle className="flex items-center gap-2 text-2xl">
+                    <Home className="w-6 h-6 text-purple-600" />
+                    🏠 Your AI Visualization: {selectedVisualization.style}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <p className="text-slate-600 mb-4">
+                    This is how your home would look with your selected roof style.
+                  </p>
+                  <div className="border-2 border-slate-200 rounded-xl overflow-hidden shadow-lg">
+                    <img 
+                      src={selectedVisualization.url}
+                      alt={selectedVisualization.style}
+                      className="w-full h-auto"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {capturedImages.length > 0 && (
               <Card className="shadow-xl border-2 border-green-200">
                 <CardHeader className="bg-gradient-to-r from-green-50 to-white">
