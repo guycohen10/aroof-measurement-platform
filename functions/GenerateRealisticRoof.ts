@@ -38,9 +38,9 @@ Deno.serve(async (req) => {
         input: {
           image: mapUrl,
           mask: maskUrl,
-          prompt: `A photorealistic residential house with a ${selectedMaterial} roof, 8k resolution, highly detailed textures`,
+          prompt: `A residential house with a ${selectedMaterial} roof, maintaining original building structure and shadows, photorealistic, 4k`,
           negative_prompt: "cartoon, blurry, low quality",
-          strength: 0.95
+          strength: 0.65
         }
       })
     });
