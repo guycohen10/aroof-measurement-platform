@@ -112,67 +112,36 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
       const address = `${center.lat()},${center.lng()}`;
 
       console.log('🚀 Starting AI generation...');
+      toast.success('🎨 AI is generating your roof (10-15 seconds)...');
 
-      // Step 1: Start the prediction (backend returns immediately)
+      // Call backend (waits for completion - no polling needed)
       const response = await base44.functions.invoke('GenerateRealisticRoof', {
         address: address,
         polygonCoordinates: polygonCoordinates.length > 0 ? polygonCoordinates : null,
-        material: materialName
+        selectedMaterial: materialName
       });
 
-      const prediction = response.data;
-      console.log('📋 Prediction started:', prediction.id);
+      const result = response.data;
+      console.log('📋 Result:', result);
 
-      if (!prediction.urls || !prediction.urls.get) {
-        throw new Error('Invalid prediction response');
+      // Check for the image in output[0]
+      if (result.output && result.output[0]) {
+        const imageUrl = result.output[0];
+        console.log('✅ Generation complete!');
+        setGeneratedImage(imageUrl);
+        setShowResultModal(true);
+        toast.success('✨ Realistic view generated!');
+      } else if (result.status === 'failed') {
+        console.error('❌ Generation failed:', result.error);
+        toast.error('AI generation failed: ' + (result.error || 'Unknown error'));
+      } else {
+        throw new Error('No image in response');
       }
-
-      toast.success('🎨 AI is generating your roof...');
-
-      // Step 2: Poll for results
-      const pollUrl = prediction.urls.get;
-      let attempts = 0;
-      const maxAttempts = 60; // 2 minutes
-
-      const pollInterval = setInterval(async () => {
-        attempts++;
-
-        try {
-          const statusRes = await fetch(pollUrl, {
-            headers: {
-              'Authorization': `Token r8_emR8qiw7RptiJEXpi9KKQMoh66EkAhI3ET1ZW`
-            }
-          });
-          const status = await statusRes.json();
-
-          console.log(`⏳ Poll ${attempts}: ${status.status}`);
-
-          if (status.status === 'succeeded') {
-            clearInterval(pollInterval);
-            const resultUrl = status.output?.[0] || status.output;
-            console.log('✅ Generation complete!');
-            setGeneratedImage(resultUrl);
-            setShowResultModal(true);
-            setIsGenerating(false);
-            toast.success('✨ Realistic view generated!');
-          } else if (status.status === 'failed') {
-            clearInterval(pollInterval);
-            console.error('❌ Generation failed:', status.error);
-            setIsGenerating(false);
-            toast.error('AI generation failed');
-          } else if (attempts >= maxAttempts) {
-            clearInterval(pollInterval);
-            setIsGenerating(false);
-            toast.error('Generation timeout');
-          }
-        } catch (pollError) {
-          console.error('Poll error:', pollError);
-        }
-      }, 2000); // Poll every 2 seconds
 
     } catch (error) {
       console.error('❌ Generation error:', error);
-      toast.error('Failed to start generation: ' + error.message);
+      toast.error('Failed to generate: ' + error.message);
+    } finally {
       setIsGenerating(false);
     }
   };
