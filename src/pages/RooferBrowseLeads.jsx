@@ -110,23 +110,15 @@ export default function RooferBrowseLeads() {
         leads_purchased_this_month: (company.leads_purchased_this_month || 0) + 1
       });
 
-      // Send notification email
+      // Send confirmation emails to both roofer and homeowner
       try {
-        await base44.integrations.Core.SendEmail({
-          to: user.email,
-          subject: `New Lead Purchased - ${lead.property_address}`,
-          body: `
-            Congratulations! You've purchased a new lead.
-            
-            Customer: ${lead.customer_name}
-            Email: ${lead.customer_email}
-            Phone: ${lead.customer_phone || 'Not provided'}
-            Address: ${lead.property_address}
-            Roof Area: ${lead.total_sqft ? Math.round(lead.total_sqft) : 'N/A'} sq ft
-            
-            Login to your dashboard to view full details and contact the customer.
-          `
+        await base44.functions.invoke('SendLeadPurchaseConfirmations', {
+          measurementId: lead.id,
+          companyId: company.id,
+          rooferEmail: user.email
         });
+        
+        console.log('✅ Purchase confirmation emails sent');
       } catch (emailErr) {
         console.error('Email send error:', emailErr);
       }
