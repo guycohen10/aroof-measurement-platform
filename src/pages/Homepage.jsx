@@ -300,16 +300,20 @@ export default function Homepage() {
 
             <div className="flex flex-wrap items-center justify-center gap-8 mt-12 text-blue-200">
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5" />
-                <span className="text-sm">All Roofers Verified</span>
+                <Home className="w-5 h-5" />
+                <span className="text-sm">5,000+ Roofs Measured</span>
               </div>
               <div className="flex items-center gap-2">
                 <FileCheck className="w-5 h-5" />
-                <span className="text-sm">5,000+ Measurements</span>
+                <span className="text-sm">50+ Verified Roofers</span>
               </div>
               <div className="flex items-center gap-2">
                 <Star className="w-5 h-5" />
-                <span className="text-sm">4.9★ Average Rating</span>
+                <span className="text-sm">4.9★ Rating</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5" />
+                <span className="text-sm">$2M+ Projects</span>
               </div>
             </div>
           </div>
