@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { X, Palette, CheckCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { X, Palette, Sparkles, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { base44 } from "@/api/base44Client";
 
 export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray, isMeasurementComplete, totalSqft, onClose, onSaveDesign }) {
   const [selectedMaterial, setSelectedMaterial] = useState('asphalt');
   const [selectedColor, setSelectedColor] = useState('#3b3b3b');
   const [opacity, setOpacity] = useState(0.7);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState(null);
+  const [showResultModal, setShowResultModal] = useState(false);
   
   // Safety Check: Ensure we have valid measurement data
   const hasValidMeasurement = isMeasurementComplete || totalSqft || (roofPolygon && roofPolygon.setOptions) || (polygonsArray && polygonsArray.length > 0);
@@ -103,208 +108,108 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
     }
   }, []);
   
-  // Apply visualization whenever color or opacity changes
-  useEffect(() => {
-    // 1. Target Standard Polygons (manually drawn)
-    if (polygonsArray && polygonsArray.length > 0) {
-      polygonsArray.forEach(polygon => {
-        if (polygon && polygon.setOptions) {
-          polygon.setOptions({
-            fillColor: selectedColor,
-            fillOpacity: opacity,
-            strokeColor: selectedColor,
-            strokeOpacity: 1.0,
-            strokeWeight: 2
-          });
-        }
-      });
-    }
+  // Generate canvas images for AI
+  const generateCanvasImages = async () => {
+    const mapDiv = mapInstance.getDiv();
+    const mapRect = mapDiv.getBoundingClientRect();
     
-    if (roofPolygon && roofPolygon.setOptions) {
-      roofPolygon.setOptions({
-        fillColor: selectedColor,
-        fillOpacity: opacity,
-        strokeColor: selectedColor,
-        strokeOpacity: 1.0,
-        strokeWeight: 2
-      });
-    }
+    // Create source canvas (satellite view)
+    const sourceCanvas = document.createElement('canvas');
+    sourceCanvas.width = 800;
+    sourceCanvas.height = 600;
+    const sourceCtx = sourceCanvas.getContext('2d');
     
-    // 2. Target Solar API Data Layers (Quick Estimate) - Force Override
-    if (mapInstance && mapInstance.data) {
-      mapInstance.data.forEach((feature) => {
-        mapInstance.data.overrideStyle(feature, {
-          fillColor: selectedColor,
-          strokeColor: selectedColor,
-          fillOpacity: opacity,
-          strokeWeight: 2
-        });
-      });
-    }
-  }, [selectedColor, opacity, roofPolygon, polygonsArray, mapInstance]);
-  
-  // Cleanup on unmount - ONLY reset if no design is saved
-  useEffect(() => {
-    return () => {
-      // Check if design was saved
-      const savedDesignCheck = sessionStorage.getItem('roof_design_preferences');
-      
-      if (savedDesignCheck) {
-        console.log('⚠️ Design saved - preserving polygon styles on unmount');
-        return; // DO NOT reset - keep the design
-      }
-      
-      // Only reset if no design saved (user closed without saving)
-      console.log('🔄 No saved design - resetting to green');
-      
-      // Reset Standard Polygons
-      if (polygonsArray && polygonsArray.length > 0) {
-        polygonsArray.forEach(polygon => {
-          if (polygon && polygon.setOptions) {
-            polygon.setOptions({
-              fillColor: '#22c55e',
-              fillOpacity: 0.35,
-              strokeColor: '#22c55e',
-              strokeOpacity: 1.0,
-              strokeWeight: 3
-            });
-          }
-        });
-      }
-      
-      if (roofPolygon && roofPolygon.setOptions) {
-        roofPolygon.setOptions({
-          fillColor: '#10B981',
-          fillOpacity: 0.15,
-          strokeColor: '#10B981',
-          strokeOpacity: 1.0,
-          strokeWeight: 3
-        });
-      }
-      
-      // Reset Solar Data Layer - Revert Override
-      if (mapInstance && mapInstance.data) {
-        mapInstance.data.forEach((feature) => {
-          mapInstance.data.revertStyle(feature);
-        });
-      }
-    };
-  }, []);
-  
-  const handleClose = () => {
-    // Check if design was saved
-    const savedDesignCheck = sessionStorage.getItem('roof_design_preferences');
+    // Create mask canvas (white polygon on black)
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = 800;
+    maskCanvas.height = 600;
+    const maskCtx = maskCanvas.getContext('2d');
+    maskCtx.fillStyle = '#000000';
+    maskCtx.fillRect(0, 0, 800, 600);
     
-    if (savedDesignCheck) {
-      console.log('✅ Design saved - keeping overlay on map');
-      onClose(); // Just close modal, keep the design
-      return;
-    }
-    
-    // Only reset if user closed without saving
-    console.log('🔄 No saved design - resetting to green');
-    
-    // Reset Standard Polygons
-    if (polygonsArray && polygonsArray.length > 0) {
-      polygonsArray.forEach(polygon => {
-        if (polygon && polygon.setOptions) {
-          polygon.setOptions({
-            fillColor: '#22c55e',
-            fillOpacity: 0.35,
-            strokeColor: '#22c55e',
-            strokeOpacity: 1.0,
-            strokeWeight: 3
-          });
-        }
-      });
-    }
-    
-    if (roofPolygon && roofPolygon.setOptions) {
-      roofPolygon.setOptions({
-        fillColor: '#10B981',
-        fillOpacity: 0.15,
-        strokeColor: '#10B981',
-        strokeOpacity: 1.0,
-        strokeWeight: 3
-      });
-    }
-    
-    // Reset Solar Data Layer - Revert Override
-    if (mapInstance && mapInstance.data) {
-      mapInstance.data.forEach((feature) => {
-        mapInstance.data.revertStyle(feature);
-      });
-    }
-    
-    onClose();
-  };
-  
-  const handleSave = () => {
-    const materialName = materials[selectedMaterial].name;
-    const colorName = materials[selectedMaterial].colors.find(c => c.hex === selectedColor)?.name || 'Custom';
-    const designData = {
-      material: materialName,
-      color: colorName,
-      colorHex: selectedColor,
-      opacity: opacity,
-      savedAt: new Date().toISOString()
-    };
-    
-    // Save to sessionStorage
-    sessionStorage.setItem('roof_design_preferences', JSON.stringify(designData));
-    
-    // CRITICAL: Lock polygons FIRST, then apply styles
-    if (polygonsArray && polygonsArray.length > 0) {
-      polygonsArray.forEach(polygon => {
-        if (polygon) {
-          // STEP 1: Lock the polygon (stops green outline)
-          if (polygon.setEditable) polygon.setEditable(false);
-          if (polygon.setDraggable) polygon.setDraggable(false);
-          
-          // STEP 2: Apply design styles
-          if (polygon.setOptions) {
-            polygon.setOptions({
-              fillColor: selectedColor,
-              fillOpacity: opacity,
-              strokeColor: selectedColor,
-              strokeOpacity: 0,
-              strokeWeight: 0
-            });
-            console.log(`✅ Polygon locked & styled - Color: ${selectedColor}, Opacity: ${opacity}`);
-          }
-        }
-      });
-    }
-    
-    if (roofPolygon) {
-      // STEP 1: Lock the polygon
-      if (roofPolygon.setEditable) roofPolygon.setEditable(false);
-      if (roofPolygon.setDraggable) roofPolygon.setDraggable(false);
-      
-      // STEP 2: Apply design styles
-      if (roofPolygon.setOptions) {
-        roofPolygon.setOptions({
-          fillColor: selectedColor,
-          fillOpacity: opacity,
-          strokeColor: selectedColor,
-          strokeOpacity: 0,
-          strokeWeight: 0
-        });
-        console.log(`✅ Solar polygon locked & styled - Color: ${selectedColor}, Opacity: ${opacity}`);
-      }
-    }
-    
-    // Notify parent component to show Design Summary
-    if (onSaveDesign) {
-      onSaveDesign(designData);
-    }
-    
-    // Show success notification
-    toast.success('✅ Design saved to project notes', {
-      description: `${materialName} - ${colorName} (${Math.round(opacity * 100)}% opacity)`
+    // Capture map tiles
+    const tiles = mapDiv.querySelectorAll('img');
+    tiles.forEach(tile => {
+      const rect = tile.getBoundingClientRect();
+      const x = (rect.left - mapRect.left) * (800 / mapRect.width);
+      const y = (rect.top - mapRect.top) * (600 / mapRect.height);
+      const w = rect.width * (800 / mapRect.width);
+      const h = rect.height * (600 / mapRect.height);
+      sourceCtx.drawImage(tile, x, y, w, h);
     });
     
-    console.log('💾 Design saved and applied to map:', designData);
+    // Draw white polygon on mask
+    maskCtx.fillStyle = '#ffffff';
+    maskCtx.beginPath();
+    
+    const coords = [];
+    if (polygonsArray && polygonsArray.length > 0 && polygonsArray[0]) {
+      const path = polygonsArray[0].getPath();
+      for (let i = 0; i < path.getLength(); i++) {
+        const latLng = path.getAt(i);
+        const point = mapInstance.getProjection().fromLatLngToPoint(latLng);
+        const pixel = {
+          x: (point.x - mapInstance.getBounds().getSouthWest().lng()) * (800 / (mapInstance.getBounds().getNorthEast().lng() - mapInstance.getBounds().getSouthWest().lng())),
+          y: (1 - (point.y - mapInstance.getBounds().getSouthWest().lat()) / (mapInstance.getBounds().getNorthEast().lat() - mapInstance.getBounds().getSouthWest().lat())) * 600
+        };
+        coords.push(pixel);
+        if (i === 0) maskCtx.moveTo(pixel.x, pixel.y);
+        else maskCtx.lineTo(pixel.x, pixel.y);
+      }
+    } else if (roofPolygon) {
+      const path = roofPolygon.getPath();
+      for (let i = 0; i < path.getLength(); i++) {
+        const latLng = path.getAt(i);
+        const bounds = mapInstance.getBounds();
+        const ne = bounds.getNorthEast();
+        const sw = bounds.getSouthWest();
+        const x = ((latLng.lng() - sw.lng()) / (ne.lng() - sw.lng())) * 800;
+        const y = ((ne.lat() - latLng.lat()) / (ne.lat() - sw.lat())) * 600;
+        if (i === 0) maskCtx.moveTo(x, y);
+        else maskCtx.lineTo(x, y);
+      }
+    }
+    
+    maskCtx.closePath();
+    maskCtx.fill();
+    
+    return {
+      source: sourceCanvas.toDataURL('image/png'),
+      mask: maskCanvas.toDataURL('image/png')
+    };
+  };
+  
+  const handleGenerateRealisticView = async () => {
+    setIsGenerating(true);
+    
+    try {
+      const materialName = materials[selectedMaterial].name;
+      const { source, mask } = await generateCanvasImages();
+      
+      const response = await base44.functions.invoke('GenerateRealisticRoof', {
+        sourceImage: source,
+        maskImage: mask,
+        material: materialName,
+        color: selectedColor
+      });
+      
+      setGeneratedImage(response.data.imageUrl);
+      setShowResultModal(true);
+      toast.success('✨ Realistic view generated!');
+      
+    } catch (error) {
+      console.error('Generation error:', error);
+      toast.error('Failed to generate view: ' + error.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  
+  const handleDownloadImage = () => {
+    const link = document.createElement('a');
+    link.href = generatedImage;
+    link.download = `roof-design-${Date.now()}.png`;
+    link.click();
   };
   
   return (
@@ -424,16 +329,60 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
                 Exit Design Mode
               </Button>
               <Button
-                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                onClick={handleSave}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                onClick={handleGenerateRealisticView}
+                disabled={isGenerating}
               >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Save Design
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    ✨ Generate Reality View
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>
         </Card>
       </div>
+      
+      {/* AI Result Modal */}
+      <Dialog open={showResultModal} onOpenChange={setShowResultModal}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">🎨 Your New Roof Preview</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {generatedImage && (
+              <img 
+                src={generatedImage} 
+                alt="AI Generated Roof" 
+                className="w-full rounded-lg shadow-xl"
+              />
+            )}
+            <div className="flex gap-3">
+              <Button
+                onClick={handleDownloadImage}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download Image
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowResultModal(false)}
+                className="flex-1"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
