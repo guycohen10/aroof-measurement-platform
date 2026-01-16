@@ -57,11 +57,15 @@ Deno.serve(async (req) => {
     const centerParam = `${centerLat},${centerLng}`;
 
     // 2. Encode polygon using Google Polyline Encoding (keeps precision, reduces URL size)
-    const encodedPath = encodePolyline(polygonCoordinates);
+    const safeEncodedPath = encodeURIComponent(encodePolyline(polygonCoordinates));
 
     // 3. Generate URLs with encoded path
-    const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerParam}&zoom=20&size=640x640&maptype=satellite&style=feature:all|visibility:off&path=weight:0|fillcolor:0xFFFFFFFF|enc:${encodedPath}&key=${GOOGLE_KEY}`;
+    const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerParam}&zoom=20&size=640x640&maptype=satellite&style=feature:all|visibility:off&path=weight:0|fillcolor:0xFFFFFFFF|enc:${safeEncodedPath}&key=${GOOGLE_KEY}`;
     const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerParam}&zoom=20&size=640x640&maptype=satellite&key=${GOOGLE_KEY}`;
+
+    // Debug logging
+    console.log("DEBUG MAP:", mapUrl);
+    console.log("DEBUG MASK:", maskUrl);
 
     // 4. Call Replicate (Wait for result)
     const replicateResp = await fetch("https://api.replicate.com/v1/predictions", {
