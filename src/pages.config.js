@@ -74,6 +74,7 @@ import Windows from './pages/Windows';
 import RooferBrowseLeads from './pages/RooferBrowseLeads';
 import LeaveReview from './pages/LeaveReview';
 import UpgradeProfile from './pages/UpgradeProfile';
+import CompanyProfilePublic from './pages/CompanyProfilePublic';
 import __Layout from './Layout.jsx';
 
 
@@ -154,6 +155,7 @@ export const PAGES = {
     "RooferBrowseLeads": RooferBrowseLeads,
     "LeaveReview": LeaveReview,
     "UpgradeProfile": UpgradeProfile,
+    "CompanyProfilePublic": CompanyProfilePublic,
 }
 
 export const pagesConfig = {
