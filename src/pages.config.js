@@ -12,6 +12,7 @@ import CedarShingles from './pages/CedarShingles';
 import ClayTile from './pages/ClayTile';
 import Commercial from './pages/Commercial';
 import CompanyProfile from './pages/CompanyProfile';
+import CompanyProfilePublic from './pages/CompanyProfilePublic';
 import CompanySettings from './pages/CompanySettings';
 import Composite from './pages/Composite';
 import ConcreteTile from './pages/ConcreteTile';
@@ -31,13 +32,16 @@ import EstimatorLeadDetail from './pages/EstimatorLeadDetail';
 import ExistingLeadSelector from './pages/ExistingLeadSelector';
 import FollowUpSettings from './pages/FollowUpSettings';
 import ForgotPassword from './pages/ForgotPassword';
+import GetEstimate from './pages/GetEstimate';
 import GreenRoof from './pages/GreenRoof';
 import Gutters from './pages/Gutters';
 import Homepage from './pages/Homepage';
 import Insurance from './pages/Insurance';
 import JobScheduling from './pages/JobScheduling';
 import LeadManagement from './pages/LeadManagement';
+import LeaveReview from './pages/LeaveReview';
 import MaintenancePlans from './pages/MaintenancePlans';
+import MeasurementChoice from './pages/MeasurementChoice';
 import MeasurementPage from './pages/MeasurementPage';
 import MetalShingles from './pages/MetalShingles';
 import MetalStandingSeam from './pages/MetalStandingSeam';
@@ -47,9 +51,11 @@ import PDFDownload from './pages/PDFDownload';
 import Payment from './pages/Payment';
 import Results from './pages/Results';
 import RoofInspection from './pages/RoofInspection';
+import RoofPreview from './pages/RoofPreview';
 import RoofRepair from './pages/RoofRepair';
 import RoofReplacement from './pages/RoofReplacement';
 import RooferBilling from './pages/RooferBilling';
+import RooferBrowseLeads from './pages/RooferBrowseLeads';
 import RooferDashboard from './pages/RooferDashboard';
 import RooferDirectory from './pages/RooferDirectory';
 import RooferLogin from './pages/RooferLogin';
@@ -62,6 +68,7 @@ import SelectReportType from './pages/SelectReportType';
 import Services from './pages/Services';
 import Siding from './pages/Siding';
 import SolarTiles from './pages/SolarTiles';
+import StartFunnel from './pages/StartFunnel';
 import StormDamage from './pages/StormDamage';
 import StormTracking from './pages/StormTracking';
 import StripeCanceled from './pages/StripeCanceled';
@@ -69,17 +76,10 @@ import StripeSuccess from './pages/StripeSuccess';
 import SubscriptionDetail from './pages/SubscriptionDetail';
 import Subscriptions from './pages/Subscriptions';
 import TPO from './pages/TPO';
-import VerifyEmail from './pages/VerifyEmail';
-import Windows from './pages/Windows';
-import RooferBrowseLeads from './pages/RooferBrowseLeads';
-import LeaveReview from './pages/LeaveReview';
 import UpgradeProfile from './pages/UpgradeProfile';
-import CompanyProfilePublic from './pages/CompanyProfilePublic';
-import StartFunnel from './pages/StartFunnel';
+import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
-import RoofPreview from './pages/RoofPreview';
-import MeasurementChoice from './pages/MeasurementChoice';
-import GetEstimate from './pages/GetEstimate';
+import Windows from './pages/Windows';
 import __Layout from './Layout.jsx';
 
 
@@ -98,6 +98,7 @@ export const PAGES = {
     "ClayTile": ClayTile,
     "Commercial": Commercial,
     "CompanyProfile": CompanyProfile,
+    "CompanyProfilePublic": CompanyProfilePublic,
     "CompanySettings": CompanySettings,
     "Composite": Composite,
     "ConcreteTile": ConcreteTile,
@@ -117,13 +118,16 @@ export const PAGES = {
     "ExistingLeadSelector": ExistingLeadSelector,
     "FollowUpSettings": FollowUpSettings,
     "ForgotPassword": ForgotPassword,
+    "GetEstimate": GetEstimate,
     "GreenRoof": GreenRoof,
     "Gutters": Gutters,
     "Homepage": Homepage,
     "Insurance": Insurance,
     "JobScheduling": JobScheduling,
     "LeadManagement": LeadManagement,
+    "LeaveReview": LeaveReview,
     "MaintenancePlans": MaintenancePlans,
+    "MeasurementChoice": MeasurementChoice,
     "MeasurementPage": MeasurementPage,
     "MetalShingles": MetalShingles,
     "MetalStandingSeam": MetalStandingSeam,
@@ -133,9 +137,11 @@ export const PAGES = {
     "Payment": Payment,
     "Results": Results,
     "RoofInspection": RoofInspection,
+    "RoofPreview": RoofPreview,
     "RoofRepair": RoofRepair,
     "RoofReplacement": RoofReplacement,
     "RooferBilling": RooferBilling,
+    "RooferBrowseLeads": RooferBrowseLeads,
     "RooferDashboard": RooferDashboard,
     "RooferDirectory": RooferDirectory,
     "RooferLogin": RooferLogin,
@@ -148,6 +154,7 @@ export const PAGES = {
     "Services": Services,
     "Siding": Siding,
     "SolarTiles": SolarTiles,
+    "StartFunnel": StartFunnel,
     "StormDamage": StormDamage,
     "StormTracking": StormTracking,
     "StripeCanceled": StripeCanceled,
@@ -155,17 +162,10 @@ export const PAGES = {
     "SubscriptionDetail": SubscriptionDetail,
     "Subscriptions": Subscriptions,
     "TPO": TPO,
-    "VerifyEmail": VerifyEmail,
-    "Windows": Windows,
-    "RooferBrowseLeads": RooferBrowseLeads,
-    "LeaveReview": LeaveReview,
     "UpgradeProfile": UpgradeProfile,
-    "CompanyProfilePublic": CompanyProfilePublic,
-    "StartFunnel": StartFunnel,
+    "VerifyEmail": VerifyEmail,
     "Visualizing": Visualizing,
-    "RoofPreview": RoofPreview,
-    "MeasurementChoice": MeasurementChoice,
-    "GetEstimate": GetEstimate,
+    "Windows": Windows,
 }
 
 export const pagesConfig = {
