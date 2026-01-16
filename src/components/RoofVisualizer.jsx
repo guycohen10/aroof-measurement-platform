@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,7 +14,6 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
   const [generatedImage, setGeneratedImage] = useState(null);
   const [showResultModal, setShowResultModal] = useState(false);
   
-  // Safety Check: Ensure we have valid measurement data
   const hasValidMeasurement = isMeasurementComplete || totalSqft || (roofPolygon && roofPolygon.setOptions) || (polygonsArray && polygonsArray.length > 0);
   
   if (!mapInstance || !hasValidMeasurement) {
@@ -40,7 +39,6 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
     );
   }
   
-  // Material database with realistic roof colors
   const materials = {
     asphalt: {
       name: 'Asphalt Shingles',
@@ -78,38 +76,6 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
         { name: 'Mission Tan', hex: '#d2b48c' }
       ]
     }
-  };
-  
-  // Original polygon styles (for reverting)
-  const originalStyles = React.useRef({});
-  
-  // Store original styles on mount
-  useEffect(() => {
-    if (polygonsArray && polygonsArray.length > 0) {
-      polygonsArray.forEach((polygon, idx) => {
-        if (polygon && polygon.get) {
-          originalStyles.current[idx] = {
-            fillColor: polygon.get('fillColor'),
-            fillOpacity: polygon.get('fillOpacity'),
-            strokeColor: polygon.get('strokeColor'),
-            strokeOpacity: polygon.get('strokeOpacity')
-          };
-        }
-      });
-    }
-    
-    if (roofPolygon && roofPolygon.get) {
-      originalStyles.current['solar'] = {
-        fillColor: roofPolygon.get('fillColor'),
-        fillOpacity: roofPolygon.get('fillOpacity'),
-        strokeColor: roofPolygon.get('strokeColor'),
-        strokeOpacity: roofPolygon.get('strokeOpacity')
-      };
-    }
-  }, []);
-  
-  const handleClose = () => {
-    onClose();
   };
   
   const handleGenerateRealisticView = async () => {
@@ -236,7 +202,7 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleClose}
+                onClick={onClose}
                 className="text-slate-400 hover:text-slate-600"
               >
                 <X className="w-5 h-5" />
@@ -329,7 +295,7 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
             <div className="flex gap-3 pt-4 border-t border-slate-200">
               <Button
                 variant="outline"
-                onClick={handleClose}
+                onClick={onClose}
                 className="flex-1"
               >
                 Exit Design Mode
