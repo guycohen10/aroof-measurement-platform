@@ -65,10 +65,10 @@ Deno.serve(async (req) => {
         input: {
           image: mapUrl,
           mask: maskUrl,
-          prompt: `Aerial photography of a residential roof with ${selectedMaterial} texture, daylight, realistic, 4k, architectural photography`,
-          negative_prompt: "cartoon, distortion, noise, low quality, glitch, broken",
-          strength: 0.55,
-          guidance_scale: 7.5,
+          prompt: `Close up texture of ${selectedMaterial} roofing, pristine condition, 8k resolution, architectural texture`,
+          negative_prompt: "blur, shadows, dirty, old, rust, noise, distortion",
+          strength: 0.85,
+          guidance_scale: 12,
           num_inference_steps: 40,
           seed: 42
         }
