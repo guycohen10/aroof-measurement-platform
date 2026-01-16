@@ -65,12 +65,11 @@ Deno.serve(async (req) => {
         input: {
           image: mapUrl,
           mask: maskUrl,
-          prompt: `Close up texture of ${selectedMaterial} roofing, pristine condition, 8k resolution, architectural texture`,
+          prompt: `Aerial view of a residential house, replacing the roof with ${selectedMaterial} texture, seamless blend, photorealistic, 4k, drone photography`,
           negative_prompt: "blur, shadows, dirty, old, rust, noise, distortion",
-          strength: 0.85,
-          guidance_scale: 12,
-          num_inference_steps: 40,
-          seed: 42
+          strength: 0.65,
+          guidance_scale: 7.5,
+          num_inference_steps: 40
         }
       })
     });
