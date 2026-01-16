@@ -9,18 +9,30 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers });
 
   try {
-    // 1. FRESH INPUTS (No caching)
+    // 1. Inputs
     let { address, polygonCoordinates, selectedMaterial, selectedColor } = await req.json();
 
-    // Safety: Default color if button is broken, but DO NOT override user choice
     if (!selectedColor || selectedColor === "undefined") {
-      console.log("Color missing, defaulting to Weathered Wood");
       selectedColor = "Weathered Wood";
     }
 
-    // --- KEYS (User Provided) ---
+    // --- KEYS ---
     const GOOGLE_KEY = "AIzaSyA1beAjeMHo2UgNlUBEgGlfzojuJ0GD0L0";
     const REPLICATE_KEY = "r8_emR8qiw7RptiJEXpi9KKQMoh66EkAhI3ET1ZW";
+
+    // --- NEW CENTERING LOGIC (Bounding Box) ---
+    // Find the extreme edges of the drawing
+    const lats = polygonCoordinates.map(p => p.lat);
+    const lngs = polygonCoordinates.map(p => p.lng);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    // Center is exactly in the middle of the box
+    const centerLat = ((minLat + maxLat) / 2).toFixed(6);
+    const centerLng = ((minLng + maxLng) / 2).toFixed(6);
+    const center = `${centerLat},${centerLng}`;
+    console.log("DEBUG: Re-centered map to:", center);
 
     // --- HELPER: Polyline Encoding ---
     const encodePolyline = (points) => {
@@ -44,19 +56,13 @@ Deno.serve(async (req) => {
       return str;
     };
 
-    // --- 2. Calculate Center from FRESH Polygon ---
-    let cLat = 0, cLng = 0;
-    polygonCoordinates.forEach(p => { cLat += p.lat; cLng += p.lng; });
-    // Use 6 decimals for high precision centering
-    const center = `${(cLat/polygonCoordinates.length).toFixed(6)},${(cLng/polygonCoordinates.length).toFixed(6)}`;
-
+    // --- Prepare URLs ---
     const encodedPath = encodePolyline(polygonCoordinates);
     const safePath = encodeURIComponent(encodedPath);
-
     const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&style=feature:all|visibility:off&path=fillcolor:0xFFFFFFFF|weight:0|enc:${safePath}&key=${GOOGLE_KEY}`;
     const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&key=${GOOGLE_KEY}`;
 
-    // --- 3. Call Replicate ---
+    // --- Call Replicate ---
     const prediction = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: {
