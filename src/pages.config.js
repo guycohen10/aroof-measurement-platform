@@ -71,6 +71,7 @@ import Subscriptions from './pages/Subscriptions';
 import TPO from './pages/TPO';
 import VerifyEmail from './pages/VerifyEmail';
 import Windows from './pages/Windows';
+import RooferBrowseLeads from './pages/RooferBrowseLeads';
 import __Layout from './Layout.jsx';
 
 
@@ -148,6 +149,7 @@ export const PAGES = {
     "TPO": TPO,
     "VerifyEmail": VerifyEmail,
     "Windows": Windows,
+    "RooferBrowseLeads": RooferBrowseLeads,
 }
 
 export const pagesConfig = {
