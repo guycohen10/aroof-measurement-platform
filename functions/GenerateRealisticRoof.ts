@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     const GOOGLE_KEY = "AIzaSyA1beAjeMHo2UgNlUBEgGlfzojuJ0GD0L0";
     const REPLICATE_KEY = "r8_emR8qiw7RptiJEXpi9KKQMoh66EkAhI3ET1ZW";
 
-    // --- BOUNDING BOX CENTERING (Kept from last success) ---
+    // --- CENTERING (Bounding Box) ---
     const lats = polygonCoordinates.map(p => p.lat);
     const lngs = polygonCoordinates.map(p => p.lng);
     const minLat = Math.min(...lats);
@@ -54,11 +54,17 @@ Deno.serve(async (req) => {
       return str;
     };
 
-    // --- Prepare URLs ---
+    // --- Prepare URLs (THE FIX) ---
     const encodedPath = encodePolyline(polygonCoordinates);
     const safePath = encodeURIComponent(encodedPath);
-    const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&style=feature:all|visibility:off&path=fillcolor:0xFFFFFFFF|weight:0|enc:${safePath}&key=${GOOGLE_KEY}`;
+
+    // 1. BACKGROUND MAP (Satellite)
     const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&key=${GOOGLE_KEY}`;
+
+    // 2. MASK (The 'Pitch Black' Fix)
+    // We use 'roadmap' and style everything to color:0x000000 (Black)
+    // Then we draw the polygon in fillcolor:0xFFFFFFFF (White)
+    const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=roadmap&style=element:geometry|color:0x000000&style=element:labels|visibility:off&path=color:0x00000000|weight:0|fillcolor:0xFFFFFFFF|enc:${safePath}&key=${GOOGLE_KEY}`;
 
     // --- Call Replicate ---
     const prediction = await fetch("https://api.replicate.com/v1/predictions", {
@@ -73,11 +79,9 @@ Deno.serve(async (req) => {
         input: {
           image: mapUrl,
           mask: maskUrl,
-          // STRICT TEXTURE PROMPT
-          prompt: `Close up detailed texture of a ${selectedMaterial} roof, ${selectedColor} color, construction material, aerial view, 8k, highly detailed`,
-          // NO POOLS ALLOWED
-          negative_prompt: "pool, water, swimming pool, lake, blue water, yard, grass, trees, windows, walls, cartoon, drawing, painting, glitch, distorted, low quality, blurred",
-          strength: 0.70, // Reduced to keep structure
+          prompt: `Detailed roofing texture, ${selectedMaterial}, ${selectedColor} color, realistic, 8k, aerial view`,
+          negative_prompt: "pool, water, trees, grass, cars, road, windows, distortion, blur",
+          strength: 0.65,
           guidance_scale: 9.0,
           num_inference_steps: 40,
           seed: 3242
