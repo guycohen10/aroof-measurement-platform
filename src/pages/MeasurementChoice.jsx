@@ -1,130 +1,183 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Zap, Crosshair } from "lucide-react";
 
 export default function MeasurementChoice() {
   const navigate = useNavigate();
+  const [addressData, setAddressData] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleQuickEstimate = () => {
-    base44.analytics.track({
-      eventName: "funnel_measurement_method_chosen",
-      properties: { method: "quick_estimate" }
-    });
-    sessionStorage.setItem('funnel_measurement_method', 'quick_estimate');
-    navigate(createPageUrl("GetEstimate"));
+  useEffect(() => {
+    const addressJSON = sessionStorage.getItem("funnelAddress");
+    if (!addressJSON) {
+      navigate(createPageUrl("Start"));
+      return;
+    }
+
+    try {
+      setAddressData(JSON.parse(addressJSON));
+    } catch {
+      navigate(createPageUrl("Start"));
+    }
+  }, [navigate]);
+
+  const handleQuickEstimate = async () => {
+    if (!addressData) return;
+    setLoading(true);
+
+    try {
+      // Create measurement record
+      const measurement = await base44.entities.Measurement.create({
+        property_address: addressData.formatted_address,
+        user_type: "homeowner",
+        measurement_type: "quick_estimate",
+        estimation_method: "building_sqft_multiplier",
+      });
+
+      // Store measurement ID
+      sessionStorage.setItem("measurementId", measurement.id);
+
+      // Proceed to contact capture
+      navigate(createPageUrl("GetEstimate"));
+    } catch (err) {
+      console.error("Error creating measurement:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDetailedMeasurement = () => {
-    base44.analytics.track({
-      eventName: "funnel_measurement_method_chosen",
-      properties: { method: "detailed_measurement" }
-    });
-    sessionStorage.setItem('funnel_measurement_method', 'detailed_measurement');
-    navigate(createPageUrl("MeasurementPage"));
+  const handleDetailedMeasurement = async () => {
+    if (!addressData) return;
+    setLoading(true);
+
+    try {
+      // Create measurement record
+      const measurement = await base44.entities.Measurement.create({
+        property_address: addressData.formatted_address,
+        user_type: "homeowner",
+        measurement_type: "detailed_polygon",
+        estimation_method: "manual_polygon",
+      });
+
+      // Store measurement ID
+      sessionStorage.setItem("measurementId", measurement.id);
+
+      // Navigate to detailed measurement tool with address pre-loaded
+      navigate(createPageUrl("MeasurementPage") + `?id=${measurement.id}`);
+    } catch (err) {
+      console.error("Error creating measurement:", err);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (!addressData) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p className="text-slate-600">Loading...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white pt-24 pb-12">
-      {/* Header */}
-      <div className="max-w-6xl mx-auto px-4 mb-16 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-          Choose Your Measurement Method
-        </h1>
-        <p className="text-xl text-slate-600">
-          Pick the level of detail that works for you
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white py-12 px-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Address Header */}
+        <div className="text-center mb-12">
+          <p className="text-sm text-slate-500 uppercase tracking-wide mb-2">Your Home</p>
+          <h1 className="text-3xl font-bold text-slate-900 mb-8">
+            Choose Your Measurement Method
+          </h1>
+          <p className="text-lg text-slate-600 font-semibold">
+            {addressData.formatted_address}
+          </p>
+        </div>
 
-      {/* Cards */}
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="grid md:grid-cols-2 gap-8">
+        {/* Two Options */}
+        <div className="grid md:grid-cols-2 gap-6 mb-12">
           {/* Quick Estimate */}
-          <Card className="hover:shadow-xl transition-all border-2 hover:border-blue-300">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="w-6 h-6 text-blue-600" />
-                Quick Estimate
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-slate-700">
-                Instant estimate based on your building footprint
+          <div className="bg-white rounded-2xl border-2 border-slate-200 hover:border-blue-300 p-8 transition-all">
+            <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center mb-6">
+              <Zap className="w-8 h-8 text-blue-600" />
+            </div>
+
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Quick Estimate</h2>
+            <p className="text-slate-600 mb-6 leading-relaxed">
+              Instant estimate based on building footprint and local data
+            </p>
+
+            <div className="bg-blue-50 rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-2 text-blue-900 font-semibold mb-2">
+                <span>⏱️</span>
+                <span>60 Seconds</span>
+              </div>
+              <p className="text-sm text-blue-700">
+                Get results instantly without manual drawing
               </p>
 
-              <div className="bg-blue-50 rounded-lg p-4">
-                <p className="text-sm font-semibold text-blue-900 mb-2">
+              <div className="mt-3 pt-3 border-t border-blue-200">
+                <p className="text-sm text-blue-700 font-medium">
                   ±10% accuracy
                 </p>
-                <p className="text-xs text-blue-700">
-                  Perfect for quick budgeting and comparison
-                </p>
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <span>⏱️</span>
-                  <span>60 seconds</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <span>💰</span>
-                  <span>No charge</span>
-                </div>
+            <Button
+              size="lg"
+              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold"
+              onClick={handleQuickEstimate}
+              disabled={loading}
+            >
+              {loading ? "Creating..." : "Quick Estimate"}
+            </Button>
+          </div>
+
+          {/* Detailed Measurement */}
+          <div className="bg-white rounded-2xl border-2 border-slate-200 hover:border-blue-300 p-8 transition-all">
+            <div className="w-16 h-16 bg-orange-100 rounded-xl flex items-center justify-center mb-6">
+              <Crosshair className="w-8 h-8 text-orange-600" />
+            </div>
+
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Precise Measurement</h2>
+            <p className="text-slate-600 mb-6 leading-relaxed">
+              Draw exact roof perimeter for maximum accuracy and detailed material breakdown
+            </p>
+
+            <div className="bg-orange-50 rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-2 text-orange-900 font-semibold mb-2">
+                <span>📐</span>
+                <span>3 Minutes</span>
               </div>
-
-              <Button
-                onClick={handleQuickEstimate}
-                className="w-full bg-blue-600 hover:bg-blue-700 font-bold h-12"
-              >
-                Quick Estimate
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Precise Measurement */}
-          <Card className="hover:shadow-xl transition-all border-2 hover:border-purple-300 md:ring-2 md:ring-purple-200">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Crosshair className="w-6 h-6 text-purple-600" />
-                Precise Measurement
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-slate-700">
-                Draw your exact roof perimeter for maximum accuracy
+              <p className="text-sm text-orange-700">
+                Interactive map tool to trace your roof precisely
               </p>
 
-              <div className="bg-purple-50 rounded-lg p-4">
-                <p className="text-sm font-semibold text-purple-900 mb-2">
+              <div className="mt-3 pt-3 border-t border-orange-200">
+                <p className="text-sm text-orange-700 font-medium">
                   ±2% accuracy
                 </p>
-                <p className="text-xs text-purple-700">
-                  Ideal for getting precise quotes from contractors
-                </p>
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <span>⏱️</span>
-                  <span>3 minutes</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <span>💰</span>
-                  <span>Free (optional $3 PDF)</span>
-                </div>
-              </div>
+            <Button
+              size="lg"
+              className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white font-bold"
+              onClick={handleDetailedMeasurement}
+              disabled={loading}
+            >
+              {loading ? "Creating..." : "Detailed Measurement"}
+            </Button>
+          </div>
+        </div>
 
-              <Button
-                onClick={handleDetailedMeasurement}
-                className="w-full bg-purple-600 hover:bg-purple-700 font-bold h-12"
-              >
-                Detailed Measurement
-              </Button>
-            </CardContent>
-          </Card>
+        {/* Info Section */}
+        <div className="bg-blue-50 rounded-xl p-6 text-center">
+          <p className="text-slate-700">
+            <span className="font-semibold">Not sure which to choose?</span> Start with Quick Estimate—you can always get a detailed measurement later.
+          </p>
         </div>
       </div>
     </div>
