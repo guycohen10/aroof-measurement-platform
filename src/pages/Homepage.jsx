@@ -294,14 +294,14 @@ export default function Homepage() {
                       if (user && user.aroof_role === 'external_roofer') {
                         navigate(createPageUrl("RooferDashboard"));
                       } else {
-                        navigate(createPageUrl("AddressMethodSelector"));
+                        navigate(createPageUrl("StartFunnel"));
                       }
                     } catch {
-                      navigate(createPageUrl("AddressMethodSelector"));
+                      navigate(createPageUrl("StartFunnel"));
                     }
                   }}
                 >
-                  Measure My Roof - $3
+                  Visualize Your Roof
                 </Button>
               </div>
 
