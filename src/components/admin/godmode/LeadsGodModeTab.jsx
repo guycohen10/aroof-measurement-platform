@@ -2,163 +2,266 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Trash2, Eye, Download, Phone, Mail } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { Home, Search, Edit, Trash2, DollarSign, Users, CheckCircle, XCircle } from "lucide-react";
+import { format } from "date-fns";
 
 export default function LeadsGodModeTab() {
+  const [leads, setLeads] = useState([]);
+  const [filteredLeads, setFilteredLeads] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [measurements, setMeasurements] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedLead, setSelectedLead] = useState(null);
+  const [editingLead, setEditingLead] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
-    loadData();
+    loadLeads();
   }, []);
 
-  async function loadData() {
+  useEffect(() => {
+    filterLeads();
+  }, [searchTerm, statusFilter, leads]);
+
+  const loadLeads = async () => {
     try {
-      const data = await base44.entities.Measurement.list('-created_date', 500);
-      setMeasurements(data || []);
+      const data = await base44.asServiceRole.entities.Measurement.list('-created_date', 500);
+      setLeads(data);
       setLoading(false);
     } catch (err) {
-      console.error('Failed to load:', err);
+      toast.error('Failed to load leads');
       setLoading(false);
     }
-  }
+  };
 
-  async function deleteLead(id) {
-    if (!confirm('Delete this lead permanently?')) return;
-    try {
-      await base44.entities.Measurement.delete(id);
-      await loadData();
-    } catch (err) {
-      alert('Failed to delete: ' + err.message);
+  const filterLeads = () => {
+    let filtered = leads;
+
+    if (searchTerm) {
+      filtered = filtered.filter(l => 
+        l.property_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        l.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        l.customer_email?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-  }
 
-  async function updateStatus(id, newStatus) {
-    try {
-      await base44.entities.Measurement.update(id, { lead_status: newStatus });
-      await loadData();
-    } catch (err) {
-      alert('Failed to update: ' + err.message);
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'available') {
+        filtered = filtered.filter(l => l.available_for_purchase);
+      } else if (statusFilter === 'purchased') {
+        filtered = filtered.filter(l => l.purchased_by);
+      } else {
+        filtered = filtered.filter(l => l.lead_status === statusFilter);
+      }
     }
-  }
 
-  const filteredLeads = measurements.filter(m => {
-    const matchesSearch = 
-      (m.property_address || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (m.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (m.customer_email || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || m.lead_status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+    setFilteredLeads(filtered);
+  };
+
+  const handleEdit = (lead) => {
+    setEditingLead({...lead});
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      await base44.asServiceRole.entities.Measurement.update(editingLead.id, {
+        lead_price: parseFloat(editingLead.lead_price),
+        available_for_purchase: editingLead.available_for_purchase,
+        lead_status: editingLead.lead_status,
+        purchased_by: editingLead.purchased_by || null
+      });
+      
+      toast.success('Lead updated successfully');
+      setShowEditModal(false);
+      loadLeads();
+    } catch (err) {
+      toast.error('Failed to update lead');
+    }
+  };
+
+  const handleToggleAvailability = async (lead) => {
+    try {
+      await base44.asServiceRole.entities.Measurement.update(lead.id, {
+        available_for_purchase: !lead.available_for_purchase
+      });
+      toast.success(`Lead ${lead.available_for_purchase ? 'hidden' : 'made available'}`);
+      loadLeads();
+    } catch (err) {
+      toast.error('Failed to update lead');
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await base44.asServiceRole.entities.Measurement.delete(deleteTarget.id);
+      toast.success('Lead deleted successfully');
+      setDeleteTarget(null);
+      loadLeads();
+    } catch (err) {
+      toast.error('Failed to delete lead');
+    }
+  };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    );
+    return <div className="text-center py-12">Loading leads...</div>;
   }
 
+  const availableLeads = leads.filter(l => l.available_for_purchase && !l.purchased_by);
+  const purchasedLeads = leads.filter(l => l.purchased_by);
+  const totalRevenue = purchasedLeads.reduce((sum, l) => sum + (l.lead_price || 0), 0);
+
   return (
-    <div>
+    <div className="space-y-6">
+      {/* Header Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold">{leads.length}</div>
+            <div className="text-sm text-slate-600">Total Leads</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold text-green-600">{availableLeads.length}</div>
+            <div className="text-sm text-slate-600">Available for Purchase</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold text-blue-600">{purchasedLeads.length}</div>
+            <div className="text-sm text-slate-600">Purchased</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold text-purple-600">${totalRevenue.toFixed(2)}</div>
+            <div className="text-sm text-slate-600">Total Revenue</div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="p-4 flex gap-4 flex-wrap items-center">
-          <Input
-            placeholder="🔍 Search by name, email, or address..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 min-w-[300px]"
-          />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="new">New</SelectItem>
-              <SelectItem value="contacted">Contacted</SelectItem>
-              <SelectItem value="quoted">Quoted</SelectItem>
-              <SelectItem value="booked">Booked</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="lost">Lost</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" className="bg-green-600 text-white hover:bg-green-700">
-            📥 Export CSV
-          </Button>
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+                <Input
+                  placeholder="Search leads..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Leads</SelectItem>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="purchased">Purchased</SelectItem>
+                <SelectItem value="new">New</SelectItem>
+                <SelectItem value="contacted">Contacted</SelectItem>
+                <SelectItem value="quoted">Quoted</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
       {/* Leads Table */}
       <Card>
-        <CardContent className="p-0">
+        <CardHeader>
+          <CardTitle>Leads ({filteredLeads.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-50 border-b-2 border-slate-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Customer</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Address</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Area</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Actions</th>
+                  <th className="text-left p-3 font-semibold text-sm">Property</th>
+                  <th className="text-left p-3 font-semibold text-sm">Customer</th>
+                  <th className="text-left p-3 font-semibold text-sm">Area</th>
+                  <th className="text-left p-3 font-semibold text-sm">Price</th>
+                  <th className="text-left p-3 font-semibold text-sm">Status</th>
+                  <th className="text-left p-3 font-semibold text-sm">Available</th>
+                  <th className="text-left p-3 font-semibold text-sm">Created</th>
+                  <th className="text-left p-3 font-semibold text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredLeads.map((lead, idx) => (
-                  <tr key={lead.id} className={`border-b hover:bg-slate-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
-                    <td className="px-4 py-4 text-sm">
-                      {new Date(lead.created_date).toLocaleDateString()}
+                {filteredLeads.map((lead) => (
+                  <tr key={lead.id} className="border-b hover:bg-slate-50">
+                    <td className="p-3">
+                      <div className="flex items-center gap-2">
+                        <Home className="w-4 h-4 text-slate-400" />
+                        <div className="text-sm">{lead.property_address}</div>
+                      </div>
                     </td>
-                    <td className="px-4 py-4">
-                      <div className="font-semibold text-slate-900">{lead.customer_name || 'N/A'}</div>
-                      <div className="text-xs text-slate-600">{lead.customer_email}</div>
-                      <div className="text-xs text-slate-600">{lead.customer_phone}</div>
+                    <td className="p-3">
+                      <div className="text-sm">{lead.customer_name || 'N/A'}</div>
+                      <div className="text-xs text-slate-500">{lead.customer_email || 'N/A'}</div>
                     </td>
-                    <td className="px-4 py-4 text-sm max-w-xs truncate">
-                      {lead.property_address}
+                    <td className="p-3 text-sm">
+                      {lead.total_sqft ? Math.round(lead.total_sqft).toLocaleString() : 'N/A'} sq ft
                     </td>
-                    <td className="px-4 py-4 text-sm font-semibold">
-                      {Math.round(lead.total_adjusted_sqft || lead.total_sqft || 0).toLocaleString()} sq ft
+                    <td className="p-3">
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="w-4 h-4 text-green-600" />
+                        <span className="font-semibold">{lead.lead_price || 25}</span>
+                      </div>
                     </td>
-                    <td className="px-4 py-4">
-                      <Select 
-                        value={lead.lead_status || 'new'} 
-                        onValueChange={(value) => updateStatus(lead.id, value)}
-                      >
-                        <SelectTrigger className="w-32 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="new">New</SelectItem>
-                          <SelectItem value="contacted">Contacted</SelectItem>
-                          <SelectItem value="quoted">Quoted</SelectItem>
-                          <SelectItem value="booked">Booked</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="lost">Lost</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <td className="p-3">
+                      <Badge className={
+                        lead.lead_status === 'new' ? 'bg-slate-100 text-slate-800' :
+                        lead.lead_status === 'contacted' ? 'bg-blue-100 text-blue-800' :
+                        lead.lead_status === 'quoted' ? 'bg-purple-100 text-purple-800' :
+                        'bg-green-100 text-green-800'
+                      }>
+                        {lead.lead_status?.toUpperCase() || 'NEW'}
+                      </Badge>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="p-3">
+                      {lead.available_for_purchase ? (
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-red-600" />
+                      )}
+                    </td>
+                    <td className="p-3 text-sm text-slate-600">
+                      {format(new Date(lead.created_date), 'MMM d, yyyy')}
+                    </td>
+                    <td className="p-3">
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setSelectedLead(lead)}>
-                          <Eye className="w-4 h-4" />
+                        <Button size="sm" variant="outline" onClick={() => handleEdit(lead)}>
+                          <Edit className="w-4 h-4" />
                         </Button>
-                        {lead.customer_phone && (
-                          <a href={`tel:${lead.customer_phone}`}>
-                            <Button size="sm" variant="outline">
-                              <Phone className="w-4 h-4" />
-                            </Button>
-                          </a>
-                        )}
-                        <Button size="sm" variant="outline" onClick={() => deleteLead(lead.id)} className="text-red-600">
-                          <Trash2 className="w-4 h-4" />
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleToggleAvailability(lead)}
+                        >
+                          {lead.available_for_purchase ? (
+                            <XCircle className="w-4 h-4 text-red-600" />
+                          ) : (
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                          )}
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => setDeleteTarget(lead)}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
                         </Button>
                       </div>
                     </td>
@@ -166,85 +269,89 @@ export default function LeadsGodModeTab() {
                 ))}
               </tbody>
             </table>
-
-            {filteredLeads.length === 0 && (
-              <div className="py-20 text-center text-slate-400">
-                No leads found
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Detail Modal */}
-      {selectedLead && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedLead(null)}>
-          <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start mb-6">
-                <h3 className="text-2xl font-bold">Lead Details</h3>
-                <button onClick={() => setSelectedLead(null)} className="text-2xl text-slate-400 hover:text-slate-600">×</button>
+      {/* Edit Modal */}
+      {showEditModal && editingLead && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl">
+            <CardHeader>
+              <CardTitle>Edit Lead: {editingLead.property_address}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Lead Price ($)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editingLead.lead_price || 25}
+                  onChange={(e) => setEditingLead({...editingLead, lead_price: e.target.value})}
+                />
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <div className="text-xs text-slate-500 font-semibold mb-1">Customer Name</div>
-                  <div className="text-lg font-semibold">{selectedLead.customer_name || 'N/A'}</div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-slate-500 font-semibold mb-1">Email</div>
-                    <div>{selectedLead.customer_email || 'N/A'}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-500 font-semibold mb-1">Phone</div>
-                    <div>{selectedLead.customer_phone || 'N/A'}</div>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 font-semibold mb-1">Property Address</div>
-                  <div>{selectedLead.property_address}</div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <div className="text-xs text-slate-500 font-semibold mb-1">Total Area</div>
-                    <div className="text-lg font-bold text-blue-600">
-                      {Math.round(selectedLead.total_adjusted_sqft || selectedLead.total_sqft || 0).toLocaleString()} sq ft
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-500 font-semibold mb-1">Payment</div>
-                    <div className="text-sm font-semibold text-green-600">${selectedLead.payment_amount || 0}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-500 font-semibold mb-1">Created</div>
-                    <div className="text-sm">{new Date(selectedLead.created_date).toLocaleDateString()}</div>
-                  </div>
-                </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Lead Status</label>
+                <Select 
+                  value={editingLead.lead_status} 
+                  onValueChange={(val) => setEditingLead({...editingLead, lead_status: val})}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="contacted">Contacted</SelectItem>
+                    <SelectItem value="quoted">Quoted</SelectItem>
+                    <SelectItem value="booked">Booked</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="lost">Lost</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <div className="flex gap-3 pt-4">
-                  {selectedLead.customer_phone && (
-                    <a href={`tel:${selectedLead.customer_phone}`} className="flex-1">
-                      <Button className="w-full bg-green-600 hover:bg-green-700">
-                        <Phone className="w-4 h-4 mr-2" />
-                        Call
-                      </Button>
-                    </a>
-                  )}
-                  {selectedLead.customer_email && (
-                    <a href={`mailto:${selectedLead.customer_email}`} className="flex-1">
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                        <Mail className="w-4 h-4 mr-2" />
-                        Email
-                      </Button>
-                    </a>
-                  )}
-                </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="available"
+                  checked={editingLead.available_for_purchase}
+                  onChange={(e) => setEditingLead({...editingLead, available_for_purchase: e.target.checked})}
+                />
+                <label htmlFor="available" className="text-sm font-medium">Available for Purchase</label>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-4">
+                <Button variant="outline" onClick={() => setShowEditModal(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEdit}>
+                  Save Changes
+                </Button>
               </div>
             </CardContent>
           </Card>
         </div>
       )}
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this lead for <strong>{deleteTarget?.property_address}</strong>? 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
