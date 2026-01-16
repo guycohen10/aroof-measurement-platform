@@ -11,10 +11,10 @@ Deno.serve(async (req) => {
   try {
     const { address, polygonCoordinates } = await req.json();
 
-    // HARD CODED KEYS
+    // HARD CODED KEY
     const GOOGLE_KEY = "AIzaSyA1beAjeMHo2UgNlUBEgGlfzojuJ0GD0L0";
 
-    // 1. Polyline Algorithm (Standard Google Encoding)
+    // 1. Google Polyline Algorithm (Standard)
     const encodePolyline = (points) => {
       let str = '';
       let lastLat = 0, lastLng = 0;
@@ -36,22 +36,18 @@ Deno.serve(async (req) => {
       return str;
     };
 
-    // 2. Generate Safe Mask URL
+    // 2. Encode and Calculate Center
     const encodedPath = encodePolyline(polygonCoordinates);
-    // We MUST encode the special characters in the polyline string for the URL
-    const safePath = encodeURIComponent(encodedPath);
+    const safePath = encodeURIComponent(encodedPath); // <--- CRITICAL FIX
 
-    // Calculate Center
     let cLat = 0, cLng = 0;
     polygonCoordinates.forEach(p => { cLat += p.lat; cLng += p.lng; });
     const center = `${(cLat/polygonCoordinates.length).toFixed(5)},${(cLng/polygonCoordinates.length).toFixed(5)}`;
 
+    // 3. Generate Mask URL
     const maskUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=20&size=640x640&maptype=satellite&style=feature:all|visibility:off&path=fillcolor:0xFFFFFFFF|weight:0|enc:${safePath}&key=${GOOGLE_KEY}`;
 
-    console.log("DEBUG MASK URL:", maskUrl);
-
-    // 3. RETURN MASK ONLY (Diagnostic Mode)
-    // This pretends to be Replicate so the frontend displays the image immediately
+    // 4. RETURN THE MASK (No AI)
     return new Response(JSON.stringify({
       output: [maskUrl],
       status: "succeeded"
