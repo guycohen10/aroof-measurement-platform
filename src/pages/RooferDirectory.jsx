@@ -27,7 +27,11 @@ export default function RooferDirectory() {
       const activeCompanies = companies.filter(c => 
         c.is_active && c.subscription_status === 'active'
       );
-      setRoofers(activeCompanies);
+      // Sort: enhanced profiles first
+      const sorted = activeCompanies.sort((a, b) => 
+        (b.enhanced_profile ? 1 : 0) - (a.enhanced_profile ? 1 : 0)
+      );
+      setRoofers(sorted);
     } catch (err) {
       console.error('Error loading roofers:', err);
     } finally {
@@ -142,18 +146,25 @@ export default function RooferDirectory() {
 
                 {/* Content */}
                 <CardContent className="p-6">
-                  {/* Tier Badge */}
-                  {roofer.subscription_tier !== 'basic' && (
-                    <Badge 
-                      className={`mb-3 ${
-                        roofer.subscription_tier === 'enterprise' 
-                          ? 'bg-purple-100 text-purple-800 hover:bg-purple-100' 
-                          : 'bg-blue-100 text-blue-800 hover:bg-blue-100'
-                      }`}
-                    >
-                      {roofer.subscription_tier?.toUpperCase()} MEMBER
-                    </Badge>
-                  )}
+                  {/* Badges */}
+                  <div className="flex gap-2 mb-3 flex-wrap">
+                    {roofer.enhanced_profile && (
+                      <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600">
+                        ⭐ Featured
+                      </Badge>
+                    )}
+                    {roofer.subscription_tier !== 'basic' && (
+                      <Badge 
+                        className={`${
+                          roofer.subscription_tier === 'enterprise' 
+                            ? 'bg-purple-100 text-purple-800 hover:bg-purple-100' 
+                            : 'bg-blue-100 text-blue-800 hover:bg-blue-100'
+                        }`}
+                      >
+                        {roofer.subscription_tier?.toUpperCase()}
+                      </Badge>
+                    )}
+                  </div>
 
                   <h3 className="text-xl font-bold mb-2 group-hover:text-blue-600 transition-colors">
                     {roofer.company_name}

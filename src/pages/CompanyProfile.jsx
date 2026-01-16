@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Home, ArrowLeft, Loader2, Save, Building2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Home, ArrowLeft, Loader2, Save, Building2, Zap } from "lucide-react";
 import LogoUploader from "../components/LogoUploader";
+import PortfolioManager from "../components/PortfolioManager";
+import ReviewImporter from "../components/ReviewImporter";
 
 export default function CompanyProfile() {
   const navigate = useNavigate();
@@ -268,6 +271,52 @@ export default function CompanyProfile() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Enhanced Profile Section */}
+        {company?.enhanced_profile && (
+          <>
+            <Card className="shadow-lg mt-6 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-purple-600" />
+                    Enhanced Profile Active
+                  </span>
+                  <Badge className="bg-purple-600">Premium</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-700 mb-4">
+                  You have access to portfolio management and review imports. Manage them below.
+                </p>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-6 mt-6">
+              <PortfolioManager company={company} onUpdate={setCompany} />
+              <ReviewImporter company={company} onUpdate={setCompany} />
+            </div>
+          </>
+        )}
+
+        {!company?.enhanced_profile && (
+          <Card className="shadow-lg mt-6 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-lg text-slate-900 mb-1">Upgrade to Enhanced Profile</h3>
+                  <p className="text-slate-600 text-sm">Showcase your portfolio and import reviews for $20/month</p>
+                </div>
+                <Link to={createPageUrl("UpgradeProfile")}>
+                  <Button className="bg-purple-600 hover:bg-purple-700">
+                    <Zap className="w-4 h-4 mr-2" />
+                    Upgrade Now
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Company Stats */}
         <Card className="shadow-lg mt-6">
