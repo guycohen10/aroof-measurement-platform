@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import ChatWidget from "../components/chat/ChatWidget";
+import ReviewCarousel from "../components/ReviewCarousel";
 import {
   Home,
   MapPin,
