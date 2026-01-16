@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Home, Star, Shield } from "lucide-react";
 import AddressAutocomplete from "../components/AddressAutocomplete";
+
+const GOOGLE_MAPS_API_KEY = "AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc";
 
 export default function Start() {
   const navigate = useNavigate();
@@ -14,22 +15,24 @@ export default function Start() {
 
   // Load Google Maps API script
   useEffect(() => {
-    if (document.getElementById("google-maps-script")) {
-      setScriptLoaded(true);
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.id = "google-maps-script";
-    script.src =
-      "https://maps.googleapis.com/maps/api/js?key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc&libraries=places";
-    script.async = true;
-    script.defer = true;
-
-    script.onload = () => setScriptLoaded(true);
-    script.onerror = () => setError("Failed to load Google Maps. Please refresh the page.");
-
-    document.head.appendChild(script);
+    const loadGooglePlaces = () => {
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (window.google?.maps?.places) {
+        setScriptLoaded(true);
+        return;
+      }
+      if (!existingScript) {
+        const script = document.createElement("script");
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+        script.async = true;
+        script.onload = () => setScriptLoaded(true);
+        script.onerror = () => setError("Failed to load Google Maps. Please refresh the page.");
+        document.head.appendChild(script);
+      } else {
+        setTimeout(() => setScriptLoaded(true), 500);
+      }
+    };
+    loadGooglePlaces();
   }, []);
 
   const handleAddressSelect = (data, err) => {
