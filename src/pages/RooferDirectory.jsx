@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import CompanyLogoDisplay from '../components/CompanyLogoDisplay';
 
 export default function RooferDirectory() {
   const [searchParams] = useSearchParams();
@@ -136,15 +137,7 @@ export default function RooferDirectory() {
               <Card key={roofer.id} className="overflow-hidden hover:shadow-xl transition-all duration-300 group">
                 {/* Logo/Image */}
                 <div className="bg-gradient-to-br from-blue-100 to-blue-50 h-48 flex items-center justify-center p-6">
-                  {roofer.company_logo_url ? (
-                    <img 
-                      src={roofer.company_logo_url} 
-                      alt={roofer.company_name} 
-                      className="max-h-32 max-w-full object-contain"
-                    />
-                  ) : (
-                    <div className="text-7xl">🏠</div>
-                  )}
+                  <CompanyLogoDisplay company={roofer} size="xl" />
                 </div>
 
                 {/* Content */}

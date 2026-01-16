@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Home, ArrowLeft, Loader2, Save, Building2 } from "lucide-react";
+import LogoUploader from "../components/LogoUploader";
 
 export default function CompanyProfile() {
   const navigate = useNavigate();
@@ -185,6 +186,11 @@ export default function CompanyProfile() {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Logo */}
+              <div className="border-t pt-6">
+                <LogoUploader company={company} onUpdate={setCompany} />
               </div>
 
               {/* Address */}
