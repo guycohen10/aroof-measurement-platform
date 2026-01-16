@@ -595,31 +595,21 @@ export default function Homepage() {
       {/* Footer */}
       <footer className="bg-slate-900 text-white py-12" role="contentinfo">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
+          <div className="grid md:grid-cols-3 gap-12 mb-8">
+            {/* For Homeowners */}
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center">
-                  <Home className="w-6 h-6 text-white" aria-hidden="true" />
-                </div>
-                <span className="text-2xl font-bold">Aroof</span>
-              </div>
-              <p className="text-slate-400 text-sm mb-4">
-                Connecting homeowners with top-rated roofers across the DFW metroplex.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-bold mb-4">For Homeowners</h4>
+              <h4 className="font-bold mb-4 text-lg">For Homeowners</h4>
               <div className="space-y-2 text-sm text-slate-400">
-                <Link to={createPageUrl("AddressMethodSelector")} className="block hover:text-white">Measure Your Roof</Link>
+                <Link to={createPageUrl("StartFunnel")} className="block hover:text-white">Measure Your Roof</Link>
                 <Link to={createPageUrl("RooferDirectory")} className="block hover:text-white">Find Roofers</Link>
                 <Link to={createPageUrl("RoofingTypesIndex")} className="block hover:text-white">Roofing Materials</Link>
                 <Link to={createPageUrl("BlogHome")} className="block hover:text-white">Blog & Guides</Link>
               </div>
             </div>
 
+            {/* For Roofers */}
             <div>
-              <h4 className="font-bold mb-4">For Roofers</h4>
+              <h4 className="font-bold mb-4 text-lg">For Roofers</h4>
               <div className="space-y-2 text-sm text-slate-400">
                 <Link to={createPageUrl("RooferSignup")} className="block hover:text-white">Join Platform</Link>
                 <Link to={createPageUrl("RooferLogin")} className="block hover:text-white">Roofer Login</Link>
@@ -627,11 +617,12 @@ export default function Homepage() {
               </div>
             </div>
 
+            {/* Support */}
             <div>
-              <h4 className="font-bold mb-4">Support</h4>
+              <h4 className="font-bold mb-4 text-lg">Support</h4>
               <div className="space-y-2 text-sm text-slate-400">
                 <a href="mailto:support@aroof.build" className="block hover:text-white">Contact Us</a>
-                <a href="tel:8502389727" className="block hover:text-white">(850) 238-9727</a>
+                <a href="tel:+18502389727" className="block hover:text-white">(850) 238-9727</a>
                 <p className="text-slate-500">Dallas, TX</p>
               </div>
             </div>
@@ -639,21 +630,12 @@ export default function Homepage() {
 
           <div className="border-t border-slate-800 pt-8">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="text-sm text-slate-400 text-center sm:text-left">
-                <p>© {new Date().getFullYear()} Aroof Platform. All rights reserved.</p>
-                <div className="flex gap-6 mt-4 text-xs justify-center sm:justify-start">
+              <div className="text-sm text-slate-400">
+                <p>© {new Date().getFullYear()} Aroof. All rights reserved.</p>
+                <div className="flex gap-6 mt-4 text-xs">
                   <a href="#" className="hover:text-white">Privacy Policy</a>
                   <a href="#" className="hover:text-white">Terms of Service</a>
-                  <a href="#" className="hover:text-white">Contact</a>
                 </div>
-              </div>
-              <div>
-                <Link
-                    to={createPageUrl("EmployeeLogin")}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/30 transition-all">
-
-                  👤 Company Employee Login
-                </Link>
               </div>
             </div>
           </div>
