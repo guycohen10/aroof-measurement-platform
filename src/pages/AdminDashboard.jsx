@@ -1,16 +1,16 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Home, LogOut, BarChart3, Users, Settings, FileText, Loader2, Building2 } from "lucide-react";
+import { Home, LogOut, BarChart3, Users, Settings, FileText, Loader2, Building2, ShoppingCart } from "lucide-react";
 import OverviewTab from "../components/admin/OverviewTab";
 import LeadsTab from "../components/admin/LeadsTab";
 import UsersTab from "../components/admin/UsersTab";
 import SettingsTab from "../components/admin/SettingsTab";
 import ExternalRoofersTab from "../components/admin/ExternalRoofersTab";
+import LeadPurchaseTab from "../components/admin/LeadPurchaseTab";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -301,7 +301,7 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-4xl grid-cols-5 h-12">
+          <TabsList className="grid w-full max-w-5xl grid-cols-6 h-12">
             <TabsTrigger value="overview" className="text-base">
               <BarChart3 className="w-4 h-4 mr-2" />
               Overview
@@ -309,6 +309,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="leads" className="text-base">
               <FileText className="w-4 h-4 mr-2" />
               All Leads
+            </TabsTrigger>
+            <TabsTrigger value="purchases" className="text-base">
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Lead Sales
             </TabsTrigger>
             <TabsTrigger value="users" className="text-base">
               <Users className="w-4 h-4 mr-2" />
@@ -337,6 +341,10 @@ export default function AdminDashboard() {
               leads={leads}
               users={users}
             />
+          </TabsContent>
+
+          <TabsContent value="purchases">
+            <LeadPurchaseTab />
           </TabsContent>
 
           <TabsContent value="users">

@@ -305,7 +305,7 @@ export default function RooferDashboard() {
         )}
 
         {/* Top Row - Quick Actions */}
-        <div className="grid lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid lg:grid-cols-4 gap-6 mb-8">
           {/* Quick Measure */}
           <Card className="lg:col-span-2 shadow-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
             <CardContent className="p-8">
@@ -343,6 +343,22 @@ export default function RooferDashboard() {
             </CardContent>
           </Card>
 
+          {/* Browse Leads */}
+          <Card className="shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white border-none hover:shadow-xl transition-all cursor-pointer" onClick={() => navigate(createPageUrl("RooferBrowseLeads"))}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="bg-white bg-opacity-20 p-3 rounded-lg">
+                  <Users className="w-6 h-6" />
+                </div>
+                <span className="text-2xl font-bold">Browse</span>
+              </div>
+              <h3 className="text-lg font-semibold mb-1">Available Leads</h3>
+              <p className="text-sm text-purple-100">
+                Purchase qualified homeowner leads
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Purchased Leads Stats */}
           <Card className="shadow-lg bg-gradient-to-br from-green-500 to-green-600 text-white border-none">
             <CardContent className="p-6">
@@ -352,9 +368,9 @@ export default function RooferDashboard() {
                 </div>
                 <span className="text-4xl font-bold">{purchasedLeadsCount || 0}</span>
               </div>
-              <h3 className="text-lg font-semibold mb-1">Purchased Leads</h3>
+              <h3 className="text-lg font-semibold mb-1">My Purchased Leads</h3>
               <p className="text-sm text-green-100">
-                Homeowners waiting for quotes
+                Leads you've purchased
               </p>
             </CardContent>
           </Card>
