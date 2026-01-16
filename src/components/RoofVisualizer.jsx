@@ -84,6 +84,10 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
     try {
       const materialName = materials[selectedMaterial].name;
 
+      // Look up color name by hex code
+      const colorObj = materials[selectedMaterial].colors.find(c => c.hex === selectedColor);
+      const colorName = colorObj ? colorObj.name : 'Weathered Wood';
+
       // Extract polygon coordinates
       let polygonCoordinates = [];
 
@@ -118,7 +122,8 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
       const response = await base44.functions.invoke('GenerateRealisticRoof', {
         address: address,
         polygonCoordinates: polygonCoordinates.length > 0 ? polygonCoordinates : null,
-        selectedMaterial: materialName
+        selectedMaterial: materialName,
+        selectedColor: colorName
       });
 
       const result = response.data;
