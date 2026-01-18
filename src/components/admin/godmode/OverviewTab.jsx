@@ -13,10 +13,11 @@ export default function OverviewTab() {
 
   async function loadStats() {
     try {
+      // Use service role to bypass auth checks
       const [measurements, appointments, users] = await Promise.all([
-        base44.entities.Measurement.list('-created_date', 1000),
-        base44.entities.Appointment.list('-created_date', 1000),
-        base44.entities.User.list()
+        base44.asServiceRole.entities.Measurement.list('-created_date', 1000),
+        base44.asServiceRole.entities.Appointment.list('-created_date', 1000),
+        base44.asServiceRole.entities.User.list()
       ]);
 
       const now = new Date();

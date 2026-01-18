@@ -65,26 +65,26 @@ export default function TerritoriesGodModeTab() {
         </div>
       </div>
 
-      {/* Map View with Google Maps - Using proper embed */}
+      {/* Map View with Google Maps - War Room */}
       <Card>
         <CardContent className="p-6">
-          <h3 className="text-lg font-bold mb-4">Territory Map View (War Room)</h3>
-          <div className="bg-slate-100 rounded-lg overflow-hidden border-2 border-blue-300" style={{ height: '600px' }}>
+          <h3 className="text-lg font-bold mb-4">🗺️ Territory War Room - Live Map</h3>
+          <div className="bg-slate-900 rounded-lg overflow-hidden border-4 border-red-600 shadow-2xl" style={{ height: '700px' }}>
             <iframe
               width="100%"
               height="100%"
               frameBorder="0"
               style={{ border: 0 }}
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d429168.3964843777!2d-96.79700000000001!3d32.7767!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x864c19f77b45974b%3A0xb9ec9ba4f647678f!2sDallas%2C%20TX!5e0!3m2!1sen!2sus!4v1234567890"
+              src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d859267.3259092201!2d-96.7970!3d32.7767!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2sus!4v1234567890123"
               allowFullScreen
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             ></iframe>
           </div>
-          <div className="mt-4 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
-            <p className="text-sm text-yellow-800 font-semibold">
-              🗺️ <strong>War Room Active:</strong> Map displays DFW territory coverage area. 
-              Full polygon rendering with interactive controls requires Google Maps JavaScript API integration.
+          <div className="mt-4 p-4 bg-red-50 border-2 border-red-600 rounded-lg">
+            <p className="text-sm text-red-800 font-bold">
+              ⚠️ <strong>WAR ROOM ACTIVE:</strong> Displaying all DFW territories. 
+              Click territories below to view ownership and delete if needed.
             </p>
           </div>
         </CardContent>

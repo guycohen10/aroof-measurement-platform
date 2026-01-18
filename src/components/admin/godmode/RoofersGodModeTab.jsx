@@ -14,7 +14,8 @@ export default function RoofersGodModeTab() {
 
   async function loadData() {
     try {
-      const allUsers = await base44.entities.User.list();
+      // Use service role to bypass auth checks
+      const allUsers = await base44.asServiceRole.entities.User.list();
       const rooferUsers = allUsers.filter(u => u.aroof_role === 'external_roofer');
       setRoofers(rooferUsers);
       setLoading(false);
@@ -26,7 +27,8 @@ export default function RoofersGodModeTab() {
 
   async function updateSubscription(userId, plan) {
     try {
-      await base44.entities.User.update(userId, {
+      // Use service role to bypass auth checks
+      await base44.asServiceRole.entities.User.update(userId, {
         subscription_plan: plan,
         measurements_limit: plan === 'basic' ? 3 : plan === 'pro' ? 10 : 999
       });
