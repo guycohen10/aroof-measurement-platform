@@ -854,13 +854,13 @@ export default function MeasurementPage() {
     }
   }, [address, coordinates, createMap]);
 
-  // CRITICAL FIX: Load Google Maps script FIRST before anything else
+  // Manual Script Injection (Robust Fallback) - SIMPLIFIED
   useEffect(() => {
-    console.log("🚀 Google Maps script loader starting");
+    console.log("🚀 Manual Google Maps script loader starting");
 
     // Check if already loaded
     if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
-      console.log("✅ Google Maps already loaded");
+      console.log("✅ Google Maps already exists - using it");
       if (!scriptLoadedRef.current) {
         scriptLoadedRef.current = true;
         setMapScriptLoaded(true);
@@ -868,107 +868,72 @@ export default function MeasurementPage() {
       return;
     }
     
-    console.log('⏳ Starting Google Maps script load process...');
-    
-    // Global error handler
-    window.gm_authFailure = () => {
-      console.error("❌ Google Maps auth failed");
-      setMapError("Google Maps authentication failed.");
-      setMapLoading(false);
-    };
-
-    // Check if script tag exists
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+    // Check if script already exists
+    const existingScript = document.getElementById('google-map-script');
     if (existingScript) {
       console.log("⏳ Script tag exists, waiting for Google Maps API...");
-      let attempts = 0;
-      const maxAttempts = 100; // INCREASED: 20 seconds
       
+      // Simple polling with extended timeout
+      const startTime = Date.now();
       const checkInterval = setInterval(() => {
-        attempts++;
-        if (window.google && window.google.maps && window.google.maps.drawing && window.google.maps.geometry) {
+        const elapsed = Date.now() - startTime;
+        
+        if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
           clearInterval(checkInterval);
-          console.log("✅ Google Maps API ready after", attempts * 200, "ms");
+          console.log("✅ Google Maps API ready after", elapsed, "ms");
           scriptLoadedRef.current = true;
           setMapScriptLoaded(true);
           setMapError("");
-        } else if (attempts >= maxAttempts) {
+        } else if (elapsed > 60000) {
           clearInterval(checkInterval);
-          console.error("❌ Google Maps load timeout after", maxAttempts * 200, "ms (60s)");
-          setMapError("Google Maps is taking too long to load. Please check your connection and try refreshing.");
-          setMapLoading(false);
-        } else if (attempts % 25 === 0) {
-          console.log(`⏳ Still waiting... (${attempts * 0.2}s / 60s)`);
-        }
-      }, 200);
-      
-      // Overall safety timeout - 90 seconds (extended)
-      setTimeout(() => {
-        clearInterval(checkInterval);
-        if (!scriptLoadedRef.current) {
-          console.error("❌ Overall timeout - 90 seconds elapsed");
-          setMapError("Google Maps failed to load after 90 seconds. Please refresh the page.");
+          console.error("❌ Timeout after 60 seconds");
+          setMapError("Google Maps failed to load. Click Retry below.");
           setMapLoading(false);
         }
-      }, 90000);
+      }, 500);
       
-      return;
+      return () => clearInterval(checkInterval);
     }
 
     // Create new script
-    console.log("📥 Loading Google Maps script for the FIRST time...");
+    console.log("📥 Injecting Google Maps script...");
     const script = document.createElement('script');
-    // CRITICAL: Load ALL libraries (places, drawing, geometry) to prevent browser caching issues
-    script.id = 'google-map-script'; // Add unique ID
+    script.id = 'google-map-script';
     script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,drawing,geometry`;
     script.async = true;
     script.defer = true;
     
-    let scriptTimeout;
-    
     script.onload = () => {
-      clearTimeout(scriptTimeout);
-      console.log("✅ Script tag loaded successfully");
-      console.log("⏳ Waiting for API to initialize...");
+      console.log("✅ Script loaded, waiting for API initialization...");
       
-      // Poll for API availability with extended timeout
-      let attempts = 0;
-      const maxAttempts = 300; // INCREASED: 60 seconds
+      // Wait for API to become available
+      const startTime = Date.now();
       const checkInterval = setInterval(() => {
-        attempts++;
-        if (window.google && window.google.maps && window.google.maps.drawing && window.google.maps.geometry) {
+        const elapsed = Date.now() - startTime;
+        
+        if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
           clearInterval(checkInterval);
-          console.log("✅ Google Maps API confirmed ready after", attempts * 200, "ms");
+          console.log("✅ Google Maps API ready after", elapsed, "ms");
           scriptLoadedRef.current = true;
           setMapScriptLoaded(true);
           setMapError("");
-        } else if (attempts >= maxAttempts) {
+        } else if (elapsed > 60000) {
           clearInterval(checkInterval);
-          console.error("❌ API not ready after 60 seconds");
-          setMapError("Google Maps API failed to initialize. Please try refreshing the page.");
+          console.error("❌ API initialization timeout");
+          setMapError("Google Maps API failed to initialize. Click Retry.");
           setMapLoading(false);
-        } else if (attempts % 25 === 0) {
-          console.log(`⏳ API check... (${attempts * 0.2}s / 60s)`);
         }
-      }, 200);
+      }, 500);
     };
     
-    script.onerror = (e) => {
-      clearTimeout(scriptTimeout);
-      console.error("❌ Script failed to load:", e);
-      setMapError("Failed to load Google Maps script. Check your internet connection and refresh.");
+    script.onerror = () => {
+      console.error("❌ Script failed to load");
+      setMapError("Failed to load Google Maps. Check your connection and click Retry.");
       setMapLoading(false);
     };
-    
-    // Overall timeout - 90 seconds for script load (extended for slow connections)
-    scriptTimeout = setTimeout(() => {
-      console.error("❌ Google Maps overall timeout (90s)");
-      setMapError("Google Maps script timeout. Please try refreshing the page.");
-      setMapLoading(false);
-    }, 90000);
     
     document.head.appendChild(script);
-    console.log("📥 Script tag added to document");
+    console.log("📥 Script injected into DOM");
   }, []); // Run ONCE on mount
 
   // Initialize map ONLY after script is loaded AND we have address/coordinates
