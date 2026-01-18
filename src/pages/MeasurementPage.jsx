@@ -1954,13 +1954,13 @@ export default function MeasurementPage() {
     setError("");
 
     try {
-      let roofSqft;
-      let method;
+      let roofSqft = 2000; // Default estimate
+      let method = 'quick_calculation';
 
-      // Always try Solar API first
+      // Try Solar API if coordinates available
       if (coordinates) {
         try {
-          console.log('🔍 Calling Google Solar API for Quick Estimate...');
+          console.log('🔍 Calling Google Solar API...');
           const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${coordinates.lat}&location.longitude=${coordinates.lng}&requiredQuality=HIGH&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
           
           const response = await fetch(solarApiUrl);
@@ -1973,94 +1973,41 @@ export default function MeasurementPage() {
               roofSqft = Math.round(roofAreaM2 * 10.7639);
               method = 'solar_api';
               console.log('✅ Solar API success:', roofSqft, 'sq ft');
-            } else {
-              throw new Error('No roof data from Solar API');
             }
-          } else {
-            throw new Error('Solar API request failed');
           }
         } catch (solarErr) {
-          console.log('⚠️ Solar API failed, using building footprint fallback:', solarErr.message);
-          
-          // Fallback to ZIP code average
-          const zipCode = address.match(/\d{5}/)?.[0];
-          const avgHomeSizes = {
-            '75001': 2200, '75002': 2400, '75006': 2100, '75007': 2300,
-            '75019': 2500, '75023': 2600, '75024': 2700, '75025': 2400,
-            '75034': 2200, '75035': 2300, '75056': 2100, '75062': 2500,
-            '75071': 2300, '75074': 2600, '75075': 2800, '75078': 2400,
-            '75080': 2200, '75081': 2500, '75082': 2300, '75093': 2400
-          };
-          const estimatedBuildingSqft = avgHomeSizes[zipCode] || 2000;
-          roofSqft = Math.round(estimatedBuildingSqft * 1.3);
-          method = 'building_footprint_estimate';
+          console.log('⚠️ Solar API failed, using default estimate');
         }
-      } else {
-        // No coordinates - use ZIP fallback
-        const zipCode = address.match(/\d{5}/)?.[0];
-        const avgHomeSizes = {
-          '75001': 2200, '75002': 2400, '75006': 2100, '75007': 2300,
-          '75019': 2500, '75023': 2600, '75024': 2700, '75025': 2400,
-          '75034': 2200, '75035': 2300, '75056': 2100, '75062': 2500,
-          '75071': 2300, '75074': 2600, '75075': 2800, '75078': 2400,
-          '75080': 2200, '75081': 2500, '75082': 2300, '75093': 2400
-        };
-        const estimatedBuildingSqft = avgHomeSizes[zipCode] || 2000;
-        roofSqft = Math.round(estimatedBuildingSqft * 1.3);
-        method = 'building_footprint_estimate';
       }
 
-      const currentUser = await base44.auth.me().catch(() => null);
-
-      // Prepare polygon data if available from Solar API
-      const polygonSections = [];
-      if (solarCenter && solarCenter.boxCoords) {
-        polygonSections.push({
-          id: 'solar-polygon',
-          name: 'Roof Area',
-          coordinates: solarCenter.boxCoords,
-          flat_area_sqft: roofSqft,
-          adjusted_area_sqft: roofSqft,
-          pitch: 'flat',
-          pitch_multiplier: 1.0,
-          color: '#10B981',
-          source: 'solar_api'
-        });
-      }
-
+      // Create measurement record
       const measurementData = {
-        company_id: currentUser?.company_id || null,
-        user_id: currentUser?.id || null,
         property_address: address,
         latitude: coordinates?.lat || null,
         longitude: coordinates?.lng || null,
-        user_type: currentUser?.aroof_role === 'external_roofer' ? 'roofer' : 'homeowner',
+        user_type: 'homeowner',
         measurement_type: 'quick_estimate',
         estimation_method: method,
         total_sqft: roofSqft,
         total_adjusted_sqft: roofSqft,
-        measurement_data: {
-          total_adjusted_sqft: roofSqft,
-          sections: polygonSections,
-          method: method
-        },
-        lead_status: 'new',
-        payment_status: "pending"
+        lead_status: 'new'
       };
 
-      console.log('💾 Creating measurement:', measurementData);
+      console.log('💾 Creating measurement...');
       const savedMeasurement = await base44.entities.Measurement.create(measurementData);
       console.log('✅ Measurement created:', savedMeasurement.id);
       
-      setIsMeasurementComplete(true);
+      // Store in session
+      sessionStorage.setItem('currentMeasurementId', savedMeasurement.id);
       
-      // Redirect to contact info page
-      navigate(createPageUrl(`ContactInfoPage?id=${savedMeasurement.id}`));
+      // Immediate redirect to contact form
+      window.location.href = createPageUrl(`ContactInfoPage?id=${savedMeasurement.id}`);
 
     } catch (err) {
       console.error('❌ Quick estimate error:', err);
-      setError(`Failed to create estimate: ${err.message}`);
+      alert('Something went wrong. Please try again or use Detailed Measurement.');
       setQuickEstimateLoading(false);
+      setHasChosenMethod(false);
     }
   };
 
