@@ -115,6 +115,7 @@ export default function MeasurementPage() {
   const [mapCenter, setMapCenter] = useState(null);
   const [mapZoom, setMapZoom] = useState(21);
   const [mapHeading, setMapHeading] = useState(0);
+  const [polygonCoordinates, setPolygonCoordinates] = useState([]);
 
   // Fetch Solar API Data
   const fetchSolarData = async (lat, lng) => {
@@ -172,10 +173,18 @@ export default function MeasurementPage() {
             { lat: box.sw.latitude, lng: box.ne.longitude }
           ];
           
+          // CRITICAL FIX: Save coordinates to state for RoofVisualizer
+          setPolygonCoordinates(boxCoords);
+          
+          // CRITICAL FIX: Snap camera to the roof center
+          setMapCenter(calculatedCenter);
+          
           // SAVE THE COORDINATES & TRIGGER RE-MOUNT
           setSolarCenter({ ...calculatedCenter, boxCoords });
           
           console.log('✅ Solar coordinates saved - Map will re-mount');
+          console.log('✅ Polygon coordinates set:', boxCoords.length, 'points');
+          console.log('✅ Map center snapped to:', calculatedCenter);
         }
       } else {
         console.warn('⚠️ No solar potential found for this building.');
@@ -238,11 +247,12 @@ export default function MeasurementPage() {
       console.log('📦 Address from session:', sessionAddress);
       console.log('📦 Method from session:', sessionMethod);
 
-      // Check if user is authenticated
+      // Check if user is authenticated (only if needed for roofer flow)
       let isRoofer = false;
+      let currentUser = null;
       try {
-        const user = await base44.auth.me();
-        isRoofer = user?.aroof_role === 'external_roofer';
+        currentUser = await base44.auth.me();
+        isRoofer = currentUser?.aroof_role === 'external_roofer';
         console.log('👤 User type:', isRoofer ? 'Roofer' : 'Homeowner');
       } catch (err) {
         console.log('👤 Not authenticated (homeowner)');
@@ -303,13 +313,20 @@ export default function MeasurementPage() {
   // Check if roofer is accessing public page incorrectly
   useEffect(() => {
     const checkPublicAccess = async () => {
+      // Only check if user might be logged in (don't fetch for public/guest users)
+      const isPublicLead = !sessionStorage.getItem('active_lead_id') && !searchParams.get('leadId');
+      
+      if (isPublicLead) {
+        console.log('👤 Public/Guest user - skipping auth check');
+        return;
+      }
+      
       try {
         const user = await base44.auth.me();
         console.log('👤 USER CHECK:');
         console.log('  Email:', user?.email);
         console.log('  aroof_role:', user?.aroof_role);
         console.log('  Role:', user?.role);
-        console.log('  Full user:', JSON.stringify(user, null, 2));
         
         // If roofer AND no leadId in URL/session, redirect to dashboard
         if (user && user.aroof_role === 'external_roofer') {
@@ -317,8 +334,6 @@ export default function MeasurementPage() {
           const hasLeadId = urlParams.get('leadId') || sessionStorage.getItem('active_lead_id');
           
           console.log('🎭 Roofer detected');
-          console.log('  URL leadId:', urlParams.get('leadId'));
-          console.log('  Session leadId:', sessionStorage.getItem('active_lead_id'));
           console.log('  Has lead ID?', hasLeadId ? '✅ YES' : '❌ NO');
           
           if (!hasLeadId) {
@@ -330,11 +345,10 @@ export default function MeasurementPage() {
       } catch (err) {
         // Not logged in - allow access for homeowners
         console.log('👤 User not logged in (homeowner flow)');
-        console.log('Error:', err.message);
       }
     };
     checkPublicAccess();
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   // Geocode address function
   const geocodeAddress = useCallback(async (addressToGeocode) => {
@@ -2002,8 +2016,17 @@ export default function MeasurementPage() {
           { lat: box.sw.latitude, lng: box.ne.longitude }
         ];
         
+        // CRITICAL FIX: Save coordinates to state for RoofVisualizer
+        setPolygonCoordinates(boxCoords);
+        
+        // CRITICAL FIX: Snap camera to the roof center
+        setMapCenter(calculatedCenter);
+        
         // Save coordinates for map to render polygon
         setSolarCenter({ ...calculatedCenter, boxCoords });
+        
+        console.log('✅ Quick Estimate polygon coordinates set:', boxCoords.length, 'points');
+        console.log('✅ Map center snapped to:', calculatedCenter);
       }
       
       // Set the area and mark as done
