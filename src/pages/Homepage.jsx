@@ -613,6 +613,19 @@ export default function Homepage() {
                 <div className="flex gap-6 mt-4 text-xs">
                   <a href="#" className="hover:text-white">Privacy Policy</a>
                   <a href="#" className="hover:text-white">Terms of Service</a>
+                  <a 
+                    href={createPageUrl("EmployeeLogin")}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      localStorage.removeItem('token');
+                      localStorage.removeItem('sb-access-token');
+                      sessionStorage.clear();
+                      window.location.href = createPageUrl("EmployeeLogin");
+                    }}
+                    className="text-slate-300 opacity-50 hover:opacity-100 transition-opacity"
+                  >
+                    Admin Access
+                  </a>
                 </div>
               </div>
             </div>
