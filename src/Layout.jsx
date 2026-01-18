@@ -10,6 +10,14 @@ export default function Layout({ children, currentPageName }) {
 
   useEffect(() => {
     const loadRecentMeasurement = async () => {
+      // CRITICAL FIX: Only fetch measurements if user is authenticated
+      const token = localStorage.getItem('sb-access-token') || localStorage.getItem('token');
+      
+      if (!token) {
+        console.log('Layout: Guest mode - skipping measurement fetch');
+        return;
+      }
+      
       try {
         const measurements = await base44.entities.Measurement.list('-created_date', 1);
         if (measurements && measurements.length > 0) {

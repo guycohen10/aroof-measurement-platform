@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -16,10 +15,21 @@ export default function Navigation() {
   }, []);
 
   const checkAuth = async () => {
+    // CRITICAL FIX: Only fetch user if token exists (prevents 401 errors for guests)
+    const token = localStorage.getItem('sb-access-token') || localStorage.getItem('token');
+    
+    if (!token) {
+      console.log('👤 Navigation: Guest mode - skipping auth check');
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+    
     try {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
     } catch (err) {
+      console.log('Navigation: Auth check failed');
       setUser(null);
     } finally {
       setLoading(false);

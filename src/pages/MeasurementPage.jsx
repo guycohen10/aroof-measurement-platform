@@ -868,6 +868,8 @@ export default function MeasurementPage() {
       return;
     }
     
+    console.log('⏳ Starting Google Maps script load process...');
+    
     // Global error handler
     window.gm_authFailure = () => {
       console.error("❌ Google Maps auth failed");
@@ -892,23 +894,23 @@ export default function MeasurementPage() {
           setMapError("");
         } else if (attempts >= maxAttempts) {
           clearInterval(checkInterval);
-          console.error("❌ Google Maps load timeout after", maxAttempts * 200, "ms (20s)");
-          setMapError("Google Maps is taking too long to load. Please check your connection and refresh the page.");
+          console.error("❌ Google Maps load timeout after", maxAttempts * 200, "ms (60s)");
+          setMapError("Google Maps is taking too long to load. Please check your connection and try refreshing.");
           setMapLoading(false);
-        } else if (attempts % 10 === 0) {
-          console.log(`⏳ Still waiting... (${attempts * 0.2}s / 20s)`);
+        } else if (attempts % 25 === 0) {
+          console.log(`⏳ Still waiting... (${attempts * 0.2}s / 60s)`);
         }
       }, 200);
       
-      // Overall safety timeout - 30 seconds
+      // Overall safety timeout - 90 seconds (extended)
       setTimeout(() => {
         clearInterval(checkInterval);
         if (!scriptLoadedRef.current) {
-          console.error("❌ Overall timeout - 30 seconds elapsed");
-          setMapError("Google Maps failed to load after 30 seconds. Please refresh the page.");
+          console.error("❌ Overall timeout - 90 seconds elapsed");
+          setMapError("Google Maps failed to load after 90 seconds. Please refresh the page.");
           setMapLoading(false);
         }
-      }, 30000);
+      }, 90000);
       
       return;
     }
@@ -917,6 +919,7 @@ export default function MeasurementPage() {
     console.log("📥 Loading Google Maps script for the FIRST time...");
     const script = document.createElement('script');
     // CRITICAL: Load ALL libraries (places, drawing, geometry) to prevent browser caching issues
+    script.id = 'google-map-script'; // Add unique ID
     script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,drawing,geometry`;
     script.async = true;
     script.defer = true;
@@ -928,9 +931,9 @@ export default function MeasurementPage() {
       console.log("✅ Script tag loaded successfully");
       console.log("⏳ Waiting for API to initialize...");
       
-      // Poll for API availability
+      // Poll for API availability with extended timeout
       let attempts = 0;
-      const maxAttempts = 100; // 20 seconds
+      const maxAttempts = 300; // INCREASED: 60 seconds
       const checkInterval = setInterval(() => {
         attempts++;
         if (window.google && window.google.maps && window.google.maps.drawing && window.google.maps.geometry) {
@@ -941,11 +944,11 @@ export default function MeasurementPage() {
           setMapError("");
         } else if (attempts >= maxAttempts) {
           clearInterval(checkInterval);
-          console.error("❌ API not ready after 20 seconds");
-          setMapError("Google Maps API failed to initialize. Please refresh the page.");
+          console.error("❌ API not ready after 60 seconds");
+          setMapError("Google Maps API failed to initialize. Please try refreshing the page.");
           setMapLoading(false);
-        } else if (attempts % 10 === 0) {
-          console.log(`⏳ API check... (${attempts * 0.2}s / 20s)`);
+        } else if (attempts % 25 === 0) {
+          console.log(`⏳ API check... (${attempts * 0.2}s / 60s)`);
         }
       }, 200);
     };
@@ -957,12 +960,12 @@ export default function MeasurementPage() {
       setMapLoading(false);
     };
     
-    // Overall timeout - 30 seconds for script load
+    // Overall timeout - 90 seconds for script load (extended for slow connections)
     scriptTimeout = setTimeout(() => {
-      console.error("❌ Google Maps overall timeout (30s)");
-      setMapError("Google Maps script timeout. Please refresh the page.");
+      console.error("❌ Google Maps overall timeout (90s)");
+      setMapError("Google Maps script timeout. Please try refreshing the page.");
       setMapLoading(false);
-    }, 30000);
+    }, 90000);
     
     document.head.appendChild(script);
     console.log("📥 Script tag added to document");
@@ -994,34 +997,25 @@ export default function MeasurementPage() {
   // Removed auto-fetch - now handled directly in handleChooseQuickEstimate
 
   const handleRetryMap = () => {
-    console.log('🔄 Retrying map load...');
+    console.log('🔄 Retrying map load - forcing re-render...');
     
-    // Reset error states
+    // Reset all error states
     setMapError("");
     setMapLoading(true);
     initAttemptRef.current = 0;
     
-    // Clear existing map instance to force re-mount
+    // Clear existing map instance
     if (mapInstanceRef.current) {
       mapInstanceRef.current = null;
       setMapInstance(null);
     }
     
-    // Force component re-mount by toggling script loaded state
-    if (mapScriptLoaded) {
+    // Force re-mount by toggling key state
+    setRetryCount(prev => prev + 1);
+    
+    // Re-initialize map after clearing
+    if (mapScriptLoaded && coordinates) {
       setTimeout(() => initializeMap(), 500);
-    } else {
-      // Trigger script reload
-      scriptLoadedRef.current = false;
-      setMapScriptLoaded(false);
-      
-      // Re-check for script
-      setTimeout(() => {
-        if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
-          scriptLoadedRef.current = true;
-          setMapScriptLoaded(true);
-        }
-      }, 1000);
     }
   };
 
