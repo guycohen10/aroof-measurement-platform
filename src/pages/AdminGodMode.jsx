@@ -61,8 +61,8 @@ export default function AdminGodMode() {
         return;
       }
 
-      // Check admin role
-      if (userRole !== 'admin') {
+      // Check admin role OR owner email bypass
+      if (userRole !== 'admin' && userEmail !== 'greenteamdallas@gmail.com') {
         console.log('[Auth Check] Not admin');
         redirectToLogin();
         return;
