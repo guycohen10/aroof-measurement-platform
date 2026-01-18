@@ -22,6 +22,14 @@ export default function ContactInfoPage() {
 
   useEffect(() => {
     checkIfRooferAndRedirect();
+    
+    // Check for measurement ID in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const measurementId = urlParams.get('id');
+    
+    if (measurementId) {
+      loadMeasurementById(measurementId);
+    }
   }, []);
 
   const checkIfRooferAndRedirect = async () => {
@@ -61,20 +69,31 @@ export default function ContactInfoPage() {
     }
   };
 
+  const loadMeasurementById = async (measurementId) => {
+    try {
+      const meas = await base44.entities.Measurement.get(measurementId);
+      setMeasurement(meas);
+      setLoading(false);
+    } catch (err) {
+      console.error("Failed to load measurement:", err);
+      navigate(createPageUrl("Start"));
+    }
+  };
+
   const loadMeasurement = async () => {
     try {
       const measurementId = sessionStorage.getItem('pending_measurement_id');
       
       if (!measurementId) {
         // No pending measurement - redirect to start
-        navigate(createPageUrl("AddressEntry"));
+        navigate(createPageUrl("Start"));
         return;
       }
 
       const measurements = await base44.entities.Measurement.filter({ id: measurementId });
       
       if (measurements.length === 0) {
-        navigate(createPageUrl("AddressEntry"));
+        navigate(createPageUrl("Start"));
         return;
       }
 
@@ -82,7 +101,7 @@ export default function ContactInfoPage() {
       setLoading(false);
     } catch (err) {
       console.error("Failed to load measurement:", err);
-      navigate(createPageUrl("AddressEntry"));
+      navigate(createPageUrl("Start"));
     }
   };
 
@@ -93,11 +112,13 @@ export default function ContactInfoPage() {
     try {
       console.log('📝 Saving homeowner lead...');
       
-      const pendingMeasurementId = sessionStorage.getItem('pending_measurement_id');
+      const urlParams = new URLSearchParams(window.location.search);
+      const measurementIdFromUrl = urlParams.get('id');
+      const pendingMeasurementId = measurementIdFromUrl || sessionStorage.getItem('pending_measurement_id');
       
       if (!pendingMeasurementId) {
         alert('No measurement found. Please start over.');
-        navigate('/addressmethodselector');
+        navigate(createPageUrl('Start'));
         return;
       }
 
@@ -172,18 +193,16 @@ The Aroof Team
       const zipMatch = measurement.property_address?.match(/\b\d{5}\b/);
       const zipCode = zipMatch ? zipMatch[0] : '';
       
-      // Navigate with URL parameters for reliable data transfer
-      const resultUrl = createPageUrl(
-        `Results?measurementid=${pendingMeasurementId}&lat=${measurement.latitude || ''}&lng=${measurement.longitude || ''}&area=${measurement.total_sqft || ''}&zip=${zipCode}`
-      );
-
-      // Clear session
+      // Clear session data
       sessionStorage.removeItem('pending_measurement_id');
+      sessionStorage.removeItem('selectedAddress');
+      sessionStorage.removeItem('homeowner_lat');
+      sessionStorage.removeItem('homeowner_lng');
       sessionStorage.removeItem('homeowner_address');
       sessionStorage.removeItem('measurement_method');
 
-      console.log('✅ Navigating to results with params');
-      navigate(resultUrl);
+      console.log('✅ Navigating to results');
+      window.location.href = `/results?id=${pendingMeasurementId}`;
 
     } catch (err) {
       console.error('❌ Error saving lead:', err);
