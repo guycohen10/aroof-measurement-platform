@@ -5,7 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Loader2, Crown, ArrowRight, Box, Camera } from "lucide-react";
+import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Loader2, Crown, ArrowRight, Box, Camera, Palette } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
@@ -700,6 +700,37 @@ export default function Results() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
+            {/* AI STUDIO VISUALIZER BUTTON */}
+            <Card className="shadow-2xl border-4 border-purple-300 bg-gradient-to-br from-purple-50 via-pink-50 to-purple-50">
+              <CardContent className="p-8">
+                <div className="flex items-center gap-6">
+                  <div className="w-24 h-24 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-xl flex-shrink-0">
+                    <span className="text-5xl">✨</span>
+                  </div>
+                  
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                      See Your Home with a New Roof
+                    </h2>
+                    <p className="text-slate-600 mb-4">
+                      Use AI to visualize different materials and colors before you decide
+                    </p>
+                    <Button
+                      size="lg"
+                      className="h-14 px-8 text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold"
+                      onClick={() => {
+                        const url = createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&lat=${measurement.latitude}&lng=${measurement.longitude}&measurementId=${measurement.id}`);
+                        navigate(url);
+                      }}
+                    >
+                      <Palette className="w-5 h-5 mr-2" />
+                      Open AI Design Studio
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {selectedVisualization && (
               <Card className="shadow-xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-white">
                 <CardHeader className="bg-gradient-to-r from-purple-100 to-white">
