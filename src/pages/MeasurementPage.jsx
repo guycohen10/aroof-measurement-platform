@@ -47,6 +47,7 @@ export default function MeasurementPage() {
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const [mapInstance, setMapInstance] = useState(null);
   const markerRef = useRef(null);
   const drawingManagerRef = useRef(null);
   const polygonsRef = useRef([]);
@@ -588,7 +589,8 @@ export default function MeasurementPage() {
       const map = new window.google.maps.Map(mapRef.current, mapOptions);
 
       mapInstanceRef.current = map;
-      console.log("✅ Map instance created");
+      setMapInstance(map);
+      console.log("✅ Map instance created and stored in state");
       
       // Safe "Unlock" Listener - waits for map to finish loading address BEFORE applying zoom rules
       map.addListener('idle', () => {
@@ -3375,9 +3377,9 @@ export default function MeasurementPage() {
         </div>
 
           {/* Roof Visualizer Overlay */}
-          {isDesignMode && (
+          {isDesignMode && mapInstance && (
             <RoofVisualizer
-              mapInstance={mapInstanceRef.current}
+              mapInstance={mapInstance}
               roofPolygon={solarPolygonRef.current}
               polygonsArray={polygonsRef.current}
               isMeasurementComplete={isMeasurementComplete}
