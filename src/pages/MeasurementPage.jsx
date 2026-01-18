@@ -2002,10 +2002,10 @@ export default function MeasurementPage() {
         lead_id: savedMeasurement.id
       });
       
-      // CRITICAL: Redirect to results page using direct window navigation
-      const resultsUrl = `/results?id=${savedMeasurement.id}&preview=true`;
+      // Redirect to results page using Base44 page URL system
+      const resultsUrl = createPageUrl(`Results?measurementid=${savedMeasurement.id}`);
       console.log('✅ Redirecting to:', resultsUrl);
-      window.location.href = resultsUrl;
+      navigate(resultsUrl);
 
     } catch (err) {
       console.error('❌ Quick estimate error:', err);
