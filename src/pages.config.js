@@ -41,7 +41,6 @@ import JobScheduling from './pages/JobScheduling';
 import LeadManagement from './pages/LeadManagement';
 import LeaveReview from './pages/LeaveReview';
 import MaintenancePlans from './pages/MaintenancePlans';
-import MeasurementPage from './pages/MeasurementPage';
 import MetalShingles from './pages/MetalShingles';
 import MetalStandingSeam from './pages/MetalStandingSeam';
 import NaturalSlate from './pages/NaturalSlate';
@@ -80,6 +79,7 @@ import UpgradeProfile from './pages/UpgradeProfile';
 import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import Windows from './pages/Windows';
+import MeasurementPage from './pages/MeasurementPage';
 import __Layout from './Layout.jsx';
 
 
@@ -127,7 +127,6 @@ export const PAGES = {
     "LeadManagement": LeadManagement,
     "LeaveReview": LeaveReview,
     "MaintenancePlans": MaintenancePlans,
-    "MeasurementPage": MeasurementPage,
     "MetalShingles": MetalShingles,
     "MetalStandingSeam": MetalStandingSeam,
     "NaturalSlate": NaturalSlate,
@@ -166,6 +165,7 @@ export const PAGES = {
     "VerifyEmail": VerifyEmail,
     "Visualizing": Visualizing,
     "Windows": Windows,
+    "MeasurementPage": MeasurementPage,
 }
 
 export const pagesConfig = {

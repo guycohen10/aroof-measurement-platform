@@ -140,12 +140,17 @@ export default function MeasurementPage() {
       
       if (data.solarPotential) {
         const areaSqM = data.solarPotential.wholeRoofStats.areaMeters2;
-        const areaSqFt = Math.round(areaSqM * 10.764);
+        const baseSqFt = Math.round(areaSqM * 10.764);
         
-        console.log('✅ AI SUCCESS! Area:', areaSqFt);
+        // Add 10% waste buffer
+        const bufferedSqFt = Math.round(baseSqFt * 1.10);
+        const bufferedSqM = Math.round(bufferedSqFt * 0.092903);
         
-        // FORCE UPDATE STATE
-        setTotalSqft(areaSqFt);
+        console.log('✅ AI SUCCESS! Base Area:', baseSqFt, 'sq ft');
+        console.log('✅ Buffered Area (10% waste):', bufferedSqFt, 'sq ft (', bufferedSqM, 'm²)');
+        
+        // FORCE UPDATE STATE with buffered value
+        setTotalSqft(bufferedSqFt);
         setIsCalculationDone(true);
         setIsMeasurementComplete(true);
         
@@ -313,28 +318,25 @@ export default function MeasurementPage() {
   // Check if roofer is accessing public page incorrectly
   useEffect(() => {
     const checkPublicAccess = async () => {
-      // Only check if user might be logged in (don't fetch for public/guest users)
-      const isPublicLead = !sessionStorage.getItem('active_lead_id') && !searchParams.get('leadId');
+      // CRITICAL: Check for auth token FIRST to prevent 401 errors
+      const token = localStorage.getItem('sb-access-token') || localStorage.getItem('token');
       
-      if (isPublicLead) {
-        console.log('👤 Public/Guest user - skipping auth check');
+      if (!token) {
+        console.log('👤 Guest mode: Skipping user fetch to prevent 401 errors');
         return;
       }
       
+      // Only proceed if we have a token
       try {
         const user = await base44.auth.me();
         console.log('👤 USER CHECK:');
         console.log('  Email:', user?.email);
         console.log('  aroof_role:', user?.aroof_role);
-        console.log('  Role:', user?.role);
         
         // If roofer AND no leadId in URL/session, redirect to dashboard
         if (user && user.aroof_role === 'external_roofer') {
           const urlParams = new URLSearchParams(window.location.search);
           const hasLeadId = urlParams.get('leadId') || sessionStorage.getItem('active_lead_id');
-          
-          console.log('🎭 Roofer detected');
-          console.log('  Has lead ID?', hasLeadId ? '✅ YES' : '❌ NO');
           
           if (!hasLeadId) {
             console.log('⚠️ No lead ID found, redirecting to dashboard');
@@ -343,8 +345,7 @@ export default function MeasurementPage() {
           }
         }
       } catch (err) {
-        // Not logged in - allow access for homeowners
-        console.log('👤 User not logged in (homeowner flow)');
+        console.log('👤 Auth check failed (homeowner flow)');
       }
     };
     checkPublicAccess();
@@ -643,36 +644,25 @@ export default function MeasurementPage() {
         }
       });
 
-      // Re-draw Green Box if Solar data is available
-      if (solarCenter && solarCenter.boxCoords) {
-        console.log('🎨 Drawing Solar Polygon on new map');
-        solarPolygonRef.current = new window.google.maps.Polygon({
-          paths: solarCenter.boxCoords,
-          strokeColor: '#00FF00',  // BRIGHT GREEN - highly visible
-          strokeOpacity: 0.8,
-          strokeWeight: 3,
-          fillColor: '#00FF00',
-          fillOpacity: 0.35,
-          map: map,
-          zIndex: 100  // HIGH z-index to ensure visibility
-        });
-        console.log('✅ GREEN POLYGON RENDERED WITH HIGH VISIBILITY');
-      }
+      // ALWAYS RENDER POLYGON IF COORDINATES EXIST (Fix #4)
+      const coordsToRender = solarCenter?.boxCoords || polygonCoordinates;
       
-      // FALLBACK: Draw from polygonCoordinates state if ref failed
-      if (!solarPolygonRef.current && polygonCoordinates && polygonCoordinates.length > 2) {
-        console.log('🎨 Drawing polygon from state (fallback)');
+      if (coordsToRender && coordsToRender.length > 2) {
+        console.log('🎨 FORCE RENDERING GREEN POLYGON:', coordsToRender.length, 'points');
         solarPolygonRef.current = new window.google.maps.Polygon({
-          paths: polygonCoordinates,
-          strokeColor: '#00FF00',
-          strokeOpacity: 0.8,
+          paths: coordsToRender,
+          strokeColor: '#00FF00',  // BRIGHT GREEN - maximum visibility
+          strokeOpacity: 1.0,       // Full opacity
           strokeWeight: 3,
           fillColor: '#00FF00',
           fillOpacity: 0.35,
           map: map,
-          zIndex: 100
+          zIndex: 1000,            // VERY HIGH z-index
+          clickable: false         // Don't interfere with drawing
         });
-        console.log('✅ FALLBACK POLYGON RENDERED');
+        console.log('✅ GREEN POLYGON FORCED TO RENDER - Should be visible now!');
+      } else {
+        console.warn('⚠️ No coordinates available for polygon rendering');
       }
 
       // Initialize Drawing Manager
@@ -1004,38 +994,34 @@ export default function MeasurementPage() {
   // Removed auto-fetch - now handled directly in handleChooseQuickEstimate
 
   const handleRetryMap = () => {
-    if (retryCount >= 3) {
-      alert('Unable to load Google Maps after 3 attempts. Please check your internet connection and refresh the page.');
-      return;
-    }
-
-    console.log(`🔄 Retry attempt ${retryCount + 1}/3`);
+    console.log('🔄 Retrying map load...');
+    
+    // Reset error states
     setMapError("");
     setMapLoading(true);
-    setRetryCount(prev => prev + 1);
     initAttemptRef.current = 0;
     
-    // Clear existing map instance
+    // Clear existing map instance to force re-mount
     if (mapInstanceRef.current) {
       mapInstanceRef.current = null;
+      setMapInstance(null);
     }
     
-    // Re-initialize
+    // Force component re-mount by toggling script loaded state
     if (mapScriptLoaded) {
       setTimeout(() => initializeMap(), 500);
     } else {
-      // Force reload script
+      // Trigger script reload
       scriptLoadedRef.current = false;
       setMapScriptLoaded(false);
       
-      // Remove existing script
-      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-      if (existingScript) {
-        existingScript.remove();
-      }
-      
-      // Reload page as last resort
-      setTimeout(() => window.location.reload(), 1000);
+      // Re-check for script
+      setTimeout(() => {
+        if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
+          scriptLoadedRef.current = true;
+          setMapScriptLoaded(true);
+        }
+      }, 1000);
     }
   };
 
@@ -2016,8 +2002,14 @@ export default function MeasurementPage() {
         return;
       }
       
-      const roofSqft = Math.round(roofAreaM2 * 10.7639);
-      console.log('✅ Solar API success:', roofSqft, 'sq ft');
+      const baseSqft = Math.round(roofAreaM2 * 10.7639);
+      
+      // Add 10% waste buffer
+      const bufferedSqFt = Math.round(baseSqft * 1.10);
+      const bufferedSqM = Math.round(bufferedSqFt * 0.092903);
+      
+      console.log('✅ Solar API success - Base:', baseSqft, 'sq ft');
+      console.log('✅ Buffered (10% waste):', bufferedSqFt, 'sq ft (', bufferedSqM, 'm²)');
       
       // Extract bounding box for polygon
       if (data.boundingBox) {
@@ -2046,8 +2038,8 @@ export default function MeasurementPage() {
         console.log('✅ Map center snapped to:', calculatedCenter);
       }
       
-      // Set the area and mark as done
-      setTotalSqft(roofSqft);
+      // Set the buffered area and mark as done
+      setTotalSqft(bufferedSqFt);
       setIsCalculationDone(true);
       setIsMeasurementComplete(false); // NOT complete yet - user needs to click "Complete"
       setQuickEstimateLoading(false);
@@ -2060,8 +2052,8 @@ export default function MeasurementPage() {
         user_type: 'homeowner',
         measurement_type: 'quick_estimate',
         estimation_method: 'solar_api',
-        total_sqft: roofSqft,
-        total_adjusted_sqft: roofSqft,
+        total_sqft: bufferedSqFt,
+        total_adjusted_sqft: bufferedSqFt,
         lead_status: 'potential',
         contact_info_provided: false
       };
@@ -2542,11 +2534,14 @@ export default function MeasurementPage() {
                   ) : isCalculationDone ? (
                     <>
                       <div className="bg-white border-2 border-green-300 rounded-xl p-6">
-                        <p className="text-sm text-green-700 mb-2">Estimated Roof Area</p>
+                        <p className="text-sm text-green-700 mb-2">Estimated Roof Area (with 10% waste)</p>
                         <p className="text-5xl font-bold text-green-900 mb-1">
                           {totalSqft?.toLocaleString()}
                         </p>
                         <p className="text-xl text-green-700">square feet</p>
+                        <p className="text-sm text-green-600 mt-2">
+                          ({Math.round(totalSqft * 0.092903).toLocaleString()} m²)
+                        </p>
                       </div>
                       
                       <div className="bg-green-100 border-2 border-green-300 rounded-lg p-4 text-left">
