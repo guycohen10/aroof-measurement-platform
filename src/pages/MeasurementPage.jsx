@@ -55,7 +55,7 @@ export default function MeasurementPage() {
   const scriptLoadedRef = useRef(false);
   const solarPolygonRef = useRef(null);
   
-  const [measurementMode, setMeasurementMode] = useState("detailed"); // 'quick' or 'detailed'
+  const [measurementMode, setMeasurementMode] = useState(null); // null, 'quick', or 'detailed'
   const [buildingSqft, setBuildingSqft] = useState("");
   const [autoEstimate, setAutoEstimate] = useState(false);
   const [quickEstimateLoading, setQuickEstimateLoading] = useState(false);
@@ -63,6 +63,7 @@ export default function MeasurementPage() {
   const [isCalculationDone, setIsCalculationDone] = useState(false);
   const [isMeasurementComplete, setIsMeasurementComplete] = useState(false);
   const [savedDesign, setSavedDesign] = useState(null);
+  const [hasChosenMethod, setHasChosenMethod] = useState(false);
   
   const [address, setAddress] = useState("");
   const [measurementId, setMeasurementId] = useState(null);
@@ -964,11 +965,11 @@ export default function MeasurementPage() {
 
   // Auto-fetch Solar data when in Quick Estimate mode and coordinates are available
   useEffect(() => {
-    if (measurementMode === 'quick' && coordinates && mapInstanceRef.current && !totalSqft) {
+    if (measurementMode === 'quick' && coordinates && mapInstanceRef.current && !totalSqft && hasChosenMethod) {
       console.log('🤖 Auto-triggering Solar API for Quick Estimate...');
       fetchSolarData(coordinates.lat, coordinates.lng);
     }
-  }, [measurementMode, coordinates, totalSqft]);
+  }, [measurementMode, coordinates, totalSqft, hasChosenMethod]);
 
   const handleRetryMap = () => {
     if (retryCount >= 3) {
@@ -1929,6 +1930,22 @@ export default function MeasurementPage() {
     
   }, [liveMapSections, capturedImages, address, getTotalArea]);
 
+  const handleChooseQuickEstimate = async () => {
+    setMeasurementMode('quick');
+    setHasChosenMethod(true);
+    setQuickEstimateLoading(true);
+
+    // Initialize map in background while calculating
+    if (!mapInstanceRef.current && mapScriptLoaded && coordinates) {
+      createMap(coordinates);
+    }
+  };
+
+  const handleChooseDetailed = () => {
+    setMeasurementMode('detailed');
+    setHasChosenMethod(true);
+  };
+
   const handleQuickEstimate = async () => {
     setQuickEstimateLoading(true);
     setError("");
@@ -2064,15 +2081,8 @@ export default function MeasurementPage() {
       
       setIsMeasurementComplete(true);
       
-      // Extract ZIP from address
-      const zipMatch = address.match(/\b\d{5}\b/);
-      const zipCode = zipMatch ? zipMatch[0] : '';
-      
-      // Navigate with URL parameters for reliable data transfer
-      const resultUrl = createPageUrl(
-        `Results?measurementid=${savedMeasurement.id}&lat=${coordinates?.lat || ''}&lng=${coordinates?.lng || ''}&area=${roofSqft}&zip=${zipCode}`
-      );
-      navigate(resultUrl);
+      // Redirect to contact info page
+      navigate(createPageUrl(`ContactInfoPage?id=${savedMeasurement.id}`));
 
     } catch (err) {
       console.error('Quick estimate error:', err);
@@ -2177,7 +2187,7 @@ export default function MeasurementPage() {
         sessionStorage.removeItem('lead_address');
         sessionStorage.removeItem('pending_measurement_id');
 
-        // Go DIRECTLY to results
+        // Roofer flow - go directly to results (skip contact info)
         console.log('🟡 Navigating to Results page');
         navigate(`/results?id=${leadId}`);
 
@@ -2218,10 +2228,10 @@ export default function MeasurementPage() {
             contact_info_provided: false
           };
 
-        await base44.entities.Measurement.create(measurementData);
+        const savedMeasurement = await base44.entities.Measurement.create(measurementData);
 
-        toast.success('✅ Measurement saved successfully!');
-        setIsMeasurementComplete(true);
+        // Redirect to contact info for homeowners
+        navigate(createPageUrl(`ContactInfoPage?id=${savedMeasurement.id}`));
       }
 
     } catch (err) {
@@ -2270,7 +2280,7 @@ export default function MeasurementPage() {
               </div>
               <span className="text-2xl font-bold text-slate-900">Aroof</span>
             </Link>
-            <Link to={createPageUrl("FormPage")}>
+            <Link to={createPageUrl("Homepage")}>
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
@@ -2280,51 +2290,128 @@ export default function MeasurementPage() {
         </div>
       </header>
 
+      {/* METHOD CHOICE SCREEN - Show FIRST, before map */}
+      {!hasChosenMethod && !leadData && (
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-5xl w-full">
+            <div className="text-center mb-12">
+              <h1 className="text-4xl font-bold text-slate-900 mb-4">Measure Your Roof</h1>
+              <div className="flex items-center justify-center gap-2 text-lg text-slate-600 mb-2">
+                <MapPin className="w-5 h-5 text-blue-600" />
+                <span className="font-semibold">{address}</span>
+              </div>
+              <p className="text-slate-600">Choose how you'd like to measure your roof:</p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6 mb-8">
+              {/* QUICK ESTIMATE CARD */}
+              <Card className="border-4 border-green-300 hover:border-green-500 transition-all hover:shadow-2xl cursor-pointer group"
+                    onClick={handleChooseQuickEstimate}>
+                <CardContent className="p-8">
+                  <div className="text-center">
+                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                      <Zap className="w-10 h-10 text-green-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Quick Estimate</h2>
+                    <p className="text-lg font-semibold text-green-600 mb-6">60 Seconds</p>
+                    
+                    <div className="space-y-3 text-left mb-8">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700">Instant AI-powered results</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700">Building footprint analysis</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700">±10% accuracy</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700">Perfect for initial estimates</span>
+                      </div>
+                    </div>
+
+                    <Button className="w-full h-14 bg-green-600 hover:bg-green-700 text-white text-lg font-bold">
+                      <Zap className="w-5 h-5 mr-2" />
+                      Get Quick Estimate
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* DETAILED MEASUREMENT CARD */}
+              <Card className="border-4 border-blue-300 hover:border-blue-500 transition-all hover:shadow-2xl cursor-pointer group"
+                    onClick={handleChooseDetailed}>
+                <CardContent className="p-8">
+                  <div className="text-center">
+                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                      <Edit3 className="w-10 h-10 text-blue-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Detailed Measurement</h2>
+                    <p className="text-lg font-semibold text-blue-600 mb-6">3 Minutes</p>
+                    
+                    <div className="space-y-3 text-left mb-8">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700">Draw exact roof perimeter</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700">Satellite precision mapping</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700">±2% accuracy</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700">Best for final quotes</span>
+                      </div>
+                    </div>
+
+                    <Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold">
+                      <Edit3 className="w-5 h-5 mr-2" />
+                      Start Drawing
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <p className="text-center text-slate-500 text-sm">
+              Not sure? Start with Quick Estimate - you can always get a detailed measurement later.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {hasChosenMethod && (
       <div className="flex-1 flex overflow-hidden">
         <div className="w-96 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
           <div className="p-6 border-b border-slate-200">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Measure Your Roof</h2>
-            <p className="text-sm text-slate-600">Choose your measurement method</p>
-            
-            <div className="space-y-2 mt-4">
-              <div className="flex bg-slate-100 rounded-lg p-1">
-                <button
-                  onClick={() => {
-                    setMeasurementMode('quick');
-                    setIsDesignMode(false);
-                  }}
-                  className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold transition-all ${
-                    measurementMode === 'quick' && !isDesignMode
-                      ? 'bg-green-600 text-white shadow' 
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  ⚡ Quick
-                </button>
-                <button
-                  onClick={() => {
-                    setMeasurementMode('detailed');
-                    setIsDesignMode(false);
-                  }}
-                  className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold transition-all ${
-                    measurementMode === 'detailed' && !isDesignMode
-                      ? 'bg-blue-600 text-white shadow' 
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  📐 Detailed
-                </button>
-                <button
-                  onClick={() => setIsDesignMode(true)}
-                  className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold transition-all ${
-                    isDesignMode
-                      ? 'bg-purple-600 text-white shadow' 
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  🎨 Design
-                </button>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  {measurementMode === 'quick' ? '⚡ Quick Estimate' : '📐 Detailed Measurement'}
+                </h2>
+                <p className="text-sm text-slate-600">
+                  {measurementMode === 'quick' ? 'AI-powered instant results' : 'Draw precise roof sections'}
+                </p>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setHasChosenMethod(false);
+                  setMeasurementMode(null);
+                }}
+                className="text-slate-600"
+              >
+                Change
+              </Button>
             </div>
           </div>
 
@@ -3397,6 +3484,8 @@ export default function MeasurementPage() {
           )}
         </div>
       </div>
+      )}
+    </div>
     </>
   );
 }

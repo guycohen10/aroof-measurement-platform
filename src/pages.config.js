@@ -41,7 +41,6 @@ import JobScheduling from './pages/JobScheduling';
 import LeadManagement from './pages/LeadManagement';
 import LeaveReview from './pages/LeaveReview';
 import MaintenancePlans from './pages/MaintenancePlans';
-import MeasurementChoice from './pages/MeasurementChoice';
 import MeasurementPage from './pages/MeasurementPage';
 import MetalShingles from './pages/MetalShingles';
 import MetalStandingSeam from './pages/MetalStandingSeam';
@@ -68,6 +67,7 @@ import SelectReportType from './pages/SelectReportType';
 import Services from './pages/Services';
 import Siding from './pages/Siding';
 import SolarTiles from './pages/SolarTiles';
+import Start from './pages/Start';
 import StartFunnel from './pages/StartFunnel';
 import StormDamage from './pages/StormDamage';
 import StormTracking from './pages/StormTracking';
@@ -80,7 +80,6 @@ import UpgradeProfile from './pages/UpgradeProfile';
 import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import Windows from './pages/Windows';
-import Start from './pages/Start';
 import __Layout from './Layout.jsx';
 
 
@@ -128,7 +127,6 @@ export const PAGES = {
     "LeadManagement": LeadManagement,
     "LeaveReview": LeaveReview,
     "MaintenancePlans": MaintenancePlans,
-    "MeasurementChoice": MeasurementChoice,
     "MeasurementPage": MeasurementPage,
     "MetalShingles": MetalShingles,
     "MetalStandingSeam": MetalStandingSeam,
@@ -155,6 +153,7 @@ export const PAGES = {
     "Services": Services,
     "Siding": Siding,
     "SolarTiles": SolarTiles,
+    "Start": Start,
     "StartFunnel": StartFunnel,
     "StormDamage": StormDamage,
     "StormTracking": StormTracking,
@@ -167,7 +166,6 @@ export const PAGES = {
     "VerifyEmail": VerifyEmail,
     "Visualizing": Visualizing,
     "Windows": Windows,
-    "Start": Start,
 }
 
 export const pagesConfig = {
