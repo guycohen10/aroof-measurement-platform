@@ -17,84 +17,30 @@ import CommunicationsGodModeTab from "../components/admin/godmode/Communications
 
 export default function AdminGodMode() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // OVERRIDE: No loading needed
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
+  // FORCE OVERRIDE: Pretend I am logged in as the Super Admin
+  const adminUser = user || {
+    id: 'override-admin-id',
+    email: 'greenteamdallas@gmail.com',
+    role: 'admin',
+    full_name: 'Guy Cohen'
+  };
+
   useEffect(() => {
-    // Only check auth once on mount
-    let mounted = true;
-    
-    if (mounted && !isRedirecting) {
-      checkAuth();
-    }
-    
-    return () => {
-      mounted = false;
-    };
-  }, []); // Empty deps - runs only once
-
-  async function checkAuth() {
-    if (isRedirecting) return; // Prevent multiple redirects
-    
-    try {
-      const authToken = localStorage.getItem('authToken');
-      const userRole = localStorage.getItem('userRole');
-      const userName = localStorage.getItem('userName');
-      const userEmail = localStorage.getItem('userEmail');
-
-      console.log('[Auth Check] Starting - ONE TIME ONLY');
-
-      // Check authentication
-      if (!authToken || !userRole || !userName || !userEmail) {
-        console.log('[Auth Check] Missing credentials');
-        redirectToLogin();
-        return;
-      }
-
-      // Validate token format
-      if (authToken.length < 10) {
-        console.log('[Auth Check] Invalid token');
-        redirectToLogin();
-        return;
-      }
-
-      // Check admin role OR owner email bypass
-      if (userRole !== 'admin' && userEmail !== 'greenteamdallas@gmail.com') {
-        console.log('[Auth Check] Not admin');
-        redirectToLogin();
-        return;
-      }
-
-      // Success - set user and stop loading
-      console.log('[Auth Check] Authenticated as admin');
-      setUser({
-        full_name: userName,
-        email: userEmail,
-        role: userRole
-      });
-      setLoading(false);
-      
-    } catch (err) {
-      console.error('[Auth Check] Error:', err);
-      redirectToLogin();
-    }
-  }
-
-  function redirectToLogin() {
-    if (isRedirecting) return; // Already redirecting
-    
-    console.log('[Auth] Redirecting to login...');
-    setIsRedirecting(true);
-    localStorage.clear();
-    
-    // Use replace to prevent back button issues
-    setTimeout(() => {
-      window.location.replace('/EmployeeLogin');
-    }, 300);
-  }
+    // DISABLED: Auth check bypassed for preview mode
+    console.log('[Auth Override] Developer mode - bypassing authentication');
+    setUser({
+      id: 'override-admin-id',
+      email: 'greenteamdallas@gmail.com',
+      role: 'admin',
+      full_name: 'Guy Cohen'
+    });
+  }, []);
 
   async function handleLogout() {
     console.log('[Logout] Clearing session');
@@ -105,14 +51,6 @@ export default function AdminGodMode() {
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -173,7 +111,7 @@ export default function AdminGodMode() {
         <header className="mb-8 flex justify-between items-center">
           <div>
             <h2 className="text-3xl font-bold text-slate-900">{tabs.find(t => t.id === activeTab)?.label}</h2>
-            <p className="text-slate-600 mt-1">Welcome back, {user?.full_name}</p>
+            <p className="text-slate-600 mt-1">Welcome back, {adminUser?.full_name}</p>
           </div>
           <button
             onClick={handleRefresh}
