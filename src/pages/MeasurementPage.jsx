@@ -648,14 +648,31 @@ export default function MeasurementPage() {
         console.log('🎨 Drawing Solar Polygon on new map');
         solarPolygonRef.current = new window.google.maps.Polygon({
           paths: solarCenter.boxCoords,
-          strokeColor: '#10B981',
-          strokeOpacity: 1.0,
+          strokeColor: '#00FF00',  // BRIGHT GREEN - highly visible
+          strokeOpacity: 0.8,
           strokeWeight: 3,
-          fillColor: '#10B981',
-          fillOpacity: 0.15,
+          fillColor: '#00FF00',
+          fillOpacity: 0.35,
           map: map,
-          zIndex: 1
+          zIndex: 100  // HIGH z-index to ensure visibility
         });
+        console.log('✅ GREEN POLYGON RENDERED WITH HIGH VISIBILITY');
+      }
+      
+      // FALLBACK: Draw from polygonCoordinates state if ref failed
+      if (!solarPolygonRef.current && polygonCoordinates && polygonCoordinates.length > 2) {
+        console.log('🎨 Drawing polygon from state (fallback)');
+        solarPolygonRef.current = new window.google.maps.Polygon({
+          paths: polygonCoordinates,
+          strokeColor: '#00FF00',
+          strokeOpacity: 0.8,
+          strokeWeight: 3,
+          fillColor: '#00FF00',
+          fillOpacity: 0.35,
+          map: map,
+          zIndex: 100
+        });
+        console.log('✅ FALLBACK POLYGON RENDERED');
       }
 
       // Initialize Drawing Manager
@@ -3405,6 +3422,7 @@ export default function MeasurementPage() {
               mapInstance={mapInstance}
               roofPolygon={solarPolygonRef.current}
               polygonsArray={polygonsRef.current}
+              polygonCoordinates={polygonCoordinates}
               isMeasurementComplete={isMeasurementComplete}
               totalSqft={totalSqft}
               onClose={() => setIsDesignMode(false)}

@@ -6,7 +6,7 @@ import { X, Palette, Sparkles, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { base44 } from "@/api/base44Client";
 
-export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray, isMeasurementComplete, totalSqft, onClose, onSaveDesign }) {
+export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray, polygonCoordinates, isMeasurementComplete, totalSqft, onClose, onSaveDesign }) {
   const [selectedMaterial, setSelectedMaterial] = useState('asphalt');
   const [selectedColor, setSelectedColor] = useState('#3b3b3b');
   const [opacity, setOpacity] = useState(0.7);
@@ -88,27 +88,52 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
       const colorObj = materials[selectedMaterial].colors.find(c => c.hex === selectedColor);
       const colorName = colorObj ? colorObj.name : 'Weathered Wood';
 
-      // Extract polygon coordinates
-      let polygonCoordinates = [];
+      // Extract polygon coordinates - prioritize passed state, then refs
+      let extractedCoordinates = [];
 
-      if (polygonsArray && polygonsArray.length > 0 && polygonsArray[0]) {
+      // PRIORITY 1: Use coordinates passed from parent state (Quick Estimate)
+      if (polygonCoordinates && polygonCoordinates.length > 2) {
+        console.log('✅ Using polygon coordinates from state:', polygonCoordinates.length, 'points');
+        extractedCoordinates = polygonCoordinates;
+      }
+      // PRIORITY 2: Extract from polygonsArray (Detailed Measurement)
+      else if (polygonsArray && polygonsArray.length > 0 && polygonsArray[0]) {
         const path = polygonsArray[0].getPath();
         for (let i = 0; i < path.getLength(); i++) {
           const latLng = path.getAt(i);
-          polygonCoordinates.push({
+          extractedCoordinates.push({
             lat: latLng.lat(),
             lng: latLng.lng()
           });
         }
-      } else if (roofPolygon) {
+        console.log('✅ Extracted coordinates from polygonsArray:', extractedCoordinates.length, 'points');
+      }
+      // PRIORITY 3: Extract from roofPolygon ref (fallback)
+      else if (roofPolygon) {
         const path = roofPolygon.getPath();
         for (let i = 0; i < path.getLength(); i++) {
           const latLng = path.getAt(i);
-          polygonCoordinates.push({
+          extractedCoordinates.push({
             lat: latLng.lat(),
             lng: latLng.lng()
           });
         }
+        console.log('✅ Extracted coordinates from roofPolygon:', extractedCoordinates.length, 'points');
+      }
+      
+      // CRITICAL DEBUG: Log what we're sending
+      console.log('🚀 AI Generation Debug:');
+      console.log('  Polygon Coordinates:', extractedCoordinates.length > 0 ? `${extractedCoordinates.length} points` : '❌ EMPTY');
+      console.log('  Material:', materialName);
+      console.log('  Color:', colorName);
+      console.log('  Map Instance:', mapInstance ? '✅ EXISTS' : '❌ NULL');
+      
+      // CRITICAL: Check if coordinates exist before calling backend
+      if (!extractedCoordinates || extractedCoordinates.length < 3) {
+        console.error('❌ NO POLYGON COORDINATES - Cannot generate AI roof');
+        toast.error('No roof area detected. Please complete Quick Estimate or draw a polygon first.');
+        setIsGenerating(false);
+        return;
       }
 
       // Get address from map center
@@ -121,7 +146,7 @@ export default function RoofVisualizer({ mapInstance, roofPolygon, polygonsArray
       // Call backend (waits for completion - no polling needed)
       const response = await base44.functions.invoke('GenerateRealisticRoof', {
         address: address,
-        polygonCoordinates: polygonCoordinates.length > 0 ? polygonCoordinates : null,
+        polygonCoordinates: extractedCoordinates,
         selectedMaterial: materialName,
         selectedColor: colorName
       });
