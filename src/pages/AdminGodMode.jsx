@@ -33,17 +33,6 @@ export default function AdminGodMode() {
   // FORCE OVERRIDE: Use hardcoded admin user
   const adminUser = user;
 
-  useEffect(() => {
-    // DISABLED: Auth check bypassed for preview mode
-    console.log('[Auth Override] Developer mode - bypassing authentication');
-    setUser({
-      id: 'override-admin-id',
-      email: 'greenteamdallas@gmail.com',
-      role: 'admin',
-      full_name: 'Guy Cohen'
-    });
-  }, []);
-
   async function handleLogout() {
     console.log('[Logout] Clearing session');
     localStorage.clear();
