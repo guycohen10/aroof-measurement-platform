@@ -2465,18 +2465,23 @@ export default function MeasurementPage() {
               <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300">
                 <div className="space-y-4 text-center">
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                    <Zap className="w-8 h-8 text-green-600" />
+                    {quickEstimateLoading ? (
+                      <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+                    ) : isCalculationDone ? (
+                      <CheckCircle className="w-8 h-8 text-green-600" />
+                    ) : (
+                      <Zap className="w-8 h-8 text-green-600" />
+                    )}
                   </div>
                   
                   <h3 className="text-xl font-bold text-green-900">
-                    {quickEstimateLoading ? 'Analyzing Your Roof...' : 'Quick Estimate Complete'}
+                    {quickEstimateLoading ? 'Analyzing Your Roof...' : 
+                     isCalculationDone ? 'Quick Estimate Complete!' : 
+                     'Quick Estimate'}
                   </h3>
 
                   {quickEstimateLoading ? (
                     <>
-                      <div className="flex justify-center">
-                        <Loader2 className="w-12 h-12 animate-spin text-green-600" />
-                      </div>
                       <p className="text-sm text-green-700">
                         Using AI satellite analysis to calculate roof area...
                       </p>
@@ -2488,15 +2493,61 @@ export default function MeasurementPage() {
                           <li>• Accessing Google Solar API</li>
                           <li>• Analyzing building footprint</li>
                           <li>• Calculating roof area</li>
-                          <li>• Creating measurement report</li>
+                          <li>• Drawing polygon on map</li>
                         </ul>
                       </div>
                     </>
-                  ) : (
-                    <div className="bg-green-100 border-2 border-green-300 rounded-lg p-4">
-                      <p className="text-sm text-green-700">Calculation complete! Redirecting...</p>
-                    </div>
-                  )}
+                  ) : isCalculationDone ? (
+                    <>
+                      <div className="bg-white border-2 border-green-300 rounded-xl p-6">
+                        <p className="text-sm text-green-700 mb-2">Estimated Roof Area</p>
+                        <p className="text-5xl font-bold text-green-900 mb-1">
+                          {totalSqft?.toLocaleString()}
+                        </p>
+                        <p className="text-xl text-green-700">square feet</p>
+                      </div>
+                      
+                      <div className="bg-green-100 border-2 border-green-300 rounded-lg p-4 text-left">
+                        <p className="text-sm text-green-900">
+                          <strong>✅ Green polygon visible on map</strong>
+                        </p>
+                        <p className="text-xs text-green-800 mt-2">
+                          The highlighted area shows your roof boundary calculated by AI
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <Button
+                          onClick={() => setIsDesignMode(true)}
+                          className="w-full h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold"
+                        >
+                          <Palette className="w-5 h-5 mr-2" />
+                          ✨ See Your Home with New Roof
+                        </Button>
+                        
+                        <Button
+                          onClick={() => {
+                            setMeasurementMode('detailed');
+                            setIsCalculationDone(false);
+                          }}
+                          variant="outline"
+                          className="w-full h-12 border-2 border-blue-600 text-blue-600"
+                        >
+                          📐 Switch to Detailed Measurement
+                        </Button>
+                        
+                        <Button
+                          onClick={async () => {
+                            navigate(createPageUrl(`ContactInfoPage?id=${measurementId}`));
+                          }}
+                          className="w-full h-16 bg-green-600 hover:bg-green-700 text-white text-lg font-bold"
+                        >
+                          <CheckCircle className="w-6 h-6 mr-2" />
+                          Complete & Get Full Results
+                        </Button>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               </Card>
             ) : null}
