@@ -12,6 +12,16 @@ Deno.serve(async (req) => {
     // 1. Inputs
     let { address, polygonCoordinates, selectedMaterial, selectedColor } = await req.json();
 
+    // Safety Check - Prevent crash when no polygon
+    if (!polygonCoordinates || polygonCoordinates.length < 3) {
+      return new Response(JSON.stringify({ 
+        error: "No roof area detected. Please ensure the map is loaded and the roof is outlined." 
+      }), { 
+        status: 400, 
+        headers 
+      });
+    }
+
     // Safety Default
     if (!selectedColor || selectedColor === "undefined") {
       selectedColor = "Weathered Wood";
