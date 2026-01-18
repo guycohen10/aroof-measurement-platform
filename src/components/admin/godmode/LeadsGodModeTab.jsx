@@ -19,10 +19,21 @@ export default function LeadsGodModeTab() {
   const [editingLead, setEditingLead] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [companies, setCompanies] = useState([]);
 
   useEffect(() => {
     loadLeads();
+    loadCompanies();
   }, []);
+
+  const loadCompanies = async () => {
+    try {
+      const data = await base44.asServiceRole.entities.Company.list();
+      setCompanies(data);
+    } catch (err) {
+      console.error('Failed to load companies');
+    }
+  };
 
   useEffect(() => {
     filterLeads();
@@ -30,7 +41,8 @@ export default function LeadsGodModeTab() {
 
   const loadLeads = async () => {
     try {
-      const data = await base44.asServiceRole.entities.Measurement.list('-created_date', 500);
+      // UPGRADE: Load ALL leads including drafts/incomplete ones
+      const data = await base44.asServiceRole.entities.Measurement.list('-created_date', 1000);
       setLeads(data);
       setLoading(false);
     } catch (err) {
@@ -302,11 +314,31 @@ export default function LeadsGodModeTab() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="draft">Draft (Incomplete)</SelectItem>
                     <SelectItem value="contacted">Contacted</SelectItem>
                     <SelectItem value="quoted">Quoted</SelectItem>
                     <SelectItem value="booked">Booked</SelectItem>
+                    <SelectItem value="sold">Sold</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="lost">Lost</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Force Assign to Company</label>
+                <Select 
+                  value={editingLead.purchased_by || ''} 
+                  onValueChange={(val) => setEditingLead({...editingLead, purchased_by: val})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select company..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>None (Unassign)</SelectItem>
+                    {companies.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.company_name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

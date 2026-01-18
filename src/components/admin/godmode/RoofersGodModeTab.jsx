@@ -94,10 +94,54 @@ export default function RoofersGodModeTab() {
                 <option value="pro">Pro (10/month)</option>
                 <option value="unlimited">Unlimited</option>
               </select>
+
+              {/* GHOST MODE - Login As User */}
+              <Button
+                onClick={() => {
+                  // Save admin session
+                  sessionStorage.setItem('admin_return_token', localStorage.getItem('authToken'));
+                  sessionStorage.setItem('impersonating', 'true');
+                  
+                  // Set roofer session
+                  localStorage.setItem('authToken', `impersonate_${roofer.id}`);
+                  localStorage.setItem('userRole', 'external_roofer');
+                  localStorage.setItem('userName', roofer.full_name);
+                  localStorage.setItem('userEmail', roofer.email);
+                  
+                  // Redirect to their dashboard
+                  window.location.href = '/RooferDashboard';
+                }}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold"
+              >
+                👻 Login As User
+              </Button>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Return to Admin Button (shown when impersonating) */}
+      {sessionStorage.getItem('impersonating') === 'true' && (
+        <div className="fixed bottom-8 right-8 z-50">
+          <Button
+            onClick={() => {
+              const adminToken = sessionStorage.getItem('admin_return_token');
+              sessionStorage.removeItem('impersonating');
+              sessionStorage.removeItem('admin_return_token');
+              
+              localStorage.setItem('authToken', adminToken);
+              localStorage.setItem('userRole', 'admin');
+              localStorage.setItem('userName', 'Guy (Dev)');
+              localStorage.setItem('userEmail', 'greenteamdallas@gmail.com');
+              
+              window.location.href = '/AdminGodMode';
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold text-lg px-8 py-6 shadow-2xl animate-pulse"
+          >
+            👑 Return to Admin
+          </Button>
+        </div>
+      )}
 
       {roofers.length === 0 && (
         <Card>

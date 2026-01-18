@@ -109,6 +109,37 @@ export default function OverviewTab() {
         />
       </div>
 
+      {/* Financial Pulse - Recent Transactions */}
+      <Card className="mb-8">
+        <CardContent className="p-6">
+          <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+            💰 Recent Transactions (P&L)
+          </h3>
+          <div className="space-y-2">
+            {(stats.recentActivity || []).slice(0, 5).map((activity, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border-l-4 border-l-green-600">
+                <div className="flex items-center gap-4">
+                  <div className="text-2xl">{activity.icon}</div>
+                  <div>
+                    <div className="font-semibold text-slate-900">{activity.title}</div>
+                    <div className="text-sm text-slate-600">{activity.description}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <div className="font-bold text-green-600">+$25.00</div>
+                    <div className="text-xs text-slate-400">{activity.time}</div>
+                  </div>
+                  <button className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg font-semibold">
+                    Refund
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Recent Activity */}
       <Card>
         <CardContent className="p-6">

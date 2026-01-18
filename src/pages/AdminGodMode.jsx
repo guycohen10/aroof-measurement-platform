@@ -14,6 +14,7 @@ import PricingGodModeTab from "../components/admin/godmode/PricingGodModeTab";
 import SettingsGodModeTab from "../components/admin/godmode/SettingsGodModeTab";
 import StormDataGodModeTab from "../components/admin/godmode/StormDataGodModeTab";
 import CommunicationsGodModeTab from "../components/admin/godmode/CommunicationsGodModeTab";
+import TerritoriesGodModeTab from "../components/admin/godmode/TerritoriesGodModeTab";
 
 export default function AdminGodMode() {
   // FORCE ADMIN IDENTITY - GHOST MODE ACTIVATED
@@ -47,6 +48,7 @@ export default function AdminGodMode() {
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'homeowner-leads', label: 'Homeowner Leads', icon: Users },
     { id: 'leads', label: 'Leads', icon: Users },
+    { id: 'territories', label: 'Territories', icon: MapPin },
     { id: 'estimators', label: 'Estimators', icon: UserCheck },
     { id: 'dispatchers', label: 'Dispatchers', icon: Phone },
     { id: 'crews', label: 'Crews', icon: HardHat },
@@ -116,6 +118,7 @@ export default function AdminGodMode() {
         {activeTab === 'overview' && <OverviewTab key={refreshKey} />}
         {activeTab === 'homeowner-leads' && <HomeownerLeadsGodModeTab key={refreshKey} />}
         {activeTab === 'leads' && <LeadsGodModeTab key={refreshKey} />}
+        {activeTab === 'territories' && <TerritoriesGodModeTab key={refreshKey} />}
         {activeTab === 'estimators' && <EstimatorsGodModeTab key={refreshKey} />}
         {activeTab === 'dispatchers' && <DispatchersGodModeTab key={refreshKey} />}
         {activeTab === 'crews' && <CrewsGodModeTab key={refreshKey} />}
