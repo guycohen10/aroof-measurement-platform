@@ -833,13 +833,11 @@ export default function MeasurementPage() {
 
   // CRITICAL FIX: Load Google Maps script FIRST before anything else
   useEffect(() => {
-    console.log("🚀 ═══════════════════════════════════════════════");
     console.log("🚀 Google Maps script loader starting");
-    console.log("🚀 ═══════════════════════════════════════════════");
 
     // Check if already loaded
     if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
-      console.log("✅ Google Maps already fully loaded");
+      console.log("✅ Google Maps already loaded");
       if (!scriptLoadedRef.current) {
         scriptLoadedRef.current = true;
         setMapScriptLoaded(true);
@@ -847,10 +845,10 @@ export default function MeasurementPage() {
       return;
     }
     
-    // Add global error handler for Google Maps
+    // Global error handler
     window.gm_authFailure = () => {
-      console.error("❌ Google Maps Authentication Failed");
-      setMapError("Google Maps authentication failed. Please check API key configuration.");
+      console.error("❌ Google Maps auth failed");
+      setMapError("Google Maps authentication failed.");
       setMapLoading(false);
     };
 
@@ -1954,10 +1952,10 @@ export default function MeasurementPage() {
     setError("");
 
     try {
-      let roofSqft = 2000; // Default estimate
+      let roofSqft = 2000;
       let method = 'quick_calculation';
 
-      // Try Solar API if coordinates available
+      // Try Solar API
       if (coordinates) {
         try {
           console.log('🔍 Calling Google Solar API...');
@@ -1976,7 +1974,7 @@ export default function MeasurementPage() {
             }
           }
         } catch (solarErr) {
-          console.log('⚠️ Solar API failed, using default estimate');
+          console.log('⚠️ Solar API failed, using default');
         }
       }
 
@@ -1990,24 +1988,48 @@ export default function MeasurementPage() {
         estimation_method: method,
         total_sqft: roofSqft,
         total_adjusted_sqft: roofSqft,
-        lead_status: 'new'
+        lead_status: 'potential'
       };
 
       console.log('💾 Creating measurement...');
       const savedMeasurement = await base44.entities.Measurement.create(measurementData);
       console.log('✅ Measurement created:', savedMeasurement.id);
       
-      // Store in session
-      sessionStorage.setItem('currentMeasurementId', savedMeasurement.id);
+      // Notify admin of potential lead
+      try {
+        await notifyGodAdmin({
+          type: 'potential_lead',
+          address: address,
+          lead_id: savedMeasurement.id
+        });
+      } catch (notifyErr) {
+        console.log('Admin notification failed:', notifyErr);
+      }
       
-      // Immediate redirect to contact form
-      window.location.href = createPageUrl(`ContactInfoPage?id=${savedMeasurement.id}`);
+      // Redirect to RESULTS page with preview mode
+      window.location.href = `/results?id=${savedMeasurement.id}&preview=true`;
 
     } catch (err) {
       console.error('❌ Quick estimate error:', err);
-      alert('Something went wrong. Please try again or use Detailed Measurement.');
+      alert('Something went wrong. Please try again.');
       setQuickEstimateLoading(false);
       setHasChosenMethod(false);
+    }
+  };
+
+  const notifyGodAdmin = async (leadData) => {
+    try {
+      await base44.integrations.Core.SendEmail({
+        to: 'admin@aroof.build',
+        subject: leadData.type === 'potential_lead' 
+          ? '🏠 New Potential Lead - Address Entered'
+          : '✅ New Qualified Lead - Contact Info Captured',
+        body: leadData.type === 'potential_lead'
+          ? `New address entered: ${leadData.address}\nLead ID: ${leadData.lead_id}\nTime: ${new Date().toLocaleString()}`
+          : `New qualified lead!\n\nName: ${leadData.name}\nEmail: ${leadData.email}\nPhone: ${leadData.phone}\nAddress: ${leadData.address}\nLead ID: ${leadData.lead_id}\nTime: ${new Date().toLocaleString()}`
+      });
+    } catch (err) {
+      console.error('Failed to notify admin:', err);
     }
   };
 

@@ -116,10 +116,22 @@ export default function ContactInfoPage() {
         agrees_to_quotes: true,
         available_for_purchase: true,
         lead_price: 25.00,
+        lead_status: 'qualified',
         contact_info_provided: true
       });
 
       console.log('✅ Contact info saved');
+
+      // Notify admin of qualified lead
+      try {
+        await base44.integrations.Core.SendEmail({
+          to: 'admin@aroof.build',
+          subject: '✅ New Qualified Lead - Contact Info Captured',
+          body: `New qualified lead!\n\nName: ${formData.name.trim()}\nEmail: ${formData.email.trim()}\nPhone: ${formData.phone.trim()}\nAddress: ${measurement.property_address}\nLead ID: ${measurementId}\nTime: ${new Date().toLocaleString()}`
+        });
+      } catch (notifyErr) {
+        console.log('Admin notification failed:', notifyErr);
+      }
 
       // Send emails in background (don't wait)
       Promise.all([
