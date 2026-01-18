@@ -1952,66 +1952,86 @@ export default function MeasurementPage() {
     setError("");
 
     try {
-      let roofSqft = 2000;
-      let method = 'quick_calculation';
-
-      // Try Solar API
-      if (coordinates) {
-        try {
-          console.log('🔍 Calling Google Solar API...');
-          const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${coordinates.lat}&location.longitude=${coordinates.lng}&requiredQuality=HIGH&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
-          
-          const response = await fetch(solarApiUrl);
-          
-          if (response.ok) {
-            const data = await response.json();
-            const roofAreaM2 = data.solarPotential?.wholeRoofStats?.areaMeters2;
-            
-            if (roofAreaM2 && roofAreaM2 > 0) {
-              roofSqft = Math.round(roofAreaM2 * 10.7639);
-              method = 'solar_api';
-              console.log('✅ Solar API success:', roofSqft, 'sq ft');
-            }
-          }
-        } catch (solarErr) {
-          console.log('⚠️ Solar API failed, using default');
-        }
+      console.log('🔍 Calling Google Solar API...');
+      
+      if (!coordinates) {
+        setError("Waiting for address location...");
+        setQuickEstimateLoading(false);
+        return;
       }
-
-      // Create measurement record
+      
+      const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${coordinates.lat}&location.longitude=${coordinates.lng}&requiredQuality=HIGH&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
+      
+      const response = await fetch(solarApiUrl);
+      
+      if (!response.ok) {
+        setError("Solar API failed. Using estimated calculation.");
+        const estimatedArea = 2000;
+        setTotalSqft(estimatedArea);
+        setIsCalculationDone(true);
+        setIsMeasurementComplete(false);
+        setQuickEstimateLoading(false);
+        return;
+      }
+      
+      const data = await response.json();
+      const roofAreaM2 = data.solarPotential?.wholeRoofStats?.areaMeters2;
+      
+      if (!roofAreaM2 || roofAreaM2 <= 0) {
+        setError("Could not calculate roof area. Try Detailed Measurement.");
+        setQuickEstimateLoading(false);
+        return;
+      }
+      
+      const roofSqft = Math.round(roofAreaM2 * 10.7639);
+      console.log('✅ Solar API success:', roofSqft, 'sq ft');
+      
+      // Extract bounding box for polygon
+      if (data.boundingBox) {
+        const box = data.boundingBox;
+        const centerLat = (box.sw.latitude + box.ne.latitude) / 2;
+        const centerLng = (box.sw.longitude + box.ne.longitude) / 2;
+        const calculatedCenter = { lat: centerLat, lng: centerLng };
+        
+        const boxCoords = [
+          { lat: box.sw.latitude, lng: box.sw.longitude },
+          { lat: box.ne.latitude, lng: box.sw.longitude },
+          { lat: box.ne.latitude, lng: box.ne.longitude },
+          { lat: box.sw.latitude, lng: box.ne.longitude }
+        ];
+        
+        // Save coordinates for map to render polygon
+        setSolarCenter({ ...calculatedCenter, boxCoords });
+      }
+      
+      // Set the area and mark as done
+      setTotalSqft(roofSqft);
+      setIsCalculationDone(true);
+      setIsMeasurementComplete(false); // NOT complete yet - user needs to click "Complete"
+      setQuickEstimateLoading(false);
+      
+      // Create temporary measurement record (without contact info)
       const measurementData = {
         property_address: address,
         latitude: coordinates?.lat || null,
         longitude: coordinates?.lng || null,
         user_type: 'homeowner',
         measurement_type: 'quick_estimate',
-        estimation_method: method,
+        estimation_method: 'solar_api',
         total_sqft: roofSqft,
         total_adjusted_sqft: roofSqft,
-        lead_status: 'potential'
+        lead_status: 'potential',
+        contact_info_provided: false
       };
-
-      console.log('💾 Creating measurement...');
+      
       const savedMeasurement = await base44.entities.Measurement.create(measurementData);
-      console.log('✅ Measurement created:', savedMeasurement.id);
+      setMeasurementId(savedMeasurement.id);
+      console.log('✅ Measurement record created:', savedMeasurement.id);
       
-      // Log lead capture (email notifications disabled for now)
-      console.log('Lead captured:', {
-        type: 'potential_lead',
-        address: address,
-        lead_id: savedMeasurement.id
-      });
-      
-      // Redirect to results page using Base44 page URL system
-      const resultsUrl = createPageUrl(`Results?measurementid=${savedMeasurement.id}`);
-      console.log('✅ Redirecting to:', resultsUrl);
-      navigate(resultsUrl);
-
     } catch (err) {
       console.error('❌ Quick estimate error:', err);
-      alert('Something went wrong. Please try again.');
+      setError('Failed to calculate roof area. Please try Detailed Measurement.');
       setQuickEstimateLoading(false);
-      setHasChosenMethod(false);
     }
   };
 
