@@ -282,18 +282,7 @@ export default function Homepage() {
             <Button
               size="lg"
               className="h-16 px-12 text-xl bg-white text-blue-600 hover:bg-blue-50 shadow-2xl font-bold"
-              onClick={async () => {
-                try {
-                  const user = await base44.auth.me();
-                  if (user && user.aroof_role === 'external_roofer') {
-                    navigate(createPageUrl("RooferDashboard"));
-                  } else {
-                    navigate(createPageUrl("Start"));
-                  }
-                } catch {
-                  navigate(createPageUrl("Start"));
-                }
-              }}
+              onClick={() => navigate(createPageUrl("Start"))}
             >
               Start Free Measurement <ArrowRight className="w-6 h-6 ml-2" />
             </Button>
@@ -567,18 +556,7 @@ export default function Homepage() {
                 size="lg"
                 className="h-20 px-12 text-2xl bg-white text-blue-900 hover:bg-blue-50 shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105"
                 aria-label="Measure your roof for free now"
-                onClick={async () => {
-                  try {
-                    const user = await base44.auth.me();
-                    if (user && user.aroof_role === 'external_roofer') {
-                      navigate(createPageUrl("RooferDashboard"));
-                    } else {
-                       navigate(createPageUrl("Start"));
-                     }
-                    } catch {
-                     navigate(createPageUrl("Start"));
-                    }
-                }}
+                onClick={() => navigate(createPageUrl("Start"))}
               >
             <Zap className="w-8 h-8 mr-3" aria-hidden="true" />
             Measure My Roof FREE

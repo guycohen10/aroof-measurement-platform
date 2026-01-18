@@ -1995,19 +1995,17 @@ export default function MeasurementPage() {
       const savedMeasurement = await base44.entities.Measurement.create(measurementData);
       console.log('✅ Measurement created:', savedMeasurement.id);
       
-      // Notify admin of potential lead
-      try {
-        await notifyGodAdmin({
-          type: 'potential_lead',
-          address: address,
-          lead_id: savedMeasurement.id
-        });
-      } catch (notifyErr) {
-        console.log('Admin notification failed:', notifyErr);
-      }
+      // Log lead capture (email notifications disabled for now)
+      console.log('Lead captured:', {
+        type: 'potential_lead',
+        address: address,
+        lead_id: savedMeasurement.id
+      });
       
-      // Redirect to RESULTS page with preview mode
-      window.location.href = `/results?id=${savedMeasurement.id}&preview=true`;
+      // CRITICAL: Redirect to results page using direct window navigation
+      const resultsUrl = `/results?id=${savedMeasurement.id}&preview=true`;
+      console.log('✅ Redirecting to:', resultsUrl);
+      window.location.href = resultsUrl;
 
     } catch (err) {
       console.error('❌ Quick estimate error:', err);
@@ -2017,21 +2015,7 @@ export default function MeasurementPage() {
     }
   };
 
-  const notifyGodAdmin = async (leadData) => {
-    try {
-      await base44.integrations.Core.SendEmail({
-        to: 'admin@aroof.build',
-        subject: leadData.type === 'potential_lead' 
-          ? '🏠 New Potential Lead - Address Entered'
-          : '✅ New Qualified Lead - Contact Info Captured',
-        body: leadData.type === 'potential_lead'
-          ? `New address entered: ${leadData.address}\nLead ID: ${leadData.lead_id}\nTime: ${new Date().toLocaleString()}`
-          : `New qualified lead!\n\nName: ${leadData.name}\nEmail: ${leadData.email}\nPhone: ${leadData.phone}\nAddress: ${leadData.address}\nLead ID: ${leadData.lead_id}\nTime: ${new Date().toLocaleString()}`
-      });
-    } catch (err) {
-      console.error('Failed to notify admin:', err);
-    }
-  };
+
 
   const handleCompleteMeasurement = useCallback(async () => {
     const totalAdjusted = getTotalArea();
@@ -2244,25 +2228,19 @@ export default function MeasurementPage() {
               </div>
             </div>
 
-            {/* Optional: AI Studio Preview */}
+            {/* STUDIO BUTTON - AI Preview */}
             <div className="mb-8 text-center">
-              <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-pink-50 hover:border-purple-500 transition-all hover:shadow-xl cursor-pointer group inline-block max-w-2xl"
-                    onClick={() => setIsDesignMode(true)}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Palette className="w-6 h-6 text-purple-600" />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="text-xl font-bold text-purple-900">✨ See Your Home with New Roof</h3>
-                      <p className="text-sm text-purple-600">AI Preview - Optional</p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-purple-700">
-                    Preview how different roof styles and colors will look on your home before measuring
-                  </p>
-                </CardContent>
-              </Card>
+              <Button
+                onClick={() => setIsDesignMode(true)}
+                size="lg"
+                className="bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 hover:from-purple-700 hover:via-pink-700 hover:to-purple-800 text-white h-16 px-8 text-lg font-bold shadow-xl"
+              >
+                <Palette className="w-6 h-6 mr-2" />
+                ✨ See Your Home with New Roof (AI Preview)
+              </Button>
+              <p className="text-sm text-slate-500 mt-2">
+                Optional - Preview different roof styles before measuring
+              </p>
             </div>
 
             <div className="text-center mb-4">
