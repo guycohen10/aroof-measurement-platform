@@ -620,6 +620,27 @@ export default function MeasurementPage() {
         console.log("✅ Map tiles loaded!");
         setMapLoading(false);
         setMapError("");
+        
+        // FORCE POLYGON RENDER AFTER MAP IS READY
+        setTimeout(() => {
+          const coordsToRender = solarCenter?.boxCoords || polygonCoordinates;
+          if (coordsToRender && coordsToRender.length > 2 && !solarPolygonRef.current) {
+            console.log('🎨 POST-LOAD: Rendering polygon after map ready');
+            solarPolygonRef.current = new window.google.maps.Polygon({
+              paths: coordsToRender,
+              strokeColor: '#00FF00',
+              strokeOpacity: 1.0,
+              strokeWeight: 4,
+              fillColor: '#00FF00',
+              fillOpacity: 0.5,
+              map: map,
+              zIndex: 9999,
+              clickable: false,
+              visible: true
+            });
+            console.log('✅ POST-LOAD POLYGON RENDERED');
+          }
+        }, 500);
       });
 
       window.google.maps.event.addListener(map, 'zoom_changed', () => {
@@ -644,25 +665,38 @@ export default function MeasurementPage() {
         }
       });
 
-      // ALWAYS RENDER POLYGON IF COORDINATES EXIST (Fix #4)
+      // FORCE RENDER GREEN POLYGON - Check multiple sources
       const coordsToRender = solarCenter?.boxCoords || polygonCoordinates;
       
       if (coordsToRender && coordsToRender.length > 2) {
-        console.log('🎨 FORCE RENDERING GREEN POLYGON:', coordsToRender.length, 'points');
+        console.log('🎨 FORCING GREEN POLYGON RENDER:', coordsToRender.length, 'points');
+        
+        // Remove old polygon if exists
+        if (solarPolygonRef.current) {
+          solarPolygonRef.current.setMap(null);
+        }
+        
+        // Create new polygon with MAXIMUM visibility
         solarPolygonRef.current = new window.google.maps.Polygon({
           paths: coordsToRender,
-          strokeColor: '#00FF00',  // BRIGHT GREEN - maximum visibility
-          strokeOpacity: 1.0,       // Full opacity
-          strokeWeight: 3,
+          strokeColor: '#00FF00',  // BRIGHT GREEN
+          strokeOpacity: 1.0,       // 100% visible stroke
+          strokeWeight: 4,          // Thicker line
           fillColor: '#00FF00',
-          fillOpacity: 0.35,
-          map: map,
-          zIndex: 1000,            // VERY HIGH z-index
-          clickable: false         // Don't interfere with drawing
+          fillOpacity: 0.5,         // 50% transparent fill
+          map: map,                 // Attach to map
+          zIndex: 9999,             // TOP LAYER
+          clickable: false,         // Don't interfere
+          visible: true             // Explicitly set visible
         });
-        console.log('✅ GREEN POLYGON FORCED TO RENDER - Should be visible now!');
+        
+        console.log('✅ GREEN POLYGON CREATED AND ATTACHED TO MAP');
+        console.log('✅ Polygon visible:', solarPolygonRef.current.getVisible());
+        console.log('✅ Polygon map:', solarPolygonRef.current.getMap() !== null);
       } else {
-        console.warn('⚠️ No coordinates available for polygon rendering');
+        console.warn('⚠️ No coordinates - cannot render polygon');
+        console.log('  solarCenter:', solarCenter);
+        console.log('  polygonCoordinates:', polygonCoordinates);
       }
 
       // Initialize Drawing Manager
@@ -854,87 +888,68 @@ export default function MeasurementPage() {
     }
   }, [address, coordinates, createMap]);
 
-  // Manual Script Injection (Robust Fallback) - SIMPLIFIED
+  // Manual Script Injection - ULTRA SIMPLIFIED
   useEffect(() => {
-    console.log("🚀 Manual Google Maps script loader starting");
+    console.log("🚀 Manual Google Maps loader starting");
 
-    // Check if already loaded
+    // Already loaded? Use it immediately
     if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
-      console.log("✅ Google Maps already exists - using it");
-      if (!scriptLoadedRef.current) {
-        scriptLoadedRef.current = true;
-        setMapScriptLoaded(true);
-      }
+      console.log("✅ Google Maps already loaded - ready to use");
+      scriptLoadedRef.current = true;
+      setMapScriptLoaded(true);
       return;
     }
     
-    // Check if script already exists
-    const existingScript = document.getElementById('google-map-script');
-    if (existingScript) {
-      console.log("⏳ Script tag exists, waiting for Google Maps API...");
+    // Check if script exists in DOM
+    let script = document.getElementById('google-map-script');
+    
+    if (!script) {
+      console.log("📥 Creating Google Maps script tag...");
+      script = document.createElement('script');
+      script.id = 'google-map-script';
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,drawing,geometry`;
+      script.async = true;
+      script.defer = true;
       
-      // Simple polling with extended timeout
-      const startTime = Date.now();
-      const checkInterval = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        
-        if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
-          clearInterval(checkInterval);
-          console.log("✅ Google Maps API ready after", elapsed, "ms");
-          scriptLoadedRef.current = true;
-          setMapScriptLoaded(true);
-          setMapError("");
-        } else if (elapsed > 60000) {
-          clearInterval(checkInterval);
-          console.error("❌ Timeout after 60 seconds");
-          setMapError("Google Maps failed to load. Click Retry below.");
-          setMapLoading(false);
-        }
-      }, 500);
+      script.onload = () => {
+        console.log("✅ Script tag loaded");
+      };
       
-      return () => clearInterval(checkInterval);
+      script.onerror = () => {
+        console.error("❌ Script failed to load");
+        setMapError("Failed to load Google Maps. Click Retry.");
+        setMapLoading(false);
+      };
+      
+      document.head.appendChild(script);
     }
-
-    // Create new script
-    console.log("📥 Injecting Google Maps script...");
-    const script = document.createElement('script');
-    script.id = 'google-map-script';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,drawing,geometry`;
-    script.async = true;
-    script.defer = true;
     
-    script.onload = () => {
-      console.log("✅ Script loaded, waiting for API initialization...");
-      
-      // Wait for API to become available
-      const startTime = Date.now();
-      const checkInterval = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        
-        if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
-          clearInterval(checkInterval);
-          console.log("✅ Google Maps API ready after", elapsed, "ms");
-          scriptLoadedRef.current = true;
-          setMapScriptLoaded(true);
-          setMapError("");
-        } else if (elapsed > 60000) {
-          clearInterval(checkInterval);
-          console.error("❌ API initialization timeout");
-          setMapError("Google Maps API failed to initialize. Click Retry.");
-          setMapLoading(false);
-        }
-      }, 500);
+    // Poll for API availability (simple check every 500ms)
+    const checkInterval = setInterval(() => {
+      if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
+        clearInterval(checkInterval);
+        console.log("✅ Google Maps API ready");
+        scriptLoadedRef.current = true;
+        setMapScriptLoaded(true);
+        setMapError("");
+      }
+    }, 500);
+    
+    // Timeout after 60 seconds
+    const timeout = setTimeout(() => {
+      if (!scriptLoadedRef.current) {
+        clearInterval(checkInterval);
+        console.error("❌ Google Maps timeout (60s)");
+        setMapError("Map failed to load. Click Retry.");
+        setMapLoading(false);
+      }
+    }, 60000);
+    
+    return () => {
+      clearInterval(checkInterval);
+      clearTimeout(timeout);
     };
-    
-    script.onerror = () => {
-      console.error("❌ Script failed to load");
-      setMapError("Failed to load Google Maps. Check your connection and click Retry.");
-      setMapLoading(false);
-    };
-    
-    document.head.appendChild(script);
-    console.log("📥 Script injected into DOM");
-  }, []); // Run ONCE on mount
+  }, []);
 
   // Initialize map ONLY after script is loaded AND we have address/coordinates
   useEffect(() => {
