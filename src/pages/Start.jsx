@@ -51,12 +51,13 @@ export default function Start() {
       return;
     }
 
-    // Store address in sessionStorage for persistence (STANDARD KEY)
+    // Store address and coordinates
     sessionStorage.setItem("selectedAddress", addressData.formatted_address);
-    sessionStorage.setItem("addressData", JSON.stringify(addressData));
+    sessionStorage.setItem("homeowner_lat", addressData.latitude?.toString() || '');
+    sessionStorage.setItem("homeowner_lng", addressData.longitude?.toString() || '');
 
-    // Navigate to measurement choice (skip visualization for now)
-    navigate(createPageUrl("MeasurementChoice"));
+    // Navigate DIRECTLY to measurement page
+    navigate(createPageUrl(`MeasurementPage?address=${encodeURIComponent(addressData.formatted_address)}${addressData.latitude ? `&lat=${addressData.latitude}&lng=${addressData.longitude}` : ''}`));
   };
 
   return (
