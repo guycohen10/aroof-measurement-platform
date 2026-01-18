@@ -150,8 +150,8 @@ export default function ContactInfoPage() {
       sessionStorage.removeItem('homeowner_lat');
       sessionStorage.removeItem('homeowner_lng');
 
-      // Immediate redirect
-      window.location.href = `/results?id=${measurementId}`;
+      // Immediate redirect to Results page
+      navigate(createPageUrl(`Results?id=${measurementId}`));
 
     } catch (err) {
       console.error('❌ Save error:', err);
