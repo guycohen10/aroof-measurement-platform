@@ -21,193 +21,131 @@ export default function ContactInfoPage() {
   });
 
   useEffect(() => {
-    checkIfRooferAndRedirect();
-    
-    // Check for measurement ID in URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const measurementId = urlParams.get('id');
-    
-    if (measurementId) {
-      loadMeasurementById(measurementId);
-    }
+    const init = async () => {
+      // Check if roofer
+      const isRoofer = await checkIfRooferAndRedirect();
+      if (isRoofer) return;
+
+      // Load measurement for homeowner
+      const urlParams = new URLSearchParams(window.location.search);
+      const measurementId = urlParams.get('id') || sessionStorage.getItem('currentMeasurementId');
+      
+      if (measurementId) {
+        await loadMeasurementById(measurementId);
+      } else {
+        console.log('❌ No measurement ID, redirecting to start');
+        navigate(createPageUrl("Homepage"));
+      }
+    };
+
+    init();
   }, []);
 
   const checkIfRooferAndRedirect = async () => {
     try {
       const user = await base44.auth.me();
-      console.log('🔴 ContactInfoPage loaded!');
-      console.log('🔴 User role:', user?.aroof_role);
-      console.log('🔴 active_lead_id in session:', sessionStorage.getItem('active_lead_id'));
-      console.log('🔴 pending_measurement_id in session:', sessionStorage.getItem('pending_measurement_id'));
       
       if (user && user.aroof_role === 'external_roofer') {
-        // Roofer should NEVER reach this page
-        console.error('❌ ROOFER TRIED TO ACCESS CONTACTINFOPAGE - THIS IS THE BUG!');
-        alert('You already entered customer info. Going to results...');
+        console.log('🎭 Roofer detected, redirecting to results');
         
-        // Get measurement ID from session
-        const measurementId = sessionStorage.getItem('active_lead_id') || 
+        const urlParams = new URLSearchParams(window.location.search);
+        const measurementId = urlParams.get('id') || 
+                             sessionStorage.getItem('active_lead_id') || 
                              sessionStorage.getItem('pending_measurement_id');
         
-        console.log('🔴 Redirecting roofer with measurementId:', measurementId);
-        
         if (measurementId) {
-          navigate(createPageUrl(`Results?measurementid=${measurementId}`));
+          navigate(`/results?id=${measurementId}`);
         } else {
           navigate(createPageUrl("RooferDashboard"));
         }
-        return;
-      } else {
-        // Not a roofer - load measurement for homeowner
-        console.log('🔴 Loading measurement for homeowner');
-        loadMeasurement();
+        return true;
       }
+      return false;
     } catch {
-      // Not logged in - proceed normally for homeowners
-      console.log('🔴 User not logged in - loading measurement for homeowner');
-      loadMeasurement();
+      // Not authenticated - homeowner flow, this is OK
+      console.log('👤 Not authenticated - homeowner flow');
+      return false;
     }
   };
 
   const loadMeasurementById = async (measurementId) => {
     try {
+      console.log('📥 Loading measurement:', measurementId);
       const meas = await base44.entities.Measurement.get(measurementId);
+      console.log('✅ Measurement loaded:', meas);
       setMeasurement(meas);
       setLoading(false);
     } catch (err) {
-      console.error("Failed to load measurement:", err);
-      navigate(createPageUrl("Start"));
+      console.error('❌ Failed to load measurement:', err);
+      alert('Measurement not found. Please start over.');
+      navigate(createPageUrl("Homepage"));
     }
   };
 
-  const loadMeasurement = async () => {
-    try {
-      const measurementId = sessionStorage.getItem('pending_measurement_id');
-      
-      if (!measurementId) {
-        // No pending measurement - redirect to start
-        navigate(createPageUrl("Start"));
-        return;
-      }
 
-      const measurements = await base44.entities.Measurement.filter({ id: measurementId });
-      
-      if (measurements.length === 0) {
-        navigate(createPageUrl("Start"));
-        return;
-      }
-
-      setMeasurement(measurements[0]);
-      setLoading(false);
-    } catch (err) {
-      console.error("Failed to load measurement:", err);
-      navigate(createPageUrl("Start"));
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!measurement) {
+      alert('No measurement found. Please start over.');
+      navigate(createPageUrl('Homepage'));
+      return;
+    }
+
     setSaving(true);
 
     try {
-      console.log('📝 Saving homeowner lead...');
-      
       const urlParams = new URLSearchParams(window.location.search);
-      const measurementIdFromUrl = urlParams.get('id');
-      const pendingMeasurementId = measurementIdFromUrl || sessionStorage.getItem('pending_measurement_id');
+      const measurementId = urlParams.get('id') || sessionStorage.getItem('currentMeasurementId');
       
-      if (!pendingMeasurementId) {
-        alert('No measurement found. Please start over.');
-        navigate(createPageUrl('Start'));
+      if (!measurementId) {
+        alert('No measurement ID found. Please start over.');
+        navigate(createPageUrl('Homepage'));
         return;
       }
 
-      // Update the measurement with customer info
-      const agreeToQuotes = true; // Homeowners automatically agree to get quotes
+      console.log('💾 Updating measurement with contact info...');
       
-      await base44.entities.Measurement.update(pendingMeasurementId, {
-        customer_name: formData.name,
-        customer_email: formData.email,
-        customer_phone: formData.phone,
-        user_type: 'homeowner',
-        lead_status: 'new',
-        lead_source: 'website',
+      // Update measurement with contact details
+      await base44.entities.Measurement.update(measurementId, {
+        customer_name: formData.name.trim(),
+        customer_email: formData.email.trim(),
+        customer_phone: formData.phone.trim(),
         sms_opt_in: formData.smsOptIn,
-        measurement_completed: true,
-        agrees_to_quotes: agreeToQuotes,
-        available_for_purchase: agreeToQuotes,
-        lead_price: 25.00
+        agrees_to_quotes: true,
+        available_for_purchase: true,
+        lead_price: 25.00,
+        contact_info_provided: true
       });
 
-      console.log('✅ Lead saved:', pendingMeasurementId);
+      console.log('✅ Contact info saved');
 
-      // Send confirmation email to homeowner
-      try {
-        await base44.integrations.Core.SendEmail({
-          to: formData.email,
-          subject: 'Your Roof Measurement is Complete!',
-          body: `
-Hello ${formData.name},
-
-Thank you for using Aroof! Your roof measurement is complete.
-
-Property: ${measurement.property_address}
-Roof Area: ${measurement.total_sqft ? Math.round(measurement.total_sqft).toLocaleString() : 'Calculating...'} sq ft
-
-What happens next?
-✅ Top roofing contractors in your area will be notified
-📞 A qualified roofer will contact you within 24 hours
-💰 You'll receive competitive quotes for your project
-
-You can view your measurement results anytime at:
-https://aroof.build/results?measurementid=${pendingMeasurementId}
-
-Best regards,
-The Aroof Team
-          `
-        });
-        console.log('✅ Homeowner confirmation email sent');
-      } catch (emailErr) {
-        console.error('Failed to send homeowner confirmation:', emailErr);
-      }
-
-      // Notify all active roofers
-      try {
-        const zipMatch = measurement.property_address?.match(/\b\d{5}\b/);
-        const city = measurement.property_address?.split(',')[1]?.trim().split(/\s+\d/)[0] || '';
+      // Send emails in background (don't wait)
+      Promise.all([
+        base44.integrations.Core.SendEmail({
+          to: formData.email.trim(),
+          subject: 'Your Aroof Measurement is Ready!',
+          body: `Hello ${formData.name.trim()},\n\nThank you for using Aroof! Your roof measurement is complete.\n\nProperty: ${measurement.property_address}\nRoof Area: ${measurement.total_sqft?.toLocaleString() || 'Calculating...'} sq ft\n\nView your results: ${window.location.origin}/results?id=${measurementId}\n\nTop roofing contractors will contact you within 24 hours with competitive quotes.\n\nBest regards,\nThe Aroof Team`
+        }).catch(err => console.error('Email error:', err)),
         
-        await base44.functions.invoke('NotifyRoofersNewLead', {
-          measurementId: pendingMeasurementId,
-          address: measurement.property_address,
-          city: city,
-          sqft: measurement.total_sqft,
-          leadPrice: 25.00
-        });
-        
-        console.log('✅ Roofer notifications sent');
-      } catch (notifyErr) {
-        console.error('Failed to notify roofers:', notifyErr);
-      }
+        base44.functions.invoke('NotifyRoofersNewLead', { 
+          measurementId: measurementId 
+        }).catch(err => console.error('Notification error:', err))
+      ]);
 
-      // Extract ZIP from address
-      const zipMatch = measurement.property_address?.match(/\b\d{5}\b/);
-      const zipCode = zipMatch ? zipMatch[0] : '';
-      
-      // Clear session data
-      sessionStorage.removeItem('pending_measurement_id');
-      sessionStorage.removeItem('selectedAddress');
+      // Clear session
+      sessionStorage.removeItem('currentMeasurementId');
+      sessionStorage.removeItem('homeowner_address');
       sessionStorage.removeItem('homeowner_lat');
       sessionStorage.removeItem('homeowner_lng');
-      sessionStorage.removeItem('homeowner_address');
-      sessionStorage.removeItem('measurement_method');
 
-      console.log('✅ Navigating to results');
-      window.location.href = `/results?id=${pendingMeasurementId}`;
+      // Immediate redirect
+      window.location.href = `/results?id=${measurementId}`;
 
     } catch (err) {
-      console.error('❌ Error saving lead:', err);
-      alert('Failed to save your information. Please try again.');
-    } finally {
+      console.error('❌ Save error:', err);
+      alert('Failed to save. Please try again.');
       setSaving(false);
     }
   };
