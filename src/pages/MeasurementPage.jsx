@@ -2388,6 +2388,7 @@ export default function MeasurementPage() {
         </div>
       )}
 
+      {/* MEASUREMENT INTERFACE - Show AFTER method choice */}
       {hasChosenMethod && (
       <div className="flex-1 flex overflow-hidden">
         <div className="w-96 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
@@ -3485,6 +3486,7 @@ export default function MeasurementPage() {
         </div>
       </div>
       )}
+
     </div>
     </>
   );
