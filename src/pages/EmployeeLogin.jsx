@@ -290,6 +290,23 @@ export default function EmployeeLogin() {
             </a>
           </p>
         </div>
+
+        {/* EMERGENCY BACKDOOR - DEVELOPER OVERRIDE */}
+        <div className="mt-8">
+          <Button
+            onClick={() => {
+              localStorage.setItem('token', 'dev-override-token');
+              localStorage.setItem('authToken', 'dev-override-token');
+              localStorage.setItem('userRole', 'admin');
+              localStorage.setItem('userName', 'Guy (Dev)');
+              localStorage.setItem('userEmail', 'greenteamdallas@gmail.com');
+              window.location.href = createPageUrl('AdminGodMode');
+            }}
+            className="w-full h-16 text-xl font-bold bg-red-600 hover:bg-red-700 shadow-2xl animate-pulse"
+          >
+            ⚠️ DEVELOPER OVERRIDE: ENTER DASHBOARD
+          </Button>
+        </div>
       </div>
     </div>
   );
