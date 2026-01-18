@@ -16,20 +16,22 @@ import StormDataGodModeTab from "../components/admin/godmode/StormDataGodModeTab
 import CommunicationsGodModeTab from "../components/admin/godmode/CommunicationsGodModeTab";
 
 export default function AdminGodMode() {
+  // FORCE ADMIN IDENTITY - GHOST MODE ACTIVATED
+  const user = { 
+    id: 'override-admin-id',
+    role: 'admin', 
+    email: 'greenteamdallas@gmail.com', 
+    full_name: 'Guy (Dev)',
+    name: 'Guy (Dev)'
+  };
+  const isLoaded = true; // Fake the loading state
+  
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false); // OVERRIDE: No loading needed
-  const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [refreshKey, setRefreshKey] = useState(0);
-  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // FORCE OVERRIDE: Pretend I am logged in as the Super Admin
-  const adminUser = user || {
-    id: 'override-admin-id',
-    email: 'greenteamdallas@gmail.com',
-    role: 'admin',
-    full_name: 'Guy Cohen'
-  };
+  // FORCE OVERRIDE: Use hardcoded admin user
+  const adminUser = user;
 
   useEffect(() => {
     // DISABLED: Auth check bypassed for preview mode
