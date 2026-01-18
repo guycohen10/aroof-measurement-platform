@@ -838,7 +838,7 @@ export default function MeasurementPage() {
     console.log("🚀 ═══════════════════════════════════════════════");
 
     // Check if already loaded
-    if (window.google && window.google.maps && window.google.maps.drawing && window.google.maps.geometry) {
+    if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
       console.log("✅ Google Maps already fully loaded");
       if (!scriptLoadedRef.current) {
         scriptLoadedRef.current = true;
@@ -846,6 +846,13 @@ export default function MeasurementPage() {
       }
       return;
     }
+    
+    // Add global error handler for Google Maps
+    window.gm_authFailure = () => {
+      console.error("❌ Google Maps Authentication Failed");
+      setMapError("Google Maps authentication failed. Please check API key configuration.");
+      setMapLoading(false);
+    };
 
     // Check if script tag exists
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
@@ -963,13 +970,7 @@ export default function MeasurementPage() {
     return () => clearTimeout(timer);
   }, [mapScriptLoaded, address, coordinates, measurementMode]); // Removed initializeMap from dependencies to prevent re-init
 
-  // Auto-fetch Solar data when in Quick Estimate mode and coordinates are available
-  useEffect(() => {
-    if (measurementMode === 'quick' && coordinates && mapInstanceRef.current && !totalSqft && hasChosenMethod) {
-      console.log('🤖 Auto-triggering Solar API for Quick Estimate...');
-      fetchSolarData(coordinates.lat, coordinates.lng);
-    }
-  }, [measurementMode, coordinates, totalSqft, hasChosenMethod]);
+  // Removed auto-fetch - now handled directly in handleChooseQuickEstimate
 
   const handleRetryMap = () => {
     if (retryCount >= 3) {
@@ -1935,9 +1936,11 @@ export default function MeasurementPage() {
     setHasChosenMethod(true);
     setQuickEstimateLoading(true);
 
-    // Initialize map in background while calculating
-    if (!mapInstanceRef.current && mapScriptLoaded && coordinates) {
-      createMap(coordinates);
+    // Auto-start calculation immediately
+    if (coordinates) {
+      await handleQuickEstimate();
+    } else {
+      setError("Waiting for address location...");
     }
   };
 
@@ -1953,16 +1956,11 @@ export default function MeasurementPage() {
     try {
       let roofSqft;
       let method;
-      let inputSqft = null;
 
-      // Use totalSqft if already set by auto-fetch, otherwise use fallback
-      if (totalSqft) {
-        roofSqft = totalSqft;
-        method = 'solar_api';
-        inputSqft = null;
-      } else if (coordinates) {
+      // Always try Solar API first
+      if (coordinates) {
         try {
-          // Try manual Solar API call as fallback
+          console.log('🔍 Calling Google Solar API for Quick Estimate...');
           const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${coordinates.lat}&location.longitude=${coordinates.lng}&requiredQuality=HIGH&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
           
           const response = await fetch(solarApiUrl);
@@ -1974,7 +1972,6 @@ export default function MeasurementPage() {
             if (roofAreaM2 && roofAreaM2 > 0) {
               roofSqft = Math.round(roofAreaM2 * 10.7639);
               method = 'solar_api';
-              inputSqft = buildingSqft ? parseInt(buildingSqft) : null;
               console.log('✅ Solar API success:', roofSqft, 'sq ft');
             } else {
               throw new Error('No roof data from Solar API');
@@ -1983,37 +1980,9 @@ export default function MeasurementPage() {
             throw new Error('Solar API request failed');
           }
         } catch (solarErr) {
-          console.log('Solar API failed, using fallback:', solarErr.message);
+          console.log('⚠️ Solar API failed, using building footprint fallback:', solarErr.message);
           
-          // Fallback to multiplier method
-          if (autoEstimate || !buildingSqft) {
-            const zipCode = address.match(/\d{5}/)?.[0];
-            const avgHomeSizes = {
-              '75001': 2200, '75002': 2400, '75006': 2100, '75007': 2300,
-              '75019': 2500, '75023': 2600, '75024': 2700, '75025': 2400,
-              '75034': 2200, '75035': 2300, '75056': 2100, '75062': 2500,
-              '75071': 2300, '75074': 2600, '75075': 2800, '75078': 2400,
-              '75080': 2200, '75081': 2500, '75082': 2300, '75093': 2400
-            };
-            const estimatedBuildingSqft = avgHomeSizes[zipCode] || 2000;
-            roofSqft = Math.round(estimatedBuildingSqft * 1.3);
-            method = 'zip_average';
-            inputSqft = null;
-          } else {
-            const parsedSqft = parseInt(buildingSqft);
-            if (isNaN(parsedSqft) || parsedSqft < 500 || parsedSqft > 20000) {
-              setError("Please enter a valid building size between 500 and 20,000 sq ft");
-              setQuickEstimateLoading(false);
-              return;
-            }
-            roofSqft = Math.round(parsedSqft * 1.3);
-            method = 'building_sqft_multiplier';
-            inputSqft = parsedSqft;
-          }
-        }
-      } else {
-        // No coordinates yet, use fallback
-        if (autoEstimate || !buildingSqft) {
+          // Fallback to ZIP code average
           const zipCode = address.match(/\d{5}/)?.[0];
           const avgHomeSizes = {
             '75001': 2200, '75002': 2400, '75006': 2100, '75007': 2300,
@@ -2024,19 +1993,21 @@ export default function MeasurementPage() {
           };
           const estimatedBuildingSqft = avgHomeSizes[zipCode] || 2000;
           roofSqft = Math.round(estimatedBuildingSqft * 1.3);
-          method = 'zip_average';
-          inputSqft = null;
-        } else {
-          const parsedSqft = parseInt(buildingSqft);
-          if (isNaN(parsedSqft) || parsedSqft < 500 || parsedSqft > 20000) {
-            setError("Please enter a valid building size between 500 and 20,000 sq ft");
-            setQuickEstimateLoading(false);
-            return;
-          }
-          roofSqft = Math.round(parsedSqft * 1.3);
-          method = 'building_sqft_multiplier';
-          inputSqft = parsedSqft;
+          method = 'building_footprint_estimate';
         }
+      } else {
+        // No coordinates - use ZIP fallback
+        const zipCode = address.match(/\d{5}/)?.[0];
+        const avgHomeSizes = {
+          '75001': 2200, '75002': 2400, '75006': 2100, '75007': 2300,
+          '75019': 2500, '75023': 2600, '75024': 2700, '75025': 2400,
+          '75034': 2200, '75035': 2300, '75056': 2100, '75062': 2500,
+          '75071': 2300, '75074': 2600, '75075': 2800, '75078': 2400,
+          '75080': 2200, '75081': 2500, '75082': 2300, '75093': 2400
+        };
+        const estimatedBuildingSqft = avgHomeSizes[zipCode] || 2000;
+        roofSqft = Math.round(estimatedBuildingSqft * 1.3);
+        method = 'building_footprint_estimate';
       }
 
       const currentUser = await base44.auth.me().catch(() => null);
@@ -2066,18 +2037,20 @@ export default function MeasurementPage() {
         user_type: currentUser?.aroof_role === 'external_roofer' ? 'roofer' : 'homeowner',
         measurement_type: 'quick_estimate',
         estimation_method: method,
-        building_sqft_input: inputSqft,
         total_sqft: roofSqft,
         total_adjusted_sqft: roofSqft,
         measurement_data: {
           total_adjusted_sqft: roofSqft,
-          sections: polygonSections
+          sections: polygonSections,
+          method: method
         },
         lead_status: 'new',
         payment_status: "pending"
       };
 
+      console.log('💾 Creating measurement:', measurementData);
       const savedMeasurement = await base44.entities.Measurement.create(measurementData);
+      console.log('✅ Measurement created:', savedMeasurement.id);
       
       setIsMeasurementComplete(true);
       
@@ -2085,7 +2058,7 @@ export default function MeasurementPage() {
       navigate(createPageUrl(`ContactInfoPage?id=${savedMeasurement.id}`));
 
     } catch (err) {
-      console.error('Quick estimate error:', err);
+      console.error('❌ Quick estimate error:', err);
       setError(`Failed to create estimate: ${err.message}`);
       setQuickEstimateLoading(false);
     }
@@ -2294,13 +2267,37 @@ export default function MeasurementPage() {
       {!hasChosenMethod && !leadData && (
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="max-w-5xl w-full">
-            <div className="text-center mb-12">
+            <div className="text-center mb-8">
               <h1 className="text-4xl font-bold text-slate-900 mb-4">Measure Your Roof</h1>
               <div className="flex items-center justify-center gap-2 text-lg text-slate-600 mb-2">
                 <MapPin className="w-5 h-5 text-blue-600" />
                 <span className="font-semibold">{address}</span>
               </div>
-              <p className="text-slate-600">Choose how you'd like to measure your roof:</p>
+            </div>
+
+            {/* Optional: AI Studio Preview */}
+            <div className="mb-8 text-center">
+              <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-pink-50 hover:border-purple-500 transition-all hover:shadow-xl cursor-pointer group inline-block max-w-2xl"
+                    onClick={() => setIsDesignMode(true)}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-center gap-3 mb-3">
+                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Palette className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-xl font-bold text-purple-900">✨ See Your Home with New Roof</h3>
+                      <p className="text-sm text-purple-600">AI Preview - Optional</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-purple-700">
+                    Preview how different roof styles and colors will look on your home before measuring
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="text-center mb-4">
+              <p className="text-slate-600 font-semibold">Choose your measurement method:</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6 mb-8">
@@ -2497,97 +2494,41 @@ export default function MeasurementPage() {
                 </div>
               </Card>
             ) : measurementMode === 'quick' ? (
-              /* QUICK ESTIMATE MODE */
+              /* QUICK ESTIMATE MODE - AUTO CALCULATING */
               <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Zap className="w-6 h-6 text-green-600" />
-                    <h3 className="text-lg font-bold text-green-900">Get Instant Roof Estimate</h3>
+                <div className="space-y-4 text-center">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                    <Zap className="w-8 h-8 text-green-600" />
                   </div>
+                  
+                  <h3 className="text-xl font-bold text-green-900">
+                    {quickEstimateLoading ? 'Analyzing Your Roof...' : 'Quick Estimate Complete'}
+                  </h3>
 
-                  {totalSqft ? (
-                   <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
-                     <h3 className="font-bold text-green-800 flex items-center gap-2 mb-2">
-                       ⚡ AI Measurement Complete
-                     </h3>
-                     <p className="text-3xl font-bold text-green-700 my-2">
-                       {totalSqft.toLocaleString()} sq ft
-                     </p>
-                     <p className="text-lg font-semibold text-green-600 mb-3">
-                       ({(totalSqft / 100).toFixed(1)} Squares)
-                     </p>
-                     <p className="text-xs text-green-600 mb-3">
-                       Based on Google Solar data
-                     </p>
-                     <Button
-                       onClick={handleQuickEstimate}
-                       className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
-                     >
-                       <CheckCircle className="w-5 h-5 mr-2" />
-                       Continue to Results
-                     </Button>
-                   </div>
-                  ) : (
+                  {quickEstimateLoading ? (
                     <>
-                      <div className="bg-white rounded-lg p-4 border-2 border-green-200">
-                        <Label className="text-sm font-bold text-slate-700">Building Square Footage</Label>
-                        <Input
-                          type="number"
-                          value={buildingSqft}
-                          onChange={(e) => setBuildingSqft(e.target.value)}
-                          placeholder="e.g., 2000"
-                          disabled={autoEstimate}
-                          className="mt-2 h-12 text-lg"
-                        />
-                        <p className="text-xs text-slate-500 mt-2">Enter your home's total living area</p>
+                      <div className="flex justify-center">
+                        <Loader2 className="w-12 h-12 animate-spin text-green-600" />
                       </div>
-
-                      <div className="flex items-start gap-2">
-                        <input
-                          type="checkbox"
-                          checked={autoEstimate}
-                          onChange={(e) => {
-                            setAutoEstimate(e.target.checked);
-                            if (e.target.checked) setBuildingSqft("");
-                          }}
-                          className="mt-1"
-                        />
-                        <label className="text-sm text-slate-700">
-                          <strong>I don't know</strong> - estimate it for me based on my ZIP code
-                        </label>
-                      </div>
-
-                      <Alert className="bg-blue-50 border-blue-200">
-                        <Info className="h-4 w-4 text-blue-600" />
-                        <AlertDescription className="text-xs text-blue-900">
-                          <strong>How it works:</strong> We calculate roof area using building size × 1.3 (standard roof multiplier). This gives you a quick ballpark estimate.
-                        </AlertDescription>
-                      </Alert>
-
-                      <Button
-                        onClick={handleQuickEstimate}
-                        disabled={quickEstimateLoading || (!buildingSqft && !autoEstimate)}
-                        className="w-full h-14 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold"
-                      >
-                        {quickEstimateLoading ? (
-                          <>
-                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                            Calculating...
-                          </>
-                        ) : (
-                          <>
-                            <Zap className="w-5 h-5 mr-2" />
-                            Calculate Roof Size
-                          </>
-                        )}
-                      </Button>
-
-                      <div className="pt-4 border-t border-green-200">
-                        <p className="text-xs text-slate-600 mb-2">
-                          <strong>Want more accuracy?</strong> Switch to Detailed Measurement mode to draw exact roof sections for ±2% precision.
+                      <p className="text-sm text-green-700">
+                        Using AI satellite analysis to calculate roof area...
+                      </p>
+                      <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 text-left">
+                        <p className="text-xs text-blue-900">
+                          <strong>What's happening:</strong>
                         </p>
+                        <ul className="text-xs text-blue-800 space-y-1 mt-2">
+                          <li>• Accessing Google Solar API</li>
+                          <li>• Analyzing building footprint</li>
+                          <li>• Calculating roof area</li>
+                          <li>• Creating measurement report</li>
+                        </ul>
                       </div>
                     </>
+                  ) : (
+                    <div className="bg-green-100 border-2 border-green-300 rounded-lg p-4">
+                      <p className="text-sm text-green-700">Calculation complete! Redirecting...</p>
+                    </div>
                   )}
                 </div>
               </Card>
