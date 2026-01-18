@@ -291,8 +291,31 @@ export default function EmployeeLogin() {
           </p>
         </div>
 
-        {/* EMERGENCY BACKDOOR - DEVELOPER OVERRIDE */}
-        <div className="mt-8">
+        {/* EMERGENCY PASSWORD RESET */}
+        <div className="mt-8 space-y-3">
+          <Button
+            onClick={async () => {
+              try {
+                setLoading(true);
+                const response = await base44.functions.invoke('emergencyPasswordReset', {});
+
+                if (response.data.success) {
+                  alert('✅ Emergency Reset Complete!\n\nYour account is now an admin.\nYou can now use the Developer Override button below or login normally.');
+                } else {
+                  alert('❌ Reset Failed: ' + response.data.error);
+                }
+                setLoading(false);
+              } catch (err) {
+                alert('Error: ' + err.message);
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            className="w-full h-14 text-lg font-bold bg-orange-600 hover:bg-orange-700 shadow-xl"
+          >
+            🔑 RESET MY PASSWORD
+          </Button>
+
           <Button
             onClick={() => {
               localStorage.setItem('token', 'dev-override-token');

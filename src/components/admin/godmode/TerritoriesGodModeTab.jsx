@@ -65,23 +65,28 @@ export default function TerritoriesGodModeTab() {
         </div>
       </div>
 
-      {/* Map View with Google Maps */}
+      {/* Map View with Google Maps - Using proper embed */}
       <Card>
         <CardContent className="p-6">
-          <h3 className="text-lg font-bold mb-4">Territory Map View</h3>
-          <div className="bg-slate-100 rounded-lg overflow-hidden" style={{ height: '500px' }}>
+          <h3 className="text-lg font-bold mb-4">Territory Map View (War Room)</h3>
+          <div className="bg-slate-100 rounded-lg overflow-hidden border-2 border-blue-300" style={{ height: '600px' }}>
             <iframe
               width="100%"
               height="100%"
               frameBorder="0"
               style={{ border: 0 }}
-              src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tCY7dZywTmlJuuXvcA&center=32.7767,-96.7970&zoom=10`}
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d429168.3964843777!2d-96.79700000000001!3d32.7767!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x864c19f77b45974b%3A0xb9ec9ba4f647678f!2sDallas%2C%20TX!5e0!3m2!1sen!2sus!4v1234567890"
               allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
             ></iframe>
           </div>
-          <p className="text-sm text-slate-600 mt-3">
-            🗺️ Map shows DFW area - polygon rendering requires Google Maps JavaScript API integration
-          </p>
+          <div className="mt-4 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
+            <p className="text-sm text-yellow-800 font-semibold">
+              🗺️ <strong>War Room Active:</strong> Map displays DFW territory coverage area. 
+              Full polygon rendering with interactive controls requires Google Maps JavaScript API integration.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
