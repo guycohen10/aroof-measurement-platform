@@ -193,6 +193,32 @@ export default function UsersGodModeTab() {
                     </td>
                     <td className="p-3">
                       <div className="flex gap-2">
+                        {/* IMPERSONATION - Login As User */}
+                        <Button
+                          size="sm"
+                          className="bg-purple-600 hover:bg-purple-700 text-white"
+                          onClick={() => {
+                            sessionStorage.setItem('admin_return_token', localStorage.getItem('authToken'));
+                            sessionStorage.setItem('impersonating', 'true');
+                            
+                            localStorage.setItem('authToken', `impersonate_${user.id}`);
+                            localStorage.setItem('userRole', user.aroof_role || user.role);
+                            localStorage.setItem('userName', user.full_name);
+                            localStorage.setItem('userEmail', user.email);
+                            
+                            const redirectMap = {
+                              'external_roofer': '/RooferDashboard',
+                              'estimator': '/EstimatorDashboard',
+                              'dispatcher': '/DispatchDashboard',
+                              'admin': '/AdminGodMode'
+                            };
+                            
+                            window.location.href = redirectMap[user.aroof_role] || '/';
+                          }}
+                          disabled={user.aroof_role === 'god_admin'}
+                        >
+                          <Key className="w-4 h-4" />
+                        </Button>
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -222,6 +248,29 @@ export default function UsersGodModeTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Return to Admin Button (shown when impersonating) */}
+      {sessionStorage.getItem('impersonating') === 'true' && (
+        <div className="fixed bottom-8 right-8 z-50">
+          <Button
+            onClick={() => {
+              const adminToken = sessionStorage.getItem('admin_return_token');
+              sessionStorage.removeItem('impersonating');
+              sessionStorage.removeItem('admin_return_token');
+              
+              localStorage.setItem('authToken', adminToken);
+              localStorage.setItem('userRole', 'admin');
+              localStorage.setItem('userName', 'Guy (Dev)');
+              localStorage.setItem('userEmail', 'greenteamdallas@gmail.com');
+              
+              window.location.href = '/AdminGodMode';
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold text-lg px-8 py-6 shadow-2xl animate-pulse"
+          >
+            👑 Return to Admin
+          </Button>
+        </div>
+      )}
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>

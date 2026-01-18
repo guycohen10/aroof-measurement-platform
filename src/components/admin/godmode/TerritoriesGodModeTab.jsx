@@ -65,17 +65,23 @@ export default function TerritoriesGodModeTab() {
         </div>
       </div>
 
-      {/* Map View Placeholder */}
-      <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300">
-        <CardContent className="p-12 text-center">
-          <Layers className="w-16 h-16 mx-auto mb-4 text-blue-600" />
-          <h3 className="text-xl font-bold text-slate-900 mb-2">Interactive Map View</h3>
-          <p className="text-slate-600 mb-4">
-            Map integration coming soon - will display all territories on an interactive map
+      {/* Map View with Google Maps */}
+      <Card>
+        <CardContent className="p-6">
+          <h3 className="text-lg font-bold mb-4">Territory Map View</h3>
+          <div className="bg-slate-100 rounded-lg overflow-hidden" style={{ height: '500px' }}>
+            <iframe
+              width="100%"
+              height="100%"
+              frameBorder="0"
+              style={{ border: 0 }}
+              src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tCY7dZywTmlJuuXvcA&center=32.7767,-96.7970&zoom=10`}
+              allowFullScreen
+            ></iframe>
+          </div>
+          <p className="text-sm text-slate-600 mt-3">
+            🗺️ Map shows DFW area - polygon rendering requires Google Maps JavaScript API integration
           </p>
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            Enable Map View
-          </Button>
         </CardContent>
       </Card>
 
