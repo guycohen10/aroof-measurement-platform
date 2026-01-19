@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Loader2, LogOut, BarChart3, Users, UserCheck, Phone, HardHat, Hammer, Calendar, DollarSign, Settings, Cloud, MessageSquare, MapPin } from "lucide-react";
+import { Loader2, LogOut, BarChart3, Users, UserCheck, Phone, HardHat, Hammer, Calendar, DollarSign, Settings, Cloud, MessageSquare, MapPin, Coins, Target } from "lucide-react";
 import OverviewTab from "../components/admin/godmode/OverviewTab";
 import LeadsGodModeTab from "../components/admin/godmode/LeadsGodModeTab";
 import HomeownerLeadsGodModeTab from "../components/admin/godmode/HomeownerLeadsGodModeTab";
@@ -16,6 +16,9 @@ import StormDataGodModeTab from "../components/admin/godmode/StormDataGodModeTab
 import CommunicationsGodModeTab from "../components/admin/godmode/CommunicationsGodModeTab";
 import TerritoriesGodModeTab from "../components/admin/godmode/TerritoriesGodModeTab";
 import FinancialsGodModeTab from "../components/admin/godmode/FinancialsGodModeTab";
+import UserManager from "../components/admin/UserManager";
+import LeadOverseer from "../components/admin/LeadOverseer";
+import EconomyControl from "../components/admin/EconomyControl";
 
 export default function AdminGodMode() {
   // FORCE ADMIN IDENTITY - GHOST MODE ACTIVATED
@@ -47,6 +50,9 @@ export default function AdminGodMode() {
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'users', label: 'User Manager', icon: Users },
+    { id: 'lead-overseer', label: 'Lead Center', icon: Target },
+    { id: 'economy', label: 'Economy & Pricing', icon: Coins },
     { id: 'homeowner-leads', label: 'Homeowner Leads', icon: Users },
     { id: 'leads', label: 'Leads', icon: Users },
     { id: 'financials', label: 'Financials', icon: DollarSign },
@@ -118,6 +124,9 @@ export default function AdminGodMode() {
 
         {/* Tab Content */}
         {activeTab === 'overview' && <OverviewTab key={refreshKey} />}
+        {activeTab === 'users' && <UserManager key={refreshKey} />}
+        {activeTab === 'lead-overseer' && <LeadOverseer key={refreshKey} />}
+        {activeTab === 'economy' && <EconomyControl key={refreshKey} />}
         {activeTab === 'homeowner-leads' && <HomeownerLeadsGodModeTab key={refreshKey} />}
         {activeTab === 'leads' && <LeadsGodModeTab key={refreshKey} />}
         {activeTab === 'financials' && <FinancialsGodModeTab key={refreshKey} />}
