@@ -1,23 +1,33 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, Coins } from "lucide-react";
+import { toast } from "sonner";
 
 export default function OverviewTab() {
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState({});
+  const [pricing, setPricing] = useState({
+    lead_price_credits: 50,
+    subscription_price_monthly: 99,
+    subscription_price_yearly: 990
+  });
 
   useEffect(() => {
     loadStats();
+    loadPricing();
   }, []);
 
   async function loadStats() {
     try {
-      // Use service role to bypass auth checks
       const [measurements, appointments, users] = await Promise.all([
-        base44.asServiceRole.entities.Measurement.list('-created_date', 1000),
-        base44.asServiceRole.entities.Appointment.list('-created_date', 1000),
-        base44.asServiceRole.entities.User.list()
+        base44.entities.Measurement.list('-created_date', 1000),
+        base44.entities.Appointment.list('-created_date', 1000),
+        base44.entities.User.list()
       ]);
 
       const now = new Date();
@@ -68,6 +78,39 @@ export default function OverviewTab() {
     }
   }
 
+  const loadPricing = async () => {
+    try {
+      const settings = await base44.entities.PlatformSettings.list();
+      if (settings && settings.length > 0) {
+        setPricing({
+          lead_price_credits: settings[0].lead_price_credits || 50,
+          subscription_price_monthly: settings[0].subscription_price_monthly || 99,
+          subscription_price_yearly: settings[0].subscription_price_yearly || 990
+        });
+      }
+    } catch (error) {
+      console.error("Failed to load pricing:", error);
+    }
+  };
+
+  const handleUpdatePricing = async () => {
+    setSaving(true);
+    try {
+      const settings = await base44.entities.PlatformSettings.list();
+      if (settings && settings.length > 0) {
+        await base44.entities.PlatformSettings.update(settings[0].id, pricing);
+      } else {
+        await base44.entities.PlatformSettings.create(pricing);
+      }
+      toast.success("Global pricing updated successfully!");
+    } catch (error) {
+      console.error("Failed to update pricing:", error);
+      toast.error("Failed to update pricing");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -77,9 +120,61 @@ export default function OverviewTab() {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
+      {/* Global Pricing Control */}
+      <Card className="border-2 border-purple-600 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+          <CardTitle className="flex items-center gap-2">
+            <Coins className="w-6 h-6" />
+            🌎 Global Pricing - Treasury Control
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <Label>Price per Lead (Credits)</Label>
+              <Input
+                type="number"
+                value={pricing.lead_price_credits}
+                onChange={(e) => setPricing({...pricing, lead_price_credits: Number(e.target.value)})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Monthly Subscription ($)</Label>
+              <Input
+                type="number"
+                value={pricing.subscription_price_monthly}
+                onChange={(e) => setPricing({...pricing, subscription_price_monthly: Number(e.target.value)})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Yearly Subscription ($)</Label>
+              <Input
+                type="number"
+                value={pricing.subscription_price_yearly}
+                onChange={(e) => setPricing({...pricing, subscription_price_yearly: Number(e.target.value)})}
+              />
+            </div>
+          </div>
+          <Button
+            className="w-full mt-6 bg-purple-600 hover:bg-purple-700"
+            onClick={handleUpdatePricing}
+            disabled={saving}
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              "💰 Update Global Prices"
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Stats Cards */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Leads"
           value={stats.totalLeads}
@@ -111,7 +206,7 @@ export default function OverviewTab() {
       </div>
 
       {/* Financial Pulse - Recent Transactions */}
-      <Card className="mb-8">
+      <Card>
         <CardContent className="p-6">
           <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
             💰 Recent Transactions (P&L)
