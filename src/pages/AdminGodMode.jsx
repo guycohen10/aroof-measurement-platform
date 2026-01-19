@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Loader2, LogOut, BarChart3, Users, UserCheck, Phone, HardHat, Hammer, Calendar, DollarSign, Settings, Cloud, MessageSquare, MapPin, Coins, Target } from "lucide-react";
+import { Loader2, LogOut, BarChart3, Users, UserCheck, Phone, HardHat, Hammer, Calendar, DollarSign, Settings, Cloud, MessageSquare, MapPin, Coins, Target, Scale, Activity } from "lucide-react";
 import OverviewTab from "../components/admin/godmode/OverviewTab";
 import LeadsGodModeTab from "../components/admin/godmode/LeadsGodModeTab";
 import HomeownerLeadsGodModeTab from "../components/admin/godmode/HomeownerLeadsGodModeTab";
@@ -16,6 +16,8 @@ import StormDataGodModeTab from "../components/admin/godmode/StormDataGodModeTab
 import CommunicationsGodModeTab from "../components/admin/godmode/CommunicationsGodModeTab";
 import TerritoriesGodModeTab from "../components/admin/godmode/TerritoriesGodModeTab";
 import FinancialsGodModeTab from "../components/admin/godmode/FinancialsGodModeTab";
+import DisputeManager from "../components/admin/godmode/DisputeManager";
+import SystemHealth from "../components/admin/godmode/SystemHealth";
 import UserManager from "../components/admin/UserManager";
 import LeadOverseer from "../components/admin/LeadOverseer";
 import EconomyControl from "../components/admin/EconomyControl";
@@ -57,6 +59,8 @@ export default function AdminGodMode() {
     { id: 'leads', label: 'Leads', icon: Users },
     { id: 'financials', label: 'Financials', icon: DollarSign },
     { id: 'territories', label: 'Territories', icon: MapPin },
+    { id: 'disputes', label: '⚖️ Disputes', icon: Scale },
+    { id: 'health', label: '🔧 System Health', icon: Activity },
     { id: 'estimators', label: 'Estimators', icon: UserCheck },
     { id: 'dispatchers', label: 'Dispatchers', icon: Phone },
     { id: 'crews', label: 'Crews', icon: HardHat },
@@ -131,6 +135,8 @@ export default function AdminGodMode() {
         {activeTab === 'leads' && <LeadsGodModeTab key={refreshKey} />}
         {activeTab === 'financials' && <FinancialsGodModeTab key={refreshKey} />}
         {activeTab === 'territories' && <TerritoriesGodModeTab key={refreshKey} />}
+        {activeTab === 'disputes' && <DisputeManager key={refreshKey} />}
+        {activeTab === 'health' && <SystemHealth key={refreshKey} />}
         {activeTab === 'estimators' && <EstimatorsGodModeTab key={refreshKey} />}
         {activeTab === 'dispatchers' && <DispatchersGodModeTab key={refreshKey} />}
         {activeTab === 'crews' && <CrewsGodModeTab key={refreshKey} />}

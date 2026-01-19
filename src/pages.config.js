@@ -77,11 +77,11 @@ import StripeSuccess from './pages/StripeSuccess';
 import SubscriptionDetail from './pages/SubscriptionDetail';
 import Subscriptions from './pages/Subscriptions';
 import TPO from './pages/TPO';
+import TermsAndConditions from './pages/TermsAndConditions';
 import UpgradeProfile from './pages/UpgradeProfile';
 import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import Windows from './pages/Windows';
-import TermsAndConditions from './pages/TermsAndConditions';
 import __Layout from './Layout.jsx';
 
 
@@ -165,11 +165,11 @@ export const PAGES = {
     "SubscriptionDetail": SubscriptionDetail,
     "Subscriptions": Subscriptions,
     "TPO": TPO,
+    "TermsAndConditions": TermsAndConditions,
     "UpgradeProfile": UpgradeProfile,
     "VerifyEmail": VerifyEmail,
     "Visualizing": Visualizing,
     "Windows": Windows,
-    "TermsAndConditions": TermsAndConditions,
 }
 
 export const pagesConfig = {
