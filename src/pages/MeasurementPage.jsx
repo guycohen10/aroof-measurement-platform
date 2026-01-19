@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera, X, Info, Square, Circle as CircleIcon, Pentagon, Eraser, MousePointer, Zap, Palette } from "lucide-react";
+import { Home, ArrowLeft, Loader2, CheckCircle, AlertCircle, MapPin, Edit3, Trash2, Plus, Layers, ZoomIn, ZoomOut, Maximize2, RotateCcw, Camera, X, Info, Square, Circle as CircleIcon, Pentagon, Eraser, MousePointer, Zap, Palette, User } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import RoofVisualizer from "../components/RoofVisualizer";
+import SecuritySettings from "../components/auth/SecuritySettings";
 
 const SECTION_COLORS = [
   { stroke: '#4A90E2', fill: '#4A90E2', name: 'Blue' },
@@ -109,6 +111,7 @@ export default function MeasurementPage() {
   const [deletedSectionsCount, setDeletedSectionsCount] = useState(0);
   const [isInspectionMode, setIsInspectionMode] = useState(false);
   const [isDesignMode, setIsDesignMode] = useState(false);
+  const [showAccountModal, setShowAccountModal] = useState(false);
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
 
@@ -2234,12 +2237,31 @@ export default function MeasurementPage() {
               </div>
               <span className="text-2xl font-bold text-slate-900">Aroof</span>
             </Link>
-            <Link to={createPageUrl("Homepage")}>
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Dialog open={showAccountModal} onOpenChange={setShowAccountModal}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <User className="w-4 h-4 mr-2" />
+                    My Account
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>My Account Settings</DialogTitle>
+                  </DialogHeader>
+                  <div className="mt-4">
+                    <SecuritySettings />
+                  </div>
+                </DialogContent>
+              </Dialog>
+              
+              <Link to={createPageUrl("Homepage")}>
+                <Button variant="ghost" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
