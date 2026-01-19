@@ -17,8 +17,8 @@ export default function TerritoriesGodModeTab() {
   const loadData = async () => {
     try {
       const [terrs, comps] = await Promise.all([
-        base44.asServiceRole.entities.Territory.list(),
-        base44.asServiceRole.entities.Company.list()
+        base44.entities.Territory.list(),
+        base44.entities.Company.list()
       ]);
       
       setTerritories(terrs);
@@ -34,7 +34,7 @@ export default function TerritoriesGodModeTab() {
     if (!confirm('Delete this territory? This action cannot be undone.')) return;
     
     try {
-      await base44.asServiceRole.entities.Territory.delete(territoryId);
+      await base44.entities.Territory.delete(territoryId);
       toast.success('Territory deleted');
       loadData();
     } catch (err) {

@@ -28,7 +28,7 @@ export default function LeadsGodModeTab() {
 
   const loadCompanies = async () => {
     try {
-      const data = await base44.asServiceRole.entities.Company.list();
+      const data = await base44.entities.Company.list();
       setCompanies(data);
     } catch (err) {
       console.error('Failed to load companies');
@@ -42,7 +42,7 @@ export default function LeadsGodModeTab() {
   const loadLeads = async () => {
     try {
       // UPGRADE: Load ALL leads including drafts/incomplete ones
-      const data = await base44.asServiceRole.entities.Measurement.list('-created_date', 1000);
+      const data = await base44.entities.Measurement.list('-created_date', 1000);
       setLeads(data);
       setLoading(false);
     } catch (err) {
@@ -82,7 +82,7 @@ export default function LeadsGodModeTab() {
 
   const handleSaveEdit = async () => {
     try {
-      await base44.asServiceRole.entities.Measurement.update(editingLead.id, {
+      await base44.entities.Measurement.update(editingLead.id, {
         lead_price: parseFloat(editingLead.lead_price),
         available_for_purchase: editingLead.available_for_purchase,
         lead_status: editingLead.lead_status,
@@ -99,7 +99,7 @@ export default function LeadsGodModeTab() {
 
   const handleToggleAvailability = async (lead) => {
     try {
-      await base44.asServiceRole.entities.Measurement.update(lead.id, {
+      await base44.entities.Measurement.update(lead.id, {
         available_for_purchase: !lead.available_for_purchase
       });
       toast.success(`Lead ${lead.available_for_purchase ? 'hidden' : 'made available'}`);
@@ -111,7 +111,7 @@ export default function LeadsGodModeTab() {
 
   const handleDelete = async () => {
     try {
-      await base44.asServiceRole.entities.Measurement.delete(deleteTarget.id);
+      await base44.entities.Measurement.delete(deleteTarget.id);
       toast.success('Lead deleted successfully');
       setDeleteTarget(null);
       loadLeads();

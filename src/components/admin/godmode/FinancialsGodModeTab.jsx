@@ -19,7 +19,7 @@ export default function FinancialsGodModeTab() {
   const loadTransactions = async () => {
     try {
       // Fetch all measurements (lead purchases)
-      const measurements = await base44.asServiceRole.entities.Measurement.list('-created_date', 500);
+      const measurements = await base44.entities.Measurement.list('-created_date', 500);
       
       // Build transaction history from lead purchases
       const txns = measurements
@@ -64,7 +64,7 @@ export default function FinancialsGodModeTab() {
 
     try {
       // Update measurement to mark as refunded
-      await base44.asServiceRole.entities.Measurement.update(transaction.id, {
+      await base44.entities.Measurement.update(transaction.id, {
         purchased_by: null,
         available_for_purchase: true,
         lead_status: 'new',
