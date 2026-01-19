@@ -80,6 +80,7 @@ import UpgradeProfile from './pages/UpgradeProfile';
 import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import Windows from './pages/Windows';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 import __Layout from './Layout.jsx';
 
 
@@ -166,6 +167,7 @@ export const PAGES = {
     "VerifyEmail": VerifyEmail,
     "Visualizing": Visualizing,
     "Windows": Windows,
+    "PrivacyPolicy": PrivacyPolicy,
 }
 
 export const pagesConfig = {
