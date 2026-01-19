@@ -130,14 +130,27 @@ export default function TerritoriesGodModeTab() {
                 </div>
               </div>
 
-              <Button
-                variant="destructive"
-                className="w-full"
-                onClick={() => handleDeleteTerritory(territory.id)}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Territory
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    toast.info('Revoke functionality', {
+                      description: `Would revoke territory from ${getCompanyName(territory.company_id)}`
+                    });
+                  }}
+                >
+                  🚫 Revoke
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => handleDeleteTerritory(territory.id)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}

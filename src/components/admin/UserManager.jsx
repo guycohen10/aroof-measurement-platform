@@ -203,6 +203,18 @@ export default function UserManager() {
                           </Button>
                           <Button
                             size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              console.log('🎭 IMPERSONATE USER:', user.email);
+                              toast.info(`Would impersonate: ${user.email}`, {
+                                description: 'Impersonation feature - Console logged'
+                              });
+                            }}
+                          >
+                            🎭 Login As
+                          </Button>
+                          <Button
+                            size="sm"
                             variant={isBanned ? "default" : "destructive"}
                             onClick={() => handleBanToggle(user)}
                           >

@@ -31,12 +31,12 @@ export default function LeadsGodModeTab() {
     }
   };
 
-  // Split logic: Full Leads vs Address Only
-  const fullLeads = allLeads.filter(lead => 
+  // Split logic: Gold Leads (Actionable) vs Ghost Leads (Address Only)
+  const goldLeads = allLeads.filter(lead => 
     lead.customer_email || lead.customer_phone
   );
 
-  const addressOnlyLeads = allLeads.filter(lead => 
+  const ghostLeads = allLeads.filter(lead => 
     lead.property_address && !lead.customer_email && !lead.customer_phone
   );
 
@@ -79,14 +79,14 @@ export default function LeadsGodModeTab() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-green-600">{fullLeads.length}</div>
-            <div className="text-sm text-slate-600">Full Leads (Actionable)</div>
+            <div className="text-2xl font-bold text-yellow-600">{goldLeads.length}</div>
+            <div className="text-sm text-slate-600">🥇 Gold Leads (Actionable)</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-orange-600">{addressOnlyLeads.length}</div>
-            <div className="text-sm text-slate-600">Address Captures Only</div>
+            <div className="text-2xl font-bold text-slate-600">{ghostLeads.length}</div>
+            <div className="text-sm text-slate-600">👻 Ghost Leads (Address Only)</div>
           </CardContent>
         </Card>
       </div>
@@ -95,20 +95,19 @@ export default function LeadsGodModeTab() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="full">
-            ✅ Actionable Leads ({fullLeads.length})
+            🥇 Gold Leads ({goldLeads.length})
           </TabsTrigger>
           <TabsTrigger value="address">
-            📍 Address Captures ({addressOnlyLeads.length})
+            👻 Ghost Leads ({ghostLeads.length})
           </TabsTrigger>
         </TabsList>
 
-        {/* Section A: Full Leads (Actionable) */}
+        {/* Section A: Gold Leads (Actionable) */}
         <TabsContent value="full">
-          <Card className="border-t-4 border-t-green-600">
-            <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white">
+          <Card className="border-t-4 border-t-yellow-600">
+            <CardHeader className="bg-gradient-to-r from-yellow-600 to-amber-600 text-white">
               <CardTitle className="flex items-center gap-2">
-                <User className="w-6 h-6" />
-                Actionable Leads - Full Contact Info
+                🥇 Gold Leads - Full Contact Info
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
@@ -121,12 +120,13 @@ export default function LeadsGodModeTab() {
                       <th className="text-left p-3 font-semibold text-sm">Phone</th>
                       <th className="text-left p-3 font-semibold text-sm">Email</th>
                       <th className="text-left p-3 font-semibold text-sm">Status</th>
+                      <th className="text-left p-3 font-semibold text-sm">Assigned Roofer</th>
                       <th className="text-left p-3 font-semibold text-sm">Date</th>
                       <th className="text-left p-3 font-semibold text-sm">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {fullLeads.map((lead) => (
+                    {goldLeads.map((lead) => (
                       <tr key={lead.id} className="border-b hover:bg-slate-50">
                         <td className="p-3">
                           <div className="flex items-center gap-2">
@@ -151,6 +151,9 @@ export default function LeadsGodModeTab() {
                           <Badge className="bg-blue-100 text-blue-800">
                             {lead.lead_status?.toUpperCase() || 'NEW'}
                           </Badge>
+                        </td>
+                        <td className="p-3 text-sm">
+                          {lead.purchased_by ? "✅ Assigned" : "🔓 Available"}
                         </td>
                         <td className="p-3 text-sm text-slate-600">
                           {format(new Date(lead.created_date), 'MMM d, yyyy')}
@@ -180,7 +183,7 @@ export default function LeadsGodModeTab() {
                 </table>
               </div>
 
-              {fullLeads.length === 0 && (
+              {goldLeads.length === 0 && (
                 <div className="text-center py-12 text-slate-400">
                   No actionable leads yet
                 </div>
@@ -189,19 +192,18 @@ export default function LeadsGodModeTab() {
           </Card>
         </TabsContent>
 
-        {/* Section B: Address Only (Partial) */}
+        {/* Section B: Ghost Leads (Address Only) */}
         <TabsContent value="address">
-          <Card className="border-t-4 border-t-orange-600">
-            <CardHeader className="bg-gradient-to-r from-orange-600 to-amber-600 text-white">
+          <Card className="border-t-4 border-t-slate-600">
+            <CardHeader className="bg-gradient-to-r from-slate-600 to-slate-700 text-white">
               <CardTitle className="flex items-center gap-2">
-                <Home className="w-6 h-6" />
-                Address Captures - Missing Contact Info
+                👻 Ghost Leads - Abandoned / Address Only
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="bg-orange-50 border-l-4 border-orange-600 p-4 mb-6">
-                <p className="text-sm text-orange-800">
-                  ⚠️ These leads only have addresses. No phone or email captured yet.
+              <div className="bg-slate-50 border-l-4 border-slate-600 p-4 mb-6">
+                <p className="text-sm text-slate-800">
+                  👻 These leads only have addresses. User abandoned before providing contact info.
                 </p>
               </div>
 
@@ -216,7 +218,7 @@ export default function LeadsGodModeTab() {
                     </tr>
                   </thead>
                   <tbody>
-                    {addressOnlyLeads.map((lead) => (
+                    {ghostLeads.map((lead) => (
                       <tr key={lead.id} className="border-b hover:bg-slate-50">
                         <td className="p-3">
                           <div className="flex items-center gap-2">
@@ -258,7 +260,7 @@ export default function LeadsGodModeTab() {
                 </table>
               </div>
 
-              {addressOnlyLeads.length === 0 && (
+              {ghostLeads.length === 0 && (
                 <div className="text-center py-12 text-slate-400">
                   No address-only captures
                 </div>
