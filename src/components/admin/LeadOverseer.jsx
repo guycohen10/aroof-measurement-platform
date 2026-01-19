@@ -20,8 +20,8 @@ export default function LeadOverseer() {
   const loadData = async () => {
     try {
       const [allMeasurements, allCompanies] = await Promise.all([
-        base44.asServiceRole.entities.Measurement.list('-created_date', 500),
-        base44.asServiceRole.entities.Company.list()
+        base44.entities.Measurement.list('-created_date', 500),
+        base44.entities.Company.list()
       ]);
 
       setLeads(allMeasurements || []);
@@ -45,7 +45,7 @@ export default function LeadOverseer() {
     }
 
     try {
-      await base44.asServiceRole.entities.Measurement.delete(leadId);
+      await base44.entities.Measurement.delete(leadId);
       toast.success("Lead deleted successfully");
       loadData();
     } catch (error) {

@@ -24,14 +24,14 @@ export default function EconomyControl() {
 
   const loadSettings = async () => {
     try {
-      const allSettings = await base44.asServiceRole.entities.PlatformSettings.list();
+      const allSettings = await base44.entities.PlatformSettings.list();
       
       if (allSettings && allSettings.length > 0) {
         setSettings(allSettings[0]);
         setSettingsId(allSettings[0].id);
       } else {
         // Create default settings if none exist
-        const created = await base44.asServiceRole.entities.PlatformSettings.create({
+        const created = await base44.entities.PlatformSettings.create({
           lead_price_credits: 50,
           subscription_price_monthly: 99,
           subscription_price_yearly: 990,
@@ -51,7 +51,7 @@ export default function EconomyControl() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await base44.asServiceRole.entities.PlatformSettings.update(settingsId, settings);
+      await base44.entities.PlatformSettings.update(settingsId, settings);
       toast.success("Platform pricing updated successfully!");
     } catch (error) {
       console.error("Failed to save settings:", error);

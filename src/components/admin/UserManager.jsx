@@ -25,8 +25,8 @@ export default function UserManager() {
   const loadData = async () => {
     try {
       const [allUsers, allCompanies] = await Promise.all([
-        base44.asServiceRole.entities.User.list(),
-        base44.asServiceRole.entities.Company.list()
+        base44.entities.User.list(),
+        base44.entities.Company.list()
       ]);
 
       setUsers(allUsers || []);
@@ -69,7 +69,7 @@ export default function UserManager() {
         return;
       }
 
-      await base44.asServiceRole.entities.Company.update(userCompany.id, {
+      await base44.entities.Company.update(userCompany.id, {
         lead_credits: newCredits
       });
 
@@ -92,7 +92,7 @@ export default function UserManager() {
         return;
       }
 
-      await base44.asServiceRole.entities.Company.update(userCompany.id, {
+      await base44.entities.Company.update(userCompany.id, {
         subscription_tier: newTier
       });
 
@@ -108,7 +108,7 @@ export default function UserManager() {
     try {
       const newStatus = user.aroof_role === "banned" ? "external_roofer" : "banned";
       
-      await base44.asServiceRole.entities.User.update(user.id, {
+      await base44.entities.User.update(user.id, {
         aroof_role: newStatus
       });
 
