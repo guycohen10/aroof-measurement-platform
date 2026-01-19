@@ -34,8 +34,15 @@ export default function SecuritySettings() {
     setLoading(true);
 
     try {
-      // Update password using Base44 auth SDK
-      await base44.auth.updatePassword(newPassword);
+      // Update password using correct Base44 SDK method
+      const result = await base44.auth.updateUser({ password: newPassword });
+      
+      // Check if there was an error in the response
+      if (result?.error) {
+        setError(result.error.message || 'Failed to update password');
+        setLoading(false);
+        return;
+      }
       
       setSuccess('Password updated successfully! Please use this new password next time you log in.');
       setNewPassword('');
