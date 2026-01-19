@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Save, Mail, Building2, Key, User, Trash2, AlertTriangle } from "lucide-react";
+import SecuritySettings from "../../auth/SecuritySettings";
 
 export default function SettingsGodModeTab() {
   const [saving, setSaving] = useState(false);
@@ -100,6 +101,9 @@ export default function SettingsGodModeTab() {
 
   return (
     <div className="max-w-4xl space-y-6">
+      {/* Security Settings */}
+      <SecuritySettings />
+
       {/* Company Information */}
       <Card>
         <CardHeader>

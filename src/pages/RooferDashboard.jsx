@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import ProposalWizard from "../components/leads/ProposalWizard";
+import SecuritySettings from "../components/auth/SecuritySettings";
 import { 
   Home,
   Zap,
@@ -541,6 +542,11 @@ export default function RooferDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Security Settings */}
+        <div className="mb-8">
+          <SecuritySettings />
+        </div>
 
         {/* Billing Card */}
         <Card className="shadow-lg">
