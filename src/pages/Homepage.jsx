@@ -611,7 +611,7 @@ export default function Homepage() {
               <div className="text-sm text-slate-400">
                 <p>© {new Date().getFullYear()} Aroof. All rights reserved.</p>
                 <div className="flex gap-6 mt-4 text-xs">
-                  <a href="#" className="hover:text-white">Privacy Policy</a>
+                  <Link to={createPageUrl("PrivacyPolicy")} className="hover:text-white">Privacy Policy</Link>
                   <a href="#" className="hover:text-white">Terms of Service</a>
                   <a 
                     href={createPageUrl("EmployeeLogin")}
