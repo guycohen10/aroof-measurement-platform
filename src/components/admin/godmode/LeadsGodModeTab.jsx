@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Home, Trash2, Eye, Loader2, MapPin, User, Mail, Phone, Calendar } from "lucide-react";
+import { Home, Trash2, Eye, Loader2, MapPin, User, Mail, Phone, Calendar, Plus } from "lucide-react";
 import { format } from "date-fns";
 
 export default function LeadsGodModeTab() {
@@ -14,6 +16,13 @@ export default function LeadsGodModeTab() {
   const [loading, setLoading] = useState(true);
   const [viewingLead, setViewingLead] = useState(null);
   const [activeTab, setActiveTab] = useState("full");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newLead, setNewLead] = useState({
+    property_address: "",
+    customer_name: "",
+    customer_phone: "",
+    customer_email: ""
+  });
 
   useEffect(() => {
     loadLeads();
@@ -59,6 +68,37 @@ export default function LeadsGodModeTab() {
     setViewingLead(lead);
   };
 
+  const handleCreateLead = async () => {
+    if (!newLead.property_address) {
+      toast.error("Address is required");
+      return;
+    }
+
+    try {
+      await base44.entities.Measurement.create({
+        property_address: newLead.property_address,
+        customer_name: newLead.customer_name || "Manual Entry",
+        customer_phone: newLead.customer_phone,
+        customer_email: newLead.customer_email,
+        user_type: "homeowner",
+        lead_status: "new",
+        available_for_purchase: true
+      });
+      toast.success("Lead created successfully!");
+      setShowCreateModal(false);
+      setNewLead({
+        property_address: "",
+        customer_name: "",
+        customer_phone: "",
+        customer_email: ""
+      });
+      loadLeads();
+    } catch (error) {
+      console.error("Failed to create lead:", error);
+      toast.error("Failed to create lead");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -69,6 +109,17 @@ export default function LeadsGodModeTab() {
 
   return (
     <div className="space-y-6">
+      {/* Manual Lead Creation Button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => setShowCreateModal(true)}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          ➕ Manually Create Lead
+        </Button>
+      </div>
+
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-4">
         <Card>
@@ -327,6 +378,65 @@ export default function LeadsGodModeTab() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Lead Modal */}
+      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>➕ Manually Create Lead</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Property Address *</Label>
+              <Input
+                placeholder="123 Main St, Dallas, TX"
+                value={newLead.property_address}
+                onChange={(e) => setNewLead({...newLead, property_address: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label>Homeowner Name</Label>
+              <Input
+                placeholder="John Doe"
+                value={newLead.customer_name}
+                onChange={(e) => setNewLead({...newLead, customer_name: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label>Phone Number</Label>
+              <Input
+                placeholder="(555) 123-4567"
+                value={newLead.customer_phone}
+                onChange={(e) => setNewLead({...newLead, customer_phone: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label>Email Address</Label>
+              <Input
+                type="email"
+                placeholder="john@example.com"
+                value={newLead.customer_email}
+                onChange={(e) => setNewLead({...newLead, customer_email: e.target.value})}
+              />
+            </div>
+            <div className="flex gap-2 pt-4">
+              <Button
+                className="flex-1"
+                onClick={handleCreateLead}
+              >
+                Create Lead
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowCreateModal(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
