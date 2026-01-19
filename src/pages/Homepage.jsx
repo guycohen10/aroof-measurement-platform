@@ -612,7 +612,7 @@ export default function Homepage() {
                 <p>© {new Date().getFullYear()} Aroof. All rights reserved.</p>
                 <div className="flex gap-6 mt-4 text-xs">
                   <Link to={createPageUrl("PrivacyPolicy")} className="hover:text-white">Privacy Policy</Link>
-                  <a href="#" className="hover:text-white">Terms of Service</a>
+                  <Link to={createPageUrl("TermsAndConditions")} className="hover:text-white">Terms of Service</Link>
                   <a 
                     href={createPageUrl("EmployeeLogin")}
                     onClick={(e) => {

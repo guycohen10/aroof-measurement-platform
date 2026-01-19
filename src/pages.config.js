@@ -48,6 +48,7 @@ import NaturalSlate from './pages/NaturalSlate';
 import NewLeadForm from './pages/NewLeadForm';
 import PDFDownload from './pages/PDFDownload';
 import Payment from './pages/Payment';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 import Results from './pages/Results';
 import RoofInspection from './pages/RoofInspection';
 import RoofPreview from './pages/RoofPreview';
@@ -80,7 +81,7 @@ import UpgradeProfile from './pages/UpgradeProfile';
 import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import Windows from './pages/Windows';
-import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsAndConditions from './pages/TermsAndConditions';
 import __Layout from './Layout.jsx';
 
 
@@ -135,6 +136,7 @@ export const PAGES = {
     "NewLeadForm": NewLeadForm,
     "PDFDownload": PDFDownload,
     "Payment": Payment,
+    "PrivacyPolicy": PrivacyPolicy,
     "Results": Results,
     "RoofInspection": RoofInspection,
     "RoofPreview": RoofPreview,
@@ -167,7 +169,7 @@ export const PAGES = {
     "VerifyEmail": VerifyEmail,
     "Visualizing": Visualizing,
     "Windows": Windows,
-    "PrivacyPolicy": PrivacyPolicy,
+    "TermsAndConditions": TermsAndConditions,
 }
 
 export const pagesConfig = {
