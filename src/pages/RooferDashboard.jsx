@@ -577,7 +577,6 @@ export default function RooferDashboard() {
             </div>
           </CardContent>
         </Card>
-      </div>
 
         {showTakeoffModal && (
           <ProposalWizard
