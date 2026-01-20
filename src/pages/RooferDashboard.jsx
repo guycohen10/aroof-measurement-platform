@@ -53,8 +53,8 @@ export default function RooferDashboard() {
       console.log('🏢 Company ID:', currentUser.company_id);
       console.log('🎭 Aroof Role:', currentUser.aroof_role);
       
-      if (currentUser.aroof_role !== 'external_roofer') {
-        console.warn('⚠️ Access denied - user is not external_roofer');
+      if (currentUser.aroof_role !== 'external_roofer' && currentUser.role !== 'admin') {
+        console.warn('⚠️ Access denied - user is not external_roofer or admin');
         toast.error('Access denied. This dashboard is for external roofers only.');
         navigate(createPageUrl("Homepage"));
         return;
@@ -96,6 +96,14 @@ export default function RooferDashboard() {
     } catch (err) {
       console.error('Dashboard error:', err);
       setLoading(false);
+      
+      // Handle 429 Rate Limit errors gracefully
+      if (err.message?.includes('429') || err.message?.includes('Too Many Requests')) {
+        toast.error('System Busy - Please Wait 10 Seconds', { duration: 10000 });
+        setHasError(true);
+        return;
+      }
+      
       setHasError(true);
       
       // DO NOT navigate away on error - just show error state
