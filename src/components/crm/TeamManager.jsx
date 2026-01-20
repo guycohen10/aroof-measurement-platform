@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createPageUrl } from "@/utils";
 import { useNavigate } from "react-router-dom";
-import { Users, UserPlus, Loader2, Mail, Phone, Briefcase, Shield, ArrowRight, Send } from 'lucide-react';
+import { Users, UserPlus, Loader2, Mail, Phone, Shield, ArrowRight, Copy, CheckCircle } from 'lucide-react';
 
 export default function TeamManager() {
   const navigate = useNavigate();
@@ -19,17 +19,16 @@ export default function TeamManager() {
   const [company, setCompany] = useState(null);
   const [teamMembers, setTeamMembers] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showMagicLinkModal, setShowMagicLinkModal] = useState(false);
-  const [magicLink, setMagicLink] = useState('');
-  
-  const [newMember, setNewMember] = useState({
-    full_name: '',
-    email: '',
-    phone: '',
-    aroof_role: 'estimator',
-    password: ''
-  });
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState(null);
+  
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'sales',
+    phone: ''
+  });
 
   useEffect(() => {
     loadData();
@@ -47,21 +46,16 @@ export default function TeamManager() {
         return;
       }
 
-      // Load company - DO NOT retry on failure
       try {
         const companies = await base44.entities.Company.list();
         const companyData = companies.find(c => c.id === currentUser.company_id);
         if (companyData) {
           setCompany(companyData);
-        } else {
-          console.error('Company not found');
         }
       } catch (companyErr) {
         console.error('Company fetch error:', companyErr);
-        // Don't retry - just log
       }
 
-      // Load team members - DO NOT retry on failure
       try {
         const allUsers = await base44.entities.User.list();
         const team = allUsers.filter(u => u.company_id === currentUser.company_id);
@@ -69,7 +63,6 @@ export default function TeamManager() {
       } catch (teamErr) {
         console.error('Team fetch error:', teamErr);
         setTeamMembers([]);
-        // Don't retry - just log
       }
 
     } catch (err) {
@@ -80,91 +73,75 @@ export default function TeamManager() {
     }
   };
 
-  const handleAddMember = async (e) => {
+  const handleCreateUser = async (e) => {
     e.preventDefault();
     setSaving(true);
 
     try {
-      // Invoke user with password and metadata
-      await base44.users.inviteUser(newMember.email, 'user');
+      // Invite user first
+      await base44.users.inviteUser(newUser.email, 'user');
 
-      // Wait a moment for the user to be created
+      // Wait for user creation
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Update the newly created user with full details
+      // Update user with full details including password
       const allUsers = await base44.entities.User.list();
-      const createdUser = allUsers.find(u => u.email === newMember.email);
+      const createdUser = allUsers.find(u => u.email === newUser.email);
 
       if (createdUser) {
         await base44.entities.User.update(createdUser.id, {
-          full_name: newMember.full_name,
-          phone: newMember.phone,
+          full_name: newUser.name,
+          phone: newUser.phone,
           company_id: company.id,
           company_name: company.company_name,
-          aroof_role: newMember.aroof_role,
+          aroof_role: newUser.role,
           is_company_owner: false,
-          password: newMember.password
+          password: newUser.password
         });
       }
 
-      // Store credentials for display
+      // Store credentials for modal
       setCreatedCredentials({
-        email: newMember.email,
-        password: newMember.password,
-        name: newMember.full_name
+        email: newUser.email,
+        password: newUser.password,
+        name: newUser.name
       });
 
-      // Show success modal with credentials
-      setShowMagicLinkModal(true);
-      
-      toast.success(`${newMember.full_name} created!`);
-      
-      // Close add modal and reload
+      setShowCredentialsModal(true);
       setShowAddModal(false);
-      setNewMember({ full_name: '', email: '', phone: '', aroof_role: 'estimator', password: '' });
+      setNewUser({ name: '', email: '', password: '', role: 'sales', phone: '' });
+      
+      toast.success('Account created successfully!');
       loadData();
 
     } catch (err) {
-      console.error('Error creating team member:', err);
-      toast.error('Failed to create team member. Email may already exist.');
+      console.error('Error creating user:', err);
+      toast.error('Failed to create account. Email may already exist.');
     } finally {
       setSaving(false);
     }
   };
 
-  const resendInvite = (member) => {
-    // Generate new magic link for existing employee
-    const token = btoa(JSON.stringify({ 
-      email: member.email, 
-      user_id: member.id,
-      timestamp: Date.now() 
-    }));
-    const loginUrl = `${window.location.origin}${createPageUrl('RooferLogin')}?token=${token}&type=magic_link`;
-
-    setMagicLink(loginUrl);
-    setShowMagicLinkModal(true);
-    toast.success('Magic link generated!');
-  };
-
-  const copyMagicLink = () => {
-    navigator.clipboard.writeText(magicLink);
-    toast.success('Link copied to clipboard!');
+  const copyCredentials = () => {
+    const text = `Login Credentials:\n\nEmail: ${createdCredentials?.email}\nPassword: ${createdCredentials?.password}\n\nLogin at: ${window.location.origin}${createPageUrl('RooferLogin')}`;
+    navigator.clipboard.writeText(text);
+    toast.success('Credentials copied to clipboard!');
   };
 
   const getRoleBadge = (role, isOwner) => {
     if (isOwner) {
-      return <Badge className="bg-purple-100 text-purple-800"><Shield className="w-3 h-3 mr-1" />Owner</Badge>;
+      return <Badge className="bg-purple-500 text-white"><Shield className="w-3 h-3 mr-1" />Owner</Badge>;
     }
     
     const roleMap = {
-      external_roofer: { label: 'External Roofer', color: 'bg-blue-100 text-blue-800' },
-      estimator: { label: 'Estimator', color: 'bg-green-100 text-green-800' },
-      dispatcher: { label: 'Dispatcher', color: 'bg-yellow-100 text-yellow-800' },
-      crew: { label: 'Crew', color: 'bg-gray-100 text-gray-800' },
-      company_owner: { label: 'Owner', color: 'bg-purple-100 text-purple-800' }
+      sales: { label: 'Sales', color: 'bg-green-500 text-white' },
+      estimator: { label: 'Estimator', color: 'bg-blue-500 text-white' },
+      dispatcher: { label: 'Dispatcher', color: 'bg-yellow-500 text-white' },
+      crew: { label: 'Crew', color: 'bg-gray-500 text-white' },
+      external_roofer: { label: 'Roofer', color: 'bg-blue-500 text-white' }
     };
 
-    const roleInfo = roleMap[role] || { label: role, color: 'bg-gray-100 text-gray-800' };
+    const roleInfo = roleMap[role] || { label: role, color: 'bg-gray-500 text-white' };
     return <Badge className={roleInfo.color}>{roleInfo.label}</Badge>;
   };
 
@@ -176,8 +153,8 @@ export default function TeamManager() {
     );
   }
 
-  // Security check - only owners can see this
-  if (!user?.is_company_owner && user?.aroof_role !== 'company_owner') {
+  // Security check
+  if (!user?.is_company_owner && user?.aroof_role !== 'company_owner' && user?.role !== 'admin') {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <Card className="max-w-md">
@@ -216,157 +193,132 @@ export default function TeamManager() {
           </Button>
         </div>
 
+        {/* Team List */}
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Team Members ({teamMembers.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b-2 border-slate-200">
-                  <tr>
-                    <th className="text-left p-4 font-semibold text-slate-700">Name</th>
-                    <th className="text-left p-4 font-semibold text-slate-700">Email</th>
-                    <th className="text-left p-4 font-semibold text-slate-700">Phone</th>
-                    <th className="text-left p-4 font-semibold text-slate-700">Role</th>
-                    <th className="text-left p-4 font-semibold text-slate-700">Status</th>
-                    <th className="text-left p-4 font-semibold text-slate-700">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {teamMembers.map(member => (
-                    <tr key={member.id} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-lg font-bold text-blue-600">
-                              {member.full_name?.[0]?.toUpperCase() || member.email[0]?.toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-semibold text-slate-900">{member.full_name || 'Unnamed'}</p>
-                          </div>
+            <div className="space-y-3">
+              {teamMembers.map(member => (
+                <div key={member.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-white hover:bg-slate-50">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-xl font-bold text-blue-600">
+                        {member.full_name?.[0]?.toUpperCase() || member.email[0]?.toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900">{member.full_name || 'Unnamed'}</p>
+                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <Mail className="w-3 h-3" />
+                        {member.email}
+                      </div>
+                      {member.phone && (
+                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                          <Phone className="w-3 h-3" />
+                          {member.phone}
                         </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <Mail className="w-4 h-4" />
-                          {member.email}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <Phone className="w-4 h-4" />
-                          {member.phone || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        {getRoleBadge(member.aroof_role, member.is_company_owner)}
-                      </td>
-                      <td className="p-4">
-                        <Badge className="bg-green-100 text-green-800">Active</Badge>
-                      </td>
-                      <td className="p-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => resendInvite(member)}
-                          className="flex items-center gap-2"
-                        >
-                          <Send className="w-4 h-4" />
-                          Resend Link
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      )}
+                    </div>
+                  </div>
+                  {getRoleBadge(member.aroof_role, member.is_company_owner)}
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
 
         {/* Add Employee Modal */}
         <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-          <DialogContent>
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Add New Employee</DialogTitle>
+              <DialogTitle>Create Employee Account</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleAddMember} className="space-y-4">
-              <div>
-                <Label>Full Name *</Label>
-                <Input
-                  required
-                  value={newMember.full_name}
-                  onChange={(e) => setNewMember({ ...newMember, full_name: e.target.value })}
-                  placeholder="John Smith"
-                />
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Full Name *</Label>
+                  <Input
+                    required
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                    placeholder="e.g. Mike Roofer"
+                  />
+                </div>
+
+                <div>
+                  <Label>Email / Username *</Label>
+                  <Input
+                    type="email"
+                    required
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                    placeholder="mike@roofing.com"
+                  />
+                </div>
               </div>
 
-              <div>
-                <Label>Email Address *</Label>
-                <Input
-                  type="email"
-                  required
-                  value={newMember.email}
-                  onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
-                  placeholder="john@company.com"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-blue-800 font-bold">Assign Password *</Label>
+                  <Input
+                    type="text"
+                    required
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    placeholder="Create a password (e.g. Roof123!)"
+                    className="border-2 border-blue-200"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">You'll copy and text these credentials</p>
+                </div>
+
+                <div>
+                  <Label>Role *</Label>
+                  <select
+                    required
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="sales">Sales Rep</option>
+                    <option value="crew">Crew Lead</option>
+                    <option value="estimator">Estimator</option>
+                    <option value="dispatcher">Dispatcher</option>
+                  </select>
+                </div>
               </div>
 
               <div>
                 <Label>Phone Number</Label>
                 <Input
                   type="tel"
-                  value={newMember.phone}
-                  onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                  value={newUser.phone}
+                  onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
                   placeholder="(555) 123-4567"
                 />
-              </div>
-
-              <div>
-                <Label>Role *</Label>
-                <select
-                  required
-                  value={newMember.aroof_role}
-                  onChange={(e) => setNewMember({ ...newMember, aroof_role: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="estimator">Estimator</option>
-                  <option value="dispatcher">Dispatcher</option>
-                  <option value="crew">Crew Member</option>
-                  <option value="external_roofer">External Roofer</option>
-                </select>
-              </div>
-
-              <div>
-                <Label>Assign Password *</Label>
-                <Input
-                  type="text"
-                  required
-                  value={newMember.password}
-                  onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}
-                  placeholder="Create a password for this employee"
-                />
-                <p className="text-xs text-slate-500 mt-1">You'll be able to copy and text these credentials</p>
               </div>
 
               <div className="flex gap-3 pt-4">
                 <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} className="flex-1">
                   Cancel
                 </Button>
-                <Button type="submit" disabled={saving} className="flex-1">
-                  {saving ? 'Creating...' : 'Create Account'}
+                <Button type="submit" disabled={saving} className="flex-1 bg-blue-600 hover:bg-blue-700">
+                  {saving ? 'Creating Account...' : 'Create Employee Account'}
                 </Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
 
-        {/* Credentials Modal */}
-        <Dialog open={showMagicLinkModal} onOpenChange={setShowMagicLinkModal}>
+        {/* Credentials Success Modal */}
+        <Dialog open={showCredentialsModal} onOpenChange={setShowCredentialsModal}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>🎉 User Created Successfully!</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+                User Created Successfully!
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6">
@@ -406,17 +358,14 @@ export default function TeamManager() {
 
               <div className="flex gap-3">
                 <Button 
-                  onClick={() => {
-                    const text = `Login Credentials:\n\nEmail: ${createdCredentials?.email}\nPassword: ${createdCredentials?.password}\n\nLogin at: ${window.location.origin}${createPageUrl('RooferLogin')}`;
-                    navigator.clipboard.writeText(text);
-                    toast.success('Credentials copied to clipboard!');
-                  }} 
-                  className="flex-1"
+                  onClick={copyCredentials} 
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
                 >
-                  📋 Copy All Credentials
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy All Credentials
                 </Button>
                 <Button variant="outline" onClick={() => {
-                  setShowMagicLinkModal(false);
+                  setShowCredentialsModal(false);
                   setCreatedCredentials(null);
                 }} className="flex-1">
                   Done
