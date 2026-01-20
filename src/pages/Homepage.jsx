@@ -31,36 +31,22 @@ export default function Homepage() {
   const navigate = useNavigate();
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
   const [audienceTab, setAudienceTab] = useState('homeowner');
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Redirect authenticated users to dashboard
+    // Check if user is logged in (but don't redirect)
     const checkAuth = async () => {
       try {
         const user = await base44.auth.me();
-        if (user && user.aroof_role) {
-          navigate(createPageUrl('RooferDashboard'));
-        } else {
-          setIsCheckingAuth(false);
+        if (user) {
+          setIsLoggedIn(true);
         }
       } catch (err) {
-        // User not logged in, stay on homepage
-        setIsCheckingAuth(false);
+        setIsLoggedIn(false);
       }
     };
     checkAuth();
-  }, [navigate]);
-
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 flex items-center justify-center">
-        <div className="text-center text-white">
-          <Loader2 className="w-16 h-16 animate-spin mx-auto mb-4" />
-          <p className="text-xl">Redirecting to Dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  }, []);
 
   return (
     <>
@@ -271,16 +257,28 @@ export default function Homepage() {
               <a href="#reviews" className="text-slate-600 hover:text-blue-900 font-medium">Reviews</a>
               <Link to={createPageUrl("RoofingTypesIndex")} className="text-slate-600 hover:text-blue-900 font-medium">Materials</Link>
               
-              {/* Contractor Links */}
-              <Link to={createPageUrl("RooferLogin")} className="text-blue-600 hover:text-blue-900 font-semibold flex items-center gap-1">
-                <Building2 className="w-4 h-4" />
-                Contractors
-              </Link>
-              
-              <a href="tel:+18502389727" className="flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-4 py-2 rounded-lg font-bold shadow-lg hover:shadow-xl transition-all">
-                <Phone className="w-4 h-4" />
-                (850) 238-9727
-              </a>
+              {/* Smart Navigation - Show Dashboard if logged in */}
+              {isLoggedIn ? (
+                <Link 
+                  to={createPageUrl("RooferDashboard")} 
+                  className="flex items-center gap-2 text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 px-6 py-2 rounded-lg font-bold shadow-lg hover:shadow-xl transition-all"
+                >
+                  <Building2 className="w-4 h-4" />
+                  Go to Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link to={createPageUrl("RooferLogin")} className="text-blue-600 hover:text-blue-900 font-semibold flex items-center gap-1">
+                    <Building2 className="w-4 h-4" />
+                    Contractors
+                  </Link>
+
+                  <a href="tel:+18502389727" className="flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-4 py-2 rounded-lg font-bold shadow-lg hover:shadow-xl transition-all">
+                    <Phone className="w-4 h-4" />
+                    (850) 238-9727
+                  </a>
+                </>
+              )}
             </div>
           </div>
         </div>
