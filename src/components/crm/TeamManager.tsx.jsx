@@ -11,7 +11,6 @@ export default function TeamManager() {
   const [newUser, setNewUser] = useState({ 
     name: '', 
     email: '', 
-    password: '', 
     role: 'estimator' 
   });
 
@@ -25,7 +24,7 @@ export default function TeamManager() {
       setUserProfile(user);
       
       if (user?.company_id) {
-        await fetchTeam(user.company_id);
+        fetchTeam(user.company_id);
       }
     } catch (err) {
       console.error('Load error:', err);
@@ -38,7 +37,7 @@ export default function TeamManager() {
       const companyTeam = allUsers.filter(u => u.company_id === companyId);
       setTeam(companyTeam || []);
     } catch (err) {
-      console.error('Team fetch error:', err);
+      console.error('Fetch error:', err);
       setTeam([]);
     }
   };
@@ -48,13 +47,9 @@ export default function TeamManager() {
     setLoading(true);
 
     try {
-      // Invite user via Base44
       await base44.users.inviteUser(newUser.email, 'user');
-
-      // Wait for user creation
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Update the newly created user
       const allUsers = await base44.entities.User.list();
       const newlyCreatedUser = allUsers.find(u => u.email === newUser.email);
       
@@ -68,13 +63,11 @@ export default function TeamManager() {
         });
       }
 
-      alert(`SUCCESS! User Created.\n\nEmail: ${newUser.email}\n\nThey will receive an email to set their password.`);
-      
-      setNewUser({ name: '', email: '', password: '', role: 'estimator' });
-      await fetchTeam(userProfile.company_id);
-
+      alert(`SUCCESS! User Created.\n\nEmail: ${newUser.email}\n\nThey will receive an invitation email.`);
+      setNewUser({ name: '', email: '', role: 'estimator' });
+      fetchTeam(userProfile.company_id);
     } catch (err) {
-      alert('Error: ' + (err.message || 'Email may already exist'));
+      alert('Error: ' + (err.message || 'Failed to create user'));
     } finally {
       setLoading(false);
     }
@@ -83,28 +76,28 @@ export default function TeamManager() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
-        {/* Back Button */}
         <button
           onClick={() => navigate(createPageUrl('RooferDashboard'))}
-          className="mb-6 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2"
+          className="mb-6 text-blue-600 hover:text-blue-700 font-medium text-lg"
         >
           ← Back to Dashboard
         </button>
 
-        <div className="bg-white p-6 rounded-lg shadow border">
-          <h2 className="text-2xl font-bold mb-4">Add Team Member</h2>
+        <div className="bg-white p-8 rounded-lg shadow-md">
+          <h2 className="text-2xl font-bold mb-6 text-gray-800">Team Management</h2>
           
-          <form onSubmit={handleCreateUser} className="space-y-4 mb-8 bg-gray-50 p-4 rounded border">
-            <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleCreateUser} className="mb-10 p-6 bg-blue-50 border border-blue-100 rounded-lg">
+            <h3 className="font-bold text-lg mb-4 text-blue-900">Add New Employee</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <input 
-                className="p-2 border rounded" 
+                className="p-3 border rounded focus:ring-2 focus:ring-blue-500 outline-none" 
                 placeholder="Full Name" 
                 required 
                 value={newUser.name} 
                 onChange={e => setNewUser({...newUser, name: e.target.value})} 
               />
               <select 
-                className="p-2 border rounded" 
+                className="p-3 border rounded focus:ring-2 focus:ring-blue-500 outline-none" 
                 value={newUser.role} 
                 onChange={e => setNewUser({...newUser, role: e.target.value})}
               >
@@ -114,37 +107,37 @@ export default function TeamManager() {
                 <option value="external_roofer">Roofer</option>
               </select>
             </div>
-            <div>
+            <div className="mb-6">
               <input 
-                className="w-full p-2 border-2 border-blue-300 rounded" 
-                placeholder="Email (Username)" 
+                className="w-full p-3 border-2 border-blue-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                placeholder="Email (Login Username)" 
                 required 
                 type="email"
                 value={newUser.email} 
                 onChange={e => setNewUser({...newUser, email: e.target.value})} 
               />
-              <p className="text-xs text-gray-500 mt-1">User will receive email to set password</p>
+              <p className="text-xs text-gray-500 mt-1">User will receive invitation email</p>
             </div>
             <button 
               disabled={loading} 
-              className="w-full bg-blue-600 text-white font-bold p-3 rounded hover:bg-blue-700 disabled:opacity-50"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold p-3 rounded transition-colors disabled:opacity-50"
             >
               {loading ? 'Creating Account...' : 'Create Employee Account'}
             </button>
           </form>
 
-          <h3 className="font-bold text-lg mb-4">My Team</h3>
+          <h3 className="font-bold text-lg mb-4 border-b pb-2">Current Team</h3>
           {team.length === 0 ? (
-            <p className="text-gray-500">No employees found.</p>
+            <p className="text-gray-500 italic">No employees found.</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {team.map(m => (
-                <li key={m.id} className="flex justify-between p-3 border rounded bg-white">
-                  <span>
-                    {m.full_name || 'Unnamed'} 
-                    <span className="text-gray-400"> ({m.email})</span>
-                  </span>
-                  <span className="uppercase text-xs font-bold bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                <li key={m.id} className="flex justify-between items-center p-4 border rounded hover:bg-gray-50 transition">
+                  <div>
+                    <p className="font-bold text-gray-800">{m.full_name || 'Unnamed'}</p>
+                    <p className="text-sm text-gray-500">{m.email}</p>
+                  </div>
+                  <span className="bg-gray-200 text-gray-700 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
                     {m.aroof_role?.replace('_', ' ') || 'user'}
                   </span>
                 </li>
