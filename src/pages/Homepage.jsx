@@ -23,13 +23,15 @@ import {
   Wrench,
   Mail,
   ChevronDown,
-  Building2 } from
+  Building2,
+  Loader2 } from
 "lucide-react";
 
 export default function Homepage() {
   const navigate = useNavigate();
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
   const [audienceTab, setAudienceTab] = useState('homeowner');
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
     // Redirect authenticated users to dashboard
@@ -38,13 +40,27 @@ export default function Homepage() {
         const user = await base44.auth.me();
         if (user && user.aroof_role) {
           navigate(createPageUrl('RooferDashboard'));
+        } else {
+          setIsCheckingAuth(false);
         }
       } catch (err) {
         // User not logged in, stay on homepage
+        setIsCheckingAuth(false);
       }
     };
     checkAuth();
   }, [navigate]);
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <Loader2 className="w-16 h-16 animate-spin mx-auto mb-4" />
+          <p className="text-xl">Redirecting to Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

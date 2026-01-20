@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createPageUrl } from "@/utils";
 import { useNavigate } from "react-router-dom";
-import { Users, UserPlus, Loader2, Mail, Phone, Briefcase, Shield, ArrowRight } from 'lucide-react';
+import { Users, UserPlus, Loader2, Mail, Phone, Briefcase, Shield, ArrowRight, Send } from 'lucide-react';
 
 export default function TeamManager() {
   const navigate = useNavigate();
