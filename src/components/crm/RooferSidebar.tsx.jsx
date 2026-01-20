@@ -120,17 +120,30 @@ export default function RooferSidebar({ className }) {
   const canViewSection = (section) => {
     if (!userProfile) return true; // Show all until role is loaded
     
-    const role = userProfile.aroof_role;
-    const isGodAdmin = userProfile.role === 'admin';
-    const canViewCompany = ['company_owner', 'external_roofer'].includes(role) || isGodAdmin || userProfile.is_company_owner;
+    // DEFINE EXACTLY WHO CAN SEE THE MENU
+    const canManageTeam = [
+      'company_owner',
+      'external_roofer'  // <--- CRITICAL: External roofers can manage team
+    ].includes(userProfile.aroof_role) || userProfile.role === 'admin' || userProfile.is_company_owner;
+    
+    // DEBUG LOGGING (So we can see it in the console)
+    if (section.ownerOnly) {
+      console.log("Sidebar Check:", { 
+        aroof_role: userProfile.aroof_role, 
+        is_admin: userProfile.role === 'admin',
+        is_company_owner: userProfile.is_company_owner,
+        canManageTeam: canManageTeam,
+        section: section.title 
+      });
+    }
     
     // Allow Company section for owners, admins, and external_roofer
-    if (section.ownerOnly && !canViewCompany) {
+    if (section.ownerOnly && !canManageTeam) {
       return false;
     }
 
     // Crew members can't see Financials
-    if (role === 'crew' && section.title === 'Financials') {
+    if (userProfile.aroof_role === 'crew' && section.title === 'Financials') {
       return false;
     }
 
