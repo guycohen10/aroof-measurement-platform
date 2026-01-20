@@ -80,7 +80,7 @@ export default function TeamManager() {
 
       const createdUser = await base44.entities.User.create(newUserData);
 
-      // Generate magic login link (temporary token-based authentication)
+      // Generate magic login link
       const token = btoa(JSON.stringify({ 
         email: createdUser.email, 
         user_id: createdUser.id,
@@ -88,12 +88,15 @@ export default function TeamManager() {
       }));
       const loginUrl = `${window.location.origin}${createPageUrl('RooferLogin')}?token=${token}&type=magic_link`;
       
+      // CRITICAL: Show modal IMMEDIATELY after user creation
       setMagicLink(loginUrl);
-      setShowAddModal(false);
       setShowMagicLinkModal(true);
-      setNewMember({ full_name: '', email: '', phone: '', aroof_role: 'estimator' });
       
-      toast.success(`${newMember.full_name} created! Share the magic link with them.`);
+      toast.success(`${newMember.full_name} created!`);
+      
+      // Close add modal and reload
+      setShowAddModal(false);
+      setNewMember({ full_name: '', email: '', phone: '', aroof_role: 'estimator' });
       loadData();
 
     } catch (err) {
@@ -102,6 +105,20 @@ export default function TeamManager() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const resendInvite = (member) => {
+    // Generate new magic link for existing employee
+    const token = btoa(JSON.stringify({ 
+      email: member.email, 
+      user_id: member.id,
+      timestamp: Date.now() 
+    }));
+    const loginUrl = `${window.location.origin}${createPageUrl('RooferLogin')}?token=${token}&type=magic_link`;
+
+    setMagicLink(loginUrl);
+    setShowMagicLinkModal(true);
+    toast.success('Magic link generated!');
   };
 
   const copyMagicLink = () => {
@@ -188,6 +205,7 @@ export default function TeamManager() {
                     <th className="text-left p-4 font-semibold text-slate-700">Phone</th>
                     <th className="text-left p-4 font-semibold text-slate-700">Role</th>
                     <th className="text-left p-4 font-semibold text-slate-700">Status</th>
+                    <th className="text-left p-4 font-semibold text-slate-700">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -222,6 +240,17 @@ export default function TeamManager() {
                       </td>
                       <td className="p-4">
                         <Badge className="bg-green-100 text-green-800">Active</Badge>
+                      </td>
+                      <td className="p-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => resendInvite(member)}
+                          className="flex items-center gap-2"
+                        >
+                          <Send className="w-4 h-4" />
+                          Resend Link
+                        </Button>
                       </td>
                     </tr>
                   ))}
