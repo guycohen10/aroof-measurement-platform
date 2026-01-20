@@ -11,6 +11,7 @@ export default function TeamManager() {
   const [newUser, setNewUser] = useState({ 
     name: '', 
     email: '', 
+    password: '',
     role: 'estimator' 
   });
   const [errorMsg, setErrorMsg] = useState('');
@@ -49,28 +50,17 @@ export default function TeamManager() {
     setErrorMsg('');
 
     try {
-      // Use Base44's invite method (user sets own password via email)
-      await base44.users.inviteUser(newUser.email, 'user');
-      
-      // Wait for user creation
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Direct password assignment using auth.signUp
+      await base44.auth.signUp(newUser.email, newUser.password, {
+        full_name: newUser.name,
+        company_id: userProfile.company_id,
+        company_name: userProfile.company_name,
+        aroof_role: newUser.role,
+        is_company_owner: false
+      });
 
-      // Update the newly created user with profile details
-      const allUsers = await base44.entities.User.list();
-      const newlyCreatedUser = allUsers.find(u => u.email === newUser.email);
-      
-      if (newlyCreatedUser) {
-        await base44.entities.User.update(newlyCreatedUser.id, {
-          full_name: newUser.name,
-          company_id: userProfile.company_id,
-          company_name: userProfile.company_name,
-          aroof_role: newUser.role,
-          is_company_owner: false
-        });
-      }
-
-      alert(`SUCCESS! User invited.\n\nEmail: ${newUser.email}\n\nThey will receive an email to set their password.`);
-      setNewUser({ name: '', email: '', role: 'estimator' });
+      alert(`SUCCESS! User Created.\n\nLogin: ${newUser.email}\nPassword: ${newUser.password}\n\n(Copy these credentials now!)`);
+      setNewUser({ name: '', email: '', password: '', role: 'estimator' });
       fetchTeam(userProfile.company_id);
     } catch (err) {
       console.error("Creation Error:", err);
@@ -124,17 +114,26 @@ export default function TeamManager() {
                 <option value="external_roofer">Roofer</option>
               </select>
             </div>
-            <div className="mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <input 
-                className="p-3 border-2 border-blue-300 rounded w-full" 
-                placeholder="Email" 
+                className="p-3 border rounded w-full" 
+                placeholder="Email (Login Username)" 
                 required 
                 type="email"
                 value={newUser.email} 
                 onChange={e => setNewUser({...newUser, email: e.target.value})} 
               />
-              <p className="text-xs text-gray-500 mt-1">User will receive email to set their own password</p>
+              
+              <input 
+                className="p-3 border-2 border-blue-300 rounded w-full font-mono" 
+                placeholder="Assign Password" 
+                required 
+                type="text"
+                value={newUser.password} 
+                onChange={e => setNewUser({...newUser, password: e.target.value})} 
+              />
             </div>
+            <p className="text-xs text-gray-500 mb-4">Copy and share these credentials with the employee</p>
             <button 
               disabled={loading} 
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold p-3 rounded disabled:opacity-50"
