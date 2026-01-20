@@ -8,9 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createPageUrl } from "@/utils";
-import { Users, UserPlus, Loader2, Mail, Phone, Briefcase, Shield } from 'lucide-react';
+import { useNavigate } from "react-router-dom";
+import { Users, UserPlus, Loader2, Mail, Phone, Briefcase, Shield, ArrowRight } from 'lucide-react';
 
 export default function TeamManager() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState(null);
@@ -140,7 +142,15 @@ export default function TeamManager() {
           <CardContent className="p-8 text-center">
             <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
-            <p className="text-slate-600">Only company owners can manage team members.</p>
+            <p className="text-slate-600 mb-6">Only company owners can manage team members.</p>
+            <Button 
+              size="lg" 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => navigate(createPageUrl('RooferDashboard'))}
+            >
+              Go to Dashboard
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
           </CardContent>
         </Card>
       </div>

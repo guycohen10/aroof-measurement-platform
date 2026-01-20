@@ -44,11 +44,28 @@ export default function RooferLogin() {
         return;
       }
 
-      // Auto-fill email
-      setEmail(userEmail);
-      
-      toast.success(`Welcome! Please set a password for your account: ${userEmail}`);
-      setProcessingMagicLink(false);
+      // Check if user exists and has a password
+      try {
+        const users = await base44.entities.User.list();
+        const existingUser = users.find(u => u.email === userEmail);
+        
+        if (existingUser && existingUser.password) {
+          // User has password, just show login form
+          setEmail(userEmail);
+          toast.success(`Welcome back! Please enter your password.`);
+          setProcessingMagicLink(false);
+        } else {
+          // First time login - auto-fill email and prompt for password
+          setEmail(userEmail);
+          toast.success(`Welcome! Please set a password for your account.`);
+          setProcessingMagicLink(false);
+        }
+      } catch (userErr) {
+        // If we can't check user, just show login form
+        setEmail(userEmail);
+        toast.success(`Welcome! Please enter your password to continue.`);
+        setProcessingMagicLink(false);
+      }
 
     } catch (err) {
       console.error('Magic link error:', err);
