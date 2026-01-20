@@ -332,6 +332,37 @@ export default function RooferDashboard() {
           </Card>
         )}
 
+        {/* Admin Quick Actions - Direct Access to Management */}
+        {(user?.aroof_role?.includes('roofer') || user?.aroof_role?.includes('owner') || user?.role === 'admin') && (
+          <Card className="shadow-lg mb-8 bg-gradient-to-br from-purple-50 to-white border-2 border-purple-200">
+            <CardContent className="p-6">
+              <h3 className="text-xl font-bold text-slate-900 mb-4">Company Management</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <Button 
+                  size="lg"
+                  className="h-16 bg-purple-600 hover:bg-purple-700"
+                  onClick={() => navigate(createPageUrl("TeamManager"))}
+                >
+                  <div className="text-left w-full">
+                    <div className="font-bold text-lg">👥 Manage Team</div>
+                    <div className="text-sm opacity-90">View and manage team members</div>
+                  </div>
+                </Button>
+                <Button 
+                  size="lg"
+                  className="h-16 bg-blue-600 hover:bg-blue-700"
+                  onClick={() => navigate(createPageUrl("CompanySettings"))}
+                >
+                  <div className="text-left w-full">
+                    <div className="font-bold text-lg">⚙️ Company Settings</div>
+                    <div className="text-sm opacity-90">Configure your company profile</div>
+                  </div>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Usage Alert */}
         {nearLimit && user.subscription_plan !== 'unlimited' && (
           <Card className="mb-8 border-orange-200 bg-orange-50">
