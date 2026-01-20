@@ -9,14 +9,12 @@ import {
   Users, 
   Calendar, 
   FileText, 
-  DollarSign, 
   Receipt,
   Settings,
   ChevronDown,
   ChevronRight,
   ListTodo,
   Briefcase,
-  TrendingUp,
   CreditCard
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
@@ -52,28 +50,30 @@ const navSections = [
     ]
   },
   {
-    title: 'Company',
+    title: 'Management (v2)',  // 👈 VERSION STAMP
     items: [
       { label: 'Team Management', icon: Users, path: 'TeamManager' },
       { label: 'Settings', icon: Settings, path: 'CompanySettings' }
     ],
-    ownerOnly: true
+    ownerOnly: false  // 👈 FORCED VISIBLE FOR DEBUGGING
   }
 ];
 
 export default function RooferSidebar({ className }) {
   const location = useLocation();
-  const [expandedSections, setExpandedSections] = useState(['Main', 'Lead Center']);
+  const [expandedSections, setExpandedSections] = useState(['Main', 'Lead Center', 'Management (v2)']);
   const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
     loadUser();
+    console.log('🚀 SIDEBAR LOADED - V2 FORCED VISIBILITY');
   }, []);
 
   const loadUser = async () => {
     try {
       const user = await base44.auth.me();
       setUserProfile(user);
+      console.log('👤 User Profile:', user);
     } catch (err) {
       console.error('Error loading user:', err);
     }
@@ -84,7 +84,6 @@ export default function RooferSidebar({ className }) {
       company_owner: 'bg-purple-500 text-white',
       admin: 'bg-red-500 text-white',
       external_roofer: 'bg-blue-500 text-white',
-      sales: 'bg-green-500 text-white',
       estimator: 'bg-blue-500 text-white',
       dispatcher: 'bg-yellow-500 text-white',
       crew: 'bg-gray-500 text-white'
@@ -97,7 +96,6 @@ export default function RooferSidebar({ className }) {
       company_owner: 'Owner',
       admin: 'Admin',
       external_roofer: 'Roofer',
-      sales: 'Sales',
       estimator: 'Estimator',
       dispatcher: 'Dispatcher',
       crew: 'Crew'
@@ -117,51 +115,9 @@ export default function RooferSidebar({ className }) {
     return location.pathname === createPageUrl(path);
   };
 
+  // 👇 SIMPLIFIED - SHOW ALL SECTIONS (FOR DEBUGGING)
   const canViewSection = (section) => {
-    if (!userProfile) return true; // Show all until role is loaded
-    
-    // 🔍 SMART ROLE DETECTION - Check all possible property names
-    const realRole = userProfile.org_role || userProfile.aroof_role || userProfile.role || '';
-    
-    // CRITICAL: Explicitly list ALL roles that can manage team
-    const allowedRoles = ['god_admin', 'company_owner', 'external_roofer', 'admin'];
-    const isAdmin = userProfile.role === 'admin';
-    const isOwner = userProfile.is_company_owner === true;
-    const hasAllowedRole = allowedRoles.includes(realRole);
-    
-    // Final decision
-    const canManageTeam = hasAllowedRole || isAdmin || isOwner;
-    
-    // 🔍 DEBUG LOGGING - Print to console for every Company section check
-    if (section.ownerOnly) {
-      console.log('🔐 SIDEBAR COMPANY SECTION CHECK:', {
-        section: section.title,
-        realRole: realRole,
-        org_role: userProfile.org_role,
-        aroof_role: userProfile.aroof_role,
-        role: userProfile.role,
-        is_company_owner: userProfile.is_company_owner,
-        hasAllowedRole: hasAllowedRole,
-        isAdmin: isAdmin,
-        isOwner: isOwner,
-        FINAL_canManageTeam: canManageTeam,
-        allowedRoles: allowedRoles,
-        fullProfile: userProfile
-      });
-    }
-    
-    // Allow Company section for allowed roles
-    if (section.ownerOnly && !canManageTeam) {
-      console.warn('❌ HIDING Company section - user does not have permission');
-      return false;
-    }
-
-    // Crew members can't see Financials
-    if (realRole === 'crew' && section.title === 'Financials') {
-      return false;
-    }
-
-    return true;
+    return true;  // Force all sections visible
   };
 
   return (
