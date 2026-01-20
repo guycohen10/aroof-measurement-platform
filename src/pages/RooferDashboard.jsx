@@ -31,6 +31,7 @@ import { format } from "date-fns";
 export default function RooferDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [user, setUser] = useState(null);
   const [measurements, setMeasurements] = useState([]);
   const [activeTab, setActiveTab] = useState('purchased');
@@ -42,6 +43,9 @@ export default function RooferDashboard() {
   }, []);
 
   const loadDashboardData = async () => {
+    setLoading(true);
+    setHasError(false);
+    
     try {
       const currentUser = await base44.auth.me();
       
@@ -65,34 +69,39 @@ export default function RooferDashboard() {
         return;
       }
 
-      // Load ALL measurements for this roofer (created by them OR purchased)
-      const allMeasurements = await base44.entities.Measurement.list('-created_date', 100);
-      
-      // Filter to measurements that belong to this roofer
-      const relevantMeasurements = allMeasurements.filter(m => 
-        m.company_id === companyId || // Their own measurements
-        m.purchased_by_companies?.includes(companyId) // Purchased leads
-      );
-      
-      setMeasurements(relevantMeasurements);
-      
-      // Count purchased leads
-      const purchased = relevantMeasurements.filter(m => 
-        m.purchased_by_companies?.includes(companyId) && m.user_type === 'homeowner'
-      );
-      setPurchasedLeadsCount(purchased.length);
+      // Load measurements - DO NOT retry on failure
+      try {
+        const allMeasurements = await base44.entities.Measurement.list('-created_date', 100);
+        
+        // Filter to measurements that belong to this roofer
+        const relevantMeasurements = allMeasurements.filter(m => 
+          m.company_id === companyId || 
+          m.purchased_by_companies?.includes(companyId)
+        );
+        
+        setMeasurements(relevantMeasurements || []);
+        
+        // Count purchased leads
+        const purchased = relevantMeasurements.filter(m => 
+          m.purchased_by_companies?.includes(companyId) && m.user_type === 'homeowner'
+        );
+        setPurchasedLeadsCount(purchased.length);
+      } catch (measurementErr) {
+        console.error('Measurement fetch error:', measurementErr);
+        setMeasurements([]);
+        setPurchasedLeadsCount(0);
+      }
       
       setLoading(false);
     } catch (err) {
-      console.error('Error loading dashboard:', err);
+      console.error('Dashboard error:', err);
+      setLoading(false);
+      setHasError(true);
       
+      // DO NOT navigate away on error - just show error state
       if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
         navigate(createPageUrl("RooferLogin"));
-        return;
       }
-      
-      toast.error('Failed to load dashboard. Please try logging in again.');
-      navigate(createPageUrl("RooferLogin"));
     }
   };
 
@@ -162,9 +171,26 @@ export default function RooferDashboard() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" /> {/* Updated spinner */}
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
           <p className="text-slate-600">Loading dashboard...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-2 text-slate-900">System Error</h2>
+            <p className="text-slate-600 mb-6">Failed to load dashboard. Please refresh the page.</p>
+            <Button onClick={() => window.location.reload()} size="lg" className="w-full">
+              Refresh Page
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
