@@ -16,7 +16,6 @@ import {
   ChevronRight,
   ListTodo,
   Briefcase,
-  TrendingUp,
   CreditCard
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
@@ -74,6 +73,16 @@ export default function RooferSidebar({ className }) {
     try {
       const user = await base44.auth.me();
       setUserProfile(user);
+      
+      // DEBUG: Log user profile on load
+      console.log('🔍 SIDEBAR USER LOADED:', {
+        full_name: user.full_name,
+        email: user.email,
+        role: user.role,
+        aroof_role: user.aroof_role,
+        is_company_owner: user.is_company_owner,
+        company_id: user.company_id
+      });
     } catch (err) {
       console.error('Error loading user:', err);
     }
@@ -120,25 +129,33 @@ export default function RooferSidebar({ className }) {
   const canViewSection = (section) => {
     if (!userProfile) return true; // Show all until role is loaded
     
-    // DEFINE EXACTLY WHO CAN SEE THE MENU
-    const canManageTeam = [
-      'company_owner',
-      'external_roofer'  // <--- CRITICAL: External roofers can manage team
-    ].includes(userProfile.aroof_role) || userProfile.role === 'admin' || userProfile.is_company_owner;
+    // CRITICAL: Explicitly list ALL roles that can manage team
+    const allowedRoles = ['company_owner', 'external_roofer'];
+    const isAdmin = userProfile.role === 'admin';
+    const isOwner = userProfile.is_company_owner === true;
+    const hasAllowedRole = allowedRoles.includes(userProfile.aroof_role);
     
-    // DEBUG LOGGING (So we can see it in the console)
+    // Final decision
+    const canManageTeam = hasAllowedRole || isAdmin || isOwner;
+    
+    // DEBUG LOGGING - Print to console for every Company section check
     if (section.ownerOnly) {
-      console.log("Sidebar Check:", { 
-        aroof_role: userProfile.aroof_role, 
-        is_admin: userProfile.role === 'admin',
+      console.log('🔐 SIDEBAR COMPANY SECTION CHECK:', {
+        section: section.title,
+        aroof_role: userProfile.aroof_role,
+        role: userProfile.role,
         is_company_owner: userProfile.is_company_owner,
-        canManageTeam: canManageTeam,
-        section: section.title 
+        hasAllowedRole: hasAllowedRole,
+        isAdmin: isAdmin,
+        isOwner: isOwner,
+        FINAL_canManageTeam: canManageTeam,
+        allowedRoles: allowedRoles
       });
     }
     
-    // Allow Company section for owners, admins, and external_roofer
+    // Allow Company section for allowed roles
     if (section.ownerOnly && !canManageTeam) {
+      console.warn('❌ HIDING Company section - user does not have permission');
       return false;
     }
 
