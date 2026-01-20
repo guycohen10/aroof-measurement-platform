@@ -121,10 +121,11 @@ export default function RooferSidebar({ className }) {
     if (!userProfile) return true; // Show all until role is loaded
     
     const role = userProfile.aroof_role;
-    const isOwnerOrAdmin = ['company_owner', 'external_roofer'].includes(role) || userProfile.role === 'admin';
+    const isGodAdmin = userProfile.role === 'admin';
+    const canViewCompany = ['company_owner', 'external_roofer'].includes(role) || isGodAdmin || userProfile.is_company_owner;
     
-    // STRICT: Hide Company section for non-owners/non-admins/non-roofers
-    if (section.ownerOnly && !isOwnerOrAdmin) {
+    // Allow Company section for owners, admins, and external_roofer
+    if (section.ownerOnly && !canViewCompany) {
       return false;
     }
 
