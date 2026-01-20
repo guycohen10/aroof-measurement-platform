@@ -22,13 +22,24 @@ Deno.serve(async (req) => {
     }
 
     // Use service role to create user with password
-    const newUser = await base44.asServiceRole.auth.signUp(email, password, {
-      full_name: name,
-      company_id: user.company_id,
-      company_name: user.company_name,
-      aroof_role: role,
-      is_company_owner: false
+    // Base44 SDK uses different method for user creation with service role
+    const result = await base44.asServiceRole.functions.invoke('createUser', {
+      email,
+      password,
+      metadata: {
+        full_name: name,
+        company_id: user.company_id,
+        company_name: user.company_name,
+        aroof_role: role,
+        is_company_owner: false
+      }
     });
+
+    if (result.data?.error) {
+      throw new Error(result.data.error);
+    }
+
+    const newUser = result.data;
 
     return Response.json({ 
       success: true, 
