@@ -16,6 +16,7 @@ import {
   ChevronRight,
   ListTodo,
   Briefcase,
+  TrendingUp,
   CreditCard
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
@@ -73,16 +74,6 @@ export default function RooferSidebar({ className }) {
     try {
       const user = await base44.auth.me();
       setUserProfile(user);
-      
-      // DEBUG: Log user profile on load
-      console.log('🔍 SIDEBAR USER LOADED:', {
-        full_name: user.full_name,
-        email: user.email,
-        role: user.role,
-        aroof_role: user.aroof_role,
-        is_company_owner: user.is_company_owner,
-        company_id: user.company_id
-      });
     } catch (err) {
       console.error('Error loading user:', err);
     }
@@ -129,19 +120,24 @@ export default function RooferSidebar({ className }) {
   const canViewSection = (section) => {
     if (!userProfile) return true; // Show all until role is loaded
     
+    // 🔍 SMART ROLE DETECTION - Check all possible property names
+    const realRole = userProfile.org_role || userProfile.aroof_role || userProfile.role || '';
+    
     // CRITICAL: Explicitly list ALL roles that can manage team
-    const allowedRoles = ['company_owner', 'external_roofer'];
+    const allowedRoles = ['god_admin', 'company_owner', 'external_roofer', 'admin'];
     const isAdmin = userProfile.role === 'admin';
     const isOwner = userProfile.is_company_owner === true;
-    const hasAllowedRole = allowedRoles.includes(userProfile.aroof_role);
+    const hasAllowedRole = allowedRoles.includes(realRole);
     
     // Final decision
     const canManageTeam = hasAllowedRole || isAdmin || isOwner;
     
-    // DEBUG LOGGING - Print to console for every Company section check
+    // 🔍 DEBUG LOGGING - Print to console for every Company section check
     if (section.ownerOnly) {
       console.log('🔐 SIDEBAR COMPANY SECTION CHECK:', {
         section: section.title,
+        realRole: realRole,
+        org_role: userProfile.org_role,
         aroof_role: userProfile.aroof_role,
         role: userProfile.role,
         is_company_owner: userProfile.is_company_owner,
@@ -149,7 +145,8 @@ export default function RooferSidebar({ className }) {
         isAdmin: isAdmin,
         isOwner: isOwner,
         FINAL_canManageTeam: canManageTeam,
-        allowedRoles: allowedRoles
+        allowedRoles: allowedRoles,
+        fullProfile: userProfile
       });
     }
     
@@ -160,7 +157,7 @@ export default function RooferSidebar({ className }) {
     }
 
     // Crew members can't see Financials
-    if (userProfile.aroof_role === 'crew' && section.title === 'Financials') {
+    if (realRole === 'crew' && section.title === 'Financials') {
       return false;
     }
 
