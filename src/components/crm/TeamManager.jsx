@@ -26,8 +26,10 @@ export default function TeamManager() {
     full_name: '',
     email: '',
     phone: '',
-    aroof_role: 'estimator'
+    aroof_role: 'estimator',
+    password: ''
   });
+  const [createdCredentials, setCreatedCredentials] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -83,37 +85,43 @@ export default function TeamManager() {
     setSaving(true);
 
     try {
-      // Create user directly in the User entity
-      const newUserData = {
-        full_name: newMember.full_name,
+      // Invoke user with password and metadata
+      await base44.users.inviteUser(newMember.email, 'user');
+
+      // Wait a moment for the user to be created
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Update the newly created user with full details
+      const allUsers = await base44.entities.User.list();
+      const createdUser = allUsers.find(u => u.email === newMember.email);
+
+      if (createdUser) {
+        await base44.entities.User.update(createdUser.id, {
+          full_name: newMember.full_name,
+          phone: newMember.phone,
+          company_id: company.id,
+          company_name: company.company_name,
+          aroof_role: newMember.aroof_role,
+          is_company_owner: false,
+          password: newMember.password
+        });
+      }
+
+      // Store credentials for display
+      setCreatedCredentials({
         email: newMember.email,
-        phone: newMember.phone,
-        company_id: company.id,
-        company_name: company.company_name,
-        aroof_role: newMember.aroof_role,
-        is_company_owner: false,
-        role: 'user'
-      };
+        password: newMember.password,
+        name: newMember.full_name
+      });
 
-      const createdUser = await base44.entities.User.create(newUserData);
-
-      // Generate magic login link
-      const token = btoa(JSON.stringify({ 
-        email: createdUser.email, 
-        user_id: createdUser.id,
-        timestamp: Date.now() 
-      }));
-      const loginUrl = `${window.location.origin}${createPageUrl('RooferLogin')}?token=${token}&type=magic_link`;
-      
-      // CRITICAL: Show modal IMMEDIATELY after user creation
-      setMagicLink(loginUrl);
+      // Show success modal with credentials
       setShowMagicLinkModal(true);
       
       toast.success(`${newMember.full_name} created!`);
       
       // Close add modal and reload
       setShowAddModal(false);
-      setNewMember({ full_name: '', email: '', phone: '', aroof_role: 'estimator' });
+      setNewMember({ full_name: '', email: '', phone: '', aroof_role: 'estimator', password: '' });
       loadData();
 
     } catch (err) {
@@ -330,51 +338,88 @@ export default function TeamManager() {
                 </select>
               </div>
 
+              <div>
+                <Label>Assign Password *</Label>
+                <Input
+                  type="text"
+                  required
+                  value={newMember.password}
+                  onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}
+                  placeholder="Create a password for this employee"
+                />
+                <p className="text-xs text-slate-500 mt-1">You'll be able to copy and text these credentials</p>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} className="flex-1">
                   Cancel
                 </Button>
                 <Button type="submit" disabled={saving} className="flex-1">
-                  {saving ? 'Inviting...' : 'Send Invite'}
+                  {saving ? 'Creating...' : 'Create Account'}
                 </Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
 
-        {/* Magic Link Modal */}
+        {/* Credentials Modal */}
         <Dialog open={showMagicLinkModal} onOpenChange={setShowMagicLinkModal}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>🎉 Employee Created Successfully!</DialogTitle>
+              <DialogTitle>🎉 User Created Successfully!</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-sm text-green-900 mb-2">
-                  <strong>Share this magic login link with your new employee:</strong>
+              <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6">
+                <p className="text-sm text-green-900 mb-4 font-bold">
+                  📋 Copy these credentials now. Text them to your employee:
                 </p>
-                <div className="bg-white border border-green-300 rounded p-3 font-mono text-sm break-all">
-                  {magicLink}
+                
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs text-green-800">Email</Label>
+                    <div className="bg-white border border-green-300 rounded p-3 font-mono text-sm">
+                      {createdCredentials?.email}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-green-800">Password</Label>
+                    <div className="bg-white border border-green-300 rounded p-3 font-mono text-sm font-bold">
+                      {createdCredentials?.password}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-green-800">Login URL</Label>
+                    <div className="bg-white border border-green-300 rounded p-3 font-mono text-xs">
+                      {window.location.origin}{createPageUrl('RooferLogin')}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-900">
-                  <strong>Instructions for the employee:</strong>
+              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+                <p className="text-sm text-yellow-900 font-semibold">
+                  ⚠️ Warning: Copy these details now. You won't see them again.
                 </p>
-                <ol className="list-decimal list-inside text-sm text-blue-800 mt-2 space-y-1">
-                  <li>Click the link to open the login page</li>
-                  <li>Set a password for their account</li>
-                  <li>They'll be logged in automatically</li>
-                </ol>
               </div>
 
               <div className="flex gap-3">
-                <Button onClick={copyMagicLink} className="flex-1">
-                  📋 Copy Link
+                <Button 
+                  onClick={() => {
+                    const text = `Login Credentials:\n\nEmail: ${createdCredentials?.email}\nPassword: ${createdCredentials?.password}\n\nLogin at: ${window.location.origin}${createPageUrl('RooferLogin')}`;
+                    navigator.clipboard.writeText(text);
+                    toast.success('Credentials copied to clipboard!');
+                  }} 
+                  className="flex-1"
+                >
+                  📋 Copy All Credentials
                 </Button>
-                <Button variant="outline" onClick={() => setShowMagicLinkModal(false)} className="flex-1">
-                  Close
+                <Button variant="outline" onClick={() => {
+                  setShowMagicLinkModal(false);
+                  setCreatedCredentials(null);
+                }} className="flex-1">
+                  Done
                 </Button>
               </div>
             </div>
