@@ -83,6 +83,11 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import Windows from './pages/Windows';
 import RooferForgotPassword from './pages/RooferForgotPassword';
+import TeamManager from './pages/TeamManager';
+import JobBoard from './pages/JobBoard';
+import WalletHistory from './pages/WalletHistory';
+import EstimateManager from './pages/EstimateManager';
+import InvoiceManager from './pages/InvoiceManager';
 import __Layout from './Layout.jsx';
 
 
@@ -172,6 +177,11 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "Windows": Windows,
     "RooferForgotPassword": RooferForgotPassword,
+    "TeamManager": TeamManager,
+    "JobBoard": JobBoard,
+    "WalletHistory": WalletHistory,
+    "EstimateManager": EstimateManager,
+    "InvoiceManager": InvoiceManager,
 }
 
 export const pagesConfig = {
