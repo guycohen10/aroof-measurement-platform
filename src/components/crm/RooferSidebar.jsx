@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
 import { 
   Home, 
   ShoppingCart, 
@@ -61,6 +62,20 @@ const navSections = [
 export default function RooferSidebar({ className }) {
   const location = useLocation();
   const [expandedSections, setExpandedSections] = useState(['Main', 'Lead Center']);
+  const [userRole, setUserRole] = useState(null);
+
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  const loadUser = async () => {
+    try {
+      const user = await base44.auth.me();
+      setUserRole(user.aroof_role);
+    } catch (err) {
+      console.error('Error loading user:', err);
+    }
+  };
 
   const toggleSection = (title) => {
     setExpandedSections(prev =>
@@ -74,6 +89,38 @@ export default function RooferSidebar({ className }) {
     return location.pathname === createPageUrl(path);
   };
 
+  const canViewSection = (sectionTitle) => {
+    if (!userRole) return true; // Show all until role is loaded
+    
+    // Sales reps can't see Company section (Team Management, Settings)
+    if (userRole === 'estimator' && sectionTitle === 'Company') {
+      return false;
+    }
+
+    // Crew members can't see Financials
+    if (userRole === 'crew' && sectionTitle === 'Financials') {
+      return false;
+    }
+
+    return true;
+  };
+
+  const canViewItem = (item) => {
+    if (!userRole) return true; // Show all until role is loaded
+
+    // Sales reps can't access Team Management or Settings
+    if (userRole === 'estimator' && (item.path === 'TeamManager' || item.path === 'CompanySettings')) {
+      return false;
+    }
+
+    // Crew can't access financial items
+    if (userRole === 'crew' && ['EstimateManager', 'InvoiceManager', 'WalletHistory'].includes(item.path)) {
+      return false;
+    }
+
+    return true;
+  };
+
   return (
     <div className={cn("bg-white border-r border-slate-200 h-full overflow-y-auto", className)}>
       <div className="p-4 border-b">
@@ -82,7 +129,7 @@ export default function RooferSidebar({ className }) {
       </div>
 
       <nav className="p-4 space-y-2">
-        {navSections.map((section) => (
+        {navSections.filter(section => canViewSection(section.title)).map((section) => (
           <div key={section.title}>
             <button
               onClick={() => toggleSection(section.title)}
@@ -98,7 +145,7 @@ export default function RooferSidebar({ className }) {
 
             {expandedSections.includes(section.title) && (
               <div className="mt-1 space-y-1 ml-2">
-                {section.items.map((item) => {
+                {section.items.filter(item => canViewItem(item)).map((item) => {
                   const Icon = item.icon;
                   return (
                     <Link

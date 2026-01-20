@@ -79,8 +79,12 @@ export default function TeamManager() {
       const createdUser = await base44.entities.User.create(newUserData);
 
       // Generate magic login link (temporary token-based authentication)
-      const token = btoa(`${createdUser.email}:${Date.now()}`);
-      const loginUrl = `${window.location.origin}${createPageUrl('RooferLogin')}?invite_token=${token}&email=${encodeURIComponent(createdUser.email)}`;
+      const token = btoa(JSON.stringify({ 
+        email: createdUser.email, 
+        user_id: createdUser.id,
+        timestamp: Date.now() 
+      }));
+      const loginUrl = `${window.location.origin}${createPageUrl('RooferLogin')}?token=${token}&type=magic_link`;
       
       setMagicLink(loginUrl);
       setShowAddModal(false);
