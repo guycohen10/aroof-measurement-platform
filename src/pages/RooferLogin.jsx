@@ -154,7 +154,14 @@ export default function RooferLogin() {
 
     } catch (err) {
       console.error('❌ Login error:', err);
-      setError(err.message || 'Invalid email or password. Please try again.');
+      console.log('Full error object:', JSON.stringify(err, null, 2));
+      
+      // Detailed error display for debugging
+      const errorMessage = err.message || 'Unknown error';
+      const errorStatus = err.status || err.code || 'N/A';
+      const errorDetails = err.details || err.error_description || '';
+      
+      setError(`Error: ${errorMessage} (Status: ${errorStatus})${errorDetails ? ` - ${errorDetails}` : ''}`);
     } finally {
       setIsLoading(false);
     }
