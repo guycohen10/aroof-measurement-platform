@@ -34,19 +34,26 @@ export default function Homepage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Check if user is logged in (but don't redirect)
+    // Smart Redirect: Auto-redirect staff to dashboard
     const checkAuth = async () => {
       try {
         const user = await base44.auth.me();
         if (user) {
           setIsLoggedIn(true);
+          
+          // Staff roles that should be redirected to dashboard
+          const staffRoles = ['sales', 'estimator', 'crew', 'external_roofer', 'dispatcher'];
+          
+          if (staffRoles.includes(user.aroof_role)) {
+            navigate(createPageUrl('RooferDashboard'));
+          }
         }
       } catch (err) {
         setIsLoggedIn(false);
       }
     };
     checkAuth();
-  }, []);
+  }, [navigate]);
 
   return (
     <>
