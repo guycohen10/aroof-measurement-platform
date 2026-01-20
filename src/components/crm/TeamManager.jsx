@@ -123,7 +123,7 @@ export default function TeamManager() {
   };
 
   const copyCredentials = () => {
-    const text = `Login Credentials:\n\nEmail: ${createdCredentials?.email}\nPassword: ${createdCredentials?.password}\n\nLogin at: ${window.location.origin}${createPageUrl('RooferLogin')}`;
+    const text = `Login Credentials:\n\nEmail: ${createdCredentials?.email}\nPassword: ${createdCredentials?.password}\n\nIMPORTANT: Check your email and click the verification link first!\n\nLogin at: https://aroof.build/login`;
     navigator.clipboard.writeText(text);
     toast.success('Credentials copied to clipboard!');
   };
@@ -316,11 +316,17 @@ export default function TeamManager() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-                User Created Successfully!
+                <CheckCircle className="w-6 h-6 text-orange-600" />
+                User Created! Verification Required.
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              <div className="bg-red-50 border-2 border-red-400 rounded-lg p-4 mb-4">
+                <p className="text-sm text-red-900 font-bold">
+                  ⚠️ IMPORTANT: A confirmation email has been sent to <span className="underline">{createdCredentials?.email}</span>. The user MUST click the link in that email to activate this account before they can log in.
+                </p>
+              </div>
+
               <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6">
                 <p className="text-sm text-green-900 mb-4 font-bold">
                   📋 Copy these credentials now. Text them to your employee:
@@ -344,7 +350,7 @@ export default function TeamManager() {
                   <div>
                     <Label className="text-xs text-green-800">Login URL</Label>
                     <div className="bg-white border border-green-300 rounded p-3 font-mono text-xs">
-                      {window.location.origin}{createPageUrl('RooferLogin')}
+                      https://aroof.build/login
                     </div>
                   </div>
                 </div>
