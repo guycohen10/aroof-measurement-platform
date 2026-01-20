@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
@@ -30,6 +30,21 @@ export default function Homepage() {
   const navigate = useNavigate();
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
   const [audienceTab, setAudienceTab] = useState('homeowner');
+
+  useEffect(() => {
+    // Redirect authenticated users to dashboard
+    const checkAuth = async () => {
+      try {
+        const user = await base44.auth.me();
+        if (user && user.aroof_role) {
+          navigate(createPageUrl('RooferDashboard'));
+        }
+      } catch (err) {
+        // User not logged in, stay on homepage
+      }
+    };
+    checkAuth();
+  }, [navigate]);
 
   return (
     <>
