@@ -78,27 +78,19 @@ export default function TeamManager() {
     setSaving(true);
 
     try {
-      // Invite user first
-      await base44.users.inviteUser(newUser.email, 'user');
+      console.log('🔐 Creating auth account with password...');
 
-      // Wait for user creation
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // DIRECT AUTH SIGNUP - Sets password immediately in auth system
+      await base44.auth.signUp(newUser.email, newUser.password, {
+        full_name: newUser.name,
+        phone: newUser.phone,
+        company_id: company.id,
+        company_name: company.company_name,
+        aroof_role: newUser.role,
+        is_company_owner: false
+      });
 
-      // Update user with full details including password
-      const allUsers = await base44.entities.User.list();
-      const createdUser = allUsers.find(u => u.email === newUser.email);
-
-      if (createdUser) {
-        await base44.entities.User.update(createdUser.id, {
-          full_name: newUser.name,
-          phone: newUser.phone,
-          company_id: company.id,
-          company_name: company.company_name,
-          aroof_role: newUser.role,
-          is_company_owner: false,
-          password: newUser.password
-        });
-      }
+      console.log('✅ Auth account created with password');
 
       // Store credentials for modal
       setCreatedCredentials({
@@ -111,12 +103,13 @@ export default function TeamManager() {
       setShowAddModal(false);
       setNewUser({ name: '', email: '', password: '', role: 'sales', phone: '' });
       
-      toast.success('Account created successfully!');
+      toast.success('Account created! User must verify email before first login.');
       loadData();
 
     } catch (err) {
-      console.error('Error creating user:', err);
-      toast.error('Failed to create account. Email may already exist.');
+      console.error('❌ Signup error:', err);
+      console.log('Full error:', JSON.stringify(err, null, 2));
+      toast.error(`Failed to create account: ${err.message || 'Email may already exist'}`);
     } finally {
       setSaving(false);
     }
