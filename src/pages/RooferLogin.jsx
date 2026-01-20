@@ -19,15 +19,29 @@ export default function RooferLogin() {
   const [processingMagicLink, setProcessingMagicLink] = useState(false);
 
   useEffect(() => {
-    // Check for magic link token
+    // Check for magic link token first
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
     const type = urlParams.get('type');
 
     if (token && type === 'magic_link') {
       handleMagicLinkLogin(token);
+      return;
     }
-  }, []);
+
+    // Otherwise check if already authenticated
+    const checkAuth = async () => {
+      try {
+        const user = await base44.auth.me();
+        if (user && user.aroof_role) {
+          navigate(createPageUrl('RooferDashboard'));
+        }
+      } catch (err) {
+        // User not logged in, stay on login page
+      }
+    };
+    checkAuth();
+  }, [navigate]);
 
   const handleMagicLinkLogin = async (token) => {
     setProcessingMagicLink(true);
