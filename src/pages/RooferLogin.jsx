@@ -1,12 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Home, Building2, ArrowRight, Shield, Zap, Star } from "lucide-react";
+import { Home, Building2, ArrowRight, Shield, Zap, Star, Loader2 } from "lucide-react";
 
 export default function RooferLogin() {
   const navigate = useNavigate();
@@ -15,6 +16,46 @@ export default function RooferLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [processingMagicLink, setProcessingMagicLink] = useState(false);
+
+  useEffect(() => {
+    // Check for magic link token
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const type = urlParams.get('type');
+
+    if (token && type === 'magic_link') {
+      handleMagicLinkLogin(token);
+    }
+  }, []);
+
+  const handleMagicLinkLogin = async (token) => {
+    setProcessingMagicLink(true);
+    try {
+      // Decode the token
+      const decoded = JSON.parse(atob(token));
+      const { email: userEmail, user_id, timestamp } = decoded;
+
+      // Check if token is expired (24 hours)
+      const tokenAge = Date.now() - timestamp;
+      if (tokenAge > 24 * 60 * 60 * 1000) {
+        toast.error('Magic link has expired. Please request a new one.');
+        setProcessingMagicLink(false);
+        return;
+      }
+
+      // Auto-fill email
+      setEmail(userEmail);
+      
+      toast.success(`Welcome! Please set a password for your account: ${userEmail}`);
+      setProcessingMagicLink(false);
+
+    } catch (err) {
+      console.error('Magic link error:', err);
+      toast.error('Invalid magic link. Please try logging in normally.');
+      setProcessingMagicLink(false);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -87,6 +128,17 @@ export default function RooferLogin() {
       setIsLoading(false);
     }
   };
+
+  if (processingMagicLink) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <Loader2 className="w-16 h-16 animate-spin mx-auto mb-4" />
+          <p className="text-xl">Processing magic link...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900">
