@@ -82,6 +82,7 @@ import UpgradeProfile from './pages/UpgradeProfile';
 import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import Windows from './pages/Windows';
+import RooferForgotPassword from './pages/RooferForgotPassword';
 import __Layout from './Layout.jsx';
 
 
@@ -170,6 +171,7 @@ export const PAGES = {
     "VerifyEmail": VerifyEmail,
     "Visualizing": Visualizing,
     "Windows": Windows,
+    "RooferForgotPassword": RooferForgotPassword,
 }
 
 export const pagesConfig = {

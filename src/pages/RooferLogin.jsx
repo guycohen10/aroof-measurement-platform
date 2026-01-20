@@ -194,6 +194,12 @@ export default function RooferLogin() {
                 </Button>
               </form>
 
+              <div className="mt-4 text-center">
+                <Link to={createPageUrl("RooferForgotPassword")} className="text-blue-600 hover:text-blue-700 text-sm font-semibold">
+                  Forgot Password?
+                </Link>
+              </div>
+
               <div className="mt-8 pt-6 border-t border-slate-200">
                 <p className="text-center text-slate-600 mb-3">
                   Don't have an account?
