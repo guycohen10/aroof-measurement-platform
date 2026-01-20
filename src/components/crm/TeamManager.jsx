@@ -50,16 +50,19 @@ export default function TeamManager() {
     setErrorMsg('');
 
     try {
-      // Direct password assignment using auth.signUp
-      await base44.auth.signUp(newUser.email, newUser.password, {
-        full_name: newUser.name,
-        company_id: userProfile.company_id,
-        company_name: userProfile.company_name,
-        aroof_role: newUser.role,
-        is_company_owner: false
+      // Call backend function with service role permissions
+      const response = await base44.functions.invoke('createEmployee', {
+        email: newUser.email,
+        password: newUser.password,
+        name: newUser.name,
+        role: newUser.role
       });
 
-      alert(`SUCCESS! User Created.\n\nLogin: ${newUser.email}\nPassword: ${newUser.password}\n\n(Copy these credentials now!)`);
+      if (response.data.error) {
+        throw new Error(response.data.error);
+      }
+
+      alert(`SUCCESS! Account Created.\n\nLogin: ${newUser.email}\nPassword: ${newUser.password}\n\n(Copy these credentials now!)`);
       setNewUser({ name: '', email: '', password: '', role: 'estimator' });
       fetchTeam(userProfile.company_id);
     } catch (err) {
