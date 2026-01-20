@@ -1,10 +1,14 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, Phone, Mail, Calendar, Trash2, MoreVertical, Download } from "lucide-react";
+import { Eye, Phone, Mail, Calendar, Trash2, MoreVertical, Download, Briefcase } from "lucide-react";
 import { format } from "date-fns";
 import {
   DropdownMenu,
@@ -21,6 +25,7 @@ export default function LeadTableView({
   onBulkAction,
   estimators = []
 }) {
+  const navigate = useNavigate();
   const [selectedLeads, setSelectedLeads] = useState([]);
   const [filters, setFilters] = useState({
     status: 'all',
@@ -57,6 +62,31 @@ export default function LeadTableView({
   const handleBulkStatus = async (status) => {
     await onBulkAction('status', selectedLeads, status);
     setSelectedLeads([]);
+  };
+
+  const handleStartJob = async (lead) => {
+    try {
+      const user = await base44.auth.me();
+      
+      await base44.entities.Job.create({
+        company_id: user.company_id,
+        assigned_company_id: user.company_id,
+        source_measurement_id: lead.id,
+        customer_name: lead.customer_name || 'Unnamed Customer',
+        customer_email: lead.customer_email,
+        customer_phone: lead.customer_phone,
+        property_address: lead.property_address,
+        roof_sqft: lead.total_adjusted_sqft || lead.total_sqft,
+        status: 'scheduled',
+        scheduled_date: new Date().toISOString()
+      });
+      
+      toast.success('Job created! Redirecting to Job Board...');
+      setTimeout(() => navigate(createPageUrl('JobBoard')), 1000);
+    } catch (err) {
+      console.error('Failed to create job:', err);
+      toast.error('Failed to create job');
+    }
   };
 
   const handleExport = () => {
@@ -280,35 +310,45 @@ export default function LeadTableView({
                     </Select>
                   </td>
                   <td className="p-3">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onLeadClick(lead)}>
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Phone className="w-4 h-4 mr-2" />
-                          Call
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Mail className="w-4 h-4 mr-2" />
-                          Send Email
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Calendar className="w-4 h-4 mr-2" />
-                          Schedule
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        size="sm" 
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={() => handleStartJob(lead)}
+                      >
+                        <Briefcase className="w-3 h-3 mr-1" />
+                        Start Job
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onLeadClick(lead)}>
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Phone className="w-4 h-4 mr-2" />
+                            Call
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Mail className="w-4 h-4 mr-2" />
+                            Send Email
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Calendar className="w-4 h-4 mr-2" />
+                            Schedule
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600">
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </td>
                 </tr>
               ))}

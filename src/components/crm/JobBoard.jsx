@@ -21,6 +21,7 @@ export default function JobBoard() {
   const [user, setUser] = useState(null);
   const [measurements, setMeasurements] = useState([]);
   const [jobs, setJobs] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
@@ -55,6 +56,11 @@ export default function JobBoard() {
       );
       setJobs(companyJobs);
 
+      // Load employees for assignment
+      const allUsers = await base44.entities.User.list();
+      const companyEmployees = allUsers.filter(u => u.company_id === currentUser.company_id);
+      setEmployees(companyEmployees);
+
       setLoading(false);
     } catch (err) {
       console.error('Error loading job board:', err);
@@ -84,6 +90,22 @@ export default function JobBoard() {
   const handleCardClick = (item) => {
     setSelectedItem(item);
     setShowDetailModal(true);
+  };
+
+  const handleQuickAssign = async (itemId, userId, itemType, e) => {
+    e.stopPropagation();
+    try {
+      if (itemType === 'job') {
+        await base44.entities.Job.update(itemId, { assigned_to: userId });
+      } else {
+        await base44.entities.Measurement.update(itemId, { assigned_to: userId });
+      }
+      toast.success('Assigned successfully!');
+      loadData();
+    } catch (err) {
+      console.error('Failed to assign:', err);
+      toast.error('Failed to assign');
+    }
   };
 
   if (loading) {
@@ -126,10 +148,10 @@ export default function JobBoard() {
                     
                     return (
                       <Card key={item.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleCardClick(item)}>
-                        <CardContent className="p-4">
+                        <CardContent className="p-3">
                           <div className="space-y-2">
                             <div className="flex items-start justify-between">
-                              <p className="font-semibold text-sm text-slate-900 line-clamp-1">
+                              <p className="font-bold text-sm text-slate-900 line-clamp-1">
                                 {item.customer_name || 'Unnamed Customer'}
                               </p>
                               {item.priority === 'high' && (
@@ -139,7 +161,7 @@ export default function JobBoard() {
                             
                             <div className="flex items-center gap-1 text-xs text-slate-600">
                               <MapPin className="w-3 h-3" />
-                              <span className="line-clamp-1">{item.property_address}</span>
+                              <span className="line-clamp-2 font-medium">{item.property_address}</span>
                             </div>
                             
                             {isJob && item.scheduled_date && (
@@ -161,6 +183,21 @@ export default function JobBoard() {
                                 {Math.round(item.total_sqft).toLocaleString()} sq ft
                               </div>
                             )}
+
+                            <div className="pt-2 border-t" onClick={(e) => e.stopPropagation()}>
+                              <select 
+                                className="w-full text-xs p-1.5 border rounded bg-white"
+                                value={item.assigned_to || ''}
+                                onChange={(e) => handleQuickAssign(item.id, e.target.value, isJob ? 'job' : 'lead', e)}
+                              >
+                                <option value="">Assign to...</option>
+                                {employees.map(emp => (
+                                  <option key={emp.id} value={emp.id}>
+                                    {emp.full_name || emp.email}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>

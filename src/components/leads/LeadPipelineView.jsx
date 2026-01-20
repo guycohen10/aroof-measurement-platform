@@ -1,11 +1,17 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { MapPin, Ruler, Calendar, Flame, AlertTriangle, TrendingUp } from "lucide-react";
+import { MapPin, Ruler, Calendar, Flame, AlertTriangle, TrendingUp, Briefcase } from "lucide-react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 export default function LeadPipelineView({ leads, onStatusChange, onLeadClick }) {
+  const navigate = useNavigate();
   const columns = [
     { id: 'new', title: 'New', color: 'bg-blue-500' },
     { id: 'contacted', title: 'Contacted', color: 'bg-yellow-500' },
@@ -33,6 +39,32 @@ export default function LeadPipelineView({ leads, onStatusChange, onLeadClick })
 
   const getPriorityLabel = (priority) => {
     return priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : '';
+  };
+
+  const handleStartJob = async (lead, e) => {
+    e.stopPropagation();
+    try {
+      const user = await base44.auth.me();
+      
+      await base44.entities.Job.create({
+        company_id: user.company_id,
+        assigned_company_id: user.company_id,
+        source_measurement_id: lead.id,
+        customer_name: lead.customer_name || 'Unnamed Customer',
+        customer_email: lead.customer_email,
+        customer_phone: lead.customer_phone,
+        property_address: lead.property_address,
+        roof_sqft: lead.total_adjusted_sqft || lead.total_sqft,
+        status: 'scheduled',
+        scheduled_date: new Date().toISOString()
+      });
+      
+      toast.success('Job created! Redirecting to Job Board...');
+      setTimeout(() => navigate(createPageUrl('JobBoard')), 1000);
+    } catch (err) {
+      console.error('Failed to create job:', err);
+      toast.error('Failed to create job');
+    }
   };
 
   const handleDragEnd = (result) => {
@@ -106,18 +138,27 @@ export default function LeadPipelineView({ leads, onStatusChange, onLeadClick })
                                 </div>
 
                                 {lead.priority && (
-                                  <Badge className={`text-xs ${
-                                    lead.priority === 'urgent' ? 'bg-red-100 text-red-800' :
-                                    lead.priority === 'high' ? 'bg-orange-100 text-orange-800' :
-                                    lead.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-slate-100 text-slate-800'
-                                  }`}>
-                                    {getPriorityLabel(lead.priority)}
-                                  </Badge>
+                                 <Badge className={`text-xs ${
+                                   lead.priority === 'urgent' ? 'bg-red-100 text-red-800' :
+                                   lead.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                                   lead.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                   'bg-slate-100 text-slate-800'
+                                 }`}>
+                                   {getPriorityLabel(lead.priority)}
+                                 </Badge>
                                 )}
-                              </div>
-                            </CardContent>
-                          </Card>
+
+                                <Button 
+                                 size="sm" 
+                                 className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-xs"
+                                 onClick={(e) => handleStartJob(lead, e)}
+                                >
+                                 <Briefcase className="w-3 h-3 mr-1" />
+                                 Start Job
+                                </Button>
+                                </div>
+                                </CardContent>
+                                </Card>
                         )}
                       </Draggable>
                     ))}
