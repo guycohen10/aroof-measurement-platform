@@ -47,42 +47,66 @@ export default function CompanySettings() {
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const currentUser = await base44.auth.me();
+      
+      if (!currentUser) {
+        setError('Please log in to continue');
+        setLoading(false);
+        return;
+      }
+
       setUser(currentUser);
 
       if (!currentUser.company_id) {
         setError('No company associated with your account');
+        setLoading(false);
         setTimeout(() => navigate(createPageUrl("RooferDashboard")), 2000);
         return;
       }
 
-      const companies = await base44.entities.Company.list();
-      const companyData = companies.find(c => c.id === currentUser.company_id);
-      
-      if (companyData) {
-        setCompany(companyData);
-        setCompanyForm({
-          company_name: companyData.company_name || '',
-          contact_name: companyData.contact_name || '',
-          contact_email: companyData.contact_email || '',
-          contact_phone: companyData.contact_phone || '',
-          website_url: companyData.website_url || '',
-          description: companyData.description || '',
-          address_street: companyData.address_street || '',
-          address_city: companyData.address_city || '',
-          address_state: companyData.address_state || 'TX',
-          address_zip: companyData.address_zip || ''
-        });
+      // Load company - DO NOT retry on failure
+      try {
+        const companies = await base44.entities.Company.list();
+        const companyData = companies.find(c => c.id === currentUser.company_id);
+        
+        if (companyData) {
+          setCompany(companyData);
+          setCompanyForm({
+            company_name: companyData.company_name || '',
+            contact_name: companyData.contact_name || '',
+            contact_email: companyData.contact_email || '',
+            contact_phone: companyData.contact_phone || '',
+            website_url: companyData.website_url || '',
+            description: companyData.description || '',
+            address_street: companyData.address_street || '',
+            address_city: companyData.address_city || '',
+            address_state: companyData.address_state || 'TX',
+            address_zip: companyData.address_zip || ''
+          });
+        } else {
+          console.error('Company not found for ID:', currentUser.company_id);
+        }
+      } catch (companyErr) {
+        console.error('Company fetch error:', companyErr);
+        // Don't retry - just log
       }
 
-      const allUsers = await base44.entities.User.list();
-      const team = allUsers.filter(u => u.company_id === currentUser.company_id);
-      setTeamMembers(team);
+      // Load team - DO NOT retry on failure
+      try {
+        const allUsers = await base44.entities.User.list();
+        const team = allUsers.filter(u => u.company_id === currentUser.company_id);
+        setTeamMembers(team || []);
+      } catch (teamErr) {
+        console.error('Team fetch error:', teamErr);
+        setTeamMembers([]);
+        // Don't retry - just log
+      }
 
     } catch (err) {
       console.error('Error loading data:', err);
-      setError('Failed to load company settings');
+      setError('Failed to load company settings. Please refresh the page.');
     } finally {
       setLoading(false);
     }

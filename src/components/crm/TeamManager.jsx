@@ -34,29 +34,46 @@ export default function TeamManager() {
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
 
-      if (!currentUser.company_id) {
+      if (!currentUser?.company_id) {
         toast.error('No company associated with your account');
+        setLoading(false);
         return;
       }
 
-      // Load company
-      const companies = await base44.entities.Company.list();
-      const companyData = companies.find(c => c.id === currentUser.company_id);
-      setCompany(companyData);
+      // Load company - DO NOT retry on failure
+      try {
+        const companies = await base44.entities.Company.list();
+        const companyData = companies.find(c => c.id === currentUser.company_id);
+        if (companyData) {
+          setCompany(companyData);
+        } else {
+          console.error('Company not found');
+        }
+      } catch (companyErr) {
+        console.error('Company fetch error:', companyErr);
+        // Don't retry - just log
+      }
 
-      // Load team members
-      const allUsers = await base44.entities.User.list();
-      const team = allUsers.filter(u => u.company_id === currentUser.company_id);
-      setTeamMembers(team);
+      // Load team members - DO NOT retry on failure
+      try {
+        const allUsers = await base44.entities.User.list();
+        const team = allUsers.filter(u => u.company_id === currentUser.company_id);
+        setTeamMembers(team || []);
+      } catch (teamErr) {
+        console.error('Team fetch error:', teamErr);
+        setTeamMembers([]);
+        // Don't retry - just log
+      }
 
-      setLoading(false);
     } catch (err) {
-      console.error('Error loading team:', err);
-      toast.error('Failed to load team data');
+      console.error('Error loading data:', err);
+      toast.error('Failed to load team data. Please refresh the page.');
+    } finally {
       setLoading(false);
     }
   };
