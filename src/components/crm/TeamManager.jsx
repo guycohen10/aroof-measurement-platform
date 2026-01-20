@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { createPageUrl } from "@/utils";
 import { Users, UserPlus, Loader2, Mail, Phone, Briefcase, Shield } from 'lucide-react';
 
 export default function TeamManager() {
@@ -16,6 +17,8 @@ export default function TeamManager() {
   const [company, setCompany] = useState(null);
   const [teamMembers, setTeamMembers] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showMagicLinkModal, setShowMagicLinkModal] = useState(false);
+  const [magicLink, setMagicLink] = useState('');
   
   const [newMember, setNewMember] = useState({
     full_name: '',
@@ -61,42 +64,43 @@ export default function TeamManager() {
     setSaving(true);
 
     try {
-      // Invite user via base44 platform
-      await base44.users.inviteUser(newMember.email, 'user');
-      
-      // Wait for user to be created, then update their profile
-      setTimeout(async () => {
-        try {
-          const allUsers = await base44.entities.User.list();
-          const newUser = allUsers.find(u => u.email === newMember.email);
-          
-          if (newUser) {
-            await base44.entities.User.update(newUser.id, {
-              full_name: newMember.full_name,
-              company_id: company.id,
-              company_name: company.company_name,
-              aroof_role: newMember.aroof_role,
-              phone: newMember.phone,
-              is_company_owner: false
-            });
-          }
+      // Create user directly in the User entity
+      const newUserData = {
+        full_name: newMember.full_name,
+        email: newMember.email,
+        phone: newMember.phone,
+        company_id: company.id,
+        company_name: company.company_name,
+        aroof_role: newMember.aroof_role,
+        is_company_owner: false,
+        role: 'user'
+      };
 
-          toast.success(`${newMember.full_name} invited! They'll receive an email to set up their account.`);
-          setShowAddModal(false);
-          setNewMember({ full_name: '', email: '', phone: '', aroof_role: 'estimator' });
-          loadData();
-        } catch (updateErr) {
-          console.error('Error updating invited user:', updateErr);
-          toast.error('User invited but profile setup failed');
-        }
-      }, 1000);
+      const createdUser = await base44.entities.User.create(newUserData);
+
+      // Generate magic login link (temporary token-based authentication)
+      const token = btoa(`${createdUser.email}:${Date.now()}`);
+      const loginUrl = `${window.location.origin}${createPageUrl('RooferLogin')}?invite_token=${token}&email=${encodeURIComponent(createdUser.email)}`;
+      
+      setMagicLink(loginUrl);
+      setShowAddModal(false);
+      setShowMagicLinkModal(true);
+      setNewMember({ full_name: '', email: '', phone: '', aroof_role: 'estimator' });
+      
+      toast.success(`${newMember.full_name} created! Share the magic link with them.`);
+      loadData();
 
     } catch (err) {
-      console.error('Error inviting team member:', err);
-      toast.error('Failed to invite team member. Email may already exist.');
+      console.error('Error creating team member:', err);
+      toast.error('Failed to create team member. Email may already exist.');
     } finally {
       setSaving(false);
     }
+  };
+
+  const copyMagicLink = () => {
+    navigator.clipboard.writeText(magicLink);
+    toast.success('Link copied to clipboard!');
   };
 
   const getRoleBadge = (role, isOwner) => {
@@ -275,6 +279,45 @@ export default function TeamManager() {
                 </Button>
               </div>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Magic Link Modal */}
+        <Dialog open={showMagicLinkModal} onOpenChange={setShowMagicLinkModal}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>🎉 Employee Created Successfully!</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm text-green-900 mb-2">
+                  <strong>Share this magic login link with your new employee:</strong>
+                </p>
+                <div className="bg-white border border-green-300 rounded p-3 font-mono text-sm break-all">
+                  {magicLink}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-900">
+                  <strong>Instructions for the employee:</strong>
+                </p>
+                <ol className="list-decimal list-inside text-sm text-blue-800 mt-2 space-y-1">
+                  <li>Click the link to open the login page</li>
+                  <li>Set a password for their account</li>
+                  <li>They'll be logged in automatically</li>
+                </ol>
+              </div>
+
+              <div className="flex gap-3">
+                <Button onClick={copyMagicLink} className="flex-1">
+                  📋 Copy Link
+                </Button>
+                <Button variant="outline" onClick={() => setShowMagicLinkModal(false)} className="flex-1">
+                  Close
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

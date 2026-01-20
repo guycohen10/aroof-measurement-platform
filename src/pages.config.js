@@ -27,6 +27,7 @@ import EmailVerification from './pages/EmailVerification';
 import EmergencyRoofing from './pages/EmergencyRoofing';
 import EmployeeLogin from './pages/EmployeeLogin';
 import EnrollMaintenance from './pages/EnrollMaintenance';
+import EstimateManager from './pages/EstimateManager';
 import EstimatorDashboard from './pages/EstimatorDashboard';
 import EstimatorLeadDetail from './pages/EstimatorLeadDetail';
 import ExistingLeadSelector from './pages/ExistingLeadSelector';
@@ -37,6 +38,8 @@ import GreenRoof from './pages/GreenRoof';
 import Gutters from './pages/Gutters';
 import Homepage from './pages/Homepage';
 import Insurance from './pages/Insurance';
+import InvoiceManager from './pages/InvoiceManager';
+import JobBoard from './pages/JobBoard';
 import JobScheduling from './pages/JobScheduling';
 import LeadManagement from './pages/LeadManagement';
 import LeaveReview from './pages/LeaveReview';
@@ -58,6 +61,7 @@ import RooferBilling from './pages/RooferBilling';
 import RooferBrowseLeads from './pages/RooferBrowseLeads';
 import RooferDashboard from './pages/RooferDashboard';
 import RooferDirectory from './pages/RooferDirectory';
+import RooferForgotPassword from './pages/RooferForgotPassword';
 import RooferLogin from './pages/RooferLogin';
 import RooferPlans from './pages/RooferPlans';
 import RooferProfile from './pages/RooferProfile';
@@ -77,17 +81,13 @@ import StripeSuccess from './pages/StripeSuccess';
 import SubscriptionDetail from './pages/SubscriptionDetail';
 import Subscriptions from './pages/Subscriptions';
 import TPO from './pages/TPO';
+import TeamManager from './pages/TeamManager';
 import TermsAndConditions from './pages/TermsAndConditions';
 import UpgradeProfile from './pages/UpgradeProfile';
 import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
-import Windows from './pages/Windows';
-import RooferForgotPassword from './pages/RooferForgotPassword';
-import TeamManager from './pages/TeamManager';
-import JobBoard from './pages/JobBoard';
 import WalletHistory from './pages/WalletHistory';
-import EstimateManager from './pages/EstimateManager';
-import InvoiceManager from './pages/InvoiceManager';
+import Windows from './pages/Windows';
 import __Layout from './Layout.jsx';
 
 
@@ -121,6 +121,7 @@ export const PAGES = {
     "EmergencyRoofing": EmergencyRoofing,
     "EmployeeLogin": EmployeeLogin,
     "EnrollMaintenance": EnrollMaintenance,
+    "EstimateManager": EstimateManager,
     "EstimatorDashboard": EstimatorDashboard,
     "EstimatorLeadDetail": EstimatorLeadDetail,
     "ExistingLeadSelector": ExistingLeadSelector,
@@ -131,6 +132,8 @@ export const PAGES = {
     "Gutters": Gutters,
     "Homepage": Homepage,
     "Insurance": Insurance,
+    "InvoiceManager": InvoiceManager,
+    "JobBoard": JobBoard,
     "JobScheduling": JobScheduling,
     "LeadManagement": LeadManagement,
     "LeaveReview": LeaveReview,
@@ -152,6 +155,7 @@ export const PAGES = {
     "RooferBrowseLeads": RooferBrowseLeads,
     "RooferDashboard": RooferDashboard,
     "RooferDirectory": RooferDirectory,
+    "RooferForgotPassword": RooferForgotPassword,
     "RooferLogin": RooferLogin,
     "RooferPlans": RooferPlans,
     "RooferProfile": RooferProfile,
@@ -171,17 +175,13 @@ export const PAGES = {
     "SubscriptionDetail": SubscriptionDetail,
     "Subscriptions": Subscriptions,
     "TPO": TPO,
+    "TeamManager": TeamManager,
     "TermsAndConditions": TermsAndConditions,
     "UpgradeProfile": UpgradeProfile,
     "VerifyEmail": VerifyEmail,
     "Visualizing": Visualizing,
-    "Windows": Windows,
-    "RooferForgotPassword": RooferForgotPassword,
-    "TeamManager": TeamManager,
-    "JobBoard": JobBoard,
     "WalletHistory": WalletHistory,
-    "EstimateManager": EstimateManager,
-    "InvoiceManager": InvoiceManager,
+    "Windows": Windows,
 }
 
 export const pagesConfig = {

@@ -3,7 +3,8 @@ import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Briefcase, MapPin, Calendar, DollarSign } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, Briefcase, MapPin, Calendar, DollarSign, User, Phone, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 
 const stages = [
@@ -20,6 +21,8 @@ export default function JobBoard() {
   const [user, setUser] = useState(null);
   const [measurements, setMeasurements] = useState([]);
   const [jobs, setJobs] = useState([]);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -78,6 +81,11 @@ export default function JobBoard() {
     return [];
   };
 
+  const handleCardClick = (item) => {
+    setSelectedItem(item);
+    setShowDetailModal(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -117,7 +125,7 @@ export default function JobBoard() {
                     const isJob = item.job_type !== undefined;
                     
                     return (
-                      <Card key={item.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                      <Card key={item.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleCardClick(item)}>
                         <CardContent className="p-4">
                           <div className="space-y-2">
                             <div className="flex items-start justify-between">
@@ -164,6 +172,83 @@ export default function JobBoard() {
           );
         })}
       </div>
+
+      {/* Detail Modal */}
+      <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Lead Details</DialogTitle>
+          </DialogHeader>
+          {selectedItem && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Customer Name</p>
+                  <p className="font-semibold text-slate-900 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    {selectedItem.customer_name || 'Unnamed Customer'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Property Address</p>
+                  <p className="font-semibold text-slate-900 flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    {selectedItem.property_address}
+                  </p>
+                </div>
+              </div>
+
+              {selectedItem.customer_email && (
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Email</p>
+                  <p className="font-semibold text-slate-900 flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    {selectedItem.customer_email}
+                  </p>
+                </div>
+              )}
+
+              {selectedItem.customer_phone && (
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Phone</p>
+                  <p className="font-semibold text-slate-900 flex items-center gap-2">
+                    <Phone className="w-4 h-4" />
+                    {selectedItem.customer_phone}
+                  </p>
+                </div>
+              )}
+
+              {selectedItem.total_sqft && (
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Roof Area</p>
+                  <p className="font-semibold text-slate-900">
+                    {Math.round(selectedItem.total_sqft).toLocaleString()} sq ft
+                  </p>
+                </div>
+              )}
+
+              {selectedItem.quoted_amount && (
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Quoted Amount</p>
+                  <p className="font-semibold text-green-700 text-xl">
+                    ${selectedItem.quoted_amount.toLocaleString()}
+                  </p>
+                </div>
+              )}
+
+              {selectedItem.scheduled_date && (
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Scheduled Date</p>
+                  <p className="font-semibold text-slate-900 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    {format(new Date(selectedItem.scheduled_date), 'MMMM d, yyyy')}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

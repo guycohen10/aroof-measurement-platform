@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import ProposalWizard from "../components/leads/ProposalWizard";
 import SecuritySettings from "../components/auth/SecuritySettings";
+import RooferSidebar from "../components/crm/RooferSidebar";
 import { 
   Home,
   Zap,
@@ -175,81 +176,56 @@ export default function RooferDashboard() {
   const nearLimit = usagePercent > 80;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <Home className="w-7 h-7" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">
-                  {user.company_name || user.full_name || 'Your Dashboard'}
-                </h1>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge className={getPlanBadge(user.subscription_plan)}>
-                    {user.subscription_plan?.toUpperCase() || 'FREE'}
-                  </Badge>
-                  <span className="text-sm text-blue-200">
-                    {remaining === '∞' ? 'Unlimited measurements' : `${remaining} measurements left`}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Link to={createPageUrl("LeadManagement")}>
-                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
-                  Leads
-                </Button>
-              </Link>
-              <Link to={createPageUrl("JobScheduling")}>
-                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
-                  Jobs
-                </Button>
-              </Link>
-              <Link to={createPageUrl("Subscriptions")}>
-                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
-                  Subscriptions
-                </Button>
-              </Link>
-              <Link to={createPageUrl("CrewManagement")}>
-                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
-                  Crews
-                </Button>
-              </Link>
-              <Link to={createPageUrl("StormTracking")}>
-                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
-                  Storm
-                </Button>
-              </Link>
-              <Link to={createPageUrl("FollowUpSettings")}>
-                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm">
-                  Follow-Ups
-                </Button>
-              </Link>
-              <Button 
-                variant="ghost" 
-                className="text-white hover:bg-white/10" 
-                size="sm"
-                onClick={() => setShowTakeoffModal(true)}
-              >
-                <Calculator className="w-4 h-4 mr-1" />
-                AI Estimator
-              </Button>
-              <Button variant="ghost" className="text-white hover:bg-white/10" size="sm" onClick={handleLogout}>
-                <LogOut className="w-4 h-4 mr-1" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
+      {/* Sidebar */}
+      <RooferSidebar className="w-64 flex-shrink-0" />
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex-1 overflow-y-auto">
+        {/* Header */}
+        <header className="bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg sticky top-0 z-40">
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Home className="w-7 h-7" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold">
+                    {user.company_name || user.full_name || 'Your Dashboard'}
+                  </h1>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge className={getPlanBadge(user.subscription_plan)}>
+                      {user.subscription_plan?.toUpperCase() || 'FREE'}
+                    </Badge>
+                    <span className="text-sm text-blue-200">
+                      {remaining === '∞' ? 'Unlimited measurements' : `${remaining} measurements left`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  className="text-white hover:bg-white/10" 
+                  size="sm"
+                  onClick={() => setShowTakeoffModal(true)}
+                >
+                  <Calculator className="w-4 h-4 mr-1" />
+                  AI Estimator
+                </Button>
+                <Button variant="ghost" className="text-white hover:bg-white/10" size="sm" onClick={handleLogout}>
+                  <LogOut className="w-4 h-4 mr-1" />
+                  Logout
+                </Button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Scrollable Content */}
+        <div className="px-6 py-8">
         {/* Company Header */}
         {user?.company_id && (
           <Card className="shadow-lg mb-8 bg-gradient-to-br from-blue-50 to-white">
@@ -603,13 +579,15 @@ export default function RooferDashboard() {
         </Card>
       </div>
 
-      {showTakeoffModal && (
-        <ProposalWizard
-          lead={null}
-          onClose={() => setShowTakeoffModal(false)}
-          onSave={null}
-        />
-      )}
+        {showTakeoffModal && (
+          <ProposalWizard
+            lead={null}
+            onClose={() => setShowTakeoffModal(false)}
+            onSave={null}
+          />
+        )}
+        </div>
+      </div>
     </div>
   );
 }
