@@ -60,9 +60,8 @@ export default function CompanySettings() {
       setUser(currentUser);
 
       if (!currentUser.company_id) {
-        setError('No company associated with your account');
+        // Don't show error - user can initialize company
         setLoading(false);
-        setTimeout(() => navigate(createPageUrl("RooferDashboard")), 2000);
         return;
       }
 
@@ -129,6 +128,35 @@ export default function CompanySettings() {
     }
   };
 
+  const handleInitializeCompany = async () => {
+    setSaving(true);
+    try {
+      const newCompany = await base44.entities.Company.create({
+        company_name: `${user.full_name}'s Company` || 'My Company',
+        contact_email: user.email,
+        contact_name: user.full_name,
+        subscription_tier: 'enterprise',
+        subscription_status: 'active',
+        is_active: true
+      });
+
+      await base44.auth.updateMe({
+        company_id: newCompany.id,
+        company_name: newCompany.company_name,
+        aroof_role: 'external_roofer',
+        is_company_owner: true
+      });
+
+      toast.success('Company initialized! Reloading...');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (err) {
+      console.error('Failed to initialize company:', err);
+      toast.error('Failed to create company');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleAddTeamMember = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -188,6 +216,33 @@ export default function CompanySettings() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  // If no company, show initialization screen
+  if (!company && !loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-3xl">🏢</span>
+            </div>
+            <h2 className="text-2xl font-bold mb-2 text-slate-900">No Company Found</h2>
+            <p className="text-slate-600 mb-6">
+              You need to initialize a company to access CRM features.
+            </p>
+            <Button 
+              onClick={handleInitializeCompany} 
+              disabled={saving}
+              size="lg" 
+              className="w-full"
+            >
+              {saving ? 'Creating...' : 'Initialize My Company'}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

@@ -42,6 +42,40 @@ export default function RooferDashboard() {
     loadDashboardData();
   }, []);
 
+  const createAdminCompany = async (user) => {
+    try {
+      console.log('🔧 Auto-creating Admin HQ company...');
+      
+      // Create company
+      const newCompany = await base44.entities.Company.create({
+        company_name: 'Admin HQ',
+        contact_email: user.email,
+        contact_name: user.full_name || 'Admin',
+        subscription_tier: 'enterprise',
+        subscription_status: 'active',
+        is_active: true
+      });
+
+      console.log('✅ Admin HQ created:', newCompany.id);
+
+      // Update user profile
+      await base44.auth.updateMe({
+        company_id: newCompany.id,
+        company_name: 'Admin HQ',
+        aroof_role: 'external_roofer',
+        is_company_owner: true
+      });
+
+      console.log('✅ User profile updated with company_id');
+      
+      toast.success('Admin company created! Reloading...');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (err) {
+      console.error('Failed to create admin company:', err);
+      toast.error('Failed to auto-create company. Please contact support.');
+    }
+  };
+
   const loadDashboardData = async () => {
     setLoading(true);
     setHasError(false);
@@ -58,6 +92,13 @@ export default function RooferDashboard() {
         toast.error('Access denied. This dashboard is for external roofers only.');
         navigate(createPageUrl("Homepage"));
         return;
+      }
+
+      // Ghost Check: Auto-fix for god_admin without company
+      if (currentUser.role === 'admin' && !currentUser.company_id) {
+        console.warn('⚠️ God admin without company_id - triggering auto-repair');
+        await createAdminCompany(currentUser);
+        return; // Stop here, page will reload
       }
 
       setUser(currentUser);
