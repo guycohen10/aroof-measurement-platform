@@ -58,16 +58,17 @@ export default function TeamManager() {
         company_id: userProfile.company_id
       });
 
-      if (response.data?.error) {
-        throw new Error(response.data.error);
+      // Check for success flag in response
+      if (response.data?.success) {
+        alert(`SUCCESS! Invite sent to ${newUser.email}`);
+        setNewUser({ name: '', email: '', role: 'estimator' });
+        fetchTeam(userProfile.company_id);
+      } else {
+        setErrorMsg(response.data?.error || "Failed to send invite.");
       }
-
-      alert(`SUCCESS! Invite sent to ${newUser.email}`);
-      setNewUser({ name: '', email: '', role: 'estimator' });
-      fetchTeam(userProfile.company_id);
     } catch (err) {
       console.error("Invite Error:", err);
-      setErrorMsg(err.message || "Failed to send invite.");
+      setErrorMsg(err.message || "System error occurred.");
     } finally {
       setLoading(false);
     }
