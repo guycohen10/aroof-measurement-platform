@@ -173,15 +173,32 @@ export default function RooferDashboard() {
               </section>
 
               <section>
-                <div className="flex justify-between items-center mb-3">
-                  <h2 className="text-lg font-bold text-gray-700">🚀 Leads Pipeline</h2>
-                  <button 
-                    onClick={() => navigate(createPageUrl('NewLeadForm'))} 
-                    className="text-blue-600 text-sm font-bold hover:underline"
-                  >
-                    + Add Lead
-                  </button>
+                <div className="mb-4">
+                  <h2 className="text-lg font-bold text-gray-700 mb-3">🚀 Leads Pipeline</h2>
+                  {/* Status Filter Bar */}
+                  <div className="bg-white rounded shadow p-3 flex gap-2 flex-wrap border-b">
+                    {[
+                      { key: 'all', label: 'All', count: leads.length },
+                      { key: 'New', label: 'New', count: leads.filter(l => l.lead_status === 'New').length },
+                      { key: 'Contacted', label: 'Contacted', count: leads.filter(l => l.lead_status === 'Contacted').length },
+                      { key: 'Quoted', label: 'Quoted', count: leads.filter(l => l.lead_status === 'Quoted').length },
+                      { key: 'Sold', label: 'Sold', count: leads.filter(l => l.lead_status === 'Sold').length }
+                    ].map(status => (
+                      <button
+                        key={status.key}
+                        onClick={() => setStatusFilter(status.key)}
+                        className={`px-3 py-1.5 rounded text-sm font-bold transition-all ${
+                          statusFilter === status.key 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {status.label} ({status.count})
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
                 <div className="bg-white rounded shadow overflow-hidden">
                   {leads.length === 0 ? (
                     <div className="p-10 text-center text-gray-400">No active leads.</div>
@@ -195,24 +212,27 @@ export default function RooferDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {leads.slice(0, 5).map(lead => (
-                          <tr key={lead.id} className="hover:bg-blue-50">
-                            <td className="p-3 font-medium">{lead.name}</td>
-                            <td className="p-3">
-                              <span className="bg-gray-100 px-2 py-1 rounded text-xs font-bold">
-                                {lead.lead_status || 'New'}
-                              </span>
-                            </td>
-                            <td className="p-3">
-                              <Link 
-                                to={createPageUrl(`CustomerDetail?id=${lead.id}`)} 
-                                className="text-blue-600 font-bold text-sm hover:underline"
-                              >
-                                View
-                              </Link>
-                            </td>
-                          </tr>
-                        ))}
+                        {leads
+                          .filter(l => statusFilter === 'all' || l.lead_status === statusFilter)
+                          .slice(0, 5)
+                          .map(lead => (
+                            <tr key={lead.id} className="hover:bg-blue-50">
+                              <td className="p-3 font-medium">{lead.name}</td>
+                              <td className="p-3">
+                                <span className="bg-gray-100 px-2 py-1 rounded text-xs font-bold">
+                                  {lead.lead_status || 'New'}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <Link 
+                                  to={createPageUrl(`CustomerDetail?id=${lead.id}`)} 
+                                  className="text-blue-600 font-bold text-sm hover:underline"
+                                >
+                                  View
+                                </Link>
+                              </td>
+                            </tr>
+                          ))}
                       </tbody>
                     </table>
                   )}
