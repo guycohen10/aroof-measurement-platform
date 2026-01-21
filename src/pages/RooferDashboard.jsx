@@ -4,7 +4,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Plus, FileText, Calendar, DollarSign, Flame, MapPin, ExternalLink, Zap } from "lucide-react";
+import { Loader2, Plus, FileText, Calendar, DollarSign, Flame, MapPin, ExternalLink, Zap, X } from "lucide-react";
 import RooferSidebar from '../components/crm/RooferSidebar';
 import SalesWorkspace from '../components/crm/workspaces/SalesWorkspace';
 import CrewWorkspace from '../components/crm/workspaces/CrewWorkspace';
