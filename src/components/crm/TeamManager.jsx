@@ -9,21 +9,6 @@ import { Copy, Check } from "lucide-react";
 export default function TeamManager({ userProfile }) {
   const [copiedRole, setCopiedRole] = useState('');
 
-  // SAFETY CHECK: If userProfile is missing, show loading instead of crashing
-  if (!userProfile || !userProfile.company_id) {
-    return (
-      <div className="max-w-6xl mx-auto p-6">
-        <Card className="shadow-lg">
-          <CardContent className="p-12 text-center">
-            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-600">Loading team settings...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Safe to access properties now
   // Generate invite links for the existing JoinTeam page
   const generateInviteLink = (role) => {
     const baseUrl = window.location.origin;
