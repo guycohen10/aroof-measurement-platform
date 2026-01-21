@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, CheckCircle, Loader2, Calendar } from "lucide-react";
+import { MapPin, CheckCircle, Loader2, Calendar, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CrewWorkspace() {
@@ -118,8 +120,14 @@ export default function CrewWorkspace() {
             <Card key={job.id} className="border-2">
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-xl">{job.customer_name}</CardTitle>
+                  <div className="flex-1">
+                    <Link 
+                      to={createPageUrl(`JobDetail?id=${job.id}`)}
+                      className="text-xl font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-2"
+                    >
+                      {job.customer_name}
+                      <ExternalLink className="w-4 h-4" />
+                    </Link>
                     <p className="text-slate-600 mt-1">{job.property_address}</p>
                   </div>
                   <Badge className={statusColors[job.status] || 'bg-slate-100'}>

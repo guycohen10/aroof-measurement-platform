@@ -77,6 +77,34 @@ export default function SalesWorkspace() {
     }
   };
 
+  const createJob = async (lead) => {
+    if (!confirm('Convert this Lead to a Job?')) return;
+    
+    try {
+      const job = await base44.entities.Job.create({
+        customer_name: lead.customer_name,
+        customer_email: lead.customer_email,
+        customer_phone: lead.customer_phone,
+        property_address: lead.property_address,
+        source_lead_id: lead.id,
+        company_id: user.company_id,
+        crew_id: user.id,
+        status: 'scheduled',
+        scheduled_date: new Date().toISOString()
+      });
+      
+      await base44.entities.Measurement.update(lead.id, { 
+        lead_status: 'booked' 
+      });
+      
+      toast.success('Job created!');
+      window.location.href = createPageUrl(`JobDetail?id=${job.id}`);
+    } catch (err) {
+      toast.error('Failed to create job');
+      console.error(err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -145,7 +173,7 @@ export default function SalesWorkspace() {
                     <span>{lead.total_sqft ? `${lead.total_sqft.toFixed(0)} sqft` : 'N/A'}</span>
                   </div>
 
-                  <div className="pt-3 border-t flex gap-2">
+                  <div className="pt-3 border-t flex gap-2 flex-wrap">
                     <Button 
                       size="sm" 
                       variant="outline"
@@ -169,6 +197,13 @@ export default function SalesWorkspace() {
                     >
                       <MessageSquare className="w-4 h-4 mr-1" />
                       Note
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => createJob(lead)}
+                    >
+                      🔨 Create Job
                     </Button>
                   </div>
                 </div>
