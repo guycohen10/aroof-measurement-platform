@@ -56,54 +56,77 @@ export default function RooferSignup() {
     starter: {
       name: "Starter",
       priceMonthly: 19.95,
-      priceAnnual: 215,
-      measurements: 0,
+      priceId: "price_1Ss4y2ICVekHY0FRX1GMrOHC",
       popular: false,
+      tagline: "Essential CRM access. Pay per lead.",
       features: [
-        "7-day free trial",
-        "Dashboard access",
-        "Profile listing in directory",
-        "Lead notifications",
-        "Buy leads separately",
-        "Email support"
+        "✅ Dashboard Access",
+        "✅ Estimate Builder",
+        "✅ Measurement Tools"
       ],
-      description: "Access platform + buy leads as you need them"
+      description: "Perfect for small teams getting started"
     },
     pro: {
       name: "Pro",
       priceMonthly: 99,
-      priceAnnual: 1070,
-      measurements: 10,
+      priceId: "price_1Ss4ykICVekHY0FRDjn5nL7h",
       popular: true,
+      tagline: "The Growth Package.",
       features: [
-        "10 free leads/month",
-        "Custom branded PDFs",
-        "Priority support",
-        "API access",
-        "Advanced reports",
-        "Additional leads: $5 each"
+        "✅ Includes 3 Verified Leads/mo",
+        "✅ Priority Support",
+        "✅ Advanced Reporting",
+        "✅ All Starter Features"
       ],
-      description: "Includes 10 free leads/month + platform access"
+      description: "Most popular. Recommended for growing companies"
     },
     enterprise: {
       name: "Enterprise",
       priceMonthly: 299,
-      priceAnnual: 3230,
-      measurements: "Unlimited",
+      priceId: "price_1Ss4zSICVekHY0FRlQlfaYbM",
+      popular: false,
+      tagline: "Maximum Scale.",
       features: [
-        "Unlimited leads",
-        "White label PDFs",
-        "Dedicated support",
-        "Full API access",
-        "Custom integrations",
-        "Priority processing"
+        "✅ Includes 12 Verified Leads/mo",
+        "✅ Dedicated Account Manager",
+        "✅ API Access",
+        "✅ White-Glove Onboarding"
       ],
-      description: "Unlimited leads + premium features"
+      description: "Enterprise support and resources"
     }
   };
 
-  const getPrice = (plan) => {
-    return billingCycle === "monthly" ? plan.priceMonthly : Math.floor(plan.priceAnnual / 12);
+  const handleStartTrial = async (planKey) => {
+    try {
+      const plan = plans[planKey];
+      const user = await base44.auth.me();
+      
+      // If not logged in, show signup form
+      if (!user) {
+        setSelectedPlan(planKey);
+        setShowSignupForm(true);
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        return;
+      }
+
+      // Logged in user - create checkout session for subscription
+      setLoading(true);
+      
+      const { sessionId } = await base44.functions.invoke('createSubscriptionCheckout', {
+        price_id: plan.priceId,
+        trial_period_days: 7,
+        plan_name: plan.name
+      });
+
+      if (sessionId) {
+        window.location.href = `https://checkout.stripe.com/pay/${sessionId}`;
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      toast.error('Failed to start trial. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSelectPlan = (planKey) => {
@@ -363,9 +386,9 @@ export default function RooferSignup() {
             <Button 
               size="lg" 
               className="h-16 px-10 text-xl bg-green-600 hover:bg-green-700 shadow-2xl"
-              onClick={() => handleSelectPlan('starter')}
+              onClick={() => handleStartTrial('pro')}
             >
-              Start 7-Day Free Trial - Only $19.95/mo After
+              Start 7-Day Free Trial
             </Button>
             <Button 
               size="lg" 
@@ -373,7 +396,7 @@ export default function RooferSignup() {
               className="h-16 px-10 text-xl border-2 border-white text-white hover:bg-white/10"
               onClick={() => document.getElementById('pricing').scrollIntoView({ behavior: 'smooth' })}
             >
-              View Pricing
+              View All Plans
             </Button>
           </div>
 
@@ -455,108 +478,161 @@ export default function RooferSignup() {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-gradient-to-br from-slate-50 to-white">
+      <section id="pricing" className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-slate-900 mb-4">
-              Choose Your Plan
+          {/* Header */}
+          <div className="text-center mb-16">
+            <h2 className="text-5xl font-bold text-slate-900 mb-6">
+              Professional Roof Measurements in 60 Seconds
             </h2>
-            <p className="text-xl text-slate-600 mb-8">
-              Start free. Upgrade anytime. Cancel anytime.
+            <p className="text-2xl text-slate-600 mb-4">
+              Start your 7-Day Free Trial
             </p>
-
-            {/* Billing Toggle */}
-            <div className="flex items-center justify-center gap-4 mb-12">
-              <span className={`font-semibold ${billingCycle === 'monthly' ? 'text-blue-600' : 'text-slate-500'}`}>
-                Monthly
-              </span>
-              <button
-                onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'annual' : 'monthly')}
-                className={`relative w-14 h-8 rounded-full transition-colors ${
-                  billingCycle === 'annual' ? 'bg-green-600' : 'bg-slate-300'
-                }`}
-              >
-                <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${
-                  billingCycle === 'annual' ? 'translate-x-6' : ''
-                }`} />
-              </button>
-              <span className={`font-semibold ${billingCycle === 'annual' ? 'text-green-600' : 'text-slate-500'}`}>
-                Annual
-              </span>
-              {billingCycle === 'annual' && (
-                <Badge className="bg-green-100 text-green-800">Save 20%</Badge>
-              )}
-            </div>
+            <p className="text-lg text-slate-500">
+              No credit card required for trial. Cancel anytime.
+            </p>
           </div>
 
-          {/* Pricing Cards */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* Pricing Grid - 3 Columns */}
+          <div className="grid lg:grid-cols-3 gap-8 mb-20">
             {Object.entries(plans).map(([key, plan]) => (
               <Card 
                 key={key} 
-                className={`relative border-2 hover:shadow-xl transition-all ${
-                  plan.popular ? 'border-blue-600 shadow-lg' : 'border-slate-200'
+                className={`relative flex flex-col border-2 hover:shadow-2xl transition-all ${
+                  plan.popular ? 'border-blue-600 shadow-xl scale-105 lg:scale-100' : 'border-slate-200'
                 }`}
               >
+                {/* Most Popular Badge */}
                 {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-blue-600 text-white px-4 py-1 text-sm">
-                      Most Popular
+                  <div className="absolute -top-5 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2 text-sm font-bold">
+                      ⭐ MOST POPULAR
                     </Badge>
                   </div>
                 )}
                 
-                <CardHeader className="text-center pb-8">
-                  <CardTitle className="text-2xl mb-2">{plan.name}</CardTitle>
-                  <div className="mb-4">
-                    <span className="text-5xl font-bold text-slate-900">
-                      ${getPrice(plan)}
-                    </span>
-                    <span className="text-slate-600">/month</span>
-                  </div>
-                  {billingCycle === 'annual' && plan.priceAnnual > 0 && (
-                    <p className="text-sm text-green-600">
-                      ${plan.priceAnnual}/year (save ${(plan.priceMonthly * 12) - plan.priceAnnual})
+                <CardHeader className={`pb-6 ${plan.popular ? 'bg-gradient-to-br from-blue-50 to-blue-100/50' : ''}`}>
+                  <CardTitle className="text-3xl font-bold text-slate-900 mb-2">
+                    {plan.name}
+                  </CardTitle>
+                  <p className="text-lg text-slate-700 font-semibold mb-6">
+                    {plan.tagline}
+                  </p>
+                  
+                  <div className="space-y-2 mb-6">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-5xl font-bold text-slate-900">
+                        ${plan.priceMonthly}
+                      </span>
+                      <span className="text-xl text-slate-600">/month</span>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      Billed monthly. Cancel anytime.
                     </p>
-                  )}
-                  <p className="text-sm text-slate-600 italic mb-2">
-                    {plan.description}
-                  </p>
-                  <p className="text-lg font-semibold text-blue-600 mt-2">
-                    {plan.measurements === "Unlimited" ? "Unlimited leads" : 
-                     plan.measurements === 0 ? "Pay per lead" : 
-                     `${plan.measurements} free leads/month`}
-                  </p>
+                  </div>
                 </CardHeader>
 
-                <CardContent className="space-y-6">
-                  <ul className="space-y-3">
+                <CardContent className="flex-1 flex flex-col space-y-6">
+                  {/* Features List */}
+                  <ul className="space-y-4 flex-1">
                     {plan.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                        <span className="text-sm text-slate-700">{feature}</span>
+                      <li key={idx} className="flex items-start gap-3">
+                        <span className="text-2xl text-green-600 flex-shrink-0">✓</span>
+                        <span className="text-base text-slate-700 font-medium">{feature}</span>
                       </li>
                     ))}
                   </ul>
 
+                  {/* CTA Button */}
                   <Button
-                    className={`w-full h-12 ${
+                    size="lg"
+                    className={`w-full h-14 text-lg font-bold transition-all ${
                       plan.popular 
-                        ? 'bg-blue-600 hover:bg-blue-700' 
-                        : 'bg-slate-900 hover:bg-slate-800'
+                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg' 
+                        : 'bg-slate-900 hover:bg-slate-800 text-white'
                     }`}
-                    onClick={() => handleSelectPlan(key)}
+                    onClick={() => handleStartTrial(key)}
+                    disabled={loading}
                   >
-                    {key === 'starter' ? 'Start 7-Day Free Trial' : `Start Trial - $${plan.priceMonthly}/mo`}
+                    Start 7-Day Free Trial
                   </Button>
+
+                  <p className="text-xs text-center text-slate-500">
+                    No credit card required
+                  </p>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          <p className="text-center text-slate-600 mt-8">
-            Starter plan includes a 7-day free trial. Credit card required but not charged during trial.
-          </p>
+          {/* Trust Indicators */}
+          <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl p-8 border border-slate-200">
+            <p className="text-center text-slate-600 mb-8 text-lg font-semibold">
+              Trusted by 150+ roofing contractors
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="text-center">
+                <p className="text-4xl font-bold text-blue-600 mb-2">5,000+</p>
+                <p className="text-slate-700 font-medium">Measurements Completed</p>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-bold text-blue-600 mb-2">98%</p>
+                <p className="text-slate-700 font-medium">Customer Satisfaction</p>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-bold text-blue-600 mb-2">±2-5%</p>
+                <p className="text-slate-700 font-medium">Measurement Accuracy</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Social Proof - Testimonials */}
+      <section className="py-20 bg-slate-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h3 className="text-4xl font-bold text-slate-900 mb-4">Trusted by 150+ Roofers</h3>
+            <p className="text-xl text-slate-600">See what contractors are saying about Aroof</p>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-8">
+            {[
+              {
+                name: "Mike Rodriguez",
+                company: "Rodriguez Roofing",
+                text: "Cut my estimate time in half. I close 30% more leads every month since switching to Aroof.",
+                rating: 5
+              },
+              {
+                name: "Sarah Chen",
+                company: "Premium Roofing Co",
+                text: "The accuracy is incredible. Used it on 50+ jobs—always within 2-3% of final measurements.",
+                rating: 5
+              },
+              {
+                name: "Tom Anderson",
+                company: "Anderson Brothers Roofing",
+                text: "Best investment. The Pro plan pays for itself with just 2 extra jobs closed per month.",
+                rating: 5
+              }
+            ].map((testimonial, idx) => (
+              <Card key={idx} className="border-slate-200 hover:shadow-lg transition-all">
+                <CardContent className="p-6">
+                  <div className="flex gap-1 mb-4">
+                    {[...Array(testimonial.rating)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                    ))}
+                  </div>
+                  <p className="text-slate-700 mb-6 italic text-lg">"{testimonial.text}"</p>
+                  <div className="border-t pt-4">
+                    <p className="font-bold text-slate-900">{testimonial.name}</p>
+                    <p className="text-sm text-slate-600">{testimonial.company}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -749,10 +825,7 @@ export default function RooferSignup() {
                  </Button>
 
                  <p className="text-center text-sm text-slate-600">
-                   {selectedPlan === 'starter' 
-                     ? 'You won\'t be charged until after your 7-day trial ends'
-                     : 'Credit card required. First charge after trial period.'
-                   }
+                   You won't be charged during your 7-day trial
                  </p>
                 </CardContent>
                 </Card>
@@ -830,56 +903,13 @@ export default function RooferSignup() {
                 </section>
                 )}
 
-      {/* Testimonials */}
-      <section className="py-20 bg-slate-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">Trusted by Roofing Professionals</h2>
-            <p className="text-xl text-slate-300">See what other contractors are saying</p>
-          </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                name: "Mike Rodriguez",
-                company: "Rodriguez Roofing",
-                text: "This tool has cut my estimate time in half. I can respond to leads within minutes now instead of scheduling site visits for days later."
-              },
-              {
-                name: "Sarah Chen",
-                company: "Premium Roofing Co",
-                text: "The accuracy is impressive. We've used it for 50+ jobs and it's always within 2-3% of our final measurements."
-              },
-              {
-                name: "Tom Anderson",
-                company: "Anderson Brothers Roofing",
-                text: "Best $99 I spend every month. The Pro plan pays for itself with just 2 extra jobs closed per month."
-              }
-            ].map((testimonial, idx) => (
-              <Card key={idx} className="bg-white/10 border-white/20 text-white">
-                <CardContent className="p-6">
-                  <div className="flex gap-1 mb-4">
-                    {[1,2,3,4,5].map((i) => (
-                      <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                    ))}
-                  </div>
-                  <p className="text-slate-200 mb-4 italic">"{testimonial.text}"</p>
-                  <div>
-                    <p className="font-bold">{testimonial.name}</p>
-                    <p className="text-sm text-slate-400">{testimonial.company}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Final CTA */}
       <section className="py-20 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            Ready to Measure Faster?
+            Ready to Close More Roofing Deals?
           </h2>
           <p className="text-2xl text-blue-100 mb-10">
             Join 150+ roofing companies using Aroof
@@ -887,9 +917,9 @@ export default function RooferSignup() {
           <Button
             size="lg"
             className="h-16 px-12 text-xl bg-white text-blue-600 hover:bg-blue-50"
-            onClick={() => handleSelectPlan('starter')}
+            onClick={() => handleStartTrial('pro')}
           >
-            Start 7-Day Free Trial - Only $19.95/mo
+            Start 7-Day Free Trial
           </Button>
         </div>
       </section>

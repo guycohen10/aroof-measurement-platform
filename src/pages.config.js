@@ -58,6 +58,7 @@ import NaturalSlate from './pages/NaturalSlate';
 import NewLeadForm from './pages/NewLeadForm';
 import PDFDownload from './pages/PDFDownload';
 import Payment from './pages/Payment';
+import PaymentSuccess from './pages/PaymentSuccess';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import QuoteBuilder from './pages/QuoteBuilder';
 import QuoteManager from './pages/QuoteManager';
@@ -98,7 +99,6 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
-import PaymentSuccess from './pages/PaymentSuccess';
 import __Layout from './Layout.jsx';
 
 
@@ -163,6 +163,7 @@ export const PAGES = {
     "NewLeadForm": NewLeadForm,
     "PDFDownload": PDFDownload,
     "Payment": Payment,
+    "PaymentSuccess": PaymentSuccess,
     "PrivacyPolicy": PrivacyPolicy,
     "QuoteBuilder": QuoteBuilder,
     "QuoteManager": QuoteManager,
@@ -203,7 +204,6 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "WalletHistory": WalletHistory,
     "Windows": Windows,
-    "PaymentSuccess": PaymentSuccess,
 }
 
 export const pagesConfig = {
