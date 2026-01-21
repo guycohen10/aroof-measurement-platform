@@ -20,6 +20,7 @@ export default function RooferDashboard() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [appointments, setAppointments] = useState([]);
   const [hotLeads, setHotLeads] = useState([]);
+  const [showAIEstimator, setShowAIEstimator] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -150,7 +151,7 @@ export default function RooferDashboard() {
           </div>
 
           {/* 4. QUICK ACTIONS ROW */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Link to={createPageUrl('NewLeadForm')} className="block">
               <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2 h-12">
                 <Plus className="w-5 h-5" />
@@ -175,6 +176,13 @@ export default function RooferDashboard() {
                 Invoices
               </Button>
             </Link>
+            <Button
+              onClick={() => setShowAIEstimator(true)}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2 h-12"
+            >
+              <Zap className="w-5 h-5" />
+              AI Estimate
+            </Button>
           </div>
 
           {/* 4. WIDGETS AREA */}
