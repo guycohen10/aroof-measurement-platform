@@ -41,6 +41,7 @@ import Insurance from './pages/Insurance';
 import InvoiceManager from './pages/InvoiceManager';
 import JobBoard from './pages/JobBoard';
 import JobScheduling from './pages/JobScheduling';
+import JoinTeam from './pages/JoinTeam';
 import LeadManagement from './pages/LeadManagement';
 import LeaveReview from './pages/LeaveReview';
 import MaintenancePlans from './pages/MaintenancePlans';
@@ -88,7 +89,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
-import JoinTeam from './pages/JoinTeam';
+import MyProfile from './pages/MyProfile';
 import __Layout from './Layout.jsx';
 
 
@@ -136,6 +137,7 @@ export const PAGES = {
     "InvoiceManager": InvoiceManager,
     "JobBoard": JobBoard,
     "JobScheduling": JobScheduling,
+    "JoinTeam": JoinTeam,
     "LeadManagement": LeadManagement,
     "LeaveReview": LeaveReview,
     "MaintenancePlans": MaintenancePlans,
@@ -183,7 +185,7 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "WalletHistory": WalletHistory,
     "Windows": Windows,
-    "JoinTeam": JoinTeam,
+    "MyProfile": MyProfile,
 }
 
 export const pagesConfig = {
