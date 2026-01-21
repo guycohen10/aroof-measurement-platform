@@ -366,7 +366,7 @@ export default function RooferDashboard() {
           </div>
 
           {/* Company Header */}
-        {user?.company_id && (
+          {user?.company_id && (
           <Card className="shadow-lg mb-8 bg-gradient-to-br from-blue-50 to-white">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -394,10 +394,10 @@ export default function RooferDashboard() {
               </div>
             </CardContent>
           </Card>
-        )}
+          )}
 
-        {/* Admin Quick Actions - Direct Access to Management */}
-        {(user?.aroof_role?.includes('roofer') || user?.aroof_role?.includes('owner') || user?.role === 'admin') && (
+          {/* Admin Quick Actions - Direct Access to Management */}
+          {(user?.aroof_role?.includes('roofer') || user?.aroof_role?.includes('owner') || user?.role === 'admin') && (
           <Card className="shadow-lg mb-8 bg-gradient-to-br from-purple-50 to-white border-2 border-purple-200">
             <CardContent className="p-6">
               <h3 className="text-xl font-bold text-slate-900 mb-4">Company Management</h3>
@@ -425,10 +425,10 @@ export default function RooferDashboard() {
               </div>
             </CardContent>
           </Card>
-        )}
+          )}
 
-        {/* Usage Alert */}
-        {nearLimit && user.subscription_plan !== 'unlimited' && (
+          {/* Usage Alert */}
+          {nearLimit && user.subscription_plan !== 'unlimited' && (
           <Card className="mb-8 border-orange-200 bg-orange-50">
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
@@ -449,10 +449,10 @@ export default function RooferDashboard() {
               </div>
             </CardContent>
           </Card>
-        )}
+          )}
 
-        {/* Top Row - Quick Actions */}
-        <div className="grid lg:grid-cols-4 gap-6 mb-8">
+          {/* Top Row - Quick Actions */}
+          <div className="grid lg:grid-cols-4 gap-6 mb-8">
           {/* Quick Measure */}
           <Card className="lg:col-span-2 shadow-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
             <CardContent className="p-8">
@@ -562,15 +562,15 @@ export default function RooferDashboard() {
               )}
             </CardContent>
           </Card>
-        </div>
+          </div>
 
-        {/* Team Activity Feed */}
-        <div className="mb-8">
-          <TeamActivityFeed />
-        </div>
+          {/* Team Activity Feed */}
+          <div className="mb-8">
+            <TeamActivityFeed />
+          </div>
 
-        {/* Recent Measurements */}
-        <Card className="shadow-lg mb-8">
+          {/* Recent Measurements */}
+          <Card className="shadow-lg mb-8">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Measurements & Leads</CardTitle>
@@ -712,11 +712,11 @@ export default function RooferDashboard() {
 
         {/* Security Settings */}
         <div className="mb-8">
-          <SecuritySettings />
-        </div>
+            <SecuritySettings />
+          </div>
 
-        {/* Billing Card */}
-        <Card className="shadow-lg">
+          {/* Billing Card */}
+          <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="w-5 h-5" />
@@ -767,7 +767,7 @@ export default function RooferDashboard() {
               )}
             </div>
           </CardContent>
-        </Card>
+          </Card>
 
           {showTakeoffModal && (
             <ProposalWizard
