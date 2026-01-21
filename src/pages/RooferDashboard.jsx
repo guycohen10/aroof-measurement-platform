@@ -9,6 +9,7 @@ import SalesWorkspace from '../components/crm/workspaces/SalesWorkspace';
 import CrewWorkspace from '../components/crm/workspaces/CrewWorkspace';
 import ActionCenter from '../components/crm/ActionCenter';
 import TeamActivityFeed from '../components/crm/TeamActivityFeed';
+import NotificationBell from '../components/crm/NotificationBell';
 
 export default function RooferDashboard() {
   const navigate = useNavigate();
