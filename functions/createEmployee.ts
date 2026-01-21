@@ -21,17 +21,11 @@ Deno.serve(async (req) => {
 
     const { email, name, role, company_id } = await req.json();
 
-    console.log("INVITE ATTEMPT:", { email, name, role, company_id });
+    console.log("Creating User Entity:", email);
 
     // Validate required fields
     if (!email) {
       return Response.json({ success: false, error: 'Email is required' }, { status: 400 });
-    }
-    if (!name) {
-      return Response.json({ success: false, error: 'Name is required' }, { status: 400 });
-    }
-    if (!role) {
-      return Response.json({ success: false, error: 'Role is required' }, { status: 400 });
     }
 
     // Verify the requesting user has permission for this company
@@ -39,60 +33,35 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Cannot invite users to other companies' }, { status: 403 });
     }
 
-    // Get the app URL for redirect
-    const appUrl = Deno.env.get('BASE44_APP_URL') || 'aroof.build';
-    const protocol = appUrl.includes('localhost') ? 'http://' : 'https://';
-    const redirectUrl = `${protocol}${appUrl}/rooferlogin`;
-
-    console.log('Redirect URL:', redirectUrl);
-
-    // Use service role to invite user with proper redirect URL
-    await base44.asServiceRole.users.inviteUser(email, 'user', redirectUrl);
-    
-    console.log('Invite sent, waiting for user creation...');
-    
-    // Wait for user creation
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Find and update the newly created user with full profile
-    const allUsers = await base44.asServiceRole.entities.User.list();
-    const newUser = allUsers.find(u => u.email === email);
-    
-    if (!newUser) {
-      console.warn('User invited but not found immediately');
-      return Response.json({ 
-        success: true,
-        message: 'Invite sent. User profile will be updated when they accept.'
-      });
-    }
-
-    // Update with company details and role
-    await base44.asServiceRole.entities.User.update(newUser.id, {
-      full_name: name,
+    // PERMANENT FIX: Use core entity creation method
+    // This writes directly to the User table with service role privileges
+    const result = await base44.asServiceRole.entities.User.create({
+      email: email,
+      full_name: name || 'New Employee',
+      role: 'user',
       company_id: company_id,
       company_name: user.company_name,
       aroof_role: role,
       is_company_owner: false
     });
 
-    console.log('User profile updated successfully');
+    console.log('User created successfully:', result.id);
 
-    return Response.json({ 
+    return { 
       success: true, 
+      id: result.id,
       user: {
-        id: newUser.id,
+        id: result.id,
         email: email,
         full_name: name
-      },
-      message: 'Invite sent successfully'
-    });
+      }
+    };
 
   } catch (error) {
-    console.error('INVITE FAILED:', error);
-    // Return clean error response without 500 status to prevent crash loops
+    console.error('ENTITY CREATE FAILED:', error);
     return Response.json({ 
       success: false,
-      error: error.message || 'Failed to invite user'
-    }, { status: 200 }); // Return 200 with success:false instead of 500
+      error: error.message || 'Failed to create User entity'
+    }, { status: 200 });
   }
 });
