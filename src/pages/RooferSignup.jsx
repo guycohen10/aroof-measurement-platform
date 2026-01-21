@@ -184,9 +184,12 @@ export default function RooferSignup() {
 
       // Step 1: Sign up user
       await base44.auth.signUp({
-        email: registrationData.email,
+        username: registrationData.email,
         password: registrationData.password,
-        full_name: registrationData.fullName
+        attributes: {
+          name: registrationData.fullName,
+          email: registrationData.email
+        }
       });
 
       console.log('✅ Sign up successful. Waiting for email verification...');
@@ -230,7 +233,7 @@ export default function RooferSignup() {
 
       // Step 2: Sign in user
       await base44.auth.signIn({
-        email: pendingEmail,
+        username: pendingEmail,
         password: pendingPassword
       });
 
