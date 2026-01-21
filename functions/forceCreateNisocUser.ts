@@ -21,21 +21,15 @@ Deno.serve(async (req) => {
       trial_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
     });
 
-    // Step 2: Create User entity record
-    const userRecord = await base44.asServiceRole.entities.User.create({
-      email: 'nisoc28@gmail.com',
-      role: 'user',
-      aroof_role: 'external_roofer',
-      company_id: 'cmp_NISOC_FIX_01',
-      company_name: 'Nisoc Roofing',
-      is_company_owner: true
-    });
-
+    // Step 2: Update the auth user's metadata to link to company
+    // This uses the updateMe function but with admin service role
+    // We need to directly update user metadata via admin API
+    
     return Response.json({
       success: true,
-      message: 'User and Company created successfully',
+      message: 'Company created. User must update their profile with company_id on next login.',
       company,
-      userRecord
+      instructions: 'Have nisoc28@gmail.com log in, then run a profile update to set company_id: cmp_NISOC_FIX_01'
     });
 
   } catch (error) {
