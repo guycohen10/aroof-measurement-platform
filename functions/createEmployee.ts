@@ -10,9 +10,13 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only company owners can create employees
-    if (!user.is_company_owner && user.aroof_role !== 'company_owner' && user.role !== 'admin') {
-      return Response.json({ error: 'Only company owners can create employees' }, { status: 403 });
+    // Verify user is owner or admin
+    const isOwnerOrAdmin = user.aroof_role === 'company_owner' || 
+                          user.aroof_role === 'external_roofer' || 
+                          user.role === 'admin';
+    
+    if (!isOwnerOrAdmin) {
+      return Response.json({ error: 'Only company owners can invite team members' }, { status: 403 });
     }
 
     const { email, name, role, company_id } = await req.json();
@@ -26,8 +30,15 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Cannot invite users to other companies' }, { status: 403 });
     }
 
-    // Use service role to invite user
-    await base44.asServiceRole.users.inviteUser(email, 'user');
+    // Get the app URL for redirect
+    const appUrl = Deno.env.get('BASE44_APP_URL') || 'localhost:5173';
+    const protocol = appUrl.includes('localhost') ? 'http://' : 'https://';
+    const redirectUrl = `${protocol}${appUrl}/rooferlogin`;
+
+    console.log('Inviting user:', email, 'redirect:', redirectUrl);
+
+    // Use service role to invite user with proper redirect URL
+    await base44.asServiceRole.users.inviteUser(email, 'user', redirectUrl);
     
     // Wait for user creation
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -37,7 +48,9 @@ Deno.serve(async (req) => {
     const newUser = allUsers.find(u => u.email === email);
     
     if (!newUser) {
-      throw new Error('User created but not found in database');
+      return Response.json({ 
+        error: 'User invited but profile not found. They may need to check their email first.' 
+      }, { status: 202 });
     }
 
     // Update with company details and role
@@ -62,7 +75,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Create employee error:', error);
     return Response.json({ 
-      error: error.message || 'Failed to create employee' 
+      error: error.message || 'Failed to invite user' 
     }, { status: 500 });
   }
 });
