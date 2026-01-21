@@ -10,6 +10,9 @@ import { Progress } from "@/components/ui/progress";
 import ProposalWizard from "../components/leads/ProposalWizard";
 import SecuritySettings from "../components/auth/SecuritySettings";
 import RooferSidebar from "../components/crm/RooferSidebar";
+import RoleGuard from "../components/crm/RoleGuard";
+import SalesWorkspace from "../components/crm/workspaces/SalesWorkspace";
+import CrewWorkspace from "../components/crm/workspaces/CrewWorkspace";
 import { 
   Home,
   Zap,
@@ -250,6 +253,30 @@ export default function RooferDashboard() {
   const usagePercent = user.subscription_plan === 'unlimited' ? 0 : Math.min(100, (used / limit) * 100);
   const nearLimit = usagePercent > 80;
 
+  // ROLE-BASED WORKSPACE ROUTING
+  const userRole = user.aroof_role || user.role;
+  const isOwner = userRole === 'admin' || userRole === 'external_roofer';
+  const isSales = userRole === 'sales' || userRole === 'estimator';
+  const isCrew = userRole === 'crew';
+
+  // Route to specialized workspaces
+  if (isSales) {
+    return (
+      <RoleGuard>
+        <SalesWorkspace />
+      </RoleGuard>
+    );
+  }
+
+  if (isCrew) {
+    return (
+      <RoleGuard>
+        <CrewWorkspace />
+      </RoleGuard>
+    );
+  }
+
+  // Owner/Admin sees full dashboard
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       {/* Sidebar */}
