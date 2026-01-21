@@ -254,29 +254,75 @@ export default function RooferDashboard() {
               </section>
             </div>
 
-            {/* Right: Today's Schedule */}
-            <div>
-              <h2 className="text-lg font-bold mb-3 text-gray-700">📅 Today's Schedule</h2>
-              <div className="bg-white rounded shadow overflow-hidden">
-                {appointments.length === 0 ? (
-                  <div className="p-6 text-center text-gray-400">
-                    <Calendar className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                    <p>No appointments today</p>
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {appointments.map((apt, i) => (
-                      <div key={i} className="p-4 hover:bg-blue-50 transition-colors border-l-4 border-blue-500">
-                        <div className="font-bold text-sm text-gray-900">{apt.appointment_time}</div>
-                        <div className="text-sm text-gray-700 mt-1">{apt.customer_name}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{apt.property_address}</div>
-                        <div className="text-xs text-blue-600 font-bold mt-2">
-                          {apt.status === 'confirmed' ? '✓ Confirmed' : '○ Pending'}
+            {/* Right: Today's Schedule + Hot Leads */}
+            <div className="space-y-6">
+              {/* Schedule */}
+              <div>
+                <h2 className="text-lg font-bold mb-3 text-gray-700">📅 Today's Schedule</h2>
+                <div className="bg-white rounded shadow overflow-hidden">
+                  {appointments.length === 0 ? (
+                    <div className="p-6 text-center text-gray-400">
+                      <Calendar className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      <p>No appointments today</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {appointments.map((apt, i) => (
+                        <div key={i} className="p-4 hover:bg-blue-50 transition-colors border-l-4 border-blue-500">
+                          <div className="font-bold text-sm text-gray-900">{apt.appointment_time}</div>
+                          <div className="text-sm text-gray-700 mt-1">{apt.customer_name}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{apt.property_address}</div>
+                          <div className="text-xs text-blue-600 font-bold mt-2">
+                            {apt.status === 'confirmed' ? '✓ Confirmed' : '○ Pending'}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Hot Leads */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Flame className="w-5 h-5 text-orange-500" />
+                  <h2 className="text-lg font-bold text-gray-700">Hot Leads</h2>
+                </div>
+                <div className="space-y-2">
+                  {hotLeads.length === 0 ? (
+                    <Card>
+                      <CardContent className="p-4 text-center text-gray-400 text-sm">
+                        No hot leads available
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    hotLeads.map(lead => (
+                      <Card key={lead.id} className="border-l-4 border-orange-500 hover:shadow-md transition-all">
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                                <span className="font-bold text-sm text-gray-900">{lead.zip_code}</span>
+                              </div>
+                              <p className="text-xs text-gray-600 mb-2">{lead.service_needed}</p>
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-lg font-bold text-green-600">${lead.price.toFixed(2)}</span>
+                                <span className="text-xs text-gray-500">lead</span>
+                              </div>
+                            </div>
+                            <Link to={createPageUrl('RooferBrowseLeads')}>
+                              <Button size="sm" variant="outline" className="gap-1 flex-shrink-0">
+                                <ExternalLink className="w-3 h-3" />
+                                View
+                              </Button>
+                            </Link>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>
