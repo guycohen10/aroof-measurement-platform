@@ -107,17 +107,21 @@ export default function RooferDashboard() {
         </header>
 
         <main className="p-6 space-y-6">
-          
-          {/* 3. STATS GRID (Restored) */}
+
+          {/* 3. STATS GRID */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded shadow border-l-4 border-green-500">
-              <div className="text-gray-500 text-xs font-bold uppercase">Monthly Revenue</div>
-              <div className="text-2xl font-bold text-gray-800">${stats.revenue.toLocaleString()}</div>
-            </div>
-            <div className="bg-white p-4 rounded shadow border-l-4 border-blue-500">
-              <div className="text-gray-500 text-xs font-bold uppercase">Active Jobs</div>
-              <div className="text-2xl font-bold text-gray-800">{stats.activeJobs}</div>
-            </div>
+            <Link to={createPageUrl('Financials')} className="block">
+              <div className="bg-white p-4 rounded shadow border-l-4 border-green-500 hover:shadow-lg hover:scale-105 transition-all cursor-pointer">
+                <div className="text-gray-500 text-xs font-bold uppercase">Monthly Revenue</div>
+                <div className="text-2xl font-bold text-gray-800">${stats.revenue.toLocaleString()}</div>
+              </div>
+            </Link>
+            <Link to={createPageUrl('JobBoard')} className="block">
+              <div className="bg-white p-4 rounded shadow border-l-4 border-blue-500 hover:shadow-lg hover:scale-105 transition-all cursor-pointer">
+                <div className="text-gray-500 text-xs font-bold uppercase">Active Jobs</div>
+                <div className="text-2xl font-bold text-gray-800">{stats.activeJobs}</div>
+              </div>
+            </Link>
             <div className="bg-white p-4 rounded shadow border-l-4 border-purple-500">
               <div className="text-gray-500 text-xs font-bold uppercase">Win Rate</div>
               <div className="text-2xl font-bold text-gray-800">{stats.winRate}%</div>
@@ -129,6 +133,34 @@ export default function RooferDashboard() {
                 <div className="text-blue-600 font-bold text-sm">Manage Team</div>
               </div>
             </div>
+          </div>
+
+          {/* 4. QUICK ACTIONS ROW */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Link to={createPageUrl('NewLeadForm')} className="block">
+              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2 h-12">
+                <Plus className="w-5 h-5" />
+                New Lead
+              </Button>
+            </Link>
+            <Link to={createPageUrl('QuoteBuilder')} className="block">
+              <Button className="w-full bg-green-600 hover:bg-green-700 text-white gap-2 h-12">
+                <FileText className="w-5 h-5" />
+                New Estimate
+              </Button>
+            </Link>
+            <Link to={createPageUrl('JobScheduling')} className="block">
+              <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white gap-2 h-12">
+                <Calendar className="w-5 h-5" />
+                Calendar
+              </Button>
+            </Link>
+            <Link to={createPageUrl('InvoiceManager')} className="block">
+              <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white gap-2 h-12">
+                <DollarSign className="w-5 h-5" />
+                Invoices
+              </Button>
+            </Link>
           </div>
 
           {/* 4. WIDGETS AREA */}
