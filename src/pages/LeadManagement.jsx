@@ -8,7 +8,6 @@ import { Home, List, LayoutGrid, TrendingUp, Users, CheckCircle, DollarSign, Loa
 import { toast } from "sonner";
 import LeadPipelineView from "../components/leads/LeadPipelineView";
 import LeadTableView from "../components/leads/LeadTableView";
-import LeadDetailModal from "../components/leads/LeadDetailModal";
 
 export default function LeadManagement() {
   const navigate = useNavigate();
@@ -104,8 +103,7 @@ export default function LeadManagement() {
   };
 
   const handleLeadClick = (lead) => {
-    setSelectedLead(lead);
-    setShowDetailModal(true);
+    navigate(createPageUrl(`CustomerDetail?id=${lead.id}`));
   };
 
   const stats = {
@@ -274,13 +272,7 @@ export default function LeadManagement() {
         )}
       </div>
 
-      {/* Lead Detail Modal */}
-      <LeadDetailModal
-        lead={selectedLead}
-        isOpen={showDetailModal}
-        onClose={() => setShowDetailModal(false)}
-        onUpdate={loadData}
-      />
+      {/* Lead Detail Modal - Removed, use CustomerDetail page instead */}
     </div>
   );
 }
