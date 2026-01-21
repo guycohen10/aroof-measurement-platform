@@ -19,6 +19,7 @@ import ConcreteTile from './pages/ConcreteTile';
 import ContactInfoPage from './pages/ContactInfoPage';
 import CrewDashboard from './pages/CrewDashboard';
 import CrewManagement from './pages/CrewManagement';
+import CustomerDetail from './pages/CustomerDetail';
 import CustomerPortal from './pages/CustomerPortal';
 import DispatchDashboard from './pages/DispatchDashboard';
 import DispatchJobDetail from './pages/DispatchJobDetail';
@@ -48,6 +49,7 @@ import MaintenancePlans from './pages/MaintenancePlans';
 import MeasurementPage from './pages/MeasurementPage';
 import MetalShingles from './pages/MetalShingles';
 import MetalStandingSeam from './pages/MetalStandingSeam';
+import MyProfile from './pages/MyProfile';
 import NaturalSlate from './pages/NaturalSlate';
 import NewLeadForm from './pages/NewLeadForm';
 import PDFDownload from './pages/PDFDownload';
@@ -89,8 +91,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
-import MyProfile from './pages/MyProfile';
-import CustomerDetail from './pages/CustomerDetail';
+import JobDetail from './pages/JobDetail';
 import __Layout from './Layout.jsx';
 
 
@@ -116,6 +117,7 @@ export const PAGES = {
     "ContactInfoPage": ContactInfoPage,
     "CrewDashboard": CrewDashboard,
     "CrewManagement": CrewManagement,
+    "CustomerDetail": CustomerDetail,
     "CustomerPortal": CustomerPortal,
     "DispatchDashboard": DispatchDashboard,
     "DispatchJobDetail": DispatchJobDetail,
@@ -145,6 +147,7 @@ export const PAGES = {
     "MeasurementPage": MeasurementPage,
     "MetalShingles": MetalShingles,
     "MetalStandingSeam": MetalStandingSeam,
+    "MyProfile": MyProfile,
     "NaturalSlate": NaturalSlate,
     "NewLeadForm": NewLeadForm,
     "PDFDownload": PDFDownload,
@@ -186,8 +189,7 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "WalletHistory": WalletHistory,
     "Windows": Windows,
-    "MyProfile": MyProfile,
-    "CustomerDetail": CustomerDetail,
+    "JobDetail": JobDetail,
 }
 
 export const pagesConfig = {
