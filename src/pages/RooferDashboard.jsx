@@ -240,10 +240,30 @@ export default function RooferDashboard() {
               </section>
             </div>
 
-            {/* Right: Team Feed */}
+            {/* Right: Today's Schedule */}
             <div>
-              <h2 className="text-lg font-bold mb-3 text-gray-700">📡 Team Activity</h2>
-              <TeamActivityFeed companyId={user.company_id} />
+              <h2 className="text-lg font-bold mb-3 text-gray-700">📅 Today's Schedule</h2>
+              <div className="bg-white rounded shadow overflow-hidden">
+                {appointments.length === 0 ? (
+                  <div className="p-6 text-center text-gray-400">
+                    <Calendar className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                    <p>No appointments today</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {appointments.map((apt, i) => (
+                      <div key={i} className="p-4 hover:bg-blue-50 transition-colors border-l-4 border-blue-500">
+                        <div className="font-bold text-sm text-gray-900">{apt.appointment_time}</div>
+                        <div className="text-sm text-gray-700 mt-1">{apt.customer_name}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{apt.property_address}</div>
+                        <div className="text-xs text-blue-600 font-bold mt-2">
+                          {apt.status === 'confirmed' ? '✓ Confirmed' : '○ Pending'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </main>
