@@ -11,7 +11,6 @@ export default function TeamManager() {
   const [newUser, setNewUser] = useState({ 
     name: '', 
     email: '', 
-    password: '',
     role: 'estimator' 
   });
   const [errorMsg, setErrorMsg] = useState('');
@@ -44,30 +43,36 @@ export default function TeamManager() {
     }
   };
 
-  const handleCreateUser = async (e) => {
+  const handleInvite = async (e) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg('');
 
     try {
-      // Call backend function with service role permissions
-      const response = await base44.functions.invoke('createEmployee', {
-        email: newUser.email,
-        password: newUser.password,
-        name: newUser.name,
-        role: newUser.role
-      });
-
-      if (response.data.error) {
-        throw new Error(response.data.error);
+      // Use Base44's native invite function
+      await base44.users.inviteUser(newUser.email, 'user');
+      
+      // Update the invited user's profile with additional details
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const allUsers = await base44.entities.User.list();
+      const invitedUser = allUsers.find(u => u.email === newUser.email);
+      
+      if (invitedUser) {
+        await base44.entities.User.update(invitedUser.id, {
+          full_name: newUser.name,
+          company_id: userProfile.company_id,
+          company_name: userProfile.company_name,
+          aroof_role: newUser.role
+        });
       }
 
-      alert(`SUCCESS! Account Created.\n\nLogin: ${newUser.email}\nPassword: ${newUser.password}\n\n(Copy these credentials now!)`);
-      setNewUser({ name: '', email: '', password: '', role: 'estimator' });
+      alert(`INVITE SENT!\n\nAn email has been sent to ${newUser.email}.\nThey will receive a link to set their password and join your team.`);
+      setNewUser({ name: '', email: '', role: 'estimator' });
       fetchTeam(userProfile.company_id);
     } catch (err) {
-      console.error("Creation Error:", err);
-      setErrorMsg(err.message || "Failed to create user. Email may already exist.");
+      console.error("Invite Error:", err);
+      setErrorMsg(err.message || "Failed to send invite. Email may already be in use.");
     } finally {
       setLoading(false);
     }
@@ -95,8 +100,9 @@ export default function TeamManager() {
             </div>
           )}
           
-          <form onSubmit={handleCreateUser} className="mb-8 bg-blue-50 p-6 rounded border border-blue-100">
-            <h3 className="font-bold text-lg mb-4 text-blue-900">Add New Employee</h3>
+          <form onSubmit={handleInvite} className="mb-8 bg-blue-50 p-6 rounded border border-blue-100">
+            <h3 className="font-bold text-lg mb-4 text-blue-900">Invite New Employee</h3>
+            <p className="text-sm text-gray-600 mb-4">They will receive an email to set their own password</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <input 
                 className="p-3 border rounded w-full" 
@@ -105,7 +111,7 @@ export default function TeamManager() {
                 value={newUser.name} 
                 onChange={e => setNewUser({...newUser, name: e.target.value})} 
               />
-              
+
               <select 
                 className="p-3 border rounded w-full" 
                 value={newUser.role} 
@@ -117,31 +123,21 @@ export default function TeamManager() {
                 <option value="external_roofer">Roofer</option>
               </select>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="mb-6">
               <input 
                 className="p-3 border rounded w-full" 
-                placeholder="Email (Login Username)" 
+                placeholder="Email Address" 
                 required 
                 type="email"
                 value={newUser.email} 
                 onChange={e => setNewUser({...newUser, email: e.target.value})} 
               />
-              
-              <input 
-                className="p-3 border-2 border-blue-300 rounded w-full font-mono" 
-                placeholder="Assign Password" 
-                required 
-                type="text"
-                value={newUser.password} 
-                onChange={e => setNewUser({...newUser, password: e.target.value})} 
-              />
             </div>
-            <p className="text-xs text-gray-500 mb-4">Copy and share these credentials with the employee</p>
             <button 
               disabled={loading} 
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold p-3 rounded disabled:opacity-50"
             >
-              {loading ? 'Creating Account...' : 'Create Employee Account'}
+              {loading ? 'Sending Invite...' : 'Send Invite'}
             </button>
           </form>
 
