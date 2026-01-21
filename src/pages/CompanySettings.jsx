@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import TeamManager from "../components/crm/TeamManager";
 
 export default function CompanySettings() {
   const navigate = useNavigate();
@@ -422,109 +423,7 @@ export default function CompanySettings() {
           </div>
         )}
 
-        {activeTab === 'team' && (
-          <div className="space-y-8">
-            <Card className="shadow-lg">
-              <CardContent className="p-8">
-                <h2 className="text-2xl font-bold mb-6">Add Team Member</h2>
-                <form onSubmit={handleAddTeamMember} className="space-y-6">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <Label>Full Name *</Label>
-                      <Input
-                        required
-                        value={newMember.full_name}
-                        onChange={(e) => setNewMember({...newMember, full_name: e.target.value})}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Email Address *</Label>
-                      <Input
-                        type="email"
-                        required
-                        value={newMember.email}
-                        onChange={(e) => setNewMember({...newMember, email: e.target.value})}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Role *</Label>
-                      <select
-                        required
-                        value={newMember.aroof_role}
-                        onChange={(e) => setNewMember({...newMember, aroof_role: e.target.value})}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="estimator">Estimator</option>
-                        <option value="sales">Sales Rep</option>
-                        <option value="dispatcher">Dispatcher</option>
-                        <option value="crew">Crew Member</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <Label>Job Title</Label>
-                      <Input
-                        value={newMember.job_title}
-                        onChange={(e) => setNewMember({...newMember, job_title: e.target.value})}
-                        placeholder="e.g. Senior Estimator"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <Label>Phone Number</Label>
-                      <Input
-                        type="tel"
-                        value={newMember.phone}
-                        onChange={(e) => setNewMember({...newMember, phone: e.target.value})}
-                      />
-                    </div>
-                  </div>
-
-                  <Button type="submit" disabled={saving} className="w-full md:w-auto">
-                    {saving ? 'Inviting...' : 'Invite Team Member'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-lg">
-              <CardContent className="p-8">
-                <h2 className="text-2xl font-bold mb-6">Team Members ({teamMembers.length})</h2>
-                
-                <div className="space-y-4">
-                  {teamMembers.map(member => (
-                    <div key={member.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center">
-                          <span className="text-xl font-bold text-blue-600">
-                            {member.full_name?.[0]?.toUpperCase() || '?'}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-bold">{member.full_name || member.email}</h3>
-                            {member.is_company_owner && (
-                              <Badge className="bg-purple-100 text-purple-800">OWNER</Badge>
-                            )}
-                            <Badge className={getRoleBadgeColor(member.aroof_role)}>
-                              {member.aroof_role?.replace('_', ' ').toUpperCase()}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-slate-600">{member.email}</p>
-                          {member.job_title && (
-                            <p className="text-sm text-slate-500">{member.job_title}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {activeTab === 'team' && <TeamManager userProfile={user} />}
 
         {activeTab === 'service-areas' && (
           <Card className="shadow-lg">

@@ -21,6 +21,9 @@ Deno.serve(async (req) => {
 
     const { email, name, role, company_id } = await req.json();
 
+    // Log the attempt
+    console.log("Starting Invite for:", email);
+
     if (!email || !name || !role) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -30,47 +33,57 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Cannot invite users to other companies' }, { status: 403 });
     }
 
-    // Get the app URL for redirect
-    const appUrl = Deno.env.get('BASE44_APP_URL') || 'localhost:5173';
+    // Get the app URL for redirect - provide fallback
+    const appUrl = Deno.env.get('BASE44_APP_URL') || 'aroof.build';
     const protocol = appUrl.includes('localhost') ? 'http://' : 'https://';
     const redirectUrl = `${protocol}${appUrl}/rooferlogin`;
 
-    console.log('Inviting user:', email, 'redirect:', redirectUrl);
+    console.log('Redirect URL:', redirectUrl);
 
-    // Use service role to invite user with proper redirect URL
-    await base44.asServiceRole.users.inviteUser(email, 'user', redirectUrl);
-    
-    // Wait for user creation
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Find and update the newly created user with full profile
-    const allUsers = await base44.asServiceRole.entities.User.list();
-    const newUser = allUsers.find(u => u.email === email);
-    
-    if (!newUser) {
+    // Safe Invite with error handling
+    try {
+      // Use service role to invite user with proper redirect URL
+      await base44.asServiceRole.users.inviteUser(email, 'user', redirectUrl);
+      
+      // Wait for user creation
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Find and update the newly created user with full profile
+      const allUsers = await base44.asServiceRole.entities.User.list();
+      const newUser = allUsers.find(u => u.email === email);
+      
+      if (!newUser) {
+        console.warn('User invited but not found immediately');
+        return Response.json({ 
+          success: true,
+          message: 'Invite sent. User profile will be updated when they accept.'
+        });
+      }
+
+      // Update with company details and role
+      await base44.asServiceRole.entities.User.update(newUser.id, {
+        full_name: name,
+        company_id: company_id,
+        company_name: user.company_name,
+        aroof_role: role,
+        is_company_owner: false
+      });
+
       return Response.json({ 
-        error: 'User invited but profile not found. They may need to check their email first.' 
-      }, { status: 202 });
+        success: true, 
+        user: {
+          id: newUser.id,
+          email: email,
+          full_name: name
+        },
+        message: 'Invite sent successfully'
+      });
+
+    } catch (inviteErr) {
+      console.error("CRITICAL INVITE ERROR:", inviteErr);
+      // Return the actual error message instead of crashing with 500
+      throw new Error(inviteErr.message || "Invite failed on server.");
     }
-
-    // Update with company details and role
-    await base44.asServiceRole.entities.User.update(newUser.id, {
-      full_name: name,
-      company_id: company_id,
-      company_name: user.company_name,
-      aroof_role: role,
-      is_company_owner: false
-    });
-
-    return Response.json({ 
-      success: true, 
-      user: {
-        id: newUser.id,
-        email: email,
-        full_name: name
-      },
-      message: 'Invite sent successfully'
-    });
 
   } catch (error) {
     console.error('Create employee error:', error);
