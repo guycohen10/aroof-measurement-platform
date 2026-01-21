@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
@@ -20,13 +20,17 @@ import {
   TrendingUp,
   FileText,
   Ruler,
-  DollarSign
+  DollarSign,
+  X,
+  Loader2
 } from "lucide-react";
 
 export default function RooferSignup() {
   const navigate = useNavigate();
   const [billingCycle, setBillingCycle] = useState("monthly");
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [selectedPriceId, setSelectedPriceId] = useState(null);
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [showSignupForm, setShowSignupForm] = useState(false);
   const [step, setStep] = useState(1); // 1 = registration, 2 = verification
   const [verificationCode, setVerificationCode] = useState("");
@@ -36,6 +40,12 @@ export default function RooferSignup() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [registrationData, setRegistrationData] = useState({
+    fullName: "",
+    companyName: "",
+    email: "",
+    password: ""
+  });
   
   const [formData, setFormData] = useState({
     companyName: "",
@@ -99,18 +109,33 @@ export default function RooferSignup() {
   const handleStartTrial = async (planKey) => {
     try {
       const plan = plans[planKey];
-      const user = await base44.auth.me();
       
-      // If not logged in, show signup form
-      if (!user) {
-        setSelectedPlan(planKey);
-        setShowSignupForm(true);
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        return;
+      // Check if user is logged in
+      try {
+        const user = await base44.auth.me();
+        if (user) {
+          // User is logged in - proceed to checkout
+          proceedToCheckout(planKey);
+          return;
+        }
+      } catch (err) {
+        // User is not logged in
       }
 
-      // Logged in user - create checkout session for subscription
+      // User not logged in - show registration modal
+      setSelectedPlan(planKey);
+      setSelectedPriceId(plan.priceId);
+      setShowRegistrationModal(true);
+    } catch (err) {
+      console.error('Error:', err);
+      toast.error('Something went wrong. Please try again.');
+    }
+  };
+
+  const proceedToCheckout = async (planKey) => {
+    try {
       setLoading(true);
+      const plan = plans[planKey];
       
       const { sessionId } = await base44.functions.invoke('createSubscriptionCheckout', {
         price_id: plan.priceId,
@@ -124,6 +149,68 @@ export default function RooferSignup() {
     } catch (err) {
       console.error('Checkout error:', err);
       toast.error('Failed to start trial. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleQuickRegistration = async (e) => {
+    e.preventDefault();
+
+    // Validation
+    if (!registrationData.fullName || !registrationData.companyName || !registrationData.email || !registrationData.password) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    if (registrationData.password.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Generate company ID
+      const companyId = 'cmp_' + Date.now();
+
+      // Register user
+      await base44.auth.register({
+        email: registrationData.email,
+        password: registrationData.password,
+        full_name: registrationData.fullName,
+        company_id: companyId,
+        company_name: registrationData.companyName,
+        aroof_role: 'external_roofer'
+      });
+
+      // Create Company entity
+      try {
+        await base44.entities.Company.create({
+          company_name: registrationData.companyName,
+          contact_name: registrationData.fullName,
+          contact_email: registrationData.email,
+          is_active: true,
+          subscription_tier: 'starter'
+        });
+      } catch (err) {
+        console.warn('Company creation note:', err);
+      }
+
+      // Close modal and proceed to checkout
+      setShowRegistrationModal(false);
+      toast.success('Account created! Redirecting to checkout...');
+      
+      setTimeout(() => {
+        proceedToCheckout(selectedPlan);
+      }, 500);
+    } catch (err) {
+      console.error('Registration error:', err);
+      if (err.message?.includes('already exists') || err.message?.includes('duplicate')) {
+        toast.error('Email already registered. Please log in instead.');
+      } else {
+        toast.error('Registration failed: ' + (err.message || 'Please try again'));
+      }
     } finally {
       setLoading(false);
     }
@@ -635,6 +722,89 @@ export default function RooferSignup() {
           </div>
         </div>
       </section>
+
+      {/* Registration Modal */}
+      {showRegistrationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-2xl">
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <CardTitle className="text-2xl">Create Account</CardTitle>
+              <button
+                onClick={() => setShowRegistrationModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleQuickRegistration} className="space-y-4">
+                <div>
+                  <Label className="text-sm font-semibold">Full Name *</Label>
+                  <Input
+                    type="text"
+                    placeholder="John Smith"
+                    value={registrationData.fullName}
+                    onChange={(e) => setRegistrationData({...registrationData, fullName: e.target.value})}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-semibold">Company Name *</Label>
+                  <Input
+                    type="text"
+                    placeholder="ABC Roofing"
+                    value={registrationData.companyName}
+                    onChange={(e) => setRegistrationData({...registrationData, companyName: e.target.value})}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-semibold">Email *</Label>
+                  <Input
+                    type="email"
+                    placeholder="john@abcroofing.com"
+                    value={registrationData.email}
+                    onChange={(e) => setRegistrationData({...registrationData, email: e.target.value})}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-semibold">Password *</Label>
+                  <Input
+                    type="password"
+                    placeholder="Min 8 characters"
+                    value={registrationData.password}
+                    onChange={(e) => setRegistrationData({...registrationData, password: e.target.value})}
+                    disabled={loading}
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-blue-600 hover:bg-blue-700 h-12 font-semibold"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Creating Account...
+                    </>
+                  ) : (
+                    'Create Account & Proceed'
+                  )}
+                </Button>
+
+                <p className="text-xs text-center text-slate-600">
+                  We'll create your account and take you to checkout
+                </p>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Signup Form */}
       {showSignupForm && (
