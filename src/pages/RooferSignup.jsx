@@ -46,6 +46,10 @@ export default function RooferSignup() {
     email: "",
     password: ""
   });
+  const [modalStep, setModalStep] = useState('register'); // 'register' | 'verify'
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingPassword, setPendingPassword] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
   
   const [formData, setFormData] = useState({
     companyName: "",
@@ -177,39 +181,24 @@ export default function RooferSignup() {
     setLoading(true);
 
     try {
-      // Generate company ID
-      const companyId = 'cmp_' + Date.now();
+      console.log('📧 Signing up user:', registrationData.email);
 
-      // Register user
-      await base44.auth.register({
+      // Step 1: Sign up user
+      await base44.auth.signUp({
         email: registrationData.email,
         password: registrationData.password,
-        full_name: registrationData.fullName,
-        company_id: companyId,
-        company_name: registrationData.companyName,
-        aroof_role: 'external_roofer'
+        full_name: registrationData.fullName
       });
 
-      // Create Company entity
-      try {
-        await base44.entities.Company.create({
-          company_name: registrationData.companyName,
-          contact_name: registrationData.fullName,
-          contact_email: registrationData.email,
-          is_active: true,
-          subscription_tier: 'starter'
-        });
-      } catch (err) {
-        console.warn('Company creation note:', err);
-      }
+      console.log('✅ Sign up successful. Waiting for email verification...');
 
-      // Close modal and proceed to checkout
-      setShowRegistrationModal(false);
-      toast.success('Account created! Redirecting to checkout...');
-      
-      setTimeout(() => {
-        proceedToCheckout(selectedPlan);
-      }, 500);
+      // Store data for next step
+      setPendingEmail(registrationData.email);
+      setPendingPassword(registrationData.password);
+
+      // Move to verification step
+      setModalStep('verify');
+      toast.success(`Verification code sent to ${registrationData.email}`);
     } catch (err) {
       console.error('Registration error:', err);
       if (err.message?.includes('already exists') || err.message?.includes('duplicate')) {
@@ -217,6 +206,73 @@ export default function RooferSignup() {
       } else {
         toast.error('Registration failed: ' + (err.message || 'Please try again'));
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyEmail = async (e) => {
+    e.preventDefault();
+
+    if (!verificationCode || verificationCode.length !== 6) {
+      toast.error('Please enter a valid 6-digit code');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      console.log('🔐 Confirming email verification...');
+
+      // Step 1: Confirm sign up
+      await base44.auth.confirmSignUp(pendingEmail, verificationCode);
+
+      console.log('✅ Email confirmed. Signing in...');
+
+      // Step 2: Sign in user
+      await base44.auth.signIn({
+        email: pendingEmail,
+        password: pendingPassword
+      });
+
+      console.log('✅ User signed in successfully');
+
+      // Step 3: Create company
+      try {
+        const currentUser = await base44.auth.me();
+        console.log('🏢 Creating company for user:', currentUser.id);
+
+        await base44.entities.Company.create({
+          company_name: registrationData.companyName,
+          contact_name: registrationData.fullName,
+          contact_email: registrationData.email,
+          is_active: true,
+          subscription_tier: 'starter',
+          owner_user_id: currentUser.id
+        });
+
+        console.log('✅ Company created successfully');
+      } catch (err) {
+        console.warn('⚠️ Company creation warning:', err);
+        // Continue anyway - user account exists and is logged in
+      }
+
+      // Close modal and proceed to checkout
+      setShowRegistrationModal(false);
+      setModalStep('register');
+      setRegistrationData({ fullName: "", companyName: "", email: "", password: "" });
+      setVerificationCode("");
+      setPendingEmail("");
+      setPendingPassword("");
+
+      toast.success('Account verified! Proceeding to payment...');
+
+      setTimeout(() => {
+        proceedToCheckout(selectedPlan);
+      }, 1000);
+    } catch (err) {
+      console.error('Verification error:', err);
+      toast.error('Verification failed: ' + (err.message || 'Invalid code. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -734,79 +790,136 @@ export default function RooferSignup() {
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <Card className="w-full max-w-md shadow-2xl">
             <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <CardTitle className="text-2xl">Create Account</CardTitle>
+              <CardTitle className="text-2xl">
+                {modalStep === 'register' ? 'Create Account' : 'Verify Email'}
+              </CardTitle>
               <button
-                onClick={() => setShowRegistrationModal(false)}
+                onClick={() => {
+                  setShowRegistrationModal(false);
+                  setModalStep('register');
+                  setVerificationCode("");
+                }}
                 className="text-slate-400 hover:text-slate-600"
               >
                 <X className="w-6 h-6" />
               </button>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleQuickRegistration} className="space-y-4">
-                <div>
-                  <Label className="text-sm font-semibold">Full Name *</Label>
-                  <Input
-                    type="text"
-                    placeholder="John Smith"
-                    value={registrationData.fullName}
-                    onChange={(e) => setRegistrationData({...registrationData, fullName: e.target.value})}
+              {modalStep === 'register' ? (
+                // STEP 1: REGISTRATION
+                <form onSubmit={handleQuickRegistration} className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-semibold">Full Name *</Label>
+                    <Input
+                      type="text"
+                      placeholder="John Smith"
+                      value={registrationData.fullName}
+                      onChange={(e) => setRegistrationData({...registrationData, fullName: e.target.value})}
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-semibold">Company Name *</Label>
+                    <Input
+                      type="text"
+                      placeholder="ABC Roofing"
+                      value={registrationData.companyName}
+                      onChange={(e) => setRegistrationData({...registrationData, companyName: e.target.value})}
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-semibold">Email *</Label>
+                    <Input
+                      type="email"
+                      placeholder="john@abcroofing.com"
+                      value={registrationData.email}
+                      onChange={(e) => setRegistrationData({...registrationData, email: e.target.value})}
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-semibold">Password *</Label>
+                    <Input
+                      type="password"
+                      placeholder="Min 8 characters"
+                      value={registrationData.password}
+                      onChange={(e) => setRegistrationData({...registrationData, password: e.target.value})}
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full bg-blue-600 hover:bg-blue-700 h-12 font-semibold"
                     disabled={loading}
-                  />
-                </div>
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Creating Account...
+                      </>
+                    ) : (
+                      'Create Account'
+                    )}
+                  </Button>
 
-                <div>
-                  <Label className="text-sm font-semibold">Company Name *</Label>
-                  <Input
-                    type="text"
-                    placeholder="ABC Roofing"
-                    value={registrationData.companyName}
-                    onChange={(e) => setRegistrationData({...registrationData, companyName: e.target.value})}
+                  <p className="text-xs text-center text-slate-600">
+                    We'll send a verification code to your email
+                  </p>
+                </form>
+              ) : (
+                // STEP 2: EMAIL VERIFICATION
+                <form onSubmit={handleVerifyEmail} className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+                    Verification code sent to <strong>{pendingEmail}</strong>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-semibold">Verification Code *</Label>
+                    <Input
+                      type="text"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Enter 6-digit code"
+                      maxLength={6}
+                      className="text-center text-2xl tracking-widest"
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-slate-500 mt-2">Check your email for the code</p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full bg-green-600 hover:bg-green-700 h-12 font-semibold"
+                    disabled={loading || !verificationCode}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Verifying...
+                      </>
+                    ) : (
+                      'Verify & Start Trial'
+                    )}
+                  </Button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalStep('register');
+                      setVerificationCode("");
+                    }}
                     disabled={loading}
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-sm font-semibold">Email *</Label>
-                  <Input
-                    type="email"
-                    placeholder="john@abcroofing.com"
-                    value={registrationData.email}
-                    onChange={(e) => setRegistrationData({...registrationData, email: e.target.value})}
-                    disabled={loading}
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-sm font-semibold">Password *</Label>
-                  <Input
-                    type="password"
-                    placeholder="Min 8 characters"
-                    value={registrationData.password}
-                    onChange={(e) => setRegistrationData({...registrationData, password: e.target.value})}
-                    disabled={loading}
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700 h-12 font-semibold"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Creating Account...
-                    </>
-                  ) : (
-                    'Create Account & Proceed'
-                  )}
-                </Button>
-
-                <p className="text-xs text-center text-slate-600">
-                  We'll create your account and take you to checkout
-                </p>
-              </form>
+                    className="w-full text-sm text-slate-600 hover:text-slate-900 font-medium"
+                  >
+                    ← Back to Registration
+                  </button>
+                </form>
+              )}
             </CardContent>
           </Card>
         </div>
