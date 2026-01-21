@@ -1,6 +1,7 @@
 import AddressMethodSelector from './pages/AddressMethodSelector';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminGodMode from './pages/AdminGodMode';
+import AdminLeadPoster from './pages/AdminLeadPoster';
 import AsphaltShingles3Tab from './pages/AsphaltShingles3Tab';
 import AsphaltShinglesArchitectural from './pages/AsphaltShinglesArchitectural';
 import Automations from './pages/Automations';
@@ -41,6 +42,7 @@ import Gutters from './pages/Gutters';
 import Homepage from './pages/Homepage';
 import Insurance from './pages/Insurance';
 import InvoiceManager from './pages/InvoiceManager';
+import InvoiceView from './pages/InvoiceView';
 import JobBoard from './pages/JobBoard';
 import JobDetail from './pages/JobDetail';
 import JobScheduling from './pages/JobScheduling';
@@ -96,8 +98,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
-import InvoiceView from './pages/InvoiceView';
-import AdminLeadPoster from './pages/AdminLeadPoster';
+import PaymentSuccess from './pages/PaymentSuccess';
 import __Layout from './Layout.jsx';
 
 
@@ -105,6 +106,7 @@ export const PAGES = {
     "AddressMethodSelector": AddressMethodSelector,
     "AdminDashboard": AdminDashboard,
     "AdminGodMode": AdminGodMode,
+    "AdminLeadPoster": AdminLeadPoster,
     "AsphaltShingles3Tab": AsphaltShingles3Tab,
     "AsphaltShinglesArchitectural": AsphaltShinglesArchitectural,
     "Automations": Automations,
@@ -145,6 +147,7 @@ export const PAGES = {
     "Homepage": Homepage,
     "Insurance": Insurance,
     "InvoiceManager": InvoiceManager,
+    "InvoiceView": InvoiceView,
     "JobBoard": JobBoard,
     "JobDetail": JobDetail,
     "JobScheduling": JobScheduling,
@@ -200,8 +203,7 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "WalletHistory": WalletHistory,
     "Windows": Windows,
-    "InvoiceView": InvoiceView,
-    "AdminLeadPoster": AdminLeadPoster,
+    "PaymentSuccess": PaymentSuccess,
 }
 
 export const pagesConfig = {

@@ -39,42 +39,32 @@ export default function RooferBrowseLeads() {
   };
 
   const handleBuyLead = async (marketplaceLead) => {
-    if (!user?.company_id) {
-      toast.error("Company ID not found");
+    if (!user?.company_id || !user?.id) {
+      toast.error("User info not found");
       return;
     }
 
     setPurchasing(marketplaceLead.id);
 
     try {
-      // Create Lead record in user's CRM
-      const newLead = await base44.entities.Lead.create({
-        name: `Lead - ${marketplaceLead.zip_code}`,
-        email: 'pending@example.com',
-        phone: 'pending',
-        address: marketplaceLead.lead_details,
-        lead_status: 'New',
-        assigned_company_id: user.company_id,
-        price_sold: marketplaceLead.price
+      // Create Stripe Checkout Session
+      const { sessionId } = await base44.functions.invoke('createLeadCheckoutSession', {
+        lead_id: marketplaceLead.id,
+        headline: marketplaceLead.lead_details,
+        price: marketplaceLead.price,
+        user_id: user.id,
+        company_id: user.company_id
       });
 
-      // Update MarketplaceLead to sold
-      await base44.entities.MarketplaceLead.update(marketplaceLead.id, {
-        status: 'sold',
-        purchased_by_company_id: user.company_id,
-        purchased_date: new Date().toISOString()
-      });
-
-      toast.success('Lead purchased! Redirecting...');
-      
-      // Redirect to the new lead
-      setTimeout(() => {
-        navigate(createPageUrl(`CustomerDetail?id=${newLead.id}`));
-      }, 1000);
-
+      if (sessionId) {
+        // Redirect to Stripe Checkout
+        window.location.href = `https://checkout.stripe.com/pay/${sessionId}`;
+      } else {
+        toast.error("Failed to create checkout session");
+      }
     } catch (err) {
-      console.error("Purchase failed:", err);
-      toast.error("Failed to purchase lead");
+      console.error("Checkout failed:", err);
+      toast.error("Failed to process payment");
     } finally {
       setPurchasing(null);
     }
