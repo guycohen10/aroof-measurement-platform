@@ -3,7 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, FileText, Calendar, DollarSign } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, Plus, FileText, Calendar, DollarSign, Flame, MapPin, ExternalLink } from "lucide-react";
 import RooferSidebar from '../components/crm/RooferSidebar';
 import SalesWorkspace from '../components/crm/workspaces/SalesWorkspace';
 import CrewWorkspace from '../components/crm/workspaces/CrewWorkspace';
@@ -18,6 +19,7 @@ export default function RooferDashboard() {
   const [stats, setStats] = useState({ revenue: 0, activeJobs: 0, winRate: 0 });
   const [statusFilter, setStatusFilter] = useState('all');
   const [appointments, setAppointments] = useState([]);
+  const [hotLeads, setHotLeads] = useState([]);
 
   useEffect(() => {
     loadData();
@@ -46,6 +48,18 @@ export default function RooferDashboard() {
           setAppointments(todayAppts);
         } catch (e) {
           console.log("Appointments not available");
+        }
+
+        // Load hot marketplace leads
+        try {
+          const marketplaceLeads = await base44.entities.MarketplaceLead.filter({
+            status: 'available'
+          });
+          // Get 3 random leads
+          const shuffled = marketplaceLeads.sort(() => 0.5 - Math.random()).slice(0, 3);
+          setHotLeads(shuffled);
+        } catch (e) {
+          console.log("Hot leads not available");
         }
       }
     } catch (err) {
