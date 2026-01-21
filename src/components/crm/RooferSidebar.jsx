@@ -17,7 +17,8 @@ import {
   ListTodo,
   Briefcase,
   TrendingUp,
-  CreditCard
+  CreditCard,
+  LogOut
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -136,6 +137,15 @@ export default function RooferSidebar({ className }) {
     return true;
   };
 
+  const handleLogout = async () => {
+    try {
+      await base44.auth.logout();
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+
   return (
     <div className={cn("bg-white border-r border-slate-200 h-full overflow-y-auto flex flex-col", className)}>
       <div className="p-4 border-b">
@@ -202,6 +212,17 @@ export default function RooferSidebar({ className }) {
           </div>
         ))}
       </nav>
+
+      {/* Sign Out Button */}
+      <div className="p-4 border-t">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </button>
+      </div>
     </div>
   );
 }
