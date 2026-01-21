@@ -139,11 +139,16 @@ export default function RooferSignup() {
     try {
       console.log('🔵 Registering account...');
 
+      // CRITICAL FIX: Generate company_id BEFORE registration
+      const newCompanyId = `cmp_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 5)}`;
+      console.log('🏢 Generated company_id:', newCompanyId);
+
       // Register user with Base44
       await base44.auth.register({
         email: formData.email,
         password: formData.password,
         full_name: formData.fullName,
+        company_id: newCompanyId,
         company_name: formData.companyName,
         company_phone: formData.companyPhone,
         address: formData.address,
@@ -231,12 +236,17 @@ export default function RooferSignup() {
         }
       }
 
-      // Create company and link user
+      // Create company entity using the pre-generated ID
       try {
         console.log('🏢 Creating company entity...');
         
-        // Step 1: Create Company entity with Starter plan (7-day trial)
+        // Get the company_id from the registered user
+        const currentUser = await base44.auth.me();
+        const companyId = currentUser.company_id;
+        
+        // Create Company entity with the same ID
         const newCompany = await base44.entities.Company.create({
+          id: companyId,
           company_name: formData.companyName,
           contact_name: formData.fullName,
           contact_email: formData.email,
@@ -249,23 +259,11 @@ export default function RooferSignup() {
           is_active: true,
           subscription_tier: 'starter',
           subscription_status: 'trial',
-          trial_end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+          trial_end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          owner_user_id: currentUser.id
         });
         
         console.log('✅ Company created:', newCompany.id);
-
-        // Step 2: Get current user ID
-        const currentUser = await base44.auth.me();
-        
-        // Step 3: Link user to company and set as owner
-        await base44.entities.User.update('me', {
-          aroof_role: 'external_roofer',
-          company_id: newCompany.id,
-          company_name: formData.companyName,
-          phone: formData.phone || formData.companyPhone
-        });
-
-        console.log('✅ User linked to company');
         
       } catch (err) {
         console.error('⚠️ Company/User setup error:', err);
