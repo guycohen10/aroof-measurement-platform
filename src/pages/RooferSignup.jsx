@@ -14,6 +14,36 @@ export default function RooferSignup() {
   const openSignup = (plan) => {
     setSelectedPlan(plan);
     setShowModal(true);
+    setError('');
+    setFormData({ fullName: '', email: '', password: '' });
+  };
+
+  const handleSignup = async () => {
+    setLoading(true);
+    setError('');
+
+    if (!formData.fullName || !formData.email || !formData.password) {
+      setError('All fields are required');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Sign up with base44
+      const response = await base44.auth.signUp(formData.email, formData.password, {
+        full_name: formData.fullName,
+        aroof_role: 'external_roofer',
+        company_name: formData.fullName
+      });
+
+      if (response) {
+        // Redirect to dashboard
+        navigate(createPageUrl('RooferDashboard'));
+      }
+    } catch (err) {
+      setError(err.message || 'Signup failed. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
