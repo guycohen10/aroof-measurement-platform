@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { MapPin, CheckCircle, Loader2, Calendar, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MapPin } from "lucide-react";
 
 export default function CrewWorkspace() {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [checkingIn, setCheckingIn] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -20,174 +18,89 @@ export default function CrewWorkspace() {
 
   const loadData = async () => {
     try {
-      const userData = await base44.auth.me();
-      setUser(userData);
+      const currentUser = await base44.auth.me();
+      setUser(currentUser);
 
-      // Fetch active jobs assigned to this crew member
-      const myJobs = await base44.entities.Job.filter({
-        crew_id: userData.id,
-        status: { $in: ['scheduled', 'in_progress'] }
-      }, '-scheduled_date', 20);
-      
+      const allJobs = await base44.entities.Job.list();
+      const myJobs = allJobs.filter(j => 
+        j.crew_id === currentUser.id && 
+        j.status !== 'completed'
+      );
       setJobs(myJobs);
     } catch (err) {
-      toast.error("Failed to load jobs");
       console.error(err);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleCheckIn = async (job) => {
-    setCheckingIn(job.id);
-
-    if (!navigator.geolocation) {
-      toast.error("GPS not available on this device");
-      setCheckingIn(null);
-      return;
-    }
-
+  const sendPing = () => {
+    setLoading(true);
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        const locationText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-
+      async (pos) => {
         try {
-          // Log GPS check-in to ActivityLog (formatted for Google Maps)
           await base44.entities.ActivityLog.create({
             type: 'gps_ping',
-            content: `Crew arrived at ${job.property_address}. GPS: ${locationText}`,
+            content: `Crew at ${pos.coords.latitude}, ${pos.coords.longitude}`,
             user_id: user.id,
-            lead_id: job.measurement_id || null,
+            user_name: user.full_name || user.email,
+            company_id: user.company_id,
             timestamp: new Date().toISOString()
           });
-
-          toast.success("Checked in successfully!");
-          
-          // Optionally update job status
-          if (job.status === 'scheduled') {
-            await base44.entities.Job.update(job.id, { status: 'in_progress' });
-            loadData(); // Refresh
-          }
+          alert("Location Sent! 📍");
         } catch (err) {
-          toast.error("Failed to check in");
-          console.error(err);
+          alert("Failed to send location");
         } finally {
-          setCheckingIn(null);
+          setLoading(false);
         }
       },
-      (error) => {
-        toast.error("Could not get GPS location");
-        console.error(error);
-        setCheckingIn(null);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
+      (err) => {
+        alert("GPS Error: " + err.message);
+        setLoading(false);
+      }
     );
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-12">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
-
-  const statusColors = {
-    'scheduled': 'bg-blue-100 text-blue-800',
-    'in_progress': 'bg-yellow-100 text-yellow-800',
-    'completed': 'bg-green-100 text-green-800'
-  };
+  if (!user) return <div>Loading...</div>;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">My Jobs</h2>
-        <p className="text-slate-600">Active jobs assigned to you: {jobs.length}</p>
-      </div>
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Crew Workspace</h1>
+          <Button onClick={sendPing} disabled={loading}>
+            <MapPin className="w-4 h-4 mr-2" />
+            {loading ? 'Sending...' : 'Send Location'}
+          </Button>
+        </div>
 
-      {jobs.length === 0 ? (
         <Card>
-          <CardContent className="p-12 text-center">
-            <Calendar className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-            <p className="text-slate-600 text-lg">No active jobs assigned</p>
-            <p className="text-slate-500 text-sm mt-2">Check back soon for new assignments</p>
+          <CardHeader>
+            <CardTitle>My Active Jobs ({jobs.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {jobs.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No active jobs assigned to you.</p>
+            ) : (
+              <div className="space-y-4">
+                {jobs.map(job => (
+                  <div key={job.id} className="border rounded p-4 flex justify-between items-center">
+                    <div>
+                      <h3 className="font-bold">{job.customer_name}</h3>
+                      <p className="text-sm text-gray-600">{job.property_address}</p>
+                      <p className="text-sm text-gray-600">Status: {job.status}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => navigate(createPageUrl(`JobDetail?id=${job.id}`))}
+                    >
+                      View Job
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid gap-4">
-          {jobs.map(job => (
-            <Card key={job.id} className="border-2">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <Link 
-                      to={createPageUrl(`JobDetail?id=${job.id}`)}
-                      className="text-xl font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-2"
-                    >
-                      {job.customer_name}
-                      <ExternalLink className="w-4 h-4" />
-                    </Link>
-                    <p className="text-slate-600 mt-1">{job.property_address}</p>
-                  </div>
-                  <Badge className={statusColors[job.status] || 'bg-slate-100'}>
-                    {job.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-slate-500">Job Type</p>
-                      <p className="font-semibold">{job.job_type || 'Replacement'}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">Area</p>
-                      <p className="font-semibold">{job.roof_sqft ? `${job.roof_sqft.toFixed(0)} sqft` : 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">Scheduled</p>
-                      <p className="font-semibold">
-                        {job.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString() : 'TBD'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">Duration</p>
-                      <p className="font-semibold">{job.estimated_duration_days || 1} day(s)</p>
-                    </div>
-                  </div>
-
-                  {job.job_notes && (
-                    <div className="p-3 bg-blue-50 rounded-lg">
-                      <p className="text-xs text-slate-600 mb-1">Notes:</p>
-                      <p className="text-sm text-slate-800">{job.job_notes}</p>
-                    </div>
-                  )}
-
-                  <Button 
-                    onClick={() => handleCheckIn(job)}
-                    disabled={checkingIn === job.id}
-                    className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
-                  >
-                    {checkingIn === job.id ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Getting GPS...
-                      </>
-                    ) : (
-                      <>
-                        <MapPin className="w-5 h-5 mr-2" />
-                        Arrive at Job Site
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
