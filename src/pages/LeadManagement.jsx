@@ -16,8 +16,7 @@ export default function LeadManagement() {
   const [leads, setLeads] = useState([]);
   const [estimators, setEstimators] = useState([]);
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'pipeline'
-  const [selectedLead, setSelectedLead] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
+
 
   useEffect(() => {
     loadData();
