@@ -12,32 +12,32 @@ import { Loader2, Home, X } from "lucide-react";
 export default function RooferSignup() {
   const navigate = useNavigate();
 
-  // State Management
+  // Step state
   const [step, setStep] = useState("pricing"); // 'pricing' | 'register' | 'verify'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Form Data
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  // Form fields
   const [name, setName] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [selectedPriceId, setSelectedPriceId] = useState(null);
 
-  // Plans Configuration
+  // Plans
   const plans = {
     starter: { name: "Starter", price: 19.95, priceId: "price_1Ss4y2ICVekHY0FRX1GMrOHC" },
     pro: { name: "Pro", price: 99, priceId: "price_1Ss4ykICVekHY0FRDjn5nL7h", popular: true },
     enterprise: { name: "Enterprise", price: 299, priceId: "price_1Ss4zSICVekHY0FRlQlfaYbM" }
   };
 
-  // STEP 1: Register User
+  // Step 1: Registration
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!email || !password || !name || !companyName) {
+    if (!name || !companyName || !email || !password) {
       setError("Please fill in all required fields");
       return;
     }
@@ -50,7 +50,7 @@ export default function RooferSignup() {
     setLoading(true);
 
     try {
-      console.log("📧 Registering user:", email);
+      console.log("📧 Registering user with base44.auth.signUp");
 
       await base44.auth.signUp({
         username: email,
@@ -62,20 +62,19 @@ export default function RooferSignup() {
         }
       });
 
-      console.log("✅ Registration successful. Moving to verification.");
+      console.log("✅ SignUp successful, moving to verification step");
       setStep("verify");
       toast.success("Verification code sent to your email!");
     } catch (err) {
       console.error("❌ Registration error:", err);
-      const errorMsg = err.message || "Registration failed";
-      setError(errorMsg);
-      toast.error(errorMsg);
+      setError(err.message || "Registration failed");
+      toast.error(err.message || "Registration failed");
     } finally {
       setLoading(false);
     }
   };
 
-  // STEP 2: Verify Email & Complete Signup
+  // Step 2: Verify & Complete Signup
   const handleVerifyAndPay = async (e) => {
     e.preventDefault();
     setError("");
@@ -93,22 +92,24 @@ export default function RooferSignup() {
     setLoading(true);
 
     try {
-      console.log("🔐 Confirming email verification...");
-
-      // Step 1: Confirm SignUp
+      console.log("🔐 Confirming email with base44.auth.confirmSignUp");
+      
+      // Confirm signup
       await base44.auth.confirmSignUp(email, verificationCode);
       console.log("✅ Email confirmed");
 
-      // Step 2: Sign In
+      console.log("🔑 Signing in with base44.auth.signIn");
+      
+      // Sign in
       await base44.auth.signIn({
         username: email,
         password: password
       });
       console.log("✅ User signed in");
 
-      // Step 3: Create Company
+      // Create company
+      console.log("🏢 Creating company with base44.entities.Company.create");
       const currentUser = await base44.auth.me();
-      console.log("🏢 Creating company...");
 
       await base44.entities.Company.create({
         company_name: companyName,
@@ -119,25 +120,24 @@ export default function RooferSignup() {
       });
       console.log("✅ Company created");
 
-      // Step 4: Create Checkout Session
-      console.log("💳 Creating checkout session...");
-      const { sessionId } = await base44.functions.invoke("createSubscriptionCheckout", {
+      // Create checkout session
+      console.log("💳 Creating checkout session with base44.functions.invoke");
+      const response = await base44.functions.invoke("createSubscriptionCheckout", {
         priceId: selectedPriceId,
         email: email,
         userId: currentUser.id
       });
 
-      if (sessionId) {
-        console.log("✅ Redirecting to Stripe checkout...");
-        window.location.href = `https://checkout.stripe.com/pay/${sessionId}`;
+      if (response.data?.sessionId) {
+        console.log("✅ Redirecting to Stripe checkout");
+        window.location.href = `https://checkout.stripe.com/pay/${response.data.sessionId}`;
       } else {
         throw new Error("Failed to create checkout session");
       }
     } catch (err) {
       console.error("❌ Verification/Payment error:", err);
-      const errorMsg = err.message || "Verification failed";
-      setError(errorMsg);
-      toast.error(errorMsg);
+      setError(err.message || "Verification failed");
+      toast.error(err.message || "Verification failed");
     } finally {
       setLoading(false);
     }
@@ -150,34 +150,29 @@ export default function RooferSignup() {
 
   const handleBack = () => {
     setStep("pricing");
-    setEmail("");
-    setPassword("");
     setName("");
     setCompanyName("");
+    setEmail("");
+    setPassword("");
     setVerificationCode("");
     setError("");
   };
 
-  // ===== STEP 1: PRICING =====
+  // ===== PRICING STEP =====
   if (step === "pricing") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
-        {/* Header */}
         <header className="border-b border-slate-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <Link to={createPageUrl("Homepage")} className="flex items-center gap-2">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-900 to-blue-700 rounded-lg flex items-center justify-center">
                 <Home className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <span className="text-2xl font-bold text-slate-900">Aroof</span>
-                <p className="text-xs text-blue-600 font-semibold">For Roofing Contractors</p>
-              </div>
+              <span className="text-2xl font-bold text-slate-900">Aroof</span>
             </Link>
           </div>
         </header>
 
-        {/* Hero Section */}
         <section className="bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 text-white py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h1 className="text-5xl md:text-6xl font-bold mb-6">
@@ -191,23 +186,14 @@ export default function RooferSignup() {
           </div>
         </section>
 
-        {/* Pricing Section */}
         <section className="py-24 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="text-5xl font-bold text-slate-900 mb-6">
-                Simple, Transparent Pricing
-              </h2>
-              <p className="text-2xl text-slate-600 mb-4">
-                Start your 7-Day Free Trial
-              </p>
-              <p className="text-lg text-slate-500">
-                No credit card required. Cancel anytime.
-              </p>
+              <h2 className="text-5xl font-bold text-slate-900 mb-6">Simple, Transparent Pricing</h2>
+              <p className="text-2xl text-slate-600 mb-4">Start your 7-Day Free Trial</p>
             </div>
 
-            {/* Plans Grid */}
-            <div className="grid lg:grid-cols-3 gap-8 mb-20">
+            <div className="grid lg:grid-cols-3 gap-8">
               {Object.entries(plans).map(([key, plan]) => (
                 <Card
                   key={key}
@@ -228,9 +214,7 @@ export default function RooferSignup() {
                       {plan.name}
                     </CardTitle>
                     <div className="flex items-baseline gap-2 mb-6">
-                      <span className="text-5xl font-bold text-slate-900">
-                        ${plan.price}
-                      </span>
+                      <span className="text-5xl font-bold text-slate-900">${plan.price}</span>
                       <span className="text-xl text-slate-600">/month</span>
                     </div>
                   </CardHeader>
@@ -238,14 +222,14 @@ export default function RooferSignup() {
                   <CardContent className="flex-1 flex flex-col space-y-6">
                     <Button
                       size="lg"
-                      className={`w-full h-14 text-lg font-bold transition-all ${
+                      className={`w-full h-14 text-lg font-bold ${
                         plan.popular
-                          ? "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
+                          ? "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
                           : "bg-slate-900 hover:bg-slate-800 text-white"
                       }`}
                       onClick={() => handleSelectPlan(plan.priceId)}
                     >
-                      Start 7-Day Free Trial
+                      Start Free Trial
                     </Button>
                   </CardContent>
                 </Card>
@@ -257,17 +241,14 @@ export default function RooferSignup() {
     );
   }
 
-  // ===== STEP 2: REGISTRATION =====
+  // ===== REGISTRATION STEP =====
   if (step === "register") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white flex items-center justify-center p-4">
         <Card className="w-full max-w-md shadow-2xl">
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <CardTitle className="text-2xl">Create Your Account</CardTitle>
-            <button
-              onClick={handleBack}
-              className="text-slate-400 hover:text-slate-600"
-            >
+            <button onClick={handleBack} className="text-slate-400 hover:text-slate-600">
               <X className="w-6 h-6" />
             </button>
           </CardHeader>
@@ -348,17 +329,14 @@ export default function RooferSignup() {
     );
   }
 
-  // ===== STEP 3: VERIFICATION & PAYMENT =====
+  // ===== VERIFICATION STEP =====
   if (step === "verify") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white flex items-center justify-center p-4">
         <Card className="w-full max-w-md shadow-2xl">
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <CardTitle className="text-2xl">Verify Your Email</CardTitle>
-            <button
-              onClick={handleBack}
-              className="text-slate-400 hover:text-slate-600"
-            >
+            <button onClick={handleBack} className="text-slate-400 hover:text-slate-600">
               <X className="w-6 h-6" />
             </button>
           </CardHeader>
@@ -380,12 +358,12 @@ export default function RooferSignup() {
                   type="text"
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-                  placeholder="Enter 6-digit code"
+                  placeholder="000000"
                   maxLength={6}
-                  className="text-center text-2xl tracking-widest"
+                  className="text-center text-2xl tracking-widest font-mono"
                   disabled={loading}
                 />
-                <p className="text-xs text-slate-500 mt-2">Check your email for the code</p>
+                <p className="text-xs text-slate-500 mt-2">Check your email for the 6-digit code</p>
               </div>
 
               <Button
@@ -409,7 +387,7 @@ export default function RooferSignup() {
                 disabled={loading}
                 className="w-full text-sm text-slate-600 hover:text-slate-900 font-medium"
               >
-                ← Back
+                ← Back to Pricing
               </button>
             </form>
           </CardContent>
