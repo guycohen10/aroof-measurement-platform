@@ -86,6 +86,7 @@ export default function RooferDashboard() {
         <header className="bg-white shadow p-4 flex justify-between items-center z-10">
           <h1 className="text-2xl font-bold text-gray-800">Your Dashboard</h1>
           <div className="flex items-center gap-4">
+            <NotificationBell userId={user.id} />
             <span className="text-sm font-bold text-gray-600">{user.company_name || 'My Company'}</span>
             <div className="h-8 w-8 bg-blue-600 rounded-full text-white flex items-center justify-center font-bold">
               {user.full_name?.[0] || user.email?.[0] || 'U'}
