@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
 
     const { email, name, role, company_id } = await req.json();
 
-    console.log("Creating User Entity:", email);
+    console.log("INVITE ATTEMPT (Service Role):", email);
 
     // Validate required fields
     if (!email) {
@@ -33,8 +33,8 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Cannot invite users to other companies' }, { status: 403 });
     }
 
-    // PERMANENT FIX: Use core entity creation method
-    // This writes directly to the User table with service role privileges
+    // CRITICAL FIX: Elevate to Service Role (Admin)
+    // This bypasses RLS restrictions that hide the User entity from roofers
     const result = await base44.asServiceRole.entities.User.create({
       email: email,
       full_name: name || 'New Employee',
@@ -45,9 +45,9 @@ Deno.serve(async (req) => {
       is_company_owner: false
     });
 
-    console.log('User created successfully:', result.id);
+    console.log('SERVICE ROLE: User created successfully:', result.id);
 
-    return { 
+    return Response.json({ 
       success: true, 
       id: result.id,
       user: {
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
         email: email,
         full_name: name
       }
-    };
+    });
 
   } catch (error) {
     console.error('ENTITY CREATE FAILED:', error);
