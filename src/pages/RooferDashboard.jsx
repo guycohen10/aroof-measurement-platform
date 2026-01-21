@@ -769,13 +769,13 @@ export default function RooferDashboard() {
           </CardContent>
         </Card>
 
-        {showTakeoffModal && (
-          <ProposalWizard
-            lead={null}
-            onClose={() => setShowTakeoffModal(false)}
-            onSave={null}
-          />
-        )}
+          {showTakeoffModal && (
+            <ProposalWizard
+              lead={null}
+              onClose={() => setShowTakeoffModal(false)}
+              onSave={null}
+            />
+          )}
         </div>
       </div>
     </div>
