@@ -92,6 +92,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
+import Automations from './pages/Automations';
 import __Layout from './Layout.jsx';
 
 
@@ -190,6 +191,7 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "WalletHistory": WalletHistory,
     "Windows": Windows,
+    "Automations": Automations,
 }
 
 export const pagesConfig = {
