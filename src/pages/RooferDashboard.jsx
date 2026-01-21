@@ -4,7 +4,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Plus, FileText, Calendar, DollarSign, Flame, MapPin, ExternalLink } from "lucide-react";
+import { Loader2, Plus, FileText, Calendar, DollarSign, Flame, MapPin, ExternalLink, Zap } from "lucide-react";
 import RooferSidebar from '../components/crm/RooferSidebar';
 import SalesWorkspace from '../components/crm/workspaces/SalesWorkspace';
 import CrewWorkspace from '../components/crm/workspaces/CrewWorkspace';
@@ -334,6 +334,25 @@ export default function RooferDashboard() {
               </div>
             </div>
           </div>
+          {/* AI Estimator Modal */}
+          {showAIEstimator && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+              <Card className="w-full max-w-2xl max-h-[90vh] overflow-auto shadow-2xl">
+                <CardHeader className="flex flex-row items-center justify-between pb-4 sticky top-0 bg-white border-b">
+                  <CardTitle>AI Roof Estimator</CardTitle>
+                  <button
+                    onClick={() => setShowAIEstimator(false)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <AIEstimatorChat />
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </main>
       </div>
     </div>
