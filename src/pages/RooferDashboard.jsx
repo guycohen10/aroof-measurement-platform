@@ -16,6 +16,8 @@ export default function RooferDashboard() {
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState({ revenue: 0, activeJobs: 0, winRate: 0 });
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [appointments, setAppointments] = useState([]);
 
   useEffect(() => {
     loadData();
