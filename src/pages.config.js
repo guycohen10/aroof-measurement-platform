@@ -93,6 +93,9 @@ import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
 import Automations from './pages/Automations';
+import QuoteBuilder from './pages/QuoteBuilder';
+import QuoteView from './pages/QuoteView';
+import QuoteManager from './pages/QuoteManager';
 import __Layout from './Layout.jsx';
 
 
@@ -192,6 +195,9 @@ export const PAGES = {
     "WalletHistory": WalletHistory,
     "Windows": Windows,
     "Automations": Automations,
+    "QuoteBuilder": QuoteBuilder,
+    "QuoteView": QuoteView,
+    "QuoteManager": QuoteManager,
 }
 
 export const pagesConfig = {
