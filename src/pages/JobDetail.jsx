@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import ActivityTimeline from '../components/crm/ActivityTimeline';
 import CommunicationLogger from '../components/crm/CommunicationLogger';
-import { ArrowLeft, Upload, Phone, Mail, MapPin, Loader2, CheckCircle } from "lucide-react";
+import { ArrowLeft, Upload, Phone, Mail, MapPin, Loader2, CheckCircle, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 
 export default function JobDetail() {
@@ -106,6 +106,41 @@ export default function JobDetail() {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleCreateInvoice = async () => {
+    if (!job.quoted_amount) {
+      toast.error('No quote amount found. Please set a quote amount first.');
+      return;
+    }
+
+    try {
+      // Generate invoice number
+      const invoices = await base44.entities.Invoice.list('-created_date', 1);
+      const lastNum = invoices.length > 0 ? parseInt(invoices[0].invoice_number.split('-')[1]) : 0;
+      const invoiceNumber = `INV-${String(lastNum + 1).padStart(4, '0')}`;
+
+      // Create invoice
+      const invoice = await base44.entities.Invoice.create({
+        company_id: user.company_id,
+        job_id: jobId,
+        invoice_number: invoiceNumber,
+        customer_name: job.customer_name,
+        customer_email: job.customer_email,
+        customer_phone: job.customer_phone,
+        property_address: job.property_address,
+        amount: job.quoted_amount,
+        status: 'unpaid',
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        issue_date: new Date().toISOString()
+      });
+
+      toast.success('Invoice created!');
+      navigate(createPageUrl(`InvoiceView?id=${invoice.id}`));
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to create invoice');
+    }
   };
 
   if (loading) {
@@ -238,6 +273,22 @@ export default function JobDetail() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  onClick={handleCreateInvoice}
+                  className="w-full bg-green-600 hover:bg-green-700 gap-2"
+                >
+                  <DollarSign className="w-4 h-4" />
+                  Create Invoice
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* Customer Info */}
             <Card>
               <CardHeader>
