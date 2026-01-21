@@ -136,11 +136,17 @@ export default function RooferSignup() {
     try {
       setLoading(true);
       const plan = plans[planKey];
-      
+      const currentUser = await base44.auth.me();
+
+      if (!currentUser) {
+        toast.error('User session not found');
+        return;
+      }
+
       const { sessionId } = await base44.functions.invoke('createSubscriptionCheckout', {
-        price_id: plan.priceId,
-        trial_period_days: 7,
-        plan_name: plan.name
+        priceId: plan.priceId,
+        email: currentUser.email,
+        userId: currentUser.id
       });
 
       if (sessionId) {
@@ -148,7 +154,7 @@ export default function RooferSignup() {
       }
     } catch (err) {
       console.error('Checkout error:', err);
-      toast.error('Failed to start trial. Please try again.');
+      toast.error('Failed to start trial: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
     }

@@ -9,19 +9,75 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { price_id, trial_period_days, plan_name } = await req.json();
+    const { priceId, email, userId } = await req.json();
 
-    if (!price_id) {
-      return Response.json({ error: 'Missing price_id' }, { status: 400 });
+    if (!priceId || !email || !userId) {
+      return Response.json({ 
+        error: 'Missing required fields: priceId, email, userId' 
+      }, { status: 400 });
     }
 
-    // Get Stripe secret key
     const stripeSecret = Deno.env.get('STRIPE_SECRET_KEY');
     if (!stripeSecret) {
       return Response.json({ error: 'Stripe not configured' }, { status: 500 });
     }
 
-    // Create Stripe Checkout Session for subscription
+    // Step 1: Search for existing Stripe customer with this email
+    console.log('Searching for existing Stripe customer:', email);
+    
+    let customerId;
+    const customerSearchResponse = await fetch(
+      `https://api.stripe.com/v1/customers/search?query=email:"${email}"`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${stripeSecret}`,
+        },
+      }
+    );
+
+    const customerSearchData = await customerSearchResponse.json();
+    
+    if (customerSearchData.data && customerSearchData.data.length > 0) {
+      // Customer exists
+      customerId = customerSearchData.data[0].id;
+      console.log('Found existing Stripe customer:', customerId);
+    } else {
+      // Step 2: Create new Stripe customer
+      console.log('Creating new Stripe customer for email:', email);
+      
+      const createCustomerResponse = await fetch('https://api.stripe.com/v1/customers', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${stripeSecret}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          'email': email,
+          'metadata[userId]': userId,
+          'description': `Roofing contractor signup`
+        }),
+      });
+
+      const customerData = await createCustomerResponse.json();
+
+      if (!createCustomerResponse.ok) {
+        console.error('Stripe customer creation error:', customerData);
+        return Response.json({ 
+          error: 'Failed to create Stripe customer',
+          details: customerData.error?.message || JSON.stringify(customerData)
+        }, { status: 400 });
+      }
+
+      customerId = customerData.id;
+      console.log('Created new Stripe customer:', customerId);
+    }
+
+    // Step 3: Create checkout session
+    console.log('Creating checkout session for customer:', customerId);
+    
+    const baseUrl = getBaseUrl(req);
+    
     const checkoutResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
       headers: {
@@ -31,32 +87,38 @@ Deno.serve(async (req) => {
       body: new URLSearchParams({
         'payment_method_types[0]': 'card',
         'mode': 'subscription',
-        'line_items[0][price]': price_id,
+        'customer': customerId,
+        'line_items[0][price]': priceId,
         'line_items[0][quantity]': '1',
-        'subscription_data[trial_period_days]': trial_period_days.toString(),
-        'success_url': `${getBaseUrl(req)}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
-        'cancel_url': `${getBaseUrl(req)}/roofer-signup`,
-        'customer_email': user.email,
-        'metadata[plan_name]': plan_name,
-        'metadata[user_id]': user.id,
+        'subscription_data[trial_period_days]': '7',
+        'success_url': `${baseUrl}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
+        'cancel_url': `${baseUrl}/roofer-signup`,
       }),
     });
 
+    const sessionData = await checkoutResponse.json();
+
     if (!checkoutResponse.ok) {
-      const error = await checkoutResponse.json();
-      console.error('Stripe error:', error);
-      return Response.json({ error: 'Failed to create checkout session' }, { status: 500 });
+      console.error('Stripe checkout creation error:', sessionData);
+      return Response.json({ 
+        error: 'Failed to create checkout session',
+        details: sessionData.error?.message || JSON.stringify(sessionData)
+      }, { status: 400 });
     }
 
-    const session = await checkoutResponse.json();
+    console.log('✅ Checkout session created:', sessionData.id);
 
     return Response.json({ 
-      sessionId: session.id,
-      url: session.url 
+      sessionId: sessionData.id,
+      url: sessionData.url 
     });
+
   } catch (error) {
-    console.error('Checkout error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error('❌ Unexpected error:', error);
+    return Response.json({ 
+      error: 'Unexpected error: ' + error.message,
+      details: error.stack
+    }, { status: 500 });
   }
 });
 
