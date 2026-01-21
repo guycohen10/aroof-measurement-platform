@@ -51,10 +51,10 @@ export default function CrewWorkspace() {
         const locationText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
 
         try {
-          // Log GPS check-in to ActivityLog
+          // Log GPS check-in to ActivityLog (formatted for Google Maps)
           await base44.entities.ActivityLog.create({
             type: 'gps_ping',
-            content: `Crew arrived at job site. GPS: ${locationText}. Job: ${job.property_address}`,
+            content: `Crew arrived at ${job.property_address}. GPS: ${locationText}`,
             user_id: user.id,
             lead_id: job.measurement_id || null,
             timestamp: new Date().toISOString()

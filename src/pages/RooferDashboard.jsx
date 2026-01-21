@@ -13,6 +13,7 @@ import RooferSidebar from "../components/crm/RooferSidebar";
 import RoleGuard from "../components/crm/RoleGuard";
 import SalesWorkspace from "../components/crm/workspaces/SalesWorkspace";
 import CrewWorkspace from "../components/crm/workspaces/CrewWorkspace";
+import TeamActivityFeed from "../components/crm/TeamActivityFeed";
 import { 
   Home,
   Zap,
@@ -40,6 +41,8 @@ export default function RooferDashboard() {
   const [activeTab, setActiveTab] = useState('purchased');
   const [purchasedLeadsCount, setPurchasedLeadsCount] = useState(0);
   const [showTakeoffModal, setShowTakeoffModal] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [assigningLead, setAssigningLead] = useState(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -135,6 +138,16 @@ export default function RooferDashboard() {
         setMeasurements([]);
         setPurchasedLeadsCount(0);
       }
+
+      // Load team members for assignment
+      try {
+        const allUsers = await base44.entities.User.list();
+        const companyTeam = allUsers.filter(u => u.company_id === companyId);
+        setTeamMembers(companyTeam);
+      } catch (userErr) {
+        console.error('Team fetch error:', userErr);
+        setTeamMembers([]);
+      }
       
       setLoading(false);
     } catch (err) {
@@ -216,6 +229,24 @@ export default function RooferDashboard() {
         m.purchased_by_companies?.includes(user.company_id) && 
         m.user_type === 'homeowner'
       );
+    }
+  };
+
+  const handleAssignLead = async (measurementId, userId) => {
+    setAssigningLead(measurementId);
+    try {
+      await base44.entities.Measurement.update(measurementId, {
+        assigned_to: userId
+      });
+      
+      // Refresh measurements
+      await loadDashboardData();
+      toast.success("Lead assigned successfully!");
+    } catch (err) {
+      toast.error("Failed to assign lead");
+      console.error(err);
+    } finally {
+      setAssigningLead(null);
     }
   };
 
@@ -527,6 +558,11 @@ export default function RooferDashboard() {
           </Card>
         </div>
 
+        {/* Team Activity Feed */}
+        <div className="mb-8">
+          <TeamActivityFeed />
+        </div>
+
         {/* Recent Measurements */}
         <Card className="shadow-lg mb-8">
           <CardHeader>
@@ -583,6 +619,7 @@ export default function RooferDashboard() {
                       )}
                       <th className="text-left p-3 font-semibold text-slate-700 text-sm">Area</th>
                       <th className="text-left p-3 font-semibold text-slate-700 text-sm">Type</th>
+                      <th className="text-left p-3 font-semibold text-slate-700 text-sm">Assigned To</th>
                       <th className="text-left p-3 font-semibold text-slate-700 text-sm">Status</th>
                       <th className="text-left p-3 font-semibold text-slate-700 text-sm">Actions</th>
                     </tr>
@@ -616,6 +653,21 @@ export default function RooferDashboard() {
                               📐 Detailed
                             </span>
                           )}
+                        </td>
+                        <td className="p-3">
+                          <select
+                            value={measurement.assigned_to || ''}
+                            onChange={(e) => handleAssignLead(measurement.id, e.target.value)}
+                            disabled={assigningLead === measurement.id}
+                            className="text-sm border rounded px-2 py-1 min-w-[120px]"
+                          >
+                            <option value="">Unassigned</option>
+                            {teamMembers.map(member => (
+                              <option key={member.id} value={member.id}>
+                                {member.full_name || member.email}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td className="p-3">
                           <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
