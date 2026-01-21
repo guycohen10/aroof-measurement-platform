@@ -1,15 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check } from "lucide-react";
 
-export default function TeamManager({ userProfile }) {
+export default function TeamManager(props) {
+  // Initialize with prop OR null
+  const [userProfile, setUserProfile] = useState(props.userProfile || null);
   const [copiedRole, setCopiedRole] = useState('');
 
-  // SAFETY CHECK: If userProfile is missing, show loading instead of crashing
+  // SELF-FETCH: If the prop is missing, fetch the user immediately
+  useEffect(() => {
+    if (!userProfile) {
+      console.log("Fetching user profile locally...");
+      base44.auth.me()
+        .then(user => {
+          if (user) setUserProfile(user);
+        })
+        .catch(err => console.error("Auth fetch failed:", err));
+    } else if (props.userProfile) {
+      // If prop updates later, sync it
+      setUserProfile(props.userProfile);
+    }
+  }, [props.userProfile]);
+
+  // LOADING STATE (Keep this, but now it will finish!)
   if (!userProfile || !userProfile.company_id) {
     return (
       <div className="flex items-center justify-center p-12">
