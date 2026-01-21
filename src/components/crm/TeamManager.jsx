@@ -34,9 +34,11 @@ export default function TeamManager() {
 
   const fetchTeam = async (companyId) => {
     try {
-      const allUsers = await base44.entities.User.list();
-      const companyTeam = allUsers.filter(u => u.company_id === companyId);
-      setTeam(companyTeam || []);
+      // Use backend function to fetch team with service role permissions
+      const response = await base44.functions.invoke('listTeamMembers', { 
+        company_id: companyId 
+      });
+      setTeam(response.data?.team || []);
     } catch (err) {
       console.warn("Team fetch restricted:", err);
       setTeam([]);

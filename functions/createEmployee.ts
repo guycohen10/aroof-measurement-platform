@@ -21,16 +21,13 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Use Base44's invite method which creates the user account
-    // Then immediately update their profile with full details
-    
-    // Step 1: Create the user via Base44's user creation
+    // Use service role to invite user
     await base44.asServiceRole.users.inviteUser(email, 'user');
     
-    // Step 2: Wait a moment for user creation
+    // Wait for user creation
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Step 3: Find and update the newly created user
+    // Find and update the newly created user with full profile
     const allUsers = await base44.asServiceRole.entities.User.list();
     const newUser = allUsers.find(u => u.email === email);
     
@@ -38,7 +35,7 @@ Deno.serve(async (req) => {
       throw new Error('User created but not found in database');
     }
 
-    // Step 4: Update with full profile including password reset
+    // Update with company details and role
     await base44.asServiceRole.entities.User.update(newUser.id, {
       full_name: name,
       company_id: user.company_id,
@@ -54,7 +51,7 @@ Deno.serve(async (req) => {
         email: email,
         full_name: name
       },
-      message: 'User invited. They will receive an email to set their password.'
+      message: 'Invite sent successfully'
     });
 
   } catch (error) {
