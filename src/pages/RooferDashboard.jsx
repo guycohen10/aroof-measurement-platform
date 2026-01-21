@@ -3,12 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, FileText, Calendar, DollarSign } from "lucide-react";
 import RooferSidebar from '../components/crm/RooferSidebar';
 import SalesWorkspace from '../components/crm/workspaces/SalesWorkspace';
 import CrewWorkspace from '../components/crm/workspaces/CrewWorkspace';
 import ActionCenter from '../components/crm/ActionCenter';
-import TeamActivityFeed from '../components/crm/TeamActivityFeed';
 import NotificationBell from '../components/crm/NotificationBell';
 
 export default function RooferDashboard() {
