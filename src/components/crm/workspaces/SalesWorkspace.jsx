@@ -4,6 +4,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileText, Phone, Check } from 'lucide-react';
 import CommunicationLogger from '../CommunicationLogger';
 
 export default function SalesWorkspace() {
@@ -77,23 +78,33 @@ export default function SalesWorkspace() {
                       <p className="text-sm text-gray-600">{lead.phone}</p>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedLead(lead);
-                          setShowLogger(true);
-                        }}
-                      >
-                        Log Call
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => createJob(lead)}
-                      >
-                        Create Job
-                      </Button>
-                    </div>
+                       <Button
+                         size="sm"
+                         variant="outline"
+                         onClick={() => {
+                           setSelectedLead(lead);
+                           setShowLogger(true);
+                         }}
+                         className="gap-1"
+                       >
+                         <Phone className="w-4 h-4" /> Log Call
+                       </Button>
+                       <Button
+                         size="sm"
+                         variant="outline"
+                         onClick={() => navigate(createPageUrl(`QuoteBuilder?leadId=${lead.id}`))}
+                         className="gap-1"
+                       >
+                         <FileText className="w-4 h-4" /> Create Quote
+                       </Button>
+                       <Button
+                         size="sm"
+                         onClick={() => createJob(lead)}
+                         className="gap-1"
+                       >
+                         <Check className="w-4 h-4" /> Create Job
+                       </Button>
+                     </div>
                   </div>
                 ))}
               </div>
