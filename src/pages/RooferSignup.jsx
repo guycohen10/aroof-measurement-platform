@@ -49,7 +49,6 @@ export default function RooferSignup() {
   const [modalStep, setModalStep] = useState('register'); // 'register' | 'verify'
   const [pendingEmail, setPendingEmail] = useState("");
   const [pendingPassword, setPendingPassword] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
   
   const [formData, setFormData] = useState({
     companyName: "",
