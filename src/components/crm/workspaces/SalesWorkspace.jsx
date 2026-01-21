@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Phone, Mail, MessageSquare, CheckCircle, Loader2 } from "lucide-react";
+import { Phone, Mail, MessageSquare, CheckCircle, Loader2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 export default function SalesWorkspace() {
@@ -113,8 +115,14 @@ export default function SalesWorkspace() {
             <Card key={lead.id} className="hover:shadow-md transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{lead.customer_name || 'Unnamed Lead'}</CardTitle>
+                  <div className="flex-1">
+                    <Link 
+                      to={createPageUrl(`CustomerDetail?id=${lead.id}`)}
+                      className="text-lg font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-2"
+                    >
+                      {lead.customer_name || 'Unnamed Lead'}
+                      <ExternalLink className="w-4 h-4" />
+                    </Link>
                     <p className="text-sm text-slate-600 mt-1">{lead.property_address}</p>
                   </div>
                   <Badge className={statusColors[lead.lead_status] || 'bg-slate-100 text-slate-800'}>

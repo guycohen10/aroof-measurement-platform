@@ -90,6 +90,7 @@ import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
 import MyProfile from './pages/MyProfile';
+import CustomerDetail from './pages/CustomerDetail';
 import __Layout from './Layout.jsx';
 
 
@@ -186,6 +187,7 @@ export const PAGES = {
     "WalletHistory": WalletHistory,
     "Windows": Windows,
     "MyProfile": MyProfile,
+    "CustomerDetail": CustomerDetail,
 }
 
 export const pagesConfig = {
