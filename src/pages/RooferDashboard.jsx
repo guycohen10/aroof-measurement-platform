@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { createPageUrl } from "@/utils";
 import { base44 } from '@/api/base44Client';
-import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Plus, FileText, Calendar, DollarSign, Flame, MapPin, ExternalLink, Zap, X } from "lucide-react";
@@ -11,6 +10,7 @@ import SalesWorkspace from '../components/crm/workspaces/SalesWorkspace';
 import CrewWorkspace from '../components/crm/workspaces/CrewWorkspace';
 import ActionCenter from '../components/crm/ActionCenter';
 import NotificationBell from '../components/crm/NotificationBell';
+import AIEstimatorChat from '../components/leads/AIEstimatorChat';
 
 export default function RooferDashboard() {
   const navigate = useNavigate();
