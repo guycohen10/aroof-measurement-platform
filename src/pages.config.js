@@ -3,6 +3,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminGodMode from './pages/AdminGodMode';
 import AsphaltShingles3Tab from './pages/AsphaltShingles3Tab';
 import AsphaltShinglesArchitectural from './pages/AsphaltShinglesArchitectural';
+import Automations from './pages/Automations';
 import BlogHome from './pages/BlogHome';
 import BlogPost from './pages/BlogPost';
 import Booking from './pages/Booking';
@@ -56,6 +57,9 @@ import NewLeadForm from './pages/NewLeadForm';
 import PDFDownload from './pages/PDFDownload';
 import Payment from './pages/Payment';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import QuoteBuilder from './pages/QuoteBuilder';
+import QuoteManager from './pages/QuoteManager';
+import QuoteView from './pages/QuoteView';
 import Results from './pages/Results';
 import RoofInspection from './pages/RoofInspection';
 import RoofPreview from './pages/RoofPreview';
@@ -92,10 +96,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
-import Automations from './pages/Automations';
-import QuoteBuilder from './pages/QuoteBuilder';
-import QuoteView from './pages/QuoteView';
-import QuoteManager from './pages/QuoteManager';
+import InvoiceView from './pages/InvoiceView';
 import __Layout from './Layout.jsx';
 
 
@@ -105,6 +106,7 @@ export const PAGES = {
     "AdminGodMode": AdminGodMode,
     "AsphaltShingles3Tab": AsphaltShingles3Tab,
     "AsphaltShinglesArchitectural": AsphaltShinglesArchitectural,
+    "Automations": Automations,
     "BlogHome": BlogHome,
     "BlogPost": BlogPost,
     "Booking": Booking,
@@ -158,6 +160,9 @@ export const PAGES = {
     "PDFDownload": PDFDownload,
     "Payment": Payment,
     "PrivacyPolicy": PrivacyPolicy,
+    "QuoteBuilder": QuoteBuilder,
+    "QuoteManager": QuoteManager,
+    "QuoteView": QuoteView,
     "Results": Results,
     "RoofInspection": RoofInspection,
     "RoofPreview": RoofPreview,
@@ -194,10 +199,7 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "WalletHistory": WalletHistory,
     "Windows": Windows,
-    "Automations": Automations,
-    "QuoteBuilder": QuoteBuilder,
-    "QuoteView": QuoteView,
-    "QuoteManager": QuoteManager,
+    "InvoiceView": InvoiceView,
 }
 
 export const pagesConfig = {
