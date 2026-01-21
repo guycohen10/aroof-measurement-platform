@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import React, { useState, useEffect } from 'react';
 
 export default function RooferSignup() {
   const [step, setStep] = useState('pricing');
@@ -37,17 +37,18 @@ export default function RooferSignup() {
   const handleRegister = async () => {
     setLoading(true);
     try {
-      await base44.auth.signUp({
+      const result = await base44.auth.signUp({
         username: formData.email,
         password: formData.password,
         attributes: {
           name: formData.name,
-          company_name: formData.company
+          'custom:company_name': formData.company
         }
       });
       setStep('verify');
     } catch (error) {
-      alert("Error: " + (error.message || JSON.stringify(error)));
+      console.error("Auth Error:", error);
+      alert(error.message);
     } finally {
       setLoading(false);
     }
@@ -101,9 +102,17 @@ export default function RooferSignup() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-slate-100 py-16">
+    <div className="min-h-screen bg-gradient-to-b from-blue-900 via-blue-800 to-slate-100">
+      {/* Hero Section */}
+      <div className="bg-blue-900 text-white py-20 px-4">
+        <div className="max-w-6xl mx-auto text-center">
+          <h1 className="text-5xl font-bold mb-4">Premium Lead Access for Roofers</h1>
+          <p className="text-xl text-blue-100">Join hundreds of roofing companies generating qualified leads</p>
+        </div>
+      </div>
+
       {/* PRICING CARDS */}
-      <div className="max-w-6xl mx-auto px-4 -mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 mb-20 relative z-10">
+      <div className="max-w-6xl mx-auto px-4 -mt-32 grid grid-cols-1 md:grid-cols-3 gap-8 mb-20 relative z-10">
         
         {/* STARTER */}
         <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 flex flex-col">
@@ -114,7 +123,7 @@ export default function RooferSignup() {
         </div>
 
         {/* PRO (HIGHLIGHTED) */}
-        <div className="bg-white p-8 rounded-xl shadow-2xl border-2 border-blue-600 relative transform md:-translate-y-4 flex flex-col">
+        <div className="bg-white p-8 rounded-xl shadow-2xl border-2 border-blue-500 relative transform md:-translate-y-4 flex flex-col">
           <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-bold uppercase tracking-wide">Most Popular</div>
           <h3 className="text-2xl font-bold text-gray-800">Pro</h3>
           <div className="text-4xl font-bold text-blue-600 mt-2">$99<span className="text-sm text-gray-500">/mo</span></div>
