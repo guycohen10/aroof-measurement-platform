@@ -97,6 +97,7 @@ import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
 import InvoiceView from './pages/InvoiceView';
+import AdminLeadPoster from './pages/AdminLeadPoster';
 import __Layout from './Layout.jsx';
 
 
@@ -200,6 +201,7 @@ export const PAGES = {
     "WalletHistory": WalletHistory,
     "Windows": Windows,
     "InvoiceView": InvoiceView,
+    "AdminLeadPoster": AdminLeadPoster,
 }
 
 export const pagesConfig = {
