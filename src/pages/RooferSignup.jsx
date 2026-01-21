@@ -1,398 +1,187 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { base44 } from "@/api/base44Client";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Loader2, Home, X } from "lucide-react";
+import React, { useState } from 'react';
+import { base44 } from '@/api/base44Client';
 
 export default function RooferSignup() {
-  const navigate = useNavigate();
-
-  // Step state
-  const [step, setStep] = useState("pricing"); // 'pricing' | 'register' | 'verify'
+  const [step, setStep] = useState('pricing'); // Options: 'pricing', 'register', 'verify'
+  const [selectedPrice, setSelectedPrice] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    name: '',
+    company: '',
+    email: '',
+    password: '',
+    code: ''
+  });
 
-  // Form fields
-  const [name, setName] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [selectedPriceId, setSelectedPriceId] = useState(null);
-
-  // Plans
-  const plans = {
-    starter: { name: "Starter", price: 19.95, priceId: "price_1Ss4y2ICVekHY0FRX1GMrOHC" },
-    pro: { name: "Pro", price: 99, priceId: "price_1Ss4ykICVekHY0FRDjn5nL7h", popular: true },
-    enterprise: { name: "Enterprise", price: 299, priceId: "price_1Ss4zSICVekHY0FRlQlfaYbM" }
+  // 1. Configuration - Replace these with your REAL Price IDs
+  const PLANS = {
+    starter: 'price_1Ss4y2ICVekHY0FRX1GMrOHC',
+    pro: 'price_1Ss4ykICVekHY0FRDjn5nL7h',
+    enterprise: 'price_1Ss4zSICVekHY0FRlQlfaYbM'
   };
 
-  // Step 1: Registration
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError("");
+  // 2. Handle Plan Selection
+  const selectPlan = (priceId) => {
+    // Check if user is already logged in
+    base44.auth.currentAuthenticatedUser()
+      .then(user => {
+        // If logged in, go straight to payment
+        startCheckout(priceId, user.username);
+      })
+      .catch(() => {
+        // If not logged in, open registration modal
+        setSelectedPrice(priceId);
+        setStep('register');
+      });
+  };
 
-    if (!name || !companyName || !email || !password) {
-      setError("Please fill in all required fields");
-      return;
-    }
-
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
-      return;
-    }
-
+  // 3. Handle Registration (Step 1)
+  const handleRegister = async () => {
     setLoading(true);
-
     try {
-      console.log("📧 Registering user with base44.auth.signUp");
-
+      // EXPLICIT CALL to base44.auth
       await base44.auth.signUp({
-        username: email,
-        password: password,
+        username: formData.email,
+        password: formData.password,
         attributes: {
-          name: name,
-          email: email,
-          company_name: companyName
+          name: formData.name,
+          company_name: formData.company
         }
       });
-
-      console.log("✅ SignUp successful, moving to verification step");
-      setStep("verify");
-      toast.success("Verification code sent to your email!");
-    } catch (err) {
-      console.error("❌ Registration error:", err);
-      setError(err.message || "Registration failed");
-      toast.error(err.message || "Registration failed");
+      setStep('verify'); // FLIP TO VERIFY SCREEN
+    } catch (error) {
+      console.error("Signup Error:", error);
+      alert("Registration Failed: " + (error.message || error));
     } finally {
       setLoading(false);
     }
   };
 
-  // Step 2: Verify & Complete Signup
-  const handleVerifyAndPay = async (e) => {
-    e.preventDefault();
-    setError("");
-
-    if (!verificationCode || verificationCode.length !== 6) {
-      setError("Please enter a valid 6-digit code");
-      return;
-    }
-
-    if (!selectedPriceId) {
-      setError("No plan selected");
-      return;
-    }
-
+  // 4. Handle Verification & Payment (Step 2)
+  const handleVerifyAndPay = async () => {
     setLoading(true);
-
     try {
-      console.log("🔐 Confirming email with base44.auth.confirmSignUp");
-      
-      // Confirm signup
-      await base44.auth.confirmSignUp(email, verificationCode);
-      console.log("✅ Email confirmed");
+      // A. Confirm Email
+      await base44.auth.confirmSignUp(formData.email, formData.code);
 
-      console.log("🔑 Signing in with base44.auth.signIn");
-      
-      // Sign in
-      await base44.auth.signIn({
-        username: email,
-        password: password
-      });
-      console.log("✅ User signed in");
+      // B. Sign In
+      await base44.auth.signIn(formData.email, formData.password);
 
-      // Create company
-      console.log("🏢 Creating company with base44.entities.Company.create");
-      const currentUser = await base44.auth.me();
-
+      // C. Create Company Record
+      const companyId = 'cmp_' + Date.now();
       await base44.entities.Company.create({
-        company_name: companyName,
-        contact_name: name,
-        contact_email: email,
-        is_active: true,
-        subscription_status: "trial"
-      });
-      console.log("✅ Company created");
-
-      // Create checkout session
-      console.log("💳 Creating checkout session with base44.functions.invoke");
-      const response = await base44.functions.invoke("createSubscriptionCheckout", {
-        priceId: selectedPriceId,
-        email: email,
-        userId: currentUser.id
+        company_id: companyId,
+        name: formData.company,
+        email: formData.email,
+        subscription_status: 'trial'
       });
 
-      if (response.data?.sessionId) {
-        console.log("✅ Redirecting to Stripe checkout");
-        window.location.href = `https://checkout.stripe.com/pay/${response.data.sessionId}`;
-      } else {
-        throw new Error("Failed to create checkout session");
-      }
-    } catch (err) {
-      console.error("❌ Verification/Payment error:", err);
-      setError(err.message || "Verification failed");
-      toast.error(err.message || "Verification failed");
+      // D. Update User Record
+      await base44.entities.User.update(
+        { id: 'me' }, // Target current user
+        { company_id: companyId, role: 'owner' }
+      );
+
+      // E. Go to Stripe
+      await startCheckout(selectedPrice, formData.email);
+    } catch (error) {
+      console.error("Verify Error:", error);
+      alert("Verification Failed: " + (error.message || error));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectPlan = (priceId) => {
-    setSelectedPriceId(priceId);
-    setStep("register");
+  // 5. Backend Checkout Call
+  const startCheckout = async (priceId, email) => {
+    try {
+      const response = await base44.functions.invoke('createSubscriptionCheckoutSession', {
+        priceId: priceId,
+        email: email,
+        userId: email
+      });
+      if (response.data.url) {
+        window.location.href = response.data.url;
+      } else {
+        alert("Payment Error: No URL returned");
+      }
+    } catch (error) {
+      alert("Payment System Error: " + error.message);
+    }
   };
 
-  const handleBack = () => {
-    setStep("pricing");
-    setName("");
-    setCompanyName("");
-    setEmail("");
-    setPassword("");
-    setVerificationCode("");
-    setError("");
-  };
+  // 6. Render Logic
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Pricing Grid */}
+      <div className="max-w-6xl mx-auto px-4 -mt-10 grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
+        
+        {/* STARTER */}
+        <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+          <h3 className="text-2xl font-bold text-gray-800">Starter</h3>
+          <div className="text-4xl font-bold text-blue-600 mt-2">$19.95<span className="text-sm text-gray-500">/mo</span></div>
+          <p className="text-gray-500 mt-2">Essential CRM access. Pay per lead.</p>
+          <button onClick={() => selectPlan(PLANS.starter)} className="w-full mt-6 bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-gray-800">Start 7-Day Free Trial</button>
+        </div>
 
-  // ===== PRICING STEP =====
-  if (step === "pricing") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
-        <header className="border-b border-slate-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <Link to={createPageUrl("Homepage")} className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-900 to-blue-700 rounded-lg flex items-center justify-center">
-                <Home className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold text-slate-900">Aroof</span>
-            </Link>
-          </div>
-        </header>
+        {/* PRO (Highlighted) */}
+        <div className="bg-white p-8 rounded-xl shadow-2xl border-2 border-blue-500 relative transform -translate-y-4">
+          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-bold uppercase tracking-wide">Most Popular</div>
+          <h3 className="text-2xl font-bold text-gray-800">Pro</h3>
+          <div className="text-4xl font-bold text-blue-600 mt-2">$99<span className="text-sm text-gray-500">/mo</span></div>
+          <p className="text-gray-500 mt-2">Includes <strong>3 Verified Leads</strong> per month.</p>
+          <ul className="mt-6 space-y-3 text-gray-600">
+            <li>✅ 3 Leads Included ($150 value)</li>
+            <li>✅ Priority Support</li>
+            <li>✅ Advanced Reporting</li>
+          </ul>
+          <button onClick={() => selectPlan(PLANS.pro)} className="w-full mt-6 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 shadow-lg">Start 7-Day Free Trial</button>
+        </div>
 
-        <section className="bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 text-white py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h1 className="text-5xl md:text-6xl font-bold mb-6">
-              Professional Roof Measurements
-              <br />
-              <span className="text-blue-400">In 60 Seconds</span>
-            </h1>
-            <p className="text-2xl text-blue-100 mb-4 max-w-3xl mx-auto">
-              Get satellite measurements instantly. No site visit needed.
-            </p>
-          </div>
-        </section>
-
-        <section className="py-24 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-5xl font-bold text-slate-900 mb-6">Simple, Transparent Pricing</h2>
-              <p className="text-2xl text-slate-600 mb-4">Start your 7-Day Free Trial</p>
-            </div>
-
-            <div className="grid lg:grid-cols-3 gap-8">
-              {Object.entries(plans).map(([key, plan]) => (
-                <Card
-                  key={key}
-                  className={`relative flex flex-col border-2 hover:shadow-2xl transition-all ${
-                    plan.popular ? "border-blue-600 shadow-xl scale-105 lg:scale-100" : "border-slate-200"
-                  }`}
-                >
-                  {plan.popular && (
-                    <div className="absolute -top-5 left-1/2 transform -translate-x-1/2">
-                      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2 text-sm font-bold rounded-full">
-                        ⭐ MOST POPULAR
-                      </div>
-                    </div>
-                  )}
-
-                  <CardHeader className={plan.popular ? "bg-gradient-to-br from-blue-50 to-blue-100/50" : ""}>
-                    <CardTitle className="text-3xl font-bold text-slate-900 mb-2">
-                      {plan.name}
-                    </CardTitle>
-                    <div className="flex items-baseline gap-2 mb-6">
-                      <span className="text-5xl font-bold text-slate-900">${plan.price}</span>
-                      <span className="text-xl text-slate-600">/month</span>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="flex-1 flex flex-col space-y-6">
-                    <Button
-                      size="lg"
-                      className={`w-full h-14 text-lg font-bold ${
-                        plan.popular
-                          ? "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
-                          : "bg-slate-900 hover:bg-slate-800 text-white"
-                      }`}
-                      onClick={() => handleSelectPlan(plan.priceId)}
-                    >
-                      Start Free Trial
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
+        {/* ENTERPRISE */}
+        <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+          <h3 className="text-2xl font-bold text-gray-800">Enterprise</h3>
+          <div className="text-4xl font-bold text-blue-600 mt-2">$299<span className="text-sm text-gray-500">/mo</span></div>
+          <p className="text-gray-500 mt-2">Maximum scale for growing teams.</p>
+          <p className="text-gray-500 mt-2">Includes <strong>12 Verified Leads</strong> per month.</p>
+          <button onClick={() => selectPlan(PLANS.enterprise)} className="w-full mt-6 bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-gray-800">Start 7-Day Free Trial</button>
+        </div>
       </div>
-    );
-  }
 
-  // ===== REGISTRATION STEP =====
-  if (step === "register") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-2xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-4">
-            <CardTitle className="text-2xl">Create Your Account</CardTitle>
-            <button onClick={handleBack} className="text-slate-400 hover:text-slate-600">
-              <X className="w-6 h-6" />
-            </button>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleRegister} className="space-y-4">
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
-                  {error}
+      {/* MODAL */}
+      {(step === 'register' || step === 'verify') && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-8 relative">
+            <button onClick={() => setStep('pricing')} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">✕</button>
+            
+            {step === 'register' ? (
+              <>
+                <h2 className="text-2xl font-bold mb-6">Create Your Account</h2>
+                <div className="space-y-4">
+                  <input placeholder="Full Name" className="w-full p-3 border rounded" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                  <input placeholder="Company Name" className="w-full p-3 border rounded" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} />
+                  <input placeholder="Email" className="w-full p-3 border rounded" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                  <input type="password" placeholder="Password" className="w-full p-3 border rounded" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                  <button onClick={handleRegister} disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded font-bold hover:bg-blue-700">
+                    {loading ? 'Creating...' : 'Create Account'}
+                  </button>
                 </div>
-              )}
-
-              <div>
-                <Label className="text-sm font-semibold">Full Name *</Label>
-                <Input
-                  type="text"
-                  placeholder="John Smith"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-
-              <div>
-                <Label className="text-sm font-semibold">Company Name *</Label>
-                <Input
-                  type="text"
-                  placeholder="ABC Roofing"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-
-              <div>
-                <Label className="text-sm font-semibold">Email *</Label>
-                <Input
-                  type="email"
-                  placeholder="john@abcroofing.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-
-              <div>
-                <Label className="text-sm font-semibold">Password *</Label>
-                <Input
-                  type="password"
-                  placeholder="Min 8 characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 h-12 font-semibold"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Creating Account...
-                  </>
-                ) : (
-                  "Create Account"
-                )}
-              </Button>
-
-              <p className="text-xs text-center text-slate-600">
-                We'll send a verification code to your email
-              </p>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // ===== VERIFICATION STEP =====
-  if (step === "verify") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-2xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-4">
-            <CardTitle className="text-2xl">Verify Your Email</CardTitle>
-            <button onClick={handleBack} className="text-slate-400 hover:text-slate-600">
-              <X className="w-6 h-6" />
-            </button>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleVerifyAndPay} className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-                Verification code sent to <strong>{email}</strong>
-              </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
-                  {error}
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-bold mb-4">Verify Email</h2>
+                <p className="text-gray-600 mb-6">We sent a code to {formData.email}. Enter it below.</p>
+                <div className="space-y-4">
+                  <input placeholder="000000" className="w-full p-3 border rounded text-center text-2xl tracking-widest" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} />
+                  <button onClick={handleVerifyAndPay} disabled={loading} className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700">
+                    {loading ? 'Verifying...' : 'Verify & Pay'}
+                  </button>
                 </div>
-              )}
-
-              <div>
-                <Label className="text-sm font-semibold">Verification Code *</Label>
-                <Input
-                  type="text"
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
-                  placeholder="000000"
-                  maxLength={6}
-                  className="text-center text-2xl tracking-widest font-mono"
-                  disabled={loading}
-                />
-                <p className="text-xs text-slate-500 mt-2">Check your email for the 6-digit code</p>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-green-600 hover:bg-green-700 h-12 font-semibold"
-                disabled={loading || verificationCode.length !== 6}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Verifying...
-                  </>
-                ) : (
-                  "Verify & Start Trial"
-                )}
-              </Button>
-
-              <button
-                type="button"
-                onClick={handleBack}
-                disabled={loading}
-                className="w-full text-sm text-slate-600 hover:text-slate-900 font-medium"
-              >
-                ← Back to Pricing
-              </button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
