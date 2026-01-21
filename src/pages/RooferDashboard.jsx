@@ -14,6 +14,7 @@ import RoleGuard from "../components/crm/RoleGuard";
 import SalesWorkspace from "../components/crm/workspaces/SalesWorkspace";
 import CrewWorkspace from "../components/crm/workspaces/CrewWorkspace";
 import TeamActivityFeed from "../components/crm/TeamActivityFeed";
+import ActionCenter from "../components/crm/ActionCenter";
 import { 
   Home,
   Zap,
@@ -359,6 +360,11 @@ export default function RooferDashboard() {
 
         {/* Scrollable Content */}
         <div className="px-6 py-8">
+        {/* Action Center */}
+        <div className="mb-8">
+          <ActionCenter userId={user.id} companyId={user.company_id} />
+        </div>
+
         {/* Company Header */}
         {user?.company_id && (
           <Card className="shadow-lg mb-8 bg-gradient-to-br from-blue-50 to-white">
