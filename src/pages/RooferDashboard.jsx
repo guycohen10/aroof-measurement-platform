@@ -708,10 +708,10 @@ export default function RooferDashboard() {
               </div>
             )}
           </CardContent>
-        </Card>
+          </Card>
 
-        {/* Security Settings */}
-        <div className="mb-8">
+          {/* Security Settings */}
+          <div className="mb-8">
             <SecuritySettings />
           </div>
 
