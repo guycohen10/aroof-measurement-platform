@@ -36,6 +36,17 @@ export default function RooferDashboard() {
         
         // Mock Stats for the dashboard
         setStats({ revenue: 125000, activeJobs: 4, winRate: 35 });
+
+        // Load appointments for today's schedule
+        try {
+          const appts = await base44.entities.Appointment.list('-created_date', 10);
+          const todayAppts = appts.filter(a => 
+            new Date(a.appointment_date).toDateString() === new Date().toDateString()
+          ).slice(0, 5);
+          setAppointments(todayAppts);
+        } catch (e) {
+          console.log("Appointments not available");
+        }
       }
     } catch (err) {
       console.error("Dashboard Load Error:", err);
