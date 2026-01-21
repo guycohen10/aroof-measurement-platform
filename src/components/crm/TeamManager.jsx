@@ -34,13 +34,13 @@ export default function TeamManager() {
 
   const fetchTeam = async (companyId) => {
     try {
-      // Use backend function to fetch team with service role permissions
+      setErrorMsg('');
       const response = await base44.functions.invoke('listTeamMembers', { 
         company_id: companyId 
       });
       setTeam(response.data?.team || []);
     } catch (err) {
-      console.warn("Team fetch restricted:", err);
+      console.error("List Error:", err);
       setTeam([]);
     }
   };
@@ -51,30 +51,23 @@ export default function TeamManager() {
     setErrorMsg('');
 
     try {
-      // Use Base44's native invite function
-      await base44.users.inviteUser(newUser.email, 'user');
-      
-      // Update the invited user's profile with additional details
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const allUsers = await base44.entities.User.list();
-      const invitedUser = allUsers.find(u => u.email === newUser.email);
-      
-      if (invitedUser) {
-        await base44.entities.User.update(invitedUser.id, {
-          full_name: newUser.name,
-          company_id: userProfile.company_id,
-          company_name: userProfile.company_name,
-          aroof_role: newUser.role
-        });
+      const response = await base44.functions.invoke('createEmployee', {
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role,
+        company_id: userProfile.company_id
+      });
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
       }
 
-      alert(`INVITE SENT!\n\nAn email has been sent to ${newUser.email}.\nThey will receive a link to set their password and join your team.`);
+      alert(`SUCCESS! Invite sent to ${newUser.email}`);
       setNewUser({ name: '', email: '', role: 'estimator' });
       fetchTeam(userProfile.company_id);
     } catch (err) {
       console.error("Invite Error:", err);
-      setErrorMsg(err.message || "Failed to send invite. Email may already be in use.");
+      setErrorMsg(err.message || "Failed to send invite.");
     } finally {
       setLoading(false);
     }
@@ -104,7 +97,7 @@ export default function TeamManager() {
           
           <form onSubmit={handleInvite} className="mb-8 bg-blue-50 p-6 rounded border border-blue-100">
             <h3 className="font-bold text-lg mb-4 text-blue-900">Invite New Employee</h3>
-            <p className="text-sm text-gray-600 mb-4">They will receive an email to set their own password</p>
+            <p className="text-xs text-blue-600 mt-2">They will receive an email to set their own password.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <input 
                 className="p-3 border rounded w-full" 

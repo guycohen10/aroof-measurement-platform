@@ -15,10 +15,15 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Only company owners can create employees' }, { status: 403 });
     }
 
-    const { email, password, name, role } = await req.json();
+    const { email, name, role, company_id } = await req.json();
 
-    if (!email || !password || !name || !role) {
+    if (!email || !name || !role) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    // Verify the requesting user has permission for this company
+    if (user.company_id !== company_id && user.role !== 'admin') {
+      return Response.json({ error: 'Cannot invite users to other companies' }, { status: 403 });
     }
 
     // Use service role to invite user
@@ -38,7 +43,7 @@ Deno.serve(async (req) => {
     // Update with company details and role
     await base44.asServiceRole.entities.User.update(newUser.id, {
       full_name: name,
-      company_id: user.company_id,
+      company_id: company_id,
       company_name: user.company_name,
       aroof_role: role,
       is_company_owner: false
