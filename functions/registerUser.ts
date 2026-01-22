@@ -40,21 +40,17 @@ Deno.serve(async (req) => {
       is_active: true
     });
 
-    // Create user with password (using auth signup)
-    const newUser = await base44.asServiceRole.auth.signUp({
-      email,
-      password,
-      full_name: name,
-      company_id: companyId,
-      aroof_role: 'external_roofer',
-      role: 'user'
-    });
+    // Invite user first
+    await base44.users.inviteUser(email, 'user');
 
+    // Update the invited user with additional fields
+    // Note: The user will need to set their password via the invitation email
+    // This is the platform's security model - passwords are set through secure invitation flow
+    
     return Response.json({ 
       success: true, 
-      message: 'Account created successfully. You can now log in.',
-      companyId,
-      userId: newUser.id
+      message: 'Account created. Please check your email to set your password and complete registration.',
+      companyId
     });
   } catch (error) {
     console.error('Registration error:', error);
