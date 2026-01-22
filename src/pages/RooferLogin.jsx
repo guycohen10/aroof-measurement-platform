@@ -135,11 +135,14 @@ export default function RooferLogin() {
     try {
       // 1. Confirm Sign Up using verifyOtp
       console.log('Verifying code:', code);
+      const cleanEmail = email.trim();
+      const cleanCode = code.trim();
       
+      // Pass both token (for SDK) and otp_code (for Server) to be safe
       const { error } = await base44.auth.verifyOtp({ 
-        email: email.trim(), 
-        token: code.trim(),
-        otp_code: code.trim(), // Server requires otp_code
+        email: cleanEmail, 
+        token: cleanCode,
+        otp_code: cleanCode, 
         type: 'signup' 
       });
 
