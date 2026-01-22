@@ -33,23 +33,29 @@ export default function Homepage() {
   const [audienceTab, setAudienceTab] = useState('homeowner');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // --- AGGRESSIVE REDIRECT LOGIC ---
+  // --- BROAD REDIRECT LOGIC ---
   useEffect(() => {
     const checkRedirect = () => {
       const url = window.location.href;
-      // Check for any sign of an invite or recovery token (hash or search)
-      if (
-        url.includes('token=') || 
-        url.includes('confirmation=') || 
-        url.includes('invite=') || 
-        url.includes('type=invite') || 
-        url.includes('type=recovery')
-      ) {
-        console.log("Invite token detected! Redirecting to setup...");
-        // Force redirect to the login/setup page, passing the tokens along
-        // Use full href to ensure hash is preserved
-        const target = '/rooferlogin' + window.location.search + window.location.hash;
-        window.location.href = target;
+      const search = window.location.search;
+      const hash = window.location.hash;
+
+      // Broad check for ANY authentication-related parameters
+      // This catches: magic links, invites, recovery, confirmation tokens, error descriptions from OAuth
+      const isAuthEvent = 
+        search.includes('token') || 
+        search.includes('type=') || 
+        search.includes('confirmation') ||
+        hash.includes('token') || 
+        hash.includes('type=') || 
+        hash.includes('access_token') ||
+        hash.includes('error_description');
+
+      if (isAuthEvent) {
+        console.log("Auth event detected on Homepage. Redirecting to Roofer Login...");
+        // Redirect preserving all query params and hash fragments
+        // This ensures the Login page can process the token
+        window.location.href = '/rooferlogin' + search + hash;
         return;
       }
     };
