@@ -32,14 +32,16 @@ export default function RooferLogin() {
   const [code, setCode] = useState('');
 
   const getErrorText = (err) => {
-    console.log('Full Error Object:', err); // Log to console for safety
-    // 1. Try standard message
-    if (err.message && typeof err.message === 'string' && !err.message.startsWith('{')) return err.message;
-    // 2. Try axios/response data
+    console.log('Full Error Object:', err); 
+    // 1. Check for Server Response (The gold mine)
     if (err.response?.data) {
-       return JSON.stringify(err.response.data); 
+      const d = err.response.data;
+      // Extract message from common patterns
+      return d.error_description || d.msg || d.message || d.error || JSON.stringify(d);
     }
-    // 3. Last resort: Dump the whole thing
+    // 2. Check standard error
+    if (err.message) return err.message;
+    // 3. Fallback
     return JSON.stringify(err);
   };
 
