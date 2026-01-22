@@ -6,8 +6,8 @@ export default function RooferSignup() {
 
   // ACTIONS
   const handleStartTrial = () => {
-    // Redirect to native login/signup flow
-    base44.auth.redirectToLogin({ next: '/rooferdashboard' });
+    // Redirect to native login/signup flow (using explicit path to avoid 404s)
+    window.location.href = '/rooferlogin?mode=signup';
   };
 
   // FAQ DATA

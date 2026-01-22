@@ -18,10 +18,17 @@ export default function RooferLogin() {
   const [error, setError] = useState('');
   const [processingMagicLink, setProcessingMagicLink] = useState(false);
   const [isSettingPassword, setIsSettingPassword] = useState(false); // New state for password setup
+  const [isRegistering, setIsRegistering] = useState(false); // New state for signup mode
 
   useEffect(() => {
-    // 1. Check for Magic Link (Legacy/Custom)
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // Check for Signup Mode
+    if (urlParams.get('mode') === 'signup') {
+      setIsRegistering(true);
+    }
+
+    // 1. Check for Magic Link (Legacy/Custom)
     const token = urlParams.get('token');
     const type = urlParams.get('type');
 
@@ -80,6 +87,26 @@ export default function RooferLogin() {
     } catch (err) {
       console.error('Password set error:', err);
       setError(err.message || 'Failed to set password');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle Registration
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+      await base44.auth.signUp(email, password);
+      toast.success('Registration successful! Please check your email for the confirmation code.');
+      // After signup, we typically want them to verify email or they might be auto-logged in depending on config.
+      // Usually base44.auth.signUp doesn't auto-login if email verification is required.
+      // We'll show a success message or switch to a "Check Email" view.
+      setError('Please check your email to verify your account.'); 
+    } catch (err) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Registration failed');
     } finally {
       setIsLoading(false);
     }
@@ -254,10 +281,12 @@ export default function RooferLogin() {
                 <Building2 className="w-10 h-10 text-white" />
               </div>
               <CardTitle className="text-3xl font-bold text-slate-900 mb-2">
-                {isSettingPassword ? 'Set Password' : 'Contractor Login'}
+                {isSettingPassword ? 'Set Password' : (isRegistering ? 'Create Account' : 'Contractor Login')}
               </CardTitle>
               <p className="text-slate-600 text-lg">
-                {isSettingPassword ? 'Create your secure password' : 'Sign in to your contractor account'}
+                {isSettingPassword 
+                  ? 'Create your secure password' 
+                  : (isRegistering ? 'Start your free trial today' : 'Sign in to your contractor account')}
               </p>
             </CardHeader>
 
@@ -318,8 +347,8 @@ export default function RooferLogin() {
                   </Button>
                 </form>
               ) : (
-                /* STANDARD LOGIN FORM */
-                <form onSubmit={handleLogin} className="space-y-5">
+                /* STANDARD LOGIN / REGISTER FORM */
+                <form onSubmit={isRegistering ? handleRegister : handleLogin} className="space-y-5">
                   <div>
                     <Label className="text-sm font-semibold text-slate-700 mb-2 block">
                       Email Address
@@ -373,27 +402,34 @@ export default function RooferLogin() {
                     disabled={isLoading}
                     className="w-full h-12 text-base bg-blue-600 hover:bg-blue-700 font-semibold"
                   >
-                    {isLoading ? 'Logging in...' : 'Login'}
+                    {isLoading ? (isRegistering ? 'Creating Account...' : 'Logging in...') : (isRegistering ? 'Create Account' : 'Login')}
                   </Button>
                 </form>
               )}
 
-              <div className="mt-4 text-center">
-                <Link to={createPageUrl("RooferForgotPassword")} className="text-blue-600 hover:text-blue-700 text-sm font-semibold">
-                  Forgot Password?
-                </Link>
-              </div>
+              {!isRegistering && (
+                <div className="mt-4 text-center">
+                  <Link to={createPageUrl("RooferForgotPassword")} className="text-blue-600 hover:text-blue-700 text-sm font-semibold">
+                    Forgot Password?
+                  </Link>
+                </div>
+              )}
 
               <div className="mt-8 pt-6 border-t border-slate-200">
                 <p className="text-center text-slate-600 mb-3">
-                  Don't have an account?
+                  {isRegistering ? 'Already have an account?' : "Don't have an account?"}
                 </p>
-                <Link to={createPageUrl("RooferSignup")}>
-                  <Button variant="outline" className="w-full h-11 font-semibold">
-                    Create Contractor Account
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
+                <Button 
+                  variant="outline" 
+                  className="w-full h-11 font-semibold"
+                  onClick={() => {
+                    setIsRegistering(!isRegistering);
+                    setError('');
+                  }}
+                >
+                  {isRegistering ? 'Sign In' : 'Create Contractor Account'}
+                  {!isRegistering && <ArrowRight className="w-4 h-4 ml-2" />}
+                </Button>
               </div>
             </CardContent>
           </Card>
