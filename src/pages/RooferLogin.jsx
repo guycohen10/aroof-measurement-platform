@@ -22,6 +22,7 @@ export default function RooferLogin() {
   const [isSettingPassword, setIsSettingPassword] = useState(false); // New state for password setup
   const [isRegistering, setIsRegistering] = useState(false); // New state for signup mode
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [inviteSent, setInviteSent] = useState(false);
 
   // Safety Redirect for 404s
   useEffect(() => {
@@ -126,8 +127,8 @@ export default function RooferLogin() {
 
       if (response.data.error) throw new Error(response.data.error);
 
-      toast.success('Invite Sent! Check your email to set your password.');
-      setIsRegistering(false); // Switch back to login view
+      setInviteSent(true);
+      toast.success('Invite Sent!');
       setError(''); 
     } catch (err) {
       console.error("Signup Error:", err);
@@ -308,12 +309,14 @@ export default function RooferLogin() {
                 <Building2 className="w-10 h-10 text-white" />
               </div>
               <CardTitle className="text-3xl font-bold text-slate-900 mb-2">
-                {isSettingPassword ? 'Set Password' : (isRegistering ? 'Create Account' : 'Contractor Login')}
+                {inviteSent ? 'Invite Sent!' : (isSettingPassword ? 'Set Password' : (isRegistering ? 'Create Account' : 'Contractor Login'))}
               </CardTitle>
               <p className="text-slate-600 text-lg">
-                {isSettingPassword 
-                  ? 'Create your secure password' 
-                  : (isRegistering ? (selectedPlan ? `Signing up for ${selectedPlan} Plan` : 'Start your free trial today') : 'Sign in to your contractor account')}
+                {inviteSent 
+                  ? `We sent a secure link to ${email}. Click it to set your password.`
+                  : (isSettingPassword 
+                    ? 'Create your secure password' 
+                    : (isRegistering ? (selectedPlan ? `Signing up for ${selectedPlan} Plan` : 'Start your free trial today') : 'Sign in to your contractor account'))}
               </p>
             </CardHeader>
 
@@ -324,7 +327,24 @@ export default function RooferLogin() {
                 </div>
               )}
 
-              {isSettingPassword ? (
+              {inviteSent ? (
+                <div className="text-center">
+                  <div className="bg-green-50 text-green-800 p-6 rounded-lg mb-6">
+                    <p className="font-semibold mb-2">Check your inbox</p>
+                    <p className="text-sm">We've sent a magic link to <strong>{email}</strong></p>
+                  </div>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setInviteSent(false);
+                      setIsRegistering(false);
+                    }}
+                    className="w-full"
+                  >
+                    Back to Login
+                  </Button>
+                </div>
+              ) : isSettingPassword ? (
                 /* SET PASSWORD FORM */
                 <form onSubmit={handleSetPassword} className="space-y-5">
                   <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 mb-4">

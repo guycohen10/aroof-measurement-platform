@@ -40,8 +40,13 @@ Deno.serve(async (req) => {
 
     // Step 2: Invite using Service Role (Bypasses "You must be logged in" error)
     console.log(`Inviting user: ${email}`);
-    // We can pass data to inviteUser if supported, but typically we update the user after
-    await base44.asServiceRole.users.inviteUser(email, 'user');
+    await base44.asServiceRole.users.inviteUser(email, 'user', {
+      data: {
+        name: name,
+        'custom:company_name': company,
+        'custom:selected_plan': selectedPlan
+      }
+    });
 
     // Step 3: Attempt to Link (Safe Mode / Best Effort)
     // We try to find the user we just invited and update their company_id
