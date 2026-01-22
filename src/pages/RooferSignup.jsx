@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 
 export default function RooferSignup() {
-  const [step, setStep] = useState('pricing'); // 'pricing' | 'register' | 'verify'
+  const [step, setStep] = useState('pricing'); // 'pricing' | 'register' | 'success'
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ name: '', company: '', email: '', password: '', code: '', companyId: '' });
@@ -37,10 +37,7 @@ export default function RooferSignup() {
         // Store company ID for later
         setFormData({...formData, companyId: response.data.companyId});
         setErrorMessage('');
-        // Show success and redirect
-        setTimeout(() => {
-          base44.auth.redirectToLogin();
-        }, 2000);
+        setStep('success');
       } else {
         setErrorMessage(response.data.error || 'Registration failed');
       }
@@ -215,7 +212,7 @@ export default function RooferSignup() {
       </footer>
 
       {/* MODAL (2-STEP) */}
-      {(step === 'register' || step === 'verify') && (
+      {(step === 'register' || step === 'success') && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative animate-fade-in-up">
             <button onClick={() => setStep('pricing')} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">✕</button>
@@ -242,18 +239,18 @@ export default function RooferSignup() {
               </>
             ) : (
               <>
-                <h2 className="text-2xl font-bold mb-2">Verify Email</h2>
-                <p className="text-slate-500 mb-6">Enter the code sent to <strong>{formData.email}</strong></p>
-                {errorMessage && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm font-medium flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                    {errorMessage}
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
                   </div>
-                )}
-                <div className="space-y-4">
-                  <input placeholder="000000" className="w-full p-4 border-2 border-blue-100 rounded-xl text-center text-3xl tracking-widest font-mono focus:border-blue-500 outline-none" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} />
-                  <button onClick={handleVerifyAndPay} disabled={loading} className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition shadow-lg shadow-green-200">
-                    {loading ? 'Verifying...' : 'Verify & Pay'}
+                  <h2 className="text-2xl font-bold mb-2">Account Created!</h2>
+                  <p className="text-slate-600 mb-4">We have sent a verification link to</p>
+                  <p className="text-blue-600 font-semibold mb-6">{formData.email}</p>
+                  <p className="text-slate-500 text-sm mb-8">Please click the link in your email to activate your account and set your password.</p>
+                  <button onClick={() => base44.auth.redirectToLogin()} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
+                    Go to Login
                   </button>
                 </div>
               </>
