@@ -1,25 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { createClient } from 'npm:@supabase/supabase-js@2';
 
 Deno.serve(async (req) => {
   try {
     const { email, name, company, plan } = await req.json();
     const base44 = createClientFromRequest(req);
 
-    // Create Supabase admin client with service role
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Supabase credentials not configured');
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
+    console.log('Starting registration for:', email);
 
     // 1. Check if user exists
     const existingUsers = await base44.asServiceRole.entities.User.filter({ email });
@@ -45,9 +31,17 @@ Deno.serve(async (req) => {
 
     console.log(`Company created: ${newCompany.id}`);
 
-    // 3. Create User with Supabase Admin API
+    // 3. Access Base44's Supabase client directly
+    // Base44 exposes the underlying Supabase client
+    const supabase = base44.asServiceRole.supabase;
+    
+    if (!supabase) {
+      throw new Error('Cannot access Supabase client');
+    }
+
+    // 4. Create User with Supabase Admin API
     console.log(`Creating auth user: ${email}`);
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: email,
       email_confirm: false,
       user_metadata: {
@@ -60,23 +54,21 @@ Deno.serve(async (req) => {
 
     if (authError) {
       console.error('Auth creation error:', authError);
-      // Cleanup: delete the company
       await base44.asServiceRole.entities.Company.delete(newCompany.id);
       throw new Error(`Failed to create user: ${authError.message}`);
     }
 
     console.log(`Auth user created: ${authData.user.id}`);
 
-    // 4. Send invite email
+    // 5. Send invite email
     console.log('Sending invite email...');
-    const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email);
+    const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email);
     
     if (inviteError) {
       console.warn('Invite email warning:', inviteError.message);
-      // Non-critical - user exists, they can use forgot password
     }
 
-    // 5. Link User entity to Company
+    // 6. Link User entity to Company
     console.log('Waiting for User entity creation...');
     await new Promise(resolve => setTimeout(resolve, 2000));
     
@@ -92,8 +84,6 @@ Deno.serve(async (req) => {
       });
       
       console.log('User linked to company');
-    } else {
-      console.warn('User entity not found - will link on first login');
     }
 
     return Response.json({ 
