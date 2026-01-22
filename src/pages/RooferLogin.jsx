@@ -438,6 +438,44 @@ export default function RooferLogin() {
                   </Button>
                 </form>
               ) : (
+                {showVerify ? (
+                  /* VERIFY CODE FORM */
+                  <div className="space-y-5">
+                    <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 mb-4">
+                      <strong>Check your email!</strong> We sent you a verification code.
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold text-slate-700 mb-2 block">
+                        Verification Code
+                      </Label>
+                      <Input
+                        type="text"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value)}
+                        required
+                        className="h-12 text-base tracking-widest text-center font-mono text-lg"
+                        placeholder="000000"
+                        maxLength={6}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleVerifyAndLogin}
+                      disabled={isLoading}
+                      className="w-full h-12 text-base bg-green-600 hover:bg-green-700 font-semibold"
+                    >
+                      {isLoading ? 'Verifying...' : 'Verify & Login'}
+                    </Button>
+                    <button 
+                      type="button"
+                      onClick={() => setShowVerify(false)}
+                      className="w-full text-center text-sm text-slate-500 hover:underline"
+                    >
+                      Back to Login
+                    </button>
+                  </div>
+                ) : (
                 /* STANDARD LOGIN / REGISTER FORM */
                 <form onSubmit={isRegistering ? handleRegister : handleLogin} className="space-y-5">
                   {isRegistering && (
@@ -529,6 +567,7 @@ export default function RooferLogin() {
                     {isLoading ? (isRegistering ? 'Creating Account...' : 'Logging in...') : (isRegistering ? 'Create Account' : 'Login')}
                   </Button>
                 </form>
+                )}
               )}
 
               {!isRegistering && (
