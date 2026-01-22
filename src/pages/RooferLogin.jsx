@@ -438,7 +438,7 @@ export default function RooferLogin() {
                   </Button>
                 </form>
               ) : (
-                {showVerify ? (
+                showVerify ? (
                   /* VERIFY CODE FORM */
                   <div className="space-y-5">
                     <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 mb-4">
@@ -567,7 +567,7 @@ export default function RooferLogin() {
                     {isLoading ? (isRegistering ? 'Creating Account...' : 'Logging in...') : (isRegistering ? 'Create Account' : 'Login')}
                   </Button>
                 </form>
-                )}
+                )
               )}
 
               {!isRegistering && (
