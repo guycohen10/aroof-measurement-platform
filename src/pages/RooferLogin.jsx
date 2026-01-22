@@ -32,14 +32,15 @@ export default function RooferLogin() {
   const [code, setCode] = useState('');
 
   const getErrorText = (err) => {
-    if (!err) return 'Unknown error';
-    if (typeof err === 'string') return err;
-    // Check standard Supabase/Axios error paths
-    return err.response?.data?.message || 
-           err.response?.data?.error_description || 
-           err.message || 
-           err.error || 
-           JSON.stringify(err);
+    console.log('Full Error Object:', err); // Log to console for safety
+    // 1. Try standard message
+    if (err.message && typeof err.message === 'string' && !err.message.startsWith('{')) return err.message;
+    // 2. Try axios/response data
+    if (err.response?.data) {
+       return JSON.stringify(err.response.data); 
+    }
+    // 3. Last resort: Dump the whole thing
+    return JSON.stringify(err);
   };
 
   // Safety Redirect for 404s
