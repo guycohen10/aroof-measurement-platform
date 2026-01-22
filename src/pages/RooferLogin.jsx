@@ -155,7 +155,7 @@ export default function RooferLogin() {
     setIsLoading(true);
     try {
       const { error } = await base44.auth.resendOtp({
-        email: email,
+        email: email.trim(),
         type: 'signup'
       });
       
@@ -164,7 +164,9 @@ export default function RooferLogin() {
       toast.success("New verification code sent!");
     } catch (err) {
       console.error("Resend failed:", err);
-      toast.error(err.message || "Failed to resend code.");
+      // Extract the REAL text message
+      const msg = err.response?.data?.message || err.message || JSON.stringify(err);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -191,8 +193,9 @@ export default function RooferLogin() {
 
       if (response.data.error) throw new Error(response.data.error);
 
-      setInviteSent(true);
-      toast.success('Invite Sent!');
+      // Immediately show verification screen instead of invite sent screen
+      setShowVerify(true);
+      toast.success('Account created! Please verify your email.');
       setError(''); 
     } catch (err) {
       console.error("Signup Error:", err);
@@ -478,6 +481,9 @@ export default function RooferLogin() {
                     <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 mb-4">
                       <strong>Check your email!</strong> We sent you a verification code.
                     </div>
+                    <p className="text-sm text-center text-slate-600 -mt-2">
+                        Verifying code for: <strong>{email}</strong>
+                    </p>
                     <div>
                       <Label className="text-sm font-semibold text-slate-700 mb-2 block">
                         Verification Code
