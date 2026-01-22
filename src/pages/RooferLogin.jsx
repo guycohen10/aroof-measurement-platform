@@ -32,8 +32,14 @@ export default function RooferLogin() {
   const [code, setCode] = useState('');
 
   const getErrorText = (err) => {
+    if (!err) return 'Unknown error';
     if (typeof err === 'string') return err;
-    return err.response?.data?.message || err.response?.data?.error_description || err.message || JSON.stringify(err);
+    // Check standard Supabase/Axios error paths
+    return err.response?.data?.message || 
+           err.response?.data?.error_description || 
+           err.message || 
+           err.error || 
+           JSON.stringify(err);
   };
 
   // Safety Redirect for 404s
@@ -129,7 +135,7 @@ export default function RooferLogin() {
       
       const { error } = await base44.auth.verifyOtp({ 
         email: email.trim(), 
-        token: code.trim(), 
+        token: code.trim(), // Remove accidental spaces
         type: 'signup' 
       });
 
@@ -161,6 +167,7 @@ export default function RooferLogin() {
     setIsLoading(true);
     setError('');
     try {
+      // Standard Supabase/Base44 Resend
       const { error } = await base44.auth.resendOtp({
         email: email.trim(),
         type: 'signup'
