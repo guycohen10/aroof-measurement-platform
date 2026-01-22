@@ -33,26 +33,35 @@ export default function Homepage() {
   const [audienceTab, setAudienceTab] = useState('homeowner');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  // --- AGGRESSIVE REDIRECT LOGIC ---
   useEffect(() => {
-    // 1. Manual Redirect Interceptor
-    // Catches invitation links (which land here due to missing redirects) and forwards to /rooferlogin
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('invitation_token') || params.has('token') || params.has('confirmation')) {
-      const redirectUrl = `/rooferlogin?${params.toString()}`;
-      window.location.href = redirectUrl;
-      return;
-    }
-
-    // 2. Smart Redirect: Auto-redirect staff to dashboard
+    const checkRedirect = () => {
+      const url = window.location.href;
+      // Check for any sign of an invite or recovery token (hash or search)
+      if (
+        url.includes('token=') || 
+        url.includes('confirmation=') || 
+        url.includes('invite=') || 
+        url.includes('type=invite') || 
+        url.includes('type=recovery')
+      ) {
+        console.log("Invite token detected! Redirecting to setup...");
+        // Force redirect to the login/setup page, passing the tokens along
+        // Use full href to ensure hash is preserved
+        const target = '/rooferlogin' + window.location.search + window.location.hash;
+        window.location.href = target;
+        return;
+      }
+    };
+    checkRedirect();
+    
+    // Original Auth Check logic
     const checkAuth = async () => {
       try {
         const user = await base44.auth.me();
         if (user) {
           setIsLoggedIn(true);
-          
-          // Staff roles that should be redirected to dashboard
           const staffRoles = ['sales', 'estimator', 'crew', 'external_roofer', 'dispatcher'];
-          
           if (staffRoles.includes(user.aroof_role)) {
             navigate(createPageUrl('RooferDashboard'));
           }
@@ -63,6 +72,7 @@ export default function Homepage() {
     };
     checkAuth();
   }, [navigate]);
+  // ---------------------------------
 
   return (
     <>

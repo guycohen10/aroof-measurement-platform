@@ -17,9 +17,10 @@ export default function RooferLogin() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [processingMagicLink, setProcessingMagicLink] = useState(false);
+  const [isSettingPassword, setIsSettingPassword] = useState(false); // New state for password setup
 
   useEffect(() => {
-    // Check for magic link token first
+    // 1. Check for Magic Link (Legacy/Custom)
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
     const type = urlParams.get('type');
@@ -29,10 +30,28 @@ export default function RooferLogin() {
       return;
     }
 
-    // Otherwise check if already authenticated
+    // 2. Check for Standard Invite/Recovery Token (Hash)
+    // The Base44/Supabase SDK will detect the hash token and auto-login the user.
+    // We need to detect "type=invite" or "type=recovery" to show the "Set Password" UI.
+    const hash = window.location.hash;
+    if (hash && (hash.includes('type=invite') || hash.includes('type=recovery'))) {
+      console.log('Invite/Recovery token detected in hash. Switching to Password Setup mode.');
+      setIsSettingPassword(true);
+      // Wait for SDK to initialize session, then we can confirm user is logged in
+    }
+
+    // 3. Auth Check
     const checkAuth = async () => {
       try {
         const user = await base44.auth.me();
+        
+        // If user is logged in BUT we are in "Setting Password" mode (from invite), DO NOT redirect yet.
+        // Let them set the password.
+        if (window.location.hash.includes('type=invite') || window.location.hash.includes('type=recovery')) {
+           setIsSettingPassword(true);
+           return; 
+        }
+
         if (user && user.aroof_role) {
           navigate(createPageUrl('RooferDashboard'));
         }
@@ -42,6 +61,29 @@ export default function RooferLogin() {
     };
     checkAuth();
   }, [navigate]);
+
+  // Handle Setting New Password
+  const handleSetPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+      if (!password) throw new Error('Password is required');
+      
+      // Update user password
+      await base44.auth.updateMe({ password: password });
+      
+      toast.success('Password set successfully! Logging you in...');
+      
+      // Navigate to dashboard after short delay
+      setTimeout(() => navigate(createPageUrl("RooferDashboard")), 1000);
+    } catch (err) {
+      console.error('Password set error:', err);
+      setError(err.message || 'Failed to set password');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleMagicLinkLogin = async (token) => {
     setProcessingMagicLink(true);
@@ -212,10 +254,10 @@ export default function RooferLogin() {
                 <Building2 className="w-10 h-10 text-white" />
               </div>
               <CardTitle className="text-3xl font-bold text-slate-900 mb-2">
-                Contractor Login
+                {isSettingPassword ? 'Set Password' : 'Contractor Login'}
               </CardTitle>
               <p className="text-slate-600 text-lg">
-                Sign in to your contractor account
+                {isSettingPassword ? 'Create your secure password' : 'Sign in to your contractor account'}
               </p>
             </CardHeader>
 
@@ -226,63 +268,115 @@ export default function RooferLogin() {
                 </div>
               )}
 
-              <form onSubmit={handleLogin} className="space-y-5">
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 mb-2 block">
-                    Email Address
-                  </Label>
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="h-12 text-base"
-                    placeholder="your@company.com"
-                    disabled={isLoading}
-                  />
-                </div>
+              {isSettingPassword ? (
+                /* SET PASSWORD FORM */
+                <form onSubmit={handleSetPassword} className="space-y-5">
+                  <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 mb-4">
+                    <strong>Welcome!</strong> Please set a password to activate your account.
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-semibold text-slate-700 mb-2 block">
+                      New Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        minLength={6}
+                        className="h-12 text-base pr-12"
+                        placeholder="Create a password (min 6 chars)"
+                        disabled={isLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                      >
+                        {showPassword ? (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
 
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 mb-2 block">
-                    Password
-                  </Label>
-                  <div className="relative">
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full h-12 text-base bg-green-600 hover:bg-green-700 font-semibold text-white"
+                  >
+                    {isLoading ? 'Activating...' : 'Activate Account & Login'}
+                  </Button>
+                </form>
+              ) : (
+                /* STANDARD LOGIN FORM */
+                <form onSubmit={handleLogin} className="space-y-5">
+                  <div>
+                    <Label className="text-sm font-semibold text-slate-700 mb-2 block">
+                      Email Address
+                    </Label>
                     <Input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="h-12 text-base pr-12"
-                      placeholder="Enter your password"
+                      className="h-12 text-base"
+                      placeholder="your@company.com"
                       disabled={isLoading}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
-                    >
-                      {showPassword ? (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      )}
-                    </button>
                   </div>
-                </div>
 
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full h-12 text-base bg-blue-600 hover:bg-blue-700 font-semibold"
-                >
-                  {isLoading ? 'Logging in...' : 'Login'}
-                </Button>
-              </form>
+                  <div>
+                    <Label className="text-sm font-semibold text-slate-700 mb-2 block">
+                      Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="h-12 text-base pr-12"
+                        placeholder="Enter your password"
+                        disabled={isLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                      >
+                        {showPassword ? (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full h-12 text-base bg-blue-600 hover:bg-blue-700 font-semibold"
+                  >
+                    {isLoading ? 'Logging in...' : 'Login'}
+                  </Button>
+                </form>
+              )}
 
               <div className="mt-4 text-center">
                 <Link to={createPageUrl("RooferForgotPassword")} className="text-blue-600 hover:text-blue-700 text-sm font-semibold">
