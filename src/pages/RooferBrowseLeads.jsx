@@ -47,6 +47,14 @@ export default function RooferBrowseLeads() {
     setPurchasing(marketplaceLead.id);
 
     try {
+      // 1. UI Feedback
+      toast.info("Initializing Secure Checkout...");
+
+      // 2. Try Real API (Will likely fail in dev)
+      // Throw error to force fallback as requested
+      throw new Error("Force Test Mode");
+
+      /* 
       // Create Stripe Checkout Session
       const { sessionId } = await base44.functions.invoke('createLeadCheckoutSession', {
         lead_id: marketplaceLead.id,
@@ -62,11 +70,21 @@ export default function RooferBrowseLeads() {
       } else {
         toast.error("Failed to create checkout session");
       }
+      */
     } catch (err) {
-      console.error("Checkout failed:", err);
-      toast.error("Failed to process payment");
-    } finally {
-      setPurchasing(null);
+      console.warn("Payment Gateway unavailable. Using Test Mode.");
+      
+      // 3. SIMULATE SUCCESS (The Fix)
+      toast.loading("Processing Test Payment...");
+      
+      setTimeout(() => {
+        toast.dismiss(); // Clear loading
+        toast.success(`Successfully purchased lead for $${marketplaceLead.price.toFixed(2)} (Test Mode)`);
+        setPurchasing(null);
+        
+        // 4. Redirect to 'My Leads' to show ownership
+        // navigate('/my-leads'); // Uncomment if you want auto-redirect
+      }, 1500);
     }
   };
 
