@@ -11,6 +11,13 @@ Deno.serve(async (req) => {
 
     const base44 = createClientFromRequest(req);
 
+    // Check for existing user
+    const existingUsers = await base44.asServiceRole.entities.User.filter({ email });
+    if (existingUsers && existingUsers.length > 0) {
+      // Throw a standard error that the frontend can read
+      throw new Error("This email is already registered. Please log in.");
+    }
+
     // Step 1: Create the Company Entity FIRST (Service Role)
     console.log(`Creating company: ${company}`);
     const newCompany = await base44.asServiceRole.entities.Company.create({

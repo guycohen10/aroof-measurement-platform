@@ -123,8 +123,10 @@ export default function RooferLogin() {
       setIsRegistering(false); // Switch back to login view
       setError(''); 
     } catch (err) {
-      console.error('Registration error:', err);
-      setError(err.message || 'Registration failed');
+      console.error("Signup Error:", err);
+      // Extract the specific message from the server response if it exists
+      const serverMessage = err.response?.data?.message || err.response?.data?.error || err.message;
+      setError(serverMessage);
     } finally {
       setIsLoading(false);
     }
