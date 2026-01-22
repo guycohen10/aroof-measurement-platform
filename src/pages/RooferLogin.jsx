@@ -115,22 +115,45 @@ export default function RooferLogin() {
     setIsLoading(true);
     try {
       // 1. Confirm Sign Up
-      // Trying common signatures for base44/supabase wrappers
+      console.log('Verifying code:', code);
       try {
           await base44.auth.confirmSignUp({ email, code });
       } catch (e) {
+          console.warn('Standard confirm failed, trying fallback:', e);
           // Fallback if signature differs
           await base44.auth.verifyOtp({ email, token: code, type: 'signup' });
       }
 
-      // 2. Login
+      toast.success("Verified! Logging you in...");
+
+      // 2. Login (Separate Step)
+      // Small delay to ensure backend state propagation if needed
+      await new Promise(r => setTimeout(r, 500));
+      
       await base44.auth.loginViaEmailPassword(email, password);
       
-      toast.success("Verified & Logged in!");
+      toast.success("Logged in successfully!");
       navigate(createPageUrl("RooferDashboard"));
     } catch (err) {
-      console.error("Verification failed:", err);
+      console.error("Verification/Login failed:", err);
       setError(err.message || "Verification failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (!email) {
+      toast.error("Email is missing.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await base44.auth.resendSignUpCode(email);
+      toast.success("New verification code sent!");
+    } catch (err) {
+      console.error("Resend failed:", err);
+      toast.error(err.message || "Failed to resend code.");
     } finally {
       setIsLoading(false);
     }
@@ -459,14 +482,26 @@ export default function RooferLogin() {
                         disabled={isLoading}
                       />
                     </div>
-                    <Button
-                      type="button"
-                      onClick={handleVerifyAndLogin}
-                      disabled={isLoading}
-                      className="w-full h-12 text-base bg-green-600 hover:bg-green-700 font-semibold"
-                    >
-                      {isLoading ? 'Verifying...' : 'Verify & Login'}
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button
+                        type="button"
+                        onClick={handleVerifyAndLogin}
+                        disabled={isLoading}
+                        className="flex-1 h-12 text-base bg-green-600 hover:bg-green-700 font-semibold"
+                        >
+                        {isLoading ? 'Verifying...' : 'Verify & Login'}
+                        </Button>
+                        <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleResendCode}
+                        disabled={isLoading}
+                        className="h-12 px-4 border-slate-300 text-slate-600 hover:bg-slate-50"
+                        title="Resend Code"
+                        >
+                        Resend
+                        </Button>
+                    </div>
                     <button 
                       type="button"
                       onClick={() => setShowVerify(false)}
