@@ -165,10 +165,12 @@ export default function RooferDashboard() {
           <h1 className="text-2xl font-bold text-gray-800">Your Dashboard</h1>
           <div className="flex items-center gap-4">
             <NotificationBell userId={user.id} />
-            <span className="text-sm font-bold text-gray-600">{user.company_name || 'My Company'}</span>
-            <div className="h-8 w-8 bg-blue-600 rounded-full text-white flex items-center justify-center font-bold">
-              {user.full_name?.[0] || user.email?.[0] || 'U'}
-            </div>
+            <Link to={createPageUrl("CompanySettings")} className="flex items-center gap-3 hover:bg-gray-50 p-2 rounded-lg transition-colors">
+              <span className="text-sm font-bold text-gray-600 hover:text-blue-600">{user.company_name || 'My Company'}</span>
+              <div className="h-8 w-8 bg-blue-600 rounded-full text-white flex items-center justify-center font-bold">
+                {user.full_name?.[0] || user.email?.[0] || 'U'}
+              </div>
+            </Link>
           </div>
         </header>
 

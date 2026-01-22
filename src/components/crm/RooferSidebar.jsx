@@ -74,6 +74,7 @@ export default function RooferSidebar({ className }) {
   const loadUser = async () => {
     try {
       const user = await base44.auth.me();
+      console.log('Sidebar User Role:', user?.aroof_role);
       setUserProfile(user);
     } catch (err) {
       console.error('Error loading user:', err);
@@ -122,7 +123,7 @@ export default function RooferSidebar({ className }) {
     if (!userProfile) return true; // Show all until role is loaded
     
     const role = userProfile.aroof_role;
-    const isOwnerOrAdmin = role === 'company_owner' || userProfile.role === 'admin';
+    const isOwnerOrAdmin = role === 'company_owner' || role === 'external_roofer' || userProfile.role === 'admin';
     
     // STRICT: Hide Company section for non-owners/non-admins
     if (section.ownerOnly && !isOwnerOrAdmin) {
@@ -214,7 +215,14 @@ export default function RooferSidebar({ className }) {
       </nav>
 
       {/* Sign Out Button */}
-      <div className="p-4 border-t">
+      <div className="p-4 border-t space-y-2">
+        {/* FORCE SHOW FOR ADMINS/OWNERS/ROOFERS */}
+        {(userProfile?.aroof_role === 'external_roofer' || userProfile?.aroof_role === 'company_owner' || userProfile?.is_company_owner) && (
+          <Link to={createPageUrl("CompanySettings")} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+            <Settings className="w-4 h-4" />
+            Company Settings
+          </Link>
+        )}
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
