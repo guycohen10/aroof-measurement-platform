@@ -5,12 +5,16 @@ Deno.serve(async (req) => {
     const { email, password, name, company } = await req.json();
 
     // Input validation
-    if (!email || !name || !company) {
-      return Response.json({ error: 'Email, name, and company are required' }, { status: 400 });
+    if (!email || !password || !name || !company) {
+      return Response.json({ error: 'Email, password, name, and company are required' }, { status: 400 });
     }
 
     if (!email.includes('@')) {
       return Response.json({ error: 'Invalid email address' }, { status: 400 });
+    }
+
+    if (password.length < 6) {
+      return Response.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
     }
 
     const base44 = createClientFromRequest(req);
@@ -36,13 +40,21 @@ Deno.serve(async (req) => {
       is_active: true
     });
 
-    // Invite user - correct method path (NOT on asServiceRole)
-    await base44.users.inviteUser(email, 'user');
+    // Create user with password (using auth signup)
+    const newUser = await base44.asServiceRole.auth.signUp({
+      email,
+      password,
+      full_name: name,
+      company_id: companyId,
+      aroof_role: 'external_roofer',
+      role: 'user'
+    });
 
     return Response.json({ 
       success: true, 
-      message: 'Check your email for an invitation link to complete registration',
-      companyId 
+      message: 'Account created successfully. You can now log in.',
+      companyId,
+      userId: newUser.id
     });
   } catch (error) {
     console.error('Registration error:', error);

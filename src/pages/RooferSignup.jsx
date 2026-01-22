@@ -249,7 +249,7 @@ export default function RooferSignup() {
                   <p className="text-slate-600 mb-4">We have sent a verification link to</p>
                   <p className="text-blue-600 font-semibold mb-6">{formData.email}</p>
                   <p className="text-slate-500 text-sm mb-8">Please click the link in your email to activate your account and set your password.</p>
-                  <button onClick={() => base44.auth.redirectToLogin()} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
+                  <button onClick={() => window.location.href = '/rooferlogin'} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
                     Go to Login
                   </button>
                 </div>
