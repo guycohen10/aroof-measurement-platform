@@ -31,6 +31,11 @@ export default function RooferLogin() {
   const [showVerify, setShowVerify] = useState(false);
   const [code, setCode] = useState('');
 
+  const getErrorText = (err) => {
+    if (typeof err === 'string') return err;
+    return err.response?.data?.message || err.response?.data?.error_description || err.message || JSON.stringify(err);
+  };
+
   // Safety Redirect for 404s
   useEffect(() => {
     if (window.location.pathname === '/login') {
@@ -123,8 +128,8 @@ export default function RooferLogin() {
       console.log('Verifying code:', code);
       
       const { error } = await base44.auth.verifyOtp({ 
-        email: email, 
-        token: code, 
+        email: email.trim(), 
+        token: code.trim(), 
         type: 'signup' 
       });
 
@@ -141,7 +146,8 @@ export default function RooferLogin() {
       navigate(createPageUrl("RooferDashboard"));
     } catch (err) {
       console.error("Verification/Login failed:", err);
-      setError(err.message || "Verification failed. Please try again.");
+      const msg = getErrorText(err);
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -153,6 +159,7 @@ export default function RooferLogin() {
       return;
     }
     setIsLoading(true);
+    setError('');
     try {
       const { error } = await base44.auth.resendOtp({
         email: email.trim(),
@@ -161,11 +168,11 @@ export default function RooferLogin() {
       
       if (error) throw error;
       
-      toast.success("New verification code sent!");
+      toast.success("New verification code sent! Check your inbox.");
     } catch (err) {
-      console.error("Resend failed:", err);
-      // Extract the REAL text message
-      const msg = err.response?.data?.message || err.message || JSON.stringify(err);
+      console.error("Resend Failed:", err);
+      const msg = getErrorText(err);
+      setError(msg);
       toast.error(msg);
     } finally {
       setIsLoading(false);
