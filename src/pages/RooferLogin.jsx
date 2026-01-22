@@ -119,7 +119,7 @@ export default function RooferLogin() {
 
       if (response.data.error) throw new Error(response.data.error);
 
-      toast.success('Invite Sent! Please check your email for a secure login link.');
+      toast.success('Invite Sent! Check your email to set your password.');
       setIsRegistering(false); // Switch back to login view
       setError(''); 
     } catch (err) {

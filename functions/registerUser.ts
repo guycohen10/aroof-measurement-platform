@@ -35,10 +35,10 @@ Deno.serve(async (req) => {
     }
     console.log(`Company created: ${newCompany.id}`);
 
-    // Step 2: Simple Invite (No complex data payload to avoid crashes)
+    // Step 2: Simple Invite using Service Role (Bypasses "You must be logged in" error)
     // We rely on the email match to link them later
     console.log(`Inviting user: ${email}`);
-    await base44.users.inviteUser(email, 'user');
+    await base44.asServiceRole.users.inviteUser(email, 'user');
 
     // Step 3: Attempt to Link (Safe Mode / Best Effort)
     // We try to find the user we just invited and update their company_id
