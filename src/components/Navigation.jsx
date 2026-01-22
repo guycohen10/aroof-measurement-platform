@@ -168,9 +168,14 @@ export default function Navigation() {
                 
                 {/* External Roofer */}
                 {user.aroof_role === 'external_roofer' && (
-                  <Link to={createPageUrl("RooferDashboard")} className="text-slate-600 hover:text-blue-900 font-medium">
-                    Roofer Dashboard
-                  </Link>
+                  <>
+                    <Link to={createPageUrl("RooferDashboard")} className="text-slate-600 hover:text-blue-900 font-medium">
+                      Roofer Dashboard
+                    </Link>
+                    <Link to={createPageUrl("CompanySettings")} className="text-slate-600 hover:text-blue-900 font-medium">
+                      Settings
+                    </Link>
+                  </>
                 )}
                 
                 <button 

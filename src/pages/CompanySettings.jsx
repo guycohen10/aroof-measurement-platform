@@ -112,6 +112,22 @@ export default function CompanySettings() {
     }
   };
 
+  const handleConnectStripe = async () => {
+    try {
+      setSaving(true);
+      // Generate Stripe Link
+      const { url } = await base44.stripe.createConnectAccountLink({
+        refresh_url: window.location.href,
+        return_url: window.location.href + '?success=true',
+      });
+      window.location.href = url; // Redirect user
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to connect Stripe");
+      setSaving(false);
+    }
+  };
+
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -468,10 +484,28 @@ export default function CompanySettings() {
                 )}
               </div>
 
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-sm text-yellow-800">
-                  💳 Full subscription management coming soon.
+              <div className="bg-white border rounded-lg p-6">
+                <h3 className="text-lg font-semibold mb-2">Payment Processing</h3>
+                <p className="text-slate-600 mb-4">
+                  Connect your Stripe account to receive payments for jobs and manage subscriptions.
                 </p>
+                <Button 
+                  onClick={handleConnectStripe}
+                  disabled={saving}
+                  className="bg-[#635BFF] hover:bg-[#5851df] text-white"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      Connect Stripe Account
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
