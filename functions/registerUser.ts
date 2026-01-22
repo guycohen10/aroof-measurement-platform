@@ -19,34 +19,38 @@ Deno.serve(async (req) => {
     try {
       const existingUsers = await base44.asServiceRole.entities.User.filter({ email });
       if (existingUsers && existingUsers.length > 0) {
-        return Response.json({ error: 'User already exists' }, { status: 400 });
+        return Response.json({ error: 'An account with this email already exists' }, { status: 400 });
       }
     } catch (checkError) {
-      console.log('User check error (may be expected):', checkError.message);
+      console.log('User check (expected if user does not exist):', checkError.message);
     }
 
-    // Create company record first
-    const companyId = 'cmp_' + Date.now();
-    await base44.asServiceRole.entities.Company.create({
-      company_id: companyId,
+    // Create company record
+    const company_id = 'cmp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    const companyRecord = await base44.asServiceRole.entities.Company.create({
+      company_id: company_id,
       company_name: company,
       contact_email: email,
       contact_name: name,
       subscription_status: 'trial',
-      is_active: true
+      subscription_tier: 'starter',
+      is_active: true,
+      trial_end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 day trial
     });
 
-    // Invite user with redirect to roofer login page
-    // The invitation email will contain a secure link to set password
+    // Invite user - this sends an email with a link to set password
+    // The user will be redirected to the app after clicking the link
     await base44.users.inviteUser(email, 'user');
-    
-    // After user clicks invite link and sets password, they'll be able to login at /rooferlogin
-    // We'll update their profile with company info once they authenticate
+
+    // Store company metadata for later association
+    // When user accepts invite and logs in, we'll update their profile with company_id
+    console.log('Company created:', company_id);
+    console.log('User invited:', email);
     
     return Response.json({ 
       success: true, 
-      message: 'Account created. Please check your email to set your password and complete registration.',
-      companyId
+      message: 'Invitation sent successfully. Please check your email to set your password and activate your account.',
+      companyId: company_id
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -54,7 +58,8 @@ Deno.serve(async (req) => {
     // Determine if this is a user error or server error
     const isUserError = error.message.includes('already exists') || 
                         error.message.includes('invalid') ||
-                        error.message.includes('required');
+                        error.message.includes('required') ||
+                        error.message.includes('duplicate');
     
     return Response.json({ 
       error: error.message || 'Registration failed. Please try again.' 
