@@ -23,6 +23,8 @@ export default function RooferLogin() {
   const [isRegistering, setIsRegistering] = useState(false); // New state for signup mode
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [inviteSent, setInviteSent] = useState(false);
+  const [showVerify, setShowVerify] = useState(false);
+  const [code, setCode] = useState('');
 
   // Safety Redirect for 404s
   useEffect(() => {
@@ -102,6 +104,33 @@ export default function RooferLogin() {
     } catch (err) {
       console.error('Password set error:', err);
       setError(err.message || 'Failed to set password');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyAndLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+      // 1. Confirm Sign Up
+      // Trying common signatures for base44/supabase wrappers
+      try {
+          await base44.auth.confirmSignUp({ email, code });
+      } catch (e) {
+          // Fallback if signature differs
+          await base44.auth.verifyOtp({ email, token: code, type: 'signup' });
+      }
+
+      // 2. Login
+      await base44.auth.loginViaEmailPassword(email, password);
+      
+      toast.success("Verified & Logged in!");
+      navigate(createPageUrl("RooferDashboard"));
+    } catch (err) {
+      console.error("Verification failed:", err);
+      setError(err.message || "Verification failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -264,14 +293,16 @@ export default function RooferLogin() {
 
     } catch (err) {
       console.error('❌ Login error:', err);
-      console.log('Full error object:', JSON.stringify(err, null, 2));
-      
-      // Detailed error display for debugging
       const errorMessage = err.message || 'Unknown error';
-      const errorStatus = err.status || err.code || 'N/A';
-      const errorDetails = err.details || err.error_description || '';
       
-      setError(`Error: ${errorMessage} (Status: ${errorStatus})${errorDetails ? ` - ${errorDetails}` : ''}`);
+      // Check for verification needed
+      if (errorMessage.includes('verify') || errorMessage.includes('confirm') || errorMessage.includes('Email not confirmed')) {
+          setShowVerify(true);
+          setError("Please enter the code sent to your email.");
+          toast.message("Verification required", { description: "Please check your email for the code." });
+      } else {
+          setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }

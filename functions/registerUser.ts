@@ -22,11 +22,6 @@ Deno.serve(async (req) => {
 
     // 3. Sign Up User with REAL PASSWORD (Public Method)
     // usage of 'base44.auth.signUp' allows public registration without admin keys.
-    // Note: If base44.auth.signUp is not available, we fall back to register, but passing options relies on signUp support.
-    // We'll try to use the underlying register method if signUp isn't explicitly exposed, 
-    // but the user requested this specific logic.
-    
-    // Check if signUp exists, otherwise try register which might be the wrapper
     const authMethod = base44.auth.signUp || base44.auth.register;
     
     const { data, error } = await authMethod({
@@ -51,24 +46,24 @@ Deno.serve(async (req) => {
     // 4. Ensure Link (Safety Net)
     await new Promise(r => setTimeout(r, 1000));
     
-    // We need to find the user to ensure the link
-    // Note: filter might need to run as service role to see the user immediately if RLS applies? 
-    // Usually new users are visible to themselves or admins. Service role is safest.
-    const users = await base44.asServiceRole.entities.User.filter({ email });
-    if (users?.[0]) {
-       // Ensure the metadata fields are actually set on the entity
-       await base44.asServiceRole.entities.User.update(users[0].id, { 
-          company_id: newCompany.id,
-          aroof_role: 'external_roofer',
-          full_name: name
-       });
+    // Attempt to link user to company again to be safe
+    // Note: The options.data in signUp might handle this automatically if RLS/Triggers allow, 
+    // but explicit update ensures it.
+    try {
+        const users = await base44.asServiceRole.entities.User.filter({ email });
+        if (users?.[0]) {
+           await base44.asServiceRole.entities.User.update(users[0].id, { 
+              company_id: newCompany.id,
+              aroof_role: 'external_roofer',
+              full_name: name
+           });
+        }
+    } catch (linkError) {
+        console.warn("Secondary linking failed, but user created:", linkError);
     }
 
-    // Return format matching Supabase response structure somewhat, or just success
-    // The user asked for: return new Response(JSON.stringify({ success: true, userId: data.user?.id }));
-    // data.user might be inside data if the method returns {data, error} or just the response object
-    const userId = data?.user?.id || data?.id || users?.[0]?.id;
-    
+    // Return response
+    const userId = data?.user?.id || data?.id;
     return Response.json({ success: true, userId: userId });
 
   } catch (error) {
