@@ -5,7 +5,7 @@ export default function RooferSignup() {
   const [step, setStep] = useState('pricing'); // 'pricing' | 'register' | 'verify'
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ name: '', company: '', email: '', password: '', code: '' });
+  const [formData, setFormData] = useState({ name: '', company: '', email: '', password: '', code: '', companyId: '' });
   const [activeFAQ, setActiveFAQ] = useState(null);
 
   // STRIPE CONFIG
@@ -24,15 +24,24 @@ export default function RooferSignup() {
   const handleRegister = async () => {
     setLoading(true);
     try {
-      await base44.auth.signUp({
-        username: formData.email,
+      const response = await base44.functions.invoke('registerUser', {
+        email: formData.email,
         password: formData.password,
-        attributes: {
-          name: formData.name,
-          'custom:company_name': formData.company
-        }
+        name: formData.name,
+        company: formData.company
       });
-      setStep('verify');
+
+      if (response.data.success) {
+        // Store company ID for later
+        setFormData({...formData, companyId: response.data.companyId});
+        alert('Check your email for an invitation link to complete registration!');
+        // Redirect to login where they'll set password
+        setTimeout(() => {
+          base44.auth.redirectToLogin();
+        }, 2000);
+      } else {
+        alert("Registration Error: " + (response.data.error || 'Unknown error'));
+      }
     } catch (err) {
       alert("Registration Error: " + err.message);
     } finally {
@@ -43,31 +52,28 @@ export default function RooferSignup() {
   const handleVerifyAndPay = async () => {
     setLoading(true);
     try {
-      await base44.auth.confirmSignUp(formData.email, formData.code);
-      await base44.auth.signIn(formData.email, formData.password);
-
-      // Create Company
-      const companyId = 'cmp_' + Date.now();
-      await base44.entities.Company.create({
-        company_id: companyId,
-        name: formData.company,
+      // Setup user after they've logged in via invitation link
+      const response = await base44.functions.invoke('verifyAndSetup', {
         email: formData.email,
-        subscription_status: 'trial'
-      });
-      
-      // Update User
-      await base44.entities.User.update({ id: 'me' }, { company_id: companyId, role: 'owner' });
-
-      // Redirect to Stripe
-      const res = await base44.functions.createSubscriptionCheckoutSession({
-        priceId: selectedPlan.id,
-        email: formData.email,
-        userId: formData.email
+        companyId: formData.companyId
       });
 
-      if (res.url) window.location.href = res.url;
+      if (response.data.success) {
+        // Redirect to Stripe checkout
+        const checkoutResponse = await base44.functions.invoke('createSubscriptionCheckoutSession', {
+          priceId: selectedPlan.id,
+          email: formData.email,
+          userId: formData.email
+        });
+
+        if (checkoutResponse.data.url) {
+          window.location.href = checkoutResponse.data.url;
+        }
+      } else {
+        alert("Setup Error: " + (response.data.error || 'Unknown error'));
+      }
     } catch (err) {
-      alert("Verification Error: " + err.message);
+      alert("Setup Error: " + err.message);
     } finally {
       setLoading(false);
     }
