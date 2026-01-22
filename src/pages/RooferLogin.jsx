@@ -138,7 +138,8 @@ export default function RooferLogin() {
       
       const { error } = await base44.auth.verifyOtp({ 
         email: email.trim(), 
-        token: code.trim(), // Remove accidental spaces
+        token: code.trim(),
+        otp_code: code.trim(), // Server requires otp_code
         type: 'signup' 
       });
 
