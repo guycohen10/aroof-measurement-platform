@@ -9,13 +9,16 @@ import {
   Users, 
   Calendar, 
   FileText, 
+  DollarSign, 
   Receipt,
   Settings,
   ChevronDown,
   ChevronRight,
   ListTodo,
   Briefcase,
-  CreditCard
+  TrendingUp,
+  CreditCard,
+  LogOut
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -50,30 +53,28 @@ const navSections = [
     ]
   },
   {
-    title: 'Management (v2)',  // 👈 VERSION STAMP
+    title: 'Company',
     items: [
       { label: 'Team Management', icon: Users, path: 'TeamManager' },
       { label: 'Settings', icon: Settings, path: 'CompanySettings' }
     ],
-    ownerOnly: false  // 👈 FORCED VISIBLE FOR DEBUGGING
+    ownerOnly: true
   }
 ];
 
 export default function RooferSidebar({ className }) {
   const location = useLocation();
-  const [expandedSections, setExpandedSections] = useState(['Main', 'Lead Center', 'Management (v2)']);
+  const [expandedSections, setExpandedSections] = useState(['Main', 'Lead Center']);
   const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
     loadUser();
-    console.log('🚀 SIDEBAR LOADED - V2 FORCED VISIBILITY');
   }, []);
 
   const loadUser = async () => {
     try {
       const user = await base44.auth.me();
       setUserProfile(user);
-      console.log('👤 User Profile:', user);
     } catch (err) {
       console.error('Error loading user:', err);
     }
@@ -84,6 +85,7 @@ export default function RooferSidebar({ className }) {
       company_owner: 'bg-purple-500 text-white',
       admin: 'bg-red-500 text-white',
       external_roofer: 'bg-blue-500 text-white',
+      sales: 'bg-green-500 text-white',
       estimator: 'bg-blue-500 text-white',
       dispatcher: 'bg-yellow-500 text-white',
       crew: 'bg-gray-500 text-white'
@@ -96,6 +98,7 @@ export default function RooferSidebar({ className }) {
       company_owner: 'Owner',
       admin: 'Admin',
       external_roofer: 'Roofer',
+      sales: 'Sales',
       estimator: 'Estimator',
       dispatcher: 'Dispatcher',
       crew: 'Crew'
@@ -115,9 +118,32 @@ export default function RooferSidebar({ className }) {
     return location.pathname === createPageUrl(path);
   };
 
-  // 👇 SIMPLIFIED - SHOW ALL SECTIONS (FOR DEBUGGING)
   const canViewSection = (section) => {
-    return true;  // Force all sections visible
+    if (!userProfile) return true; // Show all until role is loaded
+    
+    const role = userProfile.aroof_role;
+    const isOwnerOrAdmin = role === 'company_owner' || userProfile.role === 'admin';
+    
+    // STRICT: Hide Company section for non-owners/non-admins
+    if (section.ownerOnly && !isOwnerOrAdmin) {
+      return false;
+    }
+
+    // Crew members can't see Financials
+    if (role === 'crew' && section.title === 'Financials') {
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleLogout = async () => {
+    try {
+      await base44.auth.logout();
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
   };
 
   return (
@@ -186,6 +212,24 @@ export default function RooferSidebar({ className }) {
           </div>
         ))}
       </nav>
+
+      {/* Sign Out Button */}
+      <div className="p-4 border-t space-y-2">
+        <Link
+          to={createPageUrl("CompanySettings")}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+        >
+          <Settings className="w-4 h-4" />
+          Company Settings
+        </Link>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </button>
+      </div>
     </div>
   );
 }
