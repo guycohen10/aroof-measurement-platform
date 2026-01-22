@@ -36,8 +36,8 @@ Deno.serve(async (req) => {
       is_active: true
     });
 
-    // Invite user to the platform
-    await base44.asServiceRole.users.inviteUser(email, 'user');
+    // Invite user - correct method path (NOT on asServiceRole)
+    await base44.users.inviteUser(email, 'user');
 
     return Response.json({ 
       success: true, 
@@ -47,9 +47,13 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Registration error:', error);
     
-    // Return user-friendly error
+    // Determine if this is a user error or server error
+    const isUserError = error.message.includes('already exists') || 
+                        error.message.includes('invalid') ||
+                        error.message.includes('required');
+    
     return Response.json({ 
       error: error.message || 'Registration failed. Please try again.' 
-    }, { status: 500 });
+    }, { status: isUserError ? 400 : 500 });
   }
 });
