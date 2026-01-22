@@ -133,8 +133,20 @@ export default function RooferLogin() {
     } catch (err) {
       console.error("Signup Error:", err);
       // Extract the specific message from the server response if it exists
-      const serverMessage = err.response?.data?.message || err.response?.data?.error || err.message;
-      setError(serverMessage);
+      // Check if err.message is JSON string
+      let errorMessage = err.message;
+      try {
+        if (err.response?.data?.error) {
+          errorMessage = err.response.data.error;
+        } else if (err.message && err.message.startsWith('{')) {
+             const parsed = JSON.parse(err.message);
+             errorMessage = parsed.error || parsed.message || err.message;
+        }
+      } catch (e) {
+        // keep original
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
