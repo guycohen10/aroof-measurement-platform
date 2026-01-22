@@ -10,6 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Home, Building2, ArrowRight, Shield, Zap, Star, Loader2 } from "lucide-react";
 
 export default function RooferLogin() {
+  // Debug Auth Object
+  useEffect(() => {
+    console.log('Auth Object:', base44.auth);
+  }, []);
+
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -114,20 +119,20 @@ export default function RooferLogin() {
     setError('');
     setIsLoading(true);
     try {
-      // 1. Confirm Sign Up
+      // 1. Confirm Sign Up using verifyOtp
       console.log('Verifying code:', code);
-      try {
-          await base44.auth.confirmSignUp({ email, code });
-      } catch (e) {
-          console.warn('Standard confirm failed, trying fallback:', e);
-          // Fallback if signature differs
-          await base44.auth.verifyOtp({ email, token: code, type: 'signup' });
-      }
+      
+      const { error } = await base44.auth.verifyOtp({ 
+        email: email, 
+        token: code, 
+        type: 'signup' 
+      });
+
+      if (error) throw error;
 
       toast.success("Verified! Logging you in...");
 
       // 2. Login (Separate Step)
-      // Small delay to ensure backend state propagation if needed
       await new Promise(r => setTimeout(r, 500));
       
       await base44.auth.loginViaEmailPassword(email, password);
@@ -149,7 +154,13 @@ export default function RooferLogin() {
     }
     setIsLoading(true);
     try {
-      await base44.auth.resendSignUpCode(email);
+      const { error } = await base44.auth.resendOtp({
+        email: email,
+        type: 'signup'
+      });
+      
+      if (error) throw error;
+      
       toast.success("New verification code sent!");
     } catch (err) {
       console.error("Resend failed:", err);
