@@ -300,7 +300,7 @@ export default function Homepage() {
                 </Link>
               ) : (
                 <>
-                  <Link to={createPageUrl("RooferLogin")} className="text-blue-600 hover:text-blue-900 font-semibold flex items-center gap-1">
+                  <Link to={createPageUrl("RooferSignup")} className="text-blue-600 hover:text-blue-900 font-semibold flex items-center gap-1">
                     <Building2 className="w-4 h-4" />
                     Contractors
                   </Link>

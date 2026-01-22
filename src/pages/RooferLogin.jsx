@@ -19,6 +19,7 @@ export default function RooferLogin() {
   const [processingMagicLink, setProcessingMagicLink] = useState(false);
   const [isSettingPassword, setIsSettingPassword] = useState(false); // New state for password setup
   const [isRegistering, setIsRegistering] = useState(false); // New state for signup mode
+  const [selectedPlan, setSelectedPlan] = useState(null);
 
   // Safety Redirect for 404s
   useEffect(() => {
@@ -30,9 +31,13 @@ export default function RooferLogin() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     
-    // Check for Signup Mode
+    // Check for Signup Mode and Plan
     if (urlParams.get('mode') === 'signup') {
       setIsRegistering(true);
+    }
+    
+    if (urlParams.get('plan')) {
+      setSelectedPlan(urlParams.get('plan'));
     }
 
     // 1. Check for Magic Link (Legacy/Custom)
@@ -299,7 +304,7 @@ export default function RooferLogin() {
               <p className="text-slate-600 text-lg">
                 {isSettingPassword 
                   ? 'Create your secure password' 
-                  : (isRegistering ? 'Start your free trial today' : 'Sign in to your contractor account')}
+                  : (isRegistering ? (selectedPlan ? `Signing up for ${selectedPlan} Plan` : 'Start your free trial today') : 'Sign in to your contractor account')}
               </p>
             </CardHeader>
 

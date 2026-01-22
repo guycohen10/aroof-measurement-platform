@@ -5,9 +5,9 @@ export default function RooferSignup() {
   const [activeFAQ, setActiveFAQ] = useState(null);
 
   // ACTIONS
-  const handleStartTrial = () => {
-    // Redirect to native login/signup flow (using explicit path to avoid 404s)
-    window.location.href = '/rooferlogin?mode=signup';
+  const handlePlanSelect = (planName) => {
+    // Send the user to the secure login page, remembering their plan
+    window.location.href = `/rooferlogin?mode=signup&plan=${planName}`;
   };
 
   // FAQ DATA
@@ -56,7 +56,7 @@ export default function RooferSignup() {
               <li key={f} className="flex items-center"><span className="text-green-500 mr-3">✓</span>{f}</li>
             ))}
           </ul>
-          <button onClick={handleStartTrial} className="w-full py-4 bg-slate-100 text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition">Start Free Trial</button>
+          <button onClick={() => handlePlanSelect('Starter')} className="w-full py-4 bg-slate-100 text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition">Start Free Trial</button>
         </div>
 
         {/* PRO */}
@@ -70,7 +70,7 @@ export default function RooferSignup() {
               <li key={f} className="flex items-center"><span className="text-blue-500 mr-3">✓</span>{f}</li>
             ))}
           </ul>
-          <button onClick={handleStartTrial} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition">Start Free Trial</button>
+          <button onClick={() => handlePlanSelect('Pro')} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition">Start Free Trial</button>
         </div>
 
         {/* ENTERPRISE */}
@@ -83,7 +83,7 @@ export default function RooferSignup() {
               <li key={f} className="flex items-center"><span className="text-green-500 mr-3">✓</span>{f}</li>
             ))}
           </ul>
-          <button onClick={handleStartTrial} className="w-full py-4 bg-slate-100 text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition">Start Free Trial</button>
+          <button onClick={() => handlePlanSelect('Enterprise')} className="w-full py-4 bg-slate-100 text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition">Start Free Trial</button>
         </div>
       </section>
 
