@@ -2,12 +2,15 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
   try {
-    const { email, name, company } = await req.json();
+    const { email, name, company, plan } = await req.json();
 
     // Validation
     if (!email) throw new Error("Email is required");
     if (!name) throw new Error("Name is required");
     if (!company) throw new Error("Company name is required");
+
+    // Use passed plan or default to starter
+    const selectedPlan = plan ? plan.toLowerCase() : 'starter';
 
     const base44 = createClientFromRequest(req);
 
@@ -19,13 +22,13 @@ Deno.serve(async (req) => {
     }
 
     // Step 1: Create the Company Entity FIRST (Service Role)
-    console.log(`Creating company: ${company}`);
+    console.log(`Creating company: ${company} with plan: ${selectedPlan}`);
     const newCompany = await base44.asServiceRole.entities.Company.create({
       company_name: company,
       contact_email: email,
       contact_name: name,
       subscription_status: 'trial',
-      subscription_tier: 'starter',
+      subscription_tier: selectedPlan,
       is_active: true,
       trial_end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
     });
@@ -35,9 +38,9 @@ Deno.serve(async (req) => {
     }
     console.log(`Company created: ${newCompany.id}`);
 
-    // Step 2: Simple Invite using Service Role (Bypasses "You must be logged in" error)
-    // We rely on the email match to link them later
+    // Step 2: Invite using Service Role (Bypasses "You must be logged in" error)
     console.log(`Inviting user: ${email}`);
+    // We can pass data to inviteUser if supported, but typically we update the user after
     await base44.asServiceRole.users.inviteUser(email, 'user');
 
     // Step 3: Attempt to Link (Safe Mode / Best Effort)
@@ -57,6 +60,8 @@ Deno.serve(async (req) => {
           company_id: newCompany.id,
           full_name: name,
           aroof_role: 'external_roofer'
+          // We could store 'selected_plan' in metadata if User entity had it, 
+          // but we already set it on the Company entity which is the correct place.
         });
       } else {
         console.log("User record not found immediately after invite - they will need to be linked later.");
