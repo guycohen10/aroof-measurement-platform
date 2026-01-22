@@ -27,12 +27,30 @@ Deno.serve(async (req) => {
         throw new Error("Failed to create company");
     }
 
-    // 3. Invite User
-    // Note: We use the standard inviteUser. 
-    // If this is called unauthenticated, it depends on app settings.
-    // If it fails, we catch it.
-    console.log(`Inviting user: ${email}`);
-    await base44.users.inviteUser(email, 'user');
+    // 3. Create User (Admin Mode)
+    // We try to use the auth admin api if available, otherwise fallback to inviteUser
+    // Note: base44.asServiceRole.auth might not be documented but we try it as requested
+    // If it fails, we will catch it and try standard invite
+    try {
+        console.log(`Creating user via admin auth: ${email}`);
+        const { data: authUser, error: authError } = await base44.asServiceRole.auth.admin.createUser({
+            email: email,
+            email_confirm: true, 
+            user_metadata: { 
+                full_name: name, 
+                company_name: company,
+                selected_plan: plan || 'starter'
+            }
+        });
+        if (authError) throw authError;
+
+        console.log(`Sending invite email to: ${email}`);
+        await base44.asServiceRole.auth.admin.inviteUserByEmail(email);
+    } catch (e) {
+        console.warn("Admin auth creation failed, falling back to standard invite:", e.message);
+        // Fallback to standard invite if admin auth fails (e.g. if property doesn't exist)
+        await base44.users.inviteUser(email, 'user');
+    }
 
     // 4. Link User to Company (Service Role)
     // We wait briefly for the user record to be created by the invite
