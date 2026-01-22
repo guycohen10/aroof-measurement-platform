@@ -7,6 +7,7 @@ export default function RooferSignup() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ name: '', company: '', email: '', password: '', code: '', companyId: '' });
   const [activeFAQ, setActiveFAQ] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // STRIPE CONFIG
   const PLANS = {
@@ -22,6 +23,7 @@ export default function RooferSignup() {
   };
 
   const handleRegister = async () => {
+    setErrorMessage('');
     setLoading(true);
     try {
       const response = await base44.functions.invoke('registerUser', {
@@ -34,22 +36,23 @@ export default function RooferSignup() {
       if (response.data.success) {
         // Store company ID for later
         setFormData({...formData, companyId: response.data.companyId});
-        alert('Check your email for an invitation link to complete registration!');
-        // Redirect to login where they'll set password
+        setErrorMessage('');
+        // Show success and redirect
         setTimeout(() => {
           base44.auth.redirectToLogin();
         }, 2000);
       } else {
-        alert("Registration Error: " + (response.data.error || 'Unknown error'));
+        setErrorMessage(response.data.error || 'Registration failed');
       }
     } catch (err) {
-      alert("Registration Error: " + err.message);
+      setErrorMessage(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerifyAndPay = async () => {
+    setErrorMessage('');
     setLoading(true);
     try {
       // Setup user after they've logged in via invitation link
@@ -70,10 +73,10 @@ export default function RooferSignup() {
           window.location.href = checkoutResponse.data.url;
         }
       } else {
-        alert("Setup Error: " + (response.data.error || 'Unknown error'));
+        setErrorMessage(response.data.error || 'Setup failed');
       }
     } catch (err) {
-      alert("Setup Error: " + err.message);
+      setErrorMessage(err.message || 'Setup failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -221,6 +224,12 @@ export default function RooferSignup() {
               <>
                 <h2 className="text-2xl font-bold mb-2">Create Account</h2>
                 <p className="text-slate-500 mb-6 text-sm">Set up your account for the <strong>{selectedPlan?.name}</strong> plan.</p>
+                {errorMessage && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm font-medium flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                    {errorMessage}
+                  </div>
+                )}
                 <div className="space-y-4">
                   <input placeholder="Full Name" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                   <input placeholder="Company Name" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} />
@@ -235,6 +244,12 @@ export default function RooferSignup() {
               <>
                 <h2 className="text-2xl font-bold mb-2">Verify Email</h2>
                 <p className="text-slate-500 mb-6">Enter the code sent to <strong>{formData.email}</strong></p>
+                {errorMessage && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm font-medium flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                    {errorMessage}
+                  </div>
+                )}
                 <div className="space-y-4">
                   <input placeholder="000000" className="w-full p-4 border-2 border-blue-100 rounded-xl text-center text-3xl tracking-widest font-mono focus:border-blue-500 outline-none" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} />
                   <button onClick={handleVerifyAndPay} disabled={loading} className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition shadow-lg shadow-green-200">

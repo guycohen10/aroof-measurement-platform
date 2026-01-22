@@ -4,17 +4,28 @@ Deno.serve(async (req) => {
   try {
     const { email, password, name, company } = await req.json();
 
-    if (!email || !password || !name || !company) {
-      return Response.json({ error: 'Missing required fields' }, { status: 400 });
+    // Input validation
+    if (!email || !name || !company) {
+      return Response.json({ error: 'Email, name, and company are required' }, { status: 400 });
+    }
+
+    if (!email.includes('@')) {
+      return Response.json({ error: 'Invalid email address' }, { status: 400 });
     }
 
     const base44 = createClientFromRequest(req);
 
-    // Use service role to invite the user
-    // Base44 manages auth - we invite users who then set their password
-    const result = await base44.asServiceRole.users.inviteUser(email, 'user');
+    // Check if user already exists
+    try {
+      const existingUsers = await base44.asServiceRole.entities.User.filter({ email });
+      if (existingUsers && existingUsers.length > 0) {
+        return Response.json({ error: 'User already exists' }, { status: 400 });
+      }
+    } catch (checkError) {
+      console.log('User check error (may be expected):', checkError.message);
+    }
 
-    // Create company record
+    // Create company record first
     const companyId = 'cmp_' + Date.now();
     await base44.asServiceRole.entities.Company.create({
       company_id: companyId,
@@ -25,15 +36,20 @@ Deno.serve(async (req) => {
       is_active: true
     });
 
+    // Invite user to the platform
+    await base44.asServiceRole.users.inviteUser(email, 'user');
+
     return Response.json({ 
       success: true, 
-      message: 'Invitation sent. Check your email to set up your account.',
+      message: 'Check your email for an invitation link to complete registration',
       companyId 
     });
   } catch (error) {
     console.error('Registration error:', error);
+    
+    // Return user-friendly error
     return Response.json({ 
-      error: error.message || 'Registration failed' 
+      error: error.message || 'Registration failed. Please try again.' 
     }, { status: 500 });
   }
 });
