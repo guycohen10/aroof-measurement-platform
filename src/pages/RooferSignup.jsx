@@ -5,7 +5,7 @@ export default function RooferSignup() {
   const [step, setStep] = useState('pricing'); // 'pricing' | 'register' | 'success'
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ name: '', company: '', email: '', password: '', code: '', companyId: '' });
+  const [formData, setFormData] = useState({ name: '', company: '', email: '', companyId: '' });
   const [activeFAQ, setActiveFAQ] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -28,7 +28,6 @@ export default function RooferSignup() {
     try {
       const response = await base44.functions.invoke('registerUser', {
         email: formData.email,
-        password: formData.password,
         name: formData.name,
         company: formData.company
       });
@@ -231,9 +230,9 @@ export default function RooferSignup() {
                   <input placeholder="Full Name" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                   <input placeholder="Company Name" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} />
                   <input placeholder="Email Address" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                  <input type="password" placeholder="Password" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                  <p className="text-sm text-slate-500 text-center">You'll set your password via a secure email link</p>
                   <button onClick={handleRegister} disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
-                    {loading ? 'Creating...' : 'Create Account'}
+                    {loading ? 'Sending Invite...' : 'Get Started'}
                   </button>
                 </div>
               </>
@@ -245,13 +244,18 @@ export default function RooferSignup() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold mb-2">Account Created!</h2>
-                  <p className="text-slate-600 mb-4">We have sent a verification link to</p>
+                  <h2 className="text-2xl font-bold mb-2">Invite Sent!</h2>
+                  <p className="text-slate-600 mb-4">We have sent a secure invite link to</p>
                   <p className="text-blue-600 font-semibold mb-6">{formData.email}</p>
-                  <p className="text-slate-500 text-sm mb-8">Please click the link in your email to activate your account and set your password.</p>
-                  <button onClick={() => window.location.href = '/rooferlogin'} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
-                    Go to Login
-                  </button>
+                  <p className="text-slate-500 text-sm mb-8">Please click the link in your email to set your password and activate your account. The link will take you directly to the login page.</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => setStep('pricing')} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition">
+                      Close
+                    </button>
+                    <button onClick={() => window.location.href = '/rooferlogin'} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
+                      Go to Login
+                    </button>
+                  </div>
                 </div>
               </>
             )}

@@ -2,19 +2,15 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
   try {
-    const { email, password, name, company } = await req.json();
+    const { email, name, company } = await req.json();
 
     // Input validation
-    if (!email || !password || !name || !company) {
-      return Response.json({ error: 'Email, password, name, and company are required' }, { status: 400 });
+    if (!email || !name || !company) {
+      return Response.json({ error: 'Email, name, and company are required' }, { status: 400 });
     }
 
     if (!email.includes('@')) {
       return Response.json({ error: 'Invalid email address' }, { status: 400 });
-    }
-
-    if (password.length < 6) {
-      return Response.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
     }
 
     const base44 = createClientFromRequest(req);
@@ -40,12 +36,12 @@ Deno.serve(async (req) => {
       is_active: true
     });
 
-    // Invite user first
+    // Invite user with redirect to roofer login page
+    // The invitation email will contain a secure link to set password
     await base44.users.inviteUser(email, 'user');
-
-    // Update the invited user with additional fields
-    // Note: The user will need to set their password via the invitation email
-    // This is the platform's security model - passwords are set through secure invitation flow
+    
+    // After user clicks invite link and sets password, they'll be able to login at /rooferlogin
+    // We'll update their profile with company info once they authenticate
     
     return Response.json({ 
       success: true, 
