@@ -132,35 +132,46 @@ export default function RooferLogin() {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+    
     try {
-      // 1. Confirm Sign Up using verifyOtp
-      console.log('Verifying code:', code);
-      const cleanEmail = email.trim();
       const cleanCode = code.trim();
+      const cleanEmail = email.trim();
       
-      // Pass both token (for SDK) and otp_code (for Server) to be safe
-      const { error } = await base44.auth.verifyOtp({ 
-        email: cleanEmail, 
-        token: cleanCode,
-        otp_code: cleanCode, 
-        type: 'signup' 
+      // BYPASSING BROKEN SDK: Direct Fetch to API
+      // Using App ID extracted from user logs: 690d5926e0565810eb29be79
+      const appId = '690d5926e0565810eb29be79'; 
+      const url = `https://base44.app/api/apps/${appId}/auth/verify-otp`;
+      console.log("Sending Direct Request to:", url);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          email: cleanEmail,
+          otp_code: cleanCode, // sending EXACTLY what server wants
+          type: 'signup'
+        })
       });
-
-      if (error) throw error;
-
-      toast.success("Verified! Logging you in...");
-
-      // 2. Login (Separate Step)
-      await new Promise(r => setTimeout(r, 500));
       
-      await base44.auth.loginViaEmailPassword(email, password);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.msg || data.message || JSON.stringify(data));
+      }
+      
+      toast.success("Verified! Logging you in...");
+      
+      // After manual verify, standard login should work
+      await base44.auth.loginViaEmailPassword(cleanEmail, password);
       
       toast.success("Logged in successfully!");
       navigate(createPageUrl("RooferDashboard"));
     } catch (err) {
-      console.error("Verification/Login failed:", err);
-      const msg = getErrorText(err);
-      setError(msg);
+      console.error("Manual Verify Failed:", err);
+      setError(getErrorText(err));
     } finally {
       setIsLoading(false);
     }
