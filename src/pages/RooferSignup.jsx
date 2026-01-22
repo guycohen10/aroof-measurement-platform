@@ -245,9 +245,9 @@ export default function RooferSignup() {
                     </svg>
                   </div>
                   <h2 className="text-2xl font-bold mb-2">Check your email</h2>
-                  <p className="text-slate-600 mb-4">We have sent a secure setup link to</p>
+                  <p className="text-slate-600 mb-4">We have sent a link to</p>
                   <p className="text-blue-600 font-semibold mb-6">{formData.email}</p>
-                  <p className="text-slate-500 text-sm mb-8">Click the link to set your password and access your dashboard.</p>
+                  <p className="text-slate-500 text-sm mb-8">Click it to activate your account and set your password.</p>
                   <div className="flex gap-3">
                     <button onClick={() => setStep('pricing')} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition">
                       Close

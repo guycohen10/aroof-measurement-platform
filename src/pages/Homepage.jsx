@@ -34,7 +34,16 @@ export default function Homepage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Smart Redirect: Auto-redirect staff to dashboard
+    // 1. Manual Redirect Interceptor
+    // Catches invitation links (which land here due to missing redirects) and forwards to /rooferlogin
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('invitation_token') || params.has('token') || params.has('confirmation')) {
+      const redirectUrl = `/rooferlogin?${params.toString()}`;
+      window.location.href = redirectUrl;
+      return;
+    }
+
+    // 2. Smart Redirect: Auto-redirect staff to dashboard
     const checkAuth = async () => {
       try {
         const user = await base44.auth.me();

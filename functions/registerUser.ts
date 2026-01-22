@@ -4,7 +4,7 @@ Deno.serve(async (req) => {
   try {
     const { email, name, company } = await req.json();
 
-    // Validation
+    // 1. Validate
     if (!email) {
       return Response.json({ error: 'Email is required' }, { status: 400 });
     }
@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
 
     const base44 = createClientFromRequest(req);
 
-    // Check if user already exists
+    // 2. Check if user already exists (to prevent 500 errors)
     try {
       const existingUsers = await base44.asServiceRole.entities.User.filter({ email });
       if (existingUsers && existingUsers.length > 0) {
@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
       console.log('User check (expected if new user):', checkError.message);
     }
 
-    // Create company record
+    // 3. Create company record
     const company_id = 'cmp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     await base44.asServiceRole.entities.Company.create({
       company_id: company_id,
@@ -44,9 +44,8 @@ Deno.serve(async (req) => {
       trial_end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
     });
 
-    // Invite user with redirect to roofer login
-    // Note: If inviteUser doesn't support redirectTo, the user will get the default invite email
-    // and will need to navigate to /rooferlogin manually after setting password
+    // 4. Invite User
+    // Uses standard inviteUser flow. Redirect is handled by frontend interceptor on Homepage if platform redirect fails.
     await base44.users.inviteUser(email, 'user');
 
     console.log('Company created:', company_id);
