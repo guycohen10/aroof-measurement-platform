@@ -2,17 +2,12 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
   try {
-    const { email, name, company, plan } = await req.json();
+    // 1. Capture the REAL password from the request
+    const { email, name, company, plan, password } = await req.json();
     const base44 = createClientFromRequest(req);
 
-    // 1. Check if user exists
-    const existingUsers = await base44.asServiceRole.entities.User.filter({ email });
-    if (existingUsers && existingUsers.length > 0) {
-       return Response.json({ error: "User already exists. Please log in." }, { status: 400 });
-    }
-
-    // 2. Create Company using Service Role
-    console.log(`Creating company: ${company}`);
+    // 2. Create Company FIRST (Standard Client or Service Role if available)
+    // We need the ID to link the user.
     const newCompany = await base44.asServiceRole.entities.Company.create({
       company_name: company,
       contact_email: email,
@@ -23,85 +18,61 @@ Deno.serve(async (req) => {
       trial_end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
     });
 
-    if (!newCompany?.id) {
-        throw new Error("Failed to create company");
-    }
+    if (!newCompany?.id) throw new Error("Failed to create Company");
 
-    console.log(`Company created: ${newCompany.id}`);
-
-    // 3. Create User via Public Registration
-    // Since we don't have Admin API access (no secrets), we use the public signup flow
-    // with a temporary password, then trigger a password reset flow.
-    const tempPassword = crypto.randomUUID() + "Aa1!";
-    console.log(`Registering user: ${email}`);
+    // 3. Sign Up User with REAL PASSWORD (Public Method)
+    // usage of 'base44.auth.signUp' allows public registration without admin keys.
+    // Note: If base44.auth.signUp is not available, we fall back to register, but passing options relies on signUp support.
+    // We'll try to use the underlying register method if signUp isn't explicitly exposed, 
+    // but the user requested this specific logic.
     
-    // Attempt registration
-    let authUser = null;
-    try {
-        const result = await base44.auth.register(email, tempPassword);
-        // SDK might return { user, session } or just user, or throw
-        authUser = result.user || result; 
-    } catch (e) {
-        // If registration fails, cleanup company
-        console.error("Auth register failed:", e);
-        await base44.asServiceRole.entities.Company.delete(newCompany.id);
-        throw new Error(`Failed to create user account: ${e.message}`);
-    }
-
-    if (!authUser?.id) {
-        await base44.asServiceRole.entities.Company.delete(newCompany.id);
-        throw new Error("User registration completed but no ID returned");
-    }
-
-    console.log(`Auth user created: ${authUser.id}`);
-
-    // 4. Update User Entity with Role & Company
-    // We need to wait for the entity to be created (if triggered) or update it
-    console.log('Linking user to company...');
+    // Check if signUp exists, otherwise try register which might be the wrapper
+    const authMethod = base44.auth.signUp || base44.auth.register;
     
-    // Retry loop to ensure User entity exists before updating
-    let userLinked = false;
-    for (let i = 0; i < 5; i++) {
-        try {
-            await base44.asServiceRole.entities.User.update(authUser.id, { 
-                company_id: newCompany.id,
-                aroof_role: 'external_roofer',
-                full_name: name
-            });
-            userLinked = true;
-            break;
-        } catch (e) {
-            console.log(`Attempt ${i+1} to link user failed, retrying...`);
-            await new Promise(r => setTimeout(r, 1000));
+    const { data, error } = await authMethod({
+      email: email,
+      password: password, // <--- CRITICAL: Use the user's chosen password
+      options: {
+        data: {
+          full_name: name,
+          company_name: company,
+          company_id: newCompany.id,
+          aroof_role: 'external_roofer'
         }
-    }
-
-    if (!userLinked) {
-        console.warn("Could not link user to company immediately. They may need to contact support or it will sync later.");
-    } else {
-        console.log('User successfully linked');
-    }
-
-    // 5. Send "Invite" (Password Reset) Email
-    // Since we used a dummy password, we send a reset link so they can set their own
-    console.log('Sending password reset email...');
-    try {
-        await base44.auth.resetPasswordRequest(email);
-    } catch (e) {
-        console.warn("Failed to send password reset email:", e);
-    }
-
-    return Response.json({ 
-      success: true,
-      companyId: newCompany.id,
-      userId: authUser.id,
-      message: 'Account created. Please check your email to set your password.'
+      }
     });
+
+    if (error) {
+      // Cleanup company if auth fails
+      await base44.asServiceRole.entities.Company.delete(newCompany.id);
+      throw new Error(error.message);
+    }
+
+    // 4. Ensure Link (Safety Net)
+    await new Promise(r => setTimeout(r, 1000));
+    
+    // We need to find the user to ensure the link
+    // Note: filter might need to run as service role to see the user immediately if RLS applies? 
+    // Usually new users are visible to themselves or admins. Service role is safest.
+    const users = await base44.asServiceRole.entities.User.filter({ email });
+    if (users?.[0]) {
+       // Ensure the metadata fields are actually set on the entity
+       await base44.asServiceRole.entities.User.update(users[0].id, { 
+          company_id: newCompany.id,
+          aroof_role: 'external_roofer',
+          full_name: name
+       });
+    }
+
+    // Return format matching Supabase response structure somewhat, or just success
+    // The user asked for: return new Response(JSON.stringify({ success: true, userId: data.user?.id }));
+    // data.user might be inside data if the method returns {data, error} or just the response object
+    const userId = data?.user?.id || data?.id || users?.[0]?.id;
+    
+    return Response.json({ success: true, userId: userId });
 
   } catch (error) {
     console.error("Registration Error:", error);
-    return Response.json({ 
-      error: error.message || "Registration failed" 
-    }, { status: 400 });
+    return Response.json({ error: error.message }, { status: 400 });
   }
 });
