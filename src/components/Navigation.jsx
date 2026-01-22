@@ -166,8 +166,8 @@ export default function Navigation() {
                   </Link>
                 )}
                 
-                {/* External Roofer */}
-                {user.aroof_role === 'external_roofer' && (
+                {/* External Roofer & Owners */}
+                {(user.aroof_role === 'external_roofer' || user.aroof_role === 'company_owner') && (
                   <>
                     <Link to={createPageUrl("RooferDashboard")} className="text-slate-600 hover:text-blue-900 font-medium">
                       Roofer Dashboard
