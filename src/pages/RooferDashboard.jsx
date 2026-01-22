@@ -3,7 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { createPageUrl } from "@/utils";
 import { base44 } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Loader2, Plus, FileText, Calendar, DollarSign, Flame, MapPin, ExternalLink, Zap, X } from "lucide-react";
 import RooferSidebar from '../components/crm/RooferSidebar';
 import SalesWorkspace from '../components/crm/workspaces/SalesWorkspace';
@@ -22,6 +24,11 @@ export default function RooferDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [hotLeads, setHotLeads] = useState([]);
   const [showAIEstimator, setShowAIEstimator] = useState(false);
+  
+  // Onboarding State
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingData, setOnboardingData] = useState({ companyName: '', phone: '' });
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -31,6 +38,11 @@ export default function RooferDashboard() {
     try {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
+
+      // Check for missing company_id (Onboarding Trigger)
+      if (currentUser && !currentUser.company_id && currentUser.aroof_role !== 'admin') {
+        setShowOnboarding(true);
+      }
 
       // Only load leads if we are the owner
       if (currentUser?.aroof_role === 'external_roofer' || currentUser?.role === 'admin') {
@@ -68,6 +80,44 @@ export default function RooferDashboard() {
       console.error("Dashboard Load Error:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOnboardingSubmit = async (e) => {
+    e.preventDefault();
+    setOnboardingLoading(true);
+    try {
+      // 1. Create Company
+      const newCompany = await base44.entities.Company.create({
+        company_name: onboardingData.companyName,
+        contact_email: user.email,
+        contact_phone: onboardingData.phone,
+        contact_name: user.full_name,
+        is_active: true,
+        subscription_status: 'trial',
+        subscription_tier: 'starter',
+        trial_end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      });
+
+      // 2. Link User to Company
+      await base44.auth.updateMe({
+        company_id: newCompany.id,
+        aroof_role: 'external_roofer', // Ensure role is set
+        full_name: user.full_name // Re-save name if needed
+      });
+
+      // 3. Update Local State
+      setUser(prev => ({ ...prev, company_id: newCompany.id, aroof_role: 'external_roofer' }));
+      setShowOnboarding(false);
+      
+      // Reload data to fetch fresh dashboard state
+      loadData();
+
+    } catch (error) {
+      console.error("Onboarding failed:", error);
+      // You might want to show an error message to the user here
+    } finally {
+      setOnboardingLoading(false);
     }
   };
 
@@ -354,6 +404,57 @@ export default function RooferDashboard() {
               </Card>
             </div>
           )}
+
+          {/* ONBOARDING MODAL */}
+          {showOnboarding && (
+            <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <Card className="w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+                <CardHeader>
+                  <CardTitle className="text-2xl font-bold text-center">Complete Your Profile</CardTitle>
+                  <p className="text-center text-slate-500">Just one more step to unlock your dashboard</p>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleOnboardingSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="companyName">Company Name</Label>
+                      <Input 
+                        id="companyName" 
+                        placeholder="e.g. Apex Roofing" 
+                        required 
+                        value={onboardingData.companyName}
+                        onChange={e => setOnboardingData({...onboardingData, companyName: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input 
+                        id="phone" 
+                        placeholder="(555) 123-4567" 
+                        required 
+                        value={onboardingData.phone}
+                        onChange={e => setOnboardingData({...onboardingData, phone: e.target.value})}
+                      />
+                    </div>
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6"
+                      disabled={onboardingLoading}
+                    >
+                      {onboardingLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Setting up...
+                        </>
+                      ) : (
+                        "Save & Access Dashboard"
+                      )}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
         </main>
       </div>
     </div>

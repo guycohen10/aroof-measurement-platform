@@ -2,80 +2,12 @@ import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 
 export default function RooferSignup() {
-  const [step, setStep] = useState('pricing'); // 'pricing' | 'register' | 'success'
-  const [selectedPlan, setSelectedPlan] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ name: '', company: '', email: '', companyId: '' });
   const [activeFAQ, setActiveFAQ] = useState(null);
-  const [errorMessage, setErrorMessage] = useState('');
-
-  // STRIPE CONFIG
-  const PLANS = {
-    starter: 'price_1Ss4y2ICVekHY0FRX1GMrOHC',
-    pro: 'price_1Ss4ykICVekHY0FRDjn5nL7h',
-    enterprise: 'price_1Ss4zSICVekHY0FRlQlfaYbM'
-  };
 
   // ACTIONS
-  const handlePlanSelect = (plan, name) => {
-    setSelectedPlan({ id: plan, name: name });
-    setStep('register');
-  };
-
-  const handleRegister = async () => {
-    setErrorMessage('');
-    setLoading(true);
-    try {
-      const response = await base44.functions.invoke('registerUser', {
-        email: formData.email,
-        name: formData.name,
-        company: formData.company
-      });
-
-      if (response.data.success) {
-        // Store company ID for later
-        setFormData({...formData, companyId: response.data.companyId});
-        setErrorMessage('');
-        setStep('success');
-      } else {
-        setErrorMessage(response.data.error || 'Registration failed');
-      }
-    } catch (err) {
-      setErrorMessage(err.message || 'Registration failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyAndPay = async () => {
-    setErrorMessage('');
-    setLoading(true);
-    try {
-      // Setup user after they've logged in via invitation link
-      const response = await base44.functions.invoke('verifyAndSetup', {
-        email: formData.email,
-        companyId: formData.companyId
-      });
-
-      if (response.data.success) {
-        // Redirect to Stripe checkout
-        const checkoutResponse = await base44.functions.invoke('createSubscriptionCheckoutSession', {
-          priceId: selectedPlan.id,
-          email: formData.email,
-          userId: formData.email
-        });
-
-        if (checkoutResponse.data.url) {
-          window.location.href = checkoutResponse.data.url;
-        }
-      } else {
-        setErrorMessage(response.data.error || 'Setup failed');
-      }
-    } catch (err) {
-      setErrorMessage(err.message || 'Setup failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const handleStartTrial = () => {
+    // Redirect to native login/signup flow
+    base44.auth.redirectToLogin({ next: '/rooferdashboard' });
   };
 
   // FAQ DATA
@@ -124,7 +56,7 @@ export default function RooferSignup() {
               <li key={f} className="flex items-center"><span className="text-green-500 mr-3">✓</span>{f}</li>
             ))}
           </ul>
-          <button onClick={() => handlePlanSelect(PLANS.starter, 'Starter')} className="w-full py-4 bg-slate-100 text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition">Start Free Trial</button>
+          <button onClick={handleStartTrial} className="w-full py-4 bg-slate-100 text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition">Start Free Trial</button>
         </div>
 
         {/* PRO */}
@@ -138,7 +70,7 @@ export default function RooferSignup() {
               <li key={f} className="flex items-center"><span className="text-blue-500 mr-3">✓</span>{f}</li>
             ))}
           </ul>
-          <button onClick={() => handlePlanSelect(PLANS.pro, 'Pro')} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition">Start Free Trial</button>
+          <button onClick={handleStartTrial} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition">Start Free Trial</button>
         </div>
 
         {/* ENTERPRISE */}
@@ -151,7 +83,7 @@ export default function RooferSignup() {
               <li key={f} className="flex items-center"><span className="text-green-500 mr-3">✓</span>{f}</li>
             ))}
           </ul>
-          <button onClick={() => handlePlanSelect(PLANS.enterprise, 'Enterprise')} className="w-full py-4 bg-slate-100 text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition">Start Free Trial</button>
+          <button onClick={handleStartTrial} className="w-full py-4 bg-slate-100 text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition">Start Free Trial</button>
         </div>
       </section>
 
@@ -210,58 +142,7 @@ export default function RooferSignup() {
         </div>
       </footer>
 
-      {/* MODAL (2-STEP) */}
-      {(step === 'register' || step === 'success') && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative animate-fade-in-up">
-            <button onClick={() => setStep('pricing')} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">✕</button>
-            
-            {step === 'register' ? (
-              <>
-                <h2 className="text-2xl font-bold mb-2">Create Account</h2>
-                <p className="text-slate-500 mb-6 text-sm">Set up your account for the <strong>{selectedPlan?.name}</strong> plan.</p>
-                {errorMessage && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm font-medium flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                    {errorMessage}
-                  </div>
-                )}
-                <div className="space-y-4">
-                  <input placeholder="Full Name" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                  <input placeholder="Company Name" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} />
-                  <input placeholder="Email Address" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                  <p className="text-sm text-slate-500 text-center">You'll set your password via a secure email link</p>
-                  <button onClick={handleRegister} disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
-                    {loading ? 'Sending Invite...' : 'Get Started'}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2">Check your email</h2>
-                  <p className="text-slate-600 mb-4">We have sent a link to</p>
-                  <p className="text-blue-600 font-semibold mb-6">{formData.email}</p>
-                  <p className="text-slate-500 text-sm mb-8">Click it to activate your account and set your password.</p>
-                  <div className="flex gap-3">
-                    <button onClick={() => setStep('pricing')} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition">
-                      Close
-                    </button>
-                    <button onClick={() => window.location.href = '/rooferlogin'} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
-                      Go to Login
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
