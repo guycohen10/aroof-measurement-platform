@@ -20,6 +20,13 @@ export default function RooferLogin() {
   const [isSettingPassword, setIsSettingPassword] = useState(false); // New state for password setup
   const [isRegistering, setIsRegistering] = useState(false); // New state for signup mode
 
+  // Safety Redirect for 404s
+  useEffect(() => {
+    if (window.location.pathname === '/login') {
+      window.location.href = '/rooferlogin';
+    }
+  }, []);
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     
@@ -98,12 +105,18 @@ export default function RooferLogin() {
     setError('');
     setIsLoading(true);
     try {
-      await base44.auth.signUp(email, password);
-      toast.success('Registration successful! Please check your email for the confirmation code.');
-      // After signup, we typically want them to verify email or they might be auto-logged in depending on config.
-      // Usually base44.auth.signUp doesn't auto-login if email verification is required.
-      // We'll show a success message or switch to a "Check Email" view.
-      setError('Please check your email to verify your account.'); 
+      // Use backend function for registration
+      const response = await base44.functions.invoke('registerUser', {
+        email: email,
+        name: 'Contractor', // Default since we don't collect it in this simple form
+        company: 'New Company' // Default since we don't collect it in this simple form
+      });
+
+      if (response.data.error) throw new Error(response.data.error);
+
+      toast.success('Invite Sent! Please check your email for a secure login link.');
+      setIsRegistering(false); // Switch back to login view
+      setError(''); 
     } catch (err) {
       console.error('Registration error:', err);
       setError(err.message || 'Registration failed');
