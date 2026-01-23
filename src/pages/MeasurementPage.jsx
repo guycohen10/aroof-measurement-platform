@@ -1,270 +1,291 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, MapPin, AlertTriangle, Loader2, Edit3, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, PenTool, Trash2, Calculator, Save, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 export default function MeasurementPage() {
-  const { leadId: paramLeadId } = useParams();
-  const [searchParams] = useSearchParams();
+  const { leadId } = useParams();
   const navigate = useNavigate();
-  
-  // Robust leadId retrieval
-  const leadId = paramLeadId || searchParams.get('leadId') || searchParams.get('id');
 
-  // 1. STATE DEFINITIONS
+  // --- STATE ---
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [lead, setLead] = useState(null);
   const [coordinates, setCoordinates] = useState(null);
-
-  // Drawing State
-  const [drawingManager, setDrawingManager] = useState(null);
-  const [area, setArea] = useState(0);
-  const [polygons, setPolygons] = useState([]);
-  const [currentMode, setCurrentMode] = useState(null);
-
-  // 2. REFS
+  const [mapNode, setMapNode] = useState(null);
   const mapInstance = useRef(null);
-  const [mapNode, setMapNode] = useState(null); // Callback ref state
 
-  // 3. DATA FETCHING
+  // Measurement State
+  const [mode, setMode] = useState('quick'); // 'quick' | 'full'
+  const [drawingManager, setDrawingManager] = useState(null);
+  const [totalArea, setTotalArea] = useState(0); // Sq Ft
+  const [polygons, setPolygons] = useState([]);
+
+  // Quick Estimate Params
+  const [pitch, setPitch] = useState('walkable');
+  const [complexity, setComplexity] = useState('simple');
+  const [stories, setStories] = useState('1');
+
+  // --- 1. LOAD DATA ---
   useEffect(() => {
-    const loadLeadData = async () => {
-      if (!leadId) {
-        // Only error if we actually expect a leadId. 
-        // If it's a new empty measurement, we might handle differently, but here we assume lead context.
-        // We'll try to load from session as fallback if provided in previous logic, but user wanted EXACT code.
-        // We'll stick to the requested flow.
-        const sessionLeadId = sessionStorage.getItem('active_lead_id');
-        if (!sessionLeadId) {
-            setError("No lead ID provided.");
-            setLoading(false);
-            return;
-        }
-      }
-      
-      const activeId = leadId || sessionStorage.getItem('active_lead_id');
-
+    const loadData = async () => {
       try {
-        // Fetch Lead (Support both Lead and Measurement entities for robustness)
+        const activeLeadId = leadId || sessionStorage.getItem('active_lead_id');
+        
+        if (!activeLeadId) {
+             // If no lead, try to recover from session address or just stop loading
+             const sessionAddress = sessionStorage.getItem('lead_address');
+             if (sessionAddress) {
+                 setLead({ property_address: sessionAddress });
+                 geocodeAddress(sessionAddress);
+                 return;
+             }
+             setLoading(false);
+             return;
+        }
+        
+        // Fetch Lead
         let leadData;
         try {
-            leadData = await base44.entities.Lead.get(activeId);
+             leadData = await base44.entities.Lead.get(activeLeadId);
         } catch (e) {
-            // Fallback to Measurement
-            try {
-                leadData = await base44.entities.Measurement.get(activeId);
-            } catch (e2) {
-                throw new Error("Lead/Measurement not found");
-            }
+             try {
+                leadData = await base44.entities.Measurement.get(activeLeadId);
+             } catch (e2) {
+                console.error("Lead not found");
+             }
         }
         
-        setLead(leadData);
-
-        // Build Address - Supporting multiple formats
-        const fullAddress = 
-            (leadData.address_street && `${leadData.address_street} ${leadData.address_city || ''} ${leadData.address_state || ''} ${leadData.address_zip || ''}`) || 
-            leadData.address || 
-            leadData.property_address || 
-            "";
+        if (leadData) {
+            setLead(leadData);
             
-        console.log("Geocoding:", fullAddress);
-        
-        if (!fullAddress || fullAddress.trim() === "") {
-            throw new Error("Address is missing from lead data");
+            // Construct address
+            const address = leadData.property_address || 
+                            (leadData.address_street ? `${leadData.address_street}, ${leadData.address_city || ''}, ${leadData.address_state || ''}` : leadData.address);
+            
+            if (address) {
+                geocodeAddress(address);
+            } else {
+                toast.error("No address found for lead");
+                setLoading(false);
+            }
+        } else {
+            setLoading(false);
         }
-
-        // Geocode (Using Google Geocoder directly to avoid helper crashes)
-        if (!window.google) {
-            // Wait for Google API if not loaded
-            const checkGoogle = setInterval(() => {
-                if (window.google) {
-                    clearInterval(checkGoogle);
-                    performGeocode(fullAddress);
-                }
-            }, 100);
-            return; 
-        }
-        
-        performGeocode(fullAddress);
 
       } catch (err) {
         console.error(err);
-        setError(err.message || "Failed to load lead data.");
         setLoading(false);
       }
     };
-
-    const performGeocode = (address) => {
+    
+    const geocodeAddress = (address) => {
+        if (!window.google) return;
         const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode({ address: address }, (results, status) => {
+        geocoder.geocode({ address }, (results, status) => {
           if (status === 'OK' && results[0]) {
-            const location = results[0].geometry.location;
-            setCoordinates({ lat: location.lat(), lng: location.lng() });
-            setLoading(false); // Data ready
+            const loc = results[0].geometry.location;
+            setCoordinates({ lat: loc.lat(), lng: loc.lng() });
           } else {
-            console.error("Geocode failed:", status);
-            setError("Address not found. Please check the lead details.");
-            setLoading(false);
+            toast.error("Could not locate address");
           }
+          setLoading(false);
         });
     };
-
-    loadLeadData();
+    
+    // Wait for Google Maps API
+    if (!window.google) {
+        const interval = setInterval(() => {
+            if (window.google) {
+                clearInterval(interval);
+                loadData();
+            }
+        }, 100);
+    } else {
+        loadData();
+    }
   }, [leadId]);
 
-  // 4. MAP INITIALIZATION (Only runs when Node + Coords exist)
+  // --- 2. MAP & TOOLS INIT ---
   useEffect(() => {
     if (!mapNode || !coordinates || mapInstance.current) return;
 
-    console.log("Initializing Map on Node:", mapNode);
-    try {
-      mapInstance.current = new window.google.maps.Map(mapNode, {
-        center: coordinates,
-        zoom: 20,
-        mapTypeId: 'satellite',
-        disableDefaultUI: true,
-        tilt: 0
-      });
+    // A. Map
+    const map = new window.google.maps.Map(mapNode, {
+      center: coordinates,
+      zoom: 20,
+      mapTypeId: 'satellite',
+      disableDefaultUI: true,
+      tilt: 0,
+    });
+    mapInstance.current = map;
 
-      // Initialize Drawing Tools
-      const manager = new window.google.maps.drawing.DrawingManager({
-        drawingMode: null, // Start with no tool selected
-        drawingControl: false, // We will build custom buttons
-        polygonOptions: {
-          fillColor: '#3b82f6',
-          fillOpacity: 0.4,
-          strokeWeight: 2,
-          strokeColor: '#2563eb',
-          editable: true,
-          draggable: false,
-        },
-      });
-      manager.setMap(mapInstance.current);
-      setDrawingManager(manager);
+    // B. Drawing Manager (Hidden by default)
+    const manager = new window.google.maps.drawing.DrawingManager({
+      drawingMode: null,
+      drawingControl: false,
+      polygonOptions: {
+        fillColor: '#3b82f6',
+        fillOpacity: 0.4,
+        strokeWeight: 2,
+        strokeColor: '#2563eb',
+        editable: true,
+        draggable: false,
+      },
+    });
+    manager.setMap(map);
+    setDrawingManager(manager);
 
-      // Add Listener for 'Polygon Complete'
-      window.google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
-        // Calculate Area
-        const sqMeters = window.google.maps.geometry.spherical.computeArea(poly.getPath());
-        const sqFeet = Math.round(sqMeters * 10.7639);
-        
-        setArea(prev => prev + sqFeet);
-        setPolygons(prev => [...prev, poly]);
-
-        // Reset tool to avoid accidental drawing
-        manager.setDrawingMode(null);
-        setCurrentMode(null);
-      });
-
-    } catch (err) {
-      console.error("Map Draw Error:", err);
-    }
+    // C. Area Calc Listener
+    window.google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
+      const areaSqMeters = window.google.maps.geometry.spherical.computeArea(poly.getPath());
+      const areaSqFeet = Math.round(areaSqMeters * 10.7639);
+      setTotalArea(prev => prev + areaSqFeet);
+      setPolygons(prev => [...prev, poly]);
+      manager.setDrawingMode(null); // Stop drawing after shape close
+    });
   }, [mapNode, coordinates]);
 
-  // 5. CALLBACK REF (Detects DOM node safely)
-  const onMapRefChange = useCallback((node) => {
-    if (node !== null) {
-      setMapNode(node);
+  // --- 3. MODE SWITCHING ---
+  useEffect(() => {
+    if (!drawingManager) return;
+    if (mode === 'quick') {
+      drawingManager.setDrawingMode(null); // Disable drawing in Quick Mode
     }
+  }, [mode, drawingManager]);
+
+  // --- 4. CALCULATIONS ---
+  const calculateEstimatedPrice = () => {
+    // Base price per sq (example logic)
+    let baseRate = 4.50;
+    if (pitch === 'steep') baseRate += 1.00;
+    if (complexity === 'complex') baseRate += 0.75;
+    if (stories === '2+') baseRate += 0.50;
+
+    const minCost = Math.round(totalArea * baseRate);
+    const maxCost = Math.round(minCost * 1.2);
+    return totalArea > 0 ? `$${minCost.toLocaleString()} - $${maxCost.toLocaleString()}` : '$0.00';
+  };
+
+  const handleReset = () => {
+    polygons.forEach(p => p.setMap(null));
+    setPolygons([]);
+    setTotalArea(0);
+  };
+
+  // --- 5. RENDER ---
+  const onMapRefChange = useCallback((node) => {
+      if (node) setMapNode(node);
   }, []);
 
-  // 6. RENDER
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-            <Loader2 className="w-10 h-10 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-slate-600 font-medium">Loading Satellite Data...</p>
-        </div>
+  if (loading) return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+          <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
       </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-xl shadow-lg max-w-md text-center">
-            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-slate-900 mb-2">Something went wrong</h2>
-            <p className="text-slate-600 mb-6">{error}</p>
-            <Button onClick={() => navigate(-1)} className="w-full">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Go Back
-            </Button>
-        </div>
-      </div>
-    );
-  }
+  );
 
   return (
-    <div className="flex flex-col h-screen bg-slate-100">
-      <header className="bg-white border-b px-6 py-4 flex items-center justify-between z-10 shadow-sm">
-        <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                Back
-            </Button>
-            <div>
-                <h1 className="font-bold text-lg text-slate-900">Roof Measurement</h1>
-                <div className="flex items-center text-sm text-slate-500">
-                    <MapPin className="w-3 h-3 mr-1" />
-                    {lead?.address || lead?.property_address || 'Property Address'}
-                </div>
-            </div>
-        </div>
+    <div className="h-screen w-full flex flex-col">
+      {/* HEADER */}
+      <header className="bg-white border-b px-6 py-4 flex items-center gap-4 z-20 shadow-sm relative">
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Back
+        </Button>
+        <h1 className="font-bold text-lg text-slate-900">
+            {lead?.name || lead?.customer_name || 'Roof Measurement'}
+        </h1>
       </header>
 
-      {/* Map Container - Explicit Height */}
-      <div className="flex-1 relative bg-slate-200 w-full min-h-[500px]">
-        
-        {/* Floating Toolbelt */}
-        <div className="absolute top-4 left-4 z-10 bg-white p-2 rounded-lg shadow-xl flex flex-col gap-2">
-          <div className="mb-2 px-2">
-            <p className="text-xs text-slate-500 font-bold uppercase">Tools</p>
-          </div>
-          
-          <Button 
-            size="sm" 
-            variant={currentMode === 'polygon' ? 'default' : 'outline'}
-            onClick={() => {
-              if (drawingManager) {
-                drawingManager.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON);
-                setCurrentMode('polygon');
-              }
-            }}
-            className="justify-start"
-          >
-            <Edit3 className="w-4 h-4 mr-2" />
-            Draw Roof
-          </Button>
-          
-          <Button 
-            size="sm" 
-            variant="destructive" 
-            onClick={() => {
-              polygons.forEach(p => p.setMap(null));
-              setPolygons([]);
-              setArea(0);
-            }}
-            className="justify-start"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Clear All
-          </Button>
-          
-          <div className="mt-2 pt-2 border-t border-slate-100 px-2">
-            <p className="text-xs text-slate-500 font-bold uppercase mb-1">Total Area</p>
-            <p className="text-xl font-bold text-slate-900">{area.toLocaleString()} <span className="text-sm font-normal text-slate-500">sq ft</span></p>
-          </div>
-        </div>
+      <div className="flex-1 relative">
+          {/* TOOLBELT PANEL */}
+          <Card className="absolute top-4 left-4 z-10 w-80 shadow-2xl border-slate-200">
+            <Tabs value={mode} onValueChange={setMode}>
+              <div className="p-4 border-b bg-slate-50 rounded-t-lg">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="quick">Quick Est.</TabsTrigger>
+                  <TabsTrigger value="full">Full Measure</TabsTrigger>
+                </TabsList>
+              </div>
+              <CardContent className="p-4 space-y-4">
+                
+                {/* SHARED AREA DISPLAY */}
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-center">
+                  <p className="text-xs text-blue-600 font-bold uppercase">Total Roof Area</p>
+                  <p className="text-3xl font-bold text-slate-900">{totalArea.toLocaleString()} <span className="text-sm font-normal text-slate-500">sq ft</span></p>
+                </div>
 
-        <div 
-          ref={onMapRefChange} 
-          className="w-full h-full absolute inset-0"
-        />
+                {/* QUICK MODE CONTENT */}
+                <TabsContent value="quick" className="space-y-4 mt-0">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Pitch</Label>
+                      <Select value={pitch} onValueChange={setPitch}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="walkable">Walkable</SelectItem>
+                          <SelectItem value="steep">Steep</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Stories</Label>
+                      <Select value={stories} onValueChange={setStories}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 Story</SelectItem>
+                          <SelectItem value="2+">2+ Stories</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4 border-t">
+                    <Label className="text-xs text-slate-500">Estimated Project Cost</Label>
+                    <p className="text-xl font-bold text-green-600">{calculateEstimatedPrice()}</p>
+                    <p className="text-xs text-slate-400 mt-1">Based on area & difficulty factors</p>
+                  </div>
+                  
+                  {totalArea === 0 && (
+                    <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded">
+                      ⚠️ Draw an outline in 'Full Measure' tab to get auto-price, or enter area manually.
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* FULL MODE CONTENT */}
+                <TabsContent value="full" className="space-y-4 mt-0">
+                  <p className="text-xs text-slate-500 mb-2">Use the tools below to trace the roof edges for exact square footage.</p>
+                  <div className="flex gap-2">
+                    <Button 
+                      className={`flex-1 ${drawingManager?.getDrawingMode() === window.google?.maps?.drawing?.OverlayType?.POLYGON ? 'bg-blue-600' : 'bg-slate-800'}`}
+                      onClick={() => drawingManager?.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON)}
+                    >
+                      <PenTool className="w-4 h-4 mr-2" />
+                      Draw Roof
+                    </Button>
+                    <Button 
+                      variant="destructive"
+                      size="icon"
+                      onClick={handleReset}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </TabsContent>
+              </CardContent>
+            </Tabs>
+          </Card>
+
+          {/* MAP */}
+          <div className="absolute inset-0 w-full h-full bg-slate-100">
+            <div ref={onMapRefChange} className="w-full h-full" />
+          </div>
       </div>
     </div>
   );
