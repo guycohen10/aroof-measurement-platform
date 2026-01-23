@@ -2,93 +2,88 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Zap, PenTool, Save, CheckCircle2, RotateCcw, FileText, Calculator, Loader2, MapPin, Share2, Mail } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Save, PenTool, Calculator, FileText, Mail, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function MeasurementPage() {
   const { leadId } = useParams();
   const navigate = useNavigate();
 
-  // States: 'selection' | 'quick' | 'detailed' | 'summary'
-  const [step, setStep] = useState('selection');
+  // State
+  const [mode, setMode] = useState('measure'); // 'measure' | 'report'
   const [loading, setLoading] = useState(true);
   const [lead, setLead] = useState(null);
   const [mapNode, setMapNode] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
+  const [drawingManager, setDrawingManager] = useState(null);
+
+  // Data
   const [totalArea, setTotalArea] = useState(0);
-  const [waste, setWaste] = useState(10); // 10% waste default
-  const [pitch, setPitch] = useState(6); // 6/12 default pitch
+  const [waste, setWaste] = useState(10);
+  const [pitch, setPitch] = useState(6);
 
-  const drawingManagerRef = useRef(null);
-  const quickPolygonRef = useRef(null);
-  const polygonsRef = useRef([]); // Track detailed polygons
-
-  // 1. Data Load
+  // 1. Load Data
   useEffect(() => {
-    const loadData = async () => {
+    const fetchLead = async () => {
         try {
             const activeId = leadId || sessionStorage.getItem('active_lead_id');
             if (!activeId) {
                 const sessionAddress = sessionStorage.getItem('lead_address');
                 if (sessionAddress) {
-                    setLead({ address: sessionAddress });
+                    setLead({ address_street: sessionAddress });
                 }
                 setLoading(false);
                 return;
             }
 
-            let leadData;
+            // Try API first
             try {
-                // Try fetching from local storage first (Test Mode)
-                const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
-                const localLead = localLeads.find(l => l.id === activeId);
-                
-                if (localLead) {
-                    leadData = localLead;
-                } else {
-                    // Fetch from API
-                    leadData = await base44.entities.Lead.get(activeId);
+                const apiLead = await base44.entities.Lead.get(activeId);
+                if (apiLead) {
+                    setLead(apiLead);
+                    setLoading(false);
+                    return;
                 }
-            } catch {
-                try {
-                    leadData = await base44.entities.Measurement.get(activeId);
-                } catch {
-                    console.log("Lead not found via ID");
-                }
+            } catch (err) {
+                console.log("Not found in API, checking local storage");
             }
-            if (leadData) setLead(leadData);
-            setLoading(false);
+
+            // Fallback to LocalStorage (Test Mode)
+            const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+            const localLead = localLeads.find(l => l.id === activeId);
+            
+            if (localLead) {
+                setLead(localLead);
+            } else {
+                toast.error("Lead not found locally or in DB");
+            }
         } catch (e) {
             console.error(e);
+        } finally {
             setLoading(false);
         }
     };
-    loadData();
+    fetchLead();
   }, [leadId]);
 
-  // 2. Map Init
+  // 2. Initialize Map (Always-On)
   useEffect(() => {
     if (!mapNode || !lead || mapInstance) return;
 
     const init = async () => {
       try {
         const { Map } = await window.google.maps.importLibrary("maps");
-        const { Geocoder } = await window.google.maps.importLibrary("geocoding");
         const { DrawingManager } = await window.google.maps.importLibrary("drawing");
+        const { Geocoder } = await window.google.maps.importLibrary("geocoding");
         await window.google.maps.importLibrary("geometry");
-
+        
         const geocoder = new Geocoder();
         const address = lead.address || lead.property_address || 
-                        (lead.address_street ? `${lead.address_street}, ${lead.address_city}, ${lead.address_state}` : '');
-
-        if (!address) {
-            toast.error("No valid address to map.");
-            return;
-        }
-
+                        (lead.address_street ? `${lead.address_street}, ${lead.address_city || ''}` : "Dallas, TX");
+        
         geocoder.geocode({ address }, (results, status) => {
           if (status === 'OK' && results[0]) {
             const map = new Map(mapNode, {
@@ -99,36 +94,37 @@ export default function MeasurementPage() {
               tilt: 0
             });
             setMapInstance(map);
-
+            
             const manager = new DrawingManager({
-              drawingMode: null,
+              drawingMode: google.maps.drawing.OverlayType.POLYGON,
               drawingControl: false,
               polygonOptions: {
-                fillColor: '#3b82f6',
+                fillColor: '#22c55e', // Green like client side
                 fillOpacity: 0.4,
                 strokeWeight: 2,
-                strokeColor: '#2563eb',
+                strokeColor: '#15803d',
                 editable: true
               }
             });
             manager.setMap(map);
-            drawingManagerRef.current = manager;
-
+            setDrawingManager(manager);
+            
             window.google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
               const area = window.google.maps.geometry.spherical.computeArea(poly.getPath());
-              setTotalArea(prev => prev + Math.round(area * 10.764));
-              polygonsRef.current.push(poly);
-              manager.setDrawingMode(null);
+              setTotalArea(Math.round(area * 10.764));
+              manager.setDrawingMode(null); // Stop drawing after shape
+              setMode('report'); // Auto-jump to report!
             });
           } else {
-             toast.error("Could not locate address");
+              toast.error("Could not find address on map");
           }
         });
       } catch (err) {
-        console.error("Map init error:", err);
+        console.error("Map load error:", err);
       }
     };
 
+    // Robust wait
     const waitForGoogle = setInterval(() => {
         if (window.google && window.google.maps) {
             clearInterval(waitForGoogle);
@@ -139,114 +135,58 @@ export default function MeasurementPage() {
     return () => clearInterval(waitForGoogle);
   }, [mapNode, lead, mapInstance]);
 
-  // 3. Workflow Logic
-  const startQuick = async () => {
-    setStep('quick');
-    if (!mapInstance) return;
-
-    const center = mapInstance.getCenter();
-    const { Polygon } = await window.google.maps.importLibrary("maps");
+  // 3. Save Logic (Hybrid)
+  const handleSave = async () => {
+    toast.loading("Saving Proposal...");
     
-    const rect = new Polygon({
-      paths: [
-        { lat: center.lat() + 0.0001, lng: center.lng() - 0.00015 },
-        { lat: center.lat() + 0.0001, lng: center.lng() + 0.00015 },
-        { lat: center.lat() - 0.0001, lng: center.lng() + 0.00015 },
-        { lat: center.lat() - 0.0001, lng: center.lng() - 0.00015 }
-      ],
-      strokeColor: "#16a34a",
-      fillOpacity: 0.35,
-      fillColor: "#22c55e",
-      map: mapInstance,
-      editable: true
-    });
-    quickPolygonRef.current = rect;
-
-    const updateArea = () => {
-         const area = window.google.maps.geometry.spherical.computeArea(rect.getPath());
-         setTotalArea(Math.round(area * 10.764));
-    };
-
-    updateArea();
-
-    rect.getPaths().forEach(p => {
-       window.google.maps.event.addListener(p, 'set_at', updateArea);
-       window.google.maps.event.addListener(p, 'insert_at', updateArea);
-    });
-  };
-
-  const startDetailed = async () => {
-    setStep('detailed');
-    setTotalArea(0);
-    if (quickPolygonRef.current) {
-        quickPolygonRef.current.setMap(null);
-        quickPolygonRef.current = null;
-    }
-    if (drawingManagerRef.current) {
-        const { OverlayType } = await window.google.maps.importLibrary("drawing");
-        drawingManagerRef.current.setDrawingMode(OverlayType.POLYGON);
-    }
-  };
-
-  const handleClearDetailed = () => {
-      polygonsRef.current.forEach(p => p.setMap(null));
-      polygonsRef.current = [];
-      setTotalArea(0);
-  };
-
-  // 4. SAVE TO CRM (Smart Save)
-  const handleSaveToCRM = async () => {
-    const finalArea = Math.round(totalArea * (1 + waste / 100));
-    const estPrice = Math.round(finalArea * 4.50);
+    const finalArea = Math.round(totalArea * (1 + waste/100));
+    const finalPrice = Math.round(totalArea * (1 + waste/100) * 4.50);
     
     const data = {
         roof_sqft: finalArea,
-        estimated_value: estPrice,
-        status: 'Measured',
+        estimated_value: finalPrice,
+        status: 'Quoted',
         lead_status: 'Quoted'
     };
 
-    toast.loading("Saving Estimate...");
-
     try {
-        const idToUpdate = leadId || lead.id;
+      const activeId = leadId || sessionStorage.getItem('active_lead_id');
         
-        // STRATEGY: Check LocalStorage First (Test Mode Support)
-        const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
-        const localIndex = localLeads.findIndex(l => l.id === idToUpdate);
-
-        if (localIndex !== -1) {
-             // UPDATE LOCAL LEAD
-             localLeads[localIndex] = { ...localLeads[localIndex], ...data };
-             localStorage.setItem('my_leads', JSON.stringify(localLeads));
-             toast.dismiss();
-             toast.success("Test Lead Updated Locally!");
-             setTimeout(() => navigate('/roofer-dashboard'), 1000);
-        } else {
-             // UPDATE REAL DB LEAD
-             await base44.entities.Lead.update(idToUpdate, data);
-             
-             await base44.entities.Measurement.create({
-                 company_id: lead.assigned_company_id,
-                 property_address: lead.address || lead.property_address,
-                 total_sqft: finalArea,
-                 quote_amount: estPrice,
-                 lead_status: 'quoted',
-                 user_type: 'roofer'
-             });
-
-             toast.dismiss();
-             toast.success("Lead Record Updated!");
-             setTimeout(() => navigate(`/customer-detail?id=${idToUpdate}`), 1000);
-        }
-    } catch (err) {
-        console.error(err);
+      // Local Check
+      const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+      const idx = localLeads.findIndex(l => l.id === activeId);
+      
+      if (idx !== -1) {
+        localLeads[idx] = { ...localLeads[idx], ...data };
+        localStorage.setItem('my_leads', JSON.stringify(localLeads));
         toast.dismiss();
-        toast.error("Save failed. Check console.");
+        toast.success("Saved to Test Database!");
+        setTimeout(() => navigate('/roofer-dashboard'), 1000);
+      } else {
+        await base44.entities.Lead.update(activeId, data);
+        
+        // Also persist measurement record
+        await base44.entities.Measurement.create({
+            company_id: lead.assigned_company_id,
+            property_address: lead.address || lead.property_address,
+            total_sqft: finalArea,
+            quote_amount: finalPrice,
+            lead_status: 'quoted',
+            user_type: 'roofer'
+        });
+
+        toast.dismiss();
+        toast.success("Saved to CRM!");
+        setTimeout(() => navigate(`/customer-detail?id=${activeId}`), 1000);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.dismiss();
+      toast.error("Save failed");
     }
   };
 
-  // 5. RENDER
+  // 4. Render
   if (loading) return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-50">
           <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
@@ -258,206 +198,121 @@ export default function MeasurementPage() {
       
       {/* HEADER */}
       <header className="absolute top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur-sm border-b px-4 py-3 flex items-center gap-3 shadow-sm">
-        <Button variant="ghost" size="sm" onClick={() => step === 'summary' ? setStep('selection') : navigate(-1)}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="w-4 h-4 mr-2" />
-          {step === 'summary' ? 'Edit Measurement' : 'Back'}
+          Back
         </Button>
-        <h1 className="font-bold text-slate-800 truncate max-w-md">
-            {lead?.address || lead?.property_address || "Roof Measurement"}
+        <h1 className="font-bold text-slate-800 truncate">
+            {lead?.address || lead?.property_address || lead?.address_street || "Roof Measurement"}
         </h1>
-        {step === 'summary' && (
-           <div className="ml-auto flex items-center gap-2">
-              <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                 <CheckCircle2 className="w-3 h-3" /> Measurement Complete
-              </span>
-           </div>
+        {mode === 'measure' && (
+            <div className="ml-auto bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold animate-pulse">
+                Draw Polygon
+            </div>
         )}
       </header>
 
-      {/* Map Layer */}
-      <div className="flex-1 relative mt-0">
-        <div ref={setMapNode} className="absolute inset-0 w-full h-full" />
+      {/* MAIN MAP LAYER (Never Unmounts) */}
+      <div className="absolute inset-0 top-14 z-0">
+        <div ref={setMapNode} className="w-full h-full" />
       </div>
 
-      {/* STEP 1: SELECTION */}
-      {step === 'selection' && (
-        <div className="absolute inset-0 z-10 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="grid md:grid-cols-2 gap-6 w-full max-w-3xl">
-            <Card className="p-8 cursor-pointer hover:border-green-500 border-2 transition-all hover:scale-105 shadow-2xl group" onClick={startQuick}>
-              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Zap className="w-8 h-8 text-green-600" />
+      {/* REPORT OVERLAY (Sits on top of map) */}
+      {mode === 'report' && (
+        <div className="absolute inset-0 top-14 z-10 bg-slate-900/80 backdrop-blur-sm overflow-y-auto p-4 md:p-8 flex justify-center items-start">
+          <Card className="w-full max-w-4xl bg-white shadow-2xl h-fit animate-in fade-in zoom-in duration-300 mt-4">
+            
+            {/* Report Header */}
+            <div className="bg-green-600 p-6 text-white rounded-t-xl flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-8 h-8" /> Measurement Complete
+                </h2>
+                <p className="opacity-90 mt-1">Ready for Proposal • {lead?.address_street || lead?.address}</p>
               </div>
-              <h3 className="text-2xl font-bold mb-2">Quick Estimate</h3>
-              <p className="text-slate-500 text-lg">AI-Assisted (60 Seconds)</p>
-            </Card>
-            <Card className="p-8 cursor-pointer hover:border-blue-500 border-2 transition-all hover:scale-105 shadow-2xl group" onClick={startDetailed}>
-              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                 <PenTool className="w-8 h-8 text-blue-600" />
+              <div className="text-right hidden md:block">
+                <div className="text-3xl font-bold">{Math.round(totalArea * (1 + waste/100)).toLocaleString()}</div>
+                <div className="text-sm opacity-75">Billable Sq Ft</div>
               </div>
-              <h3 className="text-2xl font-bold mb-2">Detailed Measure</h3>
-              <p className="text-slate-500 text-lg">Manual Precision Mode</p>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 2: TOOLS (Quick & Detailed) */}
-      {(step === 'quick' || step === 'detailed') && (
-        <Card className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 w-96 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="flex-1">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{step} Mode</p>
-              <p className="text-2xl font-bold text-slate-900">{totalArea.toLocaleString()} <span className="text-sm font-normal text-slate-500">sq ft</span></p>
             </div>
-            <Button className="bg-green-600 hover:bg-green-700 h-10 px-6" onClick={() => setStep('summary')}>
-              <CheckCircle2 className="w-4 h-4 mr-2" /> Finish
-            </Button>
-          </CardContent>
-          {step === 'detailed' && (
-             <CardFooter className="bg-slate-50 p-2 flex justify-between text-xs border-t">
-                <Button variant="ghost" size="sm" onClick={async () => {
-                    const { OverlayType } = await window.google.maps.importLibrary("drawing");
-                    drawingManagerRef.current.setDrawingMode(OverlayType.POLYGON);
-                }}>
-                    <PenTool className="w-3 h-3 mr-1" /> Draw
-                </Button>
-                <Button variant="ghost" size="sm" onClick={handleClearDetailed} className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                    <RotateCcw className="w-3 h-3 mr-1" /> Clear
-                </Button>
-             </CardFooter>
-          )}
-        </Card>
-      )}
 
-      {/* STEP 3: SUMMARY / PROPOSAL BUILDER */}
-      {step === 'summary' && (
-        <div className="absolute inset-0 z-10 bg-slate-50 overflow-y-auto pt-16">
-            <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* COLUMN 1: VISUALS */}
-                <div className="lg:col-span-2 space-y-6">
-                    {/* Satellite Snapshot Placeholder */}
-                    <Card className="overflow-hidden border-2 border-slate-200">
-                    <CardHeader className="bg-slate-50 py-3 border-b">
-                        <CardTitle className="text-sm uppercase text-slate-500 font-bold">Satellite Diagram</CardTitle>
-                    </CardHeader>
-                    <div className="h-80 bg-slate-200 relative group">
-                        {/* Static Placeholder for now since map is in background */}
-                        <div className="absolute inset-0 flex items-center justify-center text-slate-400 bg-slate-100">
-                            <div className="text-center">
-                                <MapPin className="w-12 h-12 mb-2 mx-auto text-slate-300" />
-                                <span className="text-sm font-medium">Interactive Map Snapshot</span>
-                                <p className="text-xs text-slate-400 mt-1">(Map is preserved in background)</p>
-                            </div>
-                        </div>
+            <CardContent className="p-8 grid md:grid-cols-2 gap-10">
+              
+              {/* Left: Calculator */}
+              <div className="space-y-8">
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm">
+                  <h3 className="font-bold text-slate-700 mb-6 border-b border-slate-200 pb-3 flex items-center gap-2">
+                      <Calculator className="w-5 h-5 text-slate-400" /> Project Factors
+                  </h3>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-slate-500">Base Area (sq ft)</Label>
+                      <Input value={totalArea.toLocaleString()} disabled className="bg-white font-bold text-slate-800" />
                     </div>
-                    </Card>
-
-                    {/* Blueprint / Dimensions */}
-                    <Card>
-                    <CardHeader className="py-3 border-b flex flex-row justify-between items-center">
-                        <CardTitle className="text-sm uppercase text-slate-500 font-bold">Roof Facets</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 text-center">
-                        <p className="text-xs text-blue-600 font-bold uppercase">Total Area</p>
-                        <p className="text-2xl font-bold text-slate-900">{totalArea.toLocaleString()}</p>
-                        <p className="text-xs text-slate-400">sq ft</p>
-                        </div>
-                        <div className="p-4 bg-slate-50 rounded-lg border text-center">
-                        <p className="text-xs text-slate-500 font-bold uppercase">Ridges</p>
-                        <p className="text-xl font-bold text-slate-700">--</p>
-                        <p className="text-xs text-slate-400">linear ft</p>
-                        </div>
-                        <div className="p-4 bg-slate-50 rounded-lg border text-center">
-                        <p className="text-xs text-slate-500 font-bold uppercase">Hips</p>
-                        <p className="text-xl font-bold text-slate-700">--</p>
-                        <p className="text-xs text-slate-400">linear ft</p>
-                        </div>
-                        <div className="p-4 bg-slate-50 rounded-lg border text-center">
-                        <p className="text-xs text-slate-500 font-bold uppercase">Valleys</p>
-                        <p className="text-xl font-bold text-slate-700">--</p>
-                        <p className="text-xs text-slate-400">linear ft</p>
-                        </div>
-                    </CardContent>
-                    </Card>
+                    <div className="space-y-2">
+                      <Label className="text-slate-500">Waste Factor (%)</Label>
+                      <div className="relative">
+                        <Input type="number" value={waste} onChange={e => setWaste(Number(e.target.value))} className="pr-8" />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-slate-500">Roof Pitch</Label>
+                      <div className="relative">
+                        <Input type="number" value={pitch} onChange={e => setPitch(Number(e.target.value))} className="pr-10" />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">/12</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-slate-500">Difficulty</Label>
+                      <Input value="Standard" disabled className="bg-slate-100 text-slate-500" />
+                    </div>
+                  </div>
                 </div>
 
-                {/* COLUMN 2: CALCULATOR */}
-                <div className="space-y-6">
-                    <Card className="border-t-4 border-green-500 shadow-lg">
-                    <CardHeader>
-                        <CardTitle>Project Estimate</CardTitle>
-                        <p className="text-sm text-slate-500">Adjust parameters to calculate quote.</p>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                                <Label>Base Area</Label>
-                                <span>{totalArea.toLocaleString()} sq ft</span>
-                            </div>
-                            <div className="flex justify-between text-sm items-center">
-                                <Label>Waste Factor</Label>
-                                <div className="flex items-center gap-2">
-                                    <Input 
-                                        type="number" 
-                                        className="w-20 h-8 text-right" 
-                                        value={waste} 
-                                        onChange={e => setWaste(Number(e.target.value))} 
-                                    />
-                                    <span className="text-slate-500">%</span>
-                                </div>
-                            </div>
-                            <div className="flex justify-between text-sm items-center">
-                                <Label>Roof Pitch</Label>
-                                <div className="flex items-center gap-2">
-                                    <Input 
-                                        type="number" 
-                                        className="w-20 h-8 text-right" 
-                                        value={pitch} 
-                                        onChange={e => setPitch(Number(e.target.value))} 
-                                    />
-                                    <span className="text-slate-500">/12</span>
-                                </div>
-                            </div>
-                            <div className="h-px bg-slate-100 my-2" />
-                            <div className="flex justify-between font-bold text-slate-900">
-                                <span>Total Billable</span>
-                                <span>{Math.round(totalArea * (1 + waste/100)).toLocaleString()} sq ft</span>
-                            </div>
-                        </div>
-
-                        <div className="bg-green-50 p-4 rounded-lg border border-green-100 text-center space-y-1">
-                            <p className="text-xs text-green-700 font-bold uppercase">Estimated Price</p>
-                            <p className="text-3xl font-bold text-slate-900">
-                                ${(Math.round(totalArea * (1 + waste/100) * 4.5)).toLocaleString()}
-                            </p>
-                            <p className="text-xs text-slate-400">@ $4.50/sq ft avg</p>
-                        </div>
-                        
-                        <Button className="w-full bg-green-600 hover:bg-green-700 h-12 text-lg" onClick={handleSaveToCRM}>
-                            <Save className="w-4 h-4 mr-2" /> Book Job & Save
-                        </Button>
-                    </CardContent>
-                    </Card>
-
-                    <Card>
-                    <CardHeader>
-                        <CardTitle className="text-sm">Client Actions</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-2 gap-3">
-                        <Button variant="ghost" className="h-24 flex flex-col gap-2 border hover:bg-blue-50 hover:border-blue-200 transition-colors">
-                            <FileText className="w-6 h-6 text-blue-600" />
-                            <span className="text-xs font-medium">Preview Proposal</span>
-                        </Button>
-                        <Button variant="ghost" className="h-24 flex flex-col gap-2 border hover:bg-yellow-50 hover:border-yellow-200 transition-colors">
-                            <Mail className="w-6 h-6 text-yellow-500" />
-                            <span className="text-xs font-medium">Email Quote</span>
-                        </Button>
-                    </CardContent>
-                    </Card>
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-8 rounded-xl border border-green-200 text-center shadow-inner">
+                  <p className="text-green-700 font-bold uppercase tracking-widest text-xs mb-2">Estimated Client Price</p>
+                  <p className="text-5xl font-black text-slate-900 tracking-tight">
+                    ${(Math.round(totalArea * (1 + waste/100) * 4.5)).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-green-600 font-medium mt-3 bg-white/50 inline-block px-3 py-1 rounded-full">
+                      Based on $4.50/sq ft avg
+                  </p>
                 </div>
-            </div>
+              </div>
+
+              {/* Right: Actions */}
+              <div className="space-y-6 flex flex-col justify-center">
+                 <div className="space-y-3">
+                    <h3 className="font-bold text-slate-700 mb-2">Next Steps</h3>
+                    <Button className="w-full h-16 text-lg bg-green-600 hover:bg-green-700 shadow-xl shadow-green-200 transition-all hover:scale-[1.02]" onClick={handleSave}>
+                    <Save className="w-6 h-6 mr-3" /> Book Job & Save to CRM
+                    </Button>
+                    <p className="text-xs text-slate-400 text-center">Updates lead status to 'Quoted' and saves measurement data.</p>
+                 </div>
+                 
+                 <div className="grid grid-cols-2 gap-4 pt-4">
+                   <Button variant="outline" className="h-14 border-2 hover:bg-slate-50 hover:border-slate-300">
+                     <FileText className="w-5 h-5 mr-2 text-blue-600" /> Preview PDF
+                   </Button>
+                   <Button variant="outline" className="h-14 border-2 hover:bg-slate-50 hover:border-slate-300">
+                     <Mail className="w-5 h-5 mr-2 text-yellow-500" /> Email Quote
+                   </Button>
+                 </div>
+
+                 <div className="pt-8 mt-8 border-t border-slate-100">
+                   <Button variant="ghost" className="w-full text-slate-500 hover:text-slate-800 hover:bg-slate-100" onClick={() => {
+                       setMode('measure');
+                       setTotalArea(0);
+                       if (drawingManager) drawingManager.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON);
+                   }}>
+                     <PenTool className="w-4 h-4 mr-2" /> Redraw / Adjust Measurement
+                   </Button>
+                 </div>
+              </div>
+
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
