@@ -45,7 +45,13 @@ const PITCH_OPTIONS = [
 export default function MeasurementPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const mapRef = useRef(null);
+  const [mapContainer, setMapContainer] = useState(null);
+  const onMapLoad = useCallback((node) => {
+    if (node !== null) {
+      setMapContainer(node);
+    }
+  }, []);
+
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -316,16 +322,15 @@ export default function MeasurementPage() {
     loadData();
   }, [searchParams]);
 
-  // --- STEP 2: DRAW MAP ---
+  // --- STEP 2: DRAW MAP (REWRITTEN FOR RELIABILITY) ---
   useEffect(() => {
-    // STOP if still loading, no coordinates, or no DOM element
-    if (loading || !coordinates || !mapRef.current) return;
-    if (mapInstanceRef.current) return; // Map already exists
+    // STRICT CHECK: Only run if we have the Lead, the Coordinates, AND the DOM Node
+    if (!coordinates || !mapContainer || mapInstanceRef.current) return;
 
-    console.log("🗺️ INITIALIZING MAP", coordinates);
+    console.log("DOM Ready. Initializing Map now...");
 
     try {
-      const map = new window.google.maps.Map(mapRef.current, {
+      const map = new window.google.maps.Map(mapContainer, {
         center: coordinates,
         zoom: 21,
         mapTypeId: 'hybrid',
@@ -361,10 +366,10 @@ export default function MeasurementPage() {
       setupDrawingTools(map);
 
     } catch (err) {
-      console.error("Map Draw Error:", err);
-      setMapError("Failed to render map.");
+      console.error("Map Crash Prevented:", err);
+      setMapError("Failed to render map. Please refresh.");
     }
-  }, [loading, coordinates]);
+  }, [coordinates, mapContainer, setupDrawingTools]);
 
   // Check if roofer is accessing public page incorrectly
   useEffect(() => {
@@ -3076,12 +3081,21 @@ export default function MeasurementPage() {
               </div>
             )}
 
-            {/* Map Container - ALWAYS RENDERED */}
-            <div 
-              ref={mapRef} 
-              className="w-full h-full min-h-[500px]"
-              style={{ opacity: loading ? 0 : 1, transition: 'opacity 0.5s ease-in-out' }}
-            />
+            {/* Map Container - ALWAYS RENDERED WITH FORCED HEIGHT */}
+            {!coordinates && !loading && !mapError ? (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-900/95">
+                <div className="text-6xl mb-4">⚠️</div>
+                <div className="text-white text-2xl font-bold mb-2">Location Not Found</div>
+                <div className="text-slate-300 text-sm mb-6">We couldn't locate coordinates for this address.</div>
+                <Button onClick={() => navigate(createPageUrl("RooferDashboard"))}>Back to Dashboard</Button>
+              </div>
+            ) : (
+              <div 
+                ref={onMapLoad} 
+                className="w-full h-full min-h-[600px] bg-slate-200"
+                style={{ display: loading ? 'none' : 'block' }}
+              />
+            )}
 
             {/* Loading Overlay */}
             {loading && !mapError && (
