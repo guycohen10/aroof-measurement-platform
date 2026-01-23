@@ -119,7 +119,16 @@ export default function MeasurementPage() {
         console.error("Map init error:", err);
       }
     };
-    init();
+
+    // Robustly wait for Google Maps to be available
+    const waitForGoogle = setInterval(() => {
+        if (window.google && window.google.maps) {
+            clearInterval(waitForGoogle);
+            init();
+        }
+    }, 100);
+
+    return () => clearInterval(waitForGoogle);
   }, [mapNode, lead, mapInstance]);
 
   // 3. Workflow Logic
