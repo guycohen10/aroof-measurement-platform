@@ -237,86 +237,134 @@ export default function MeasurementPage() {
     }
   };
 
-  // At the very top of the component, BEFORE any other useEffect
-  // Clear old data and load new address FIRST
+  // --- STEP 1: LOAD DATA & GEOCODE ---
   useEffect(() => {
-    const initializePage = async () => {
-      console.log('🏠 ═══════════════════════════════════');
-      console.log('🏠 MEASUREMENT PAGE INITIALIZATION');
-      console.log('🏠 ═══════════════════════════════════');
+    const loadData = async () => {
+      setLoading(true);
+      console.log("🚀 STARTING LOAD DATA SEQUENCE");
 
-      // Check URL parameters
-      const addressFromURL = searchParams.get('address');
-      console.log('🌐 Address from URL:', addressFromURL);
-
-      // Check session storage
-      const sessionAddress = sessionStorage.getItem('homeowner_address');
-      const sessionMethod = sessionStorage.getItem('measurement_method');
-      console.log('📦 Address from session:', sessionAddress);
-      console.log('📦 Method from session:', sessionMethod);
-
-      // Check if user is authenticated (only if needed for roofer flow)
-      let isRoofer = false;
-      let currentUser = null;
       try {
-        currentUser = await base44.auth.me();
-        isRoofer = currentUser?.aroof_role === 'external_roofer';
-        console.log('👤 User type:', isRoofer ? 'Roofer' : 'Homeowner');
-      } catch (err) {
-        console.log('👤 Not authenticated (homeowner)');
-      }
-
-      // For homeowners, ALWAYS use fresh address from URL/session
-      if (!isRoofer) {
-        const finalAddress = addressFromURL || sessionAddress;
-
-        if (finalAddress) {
-          console.log('✅ Loading address for homeowner:', finalAddress);
-          setAddress(finalAddress);
-
-          // Clear old session data
-          sessionStorage.removeItem('active_lead_id');
-          sessionStorage.removeItem('lead_address');
-          sessionStorage.removeItem('pending_measurement_id');
-
-          // Check for saved coordinates FIRST (to avoid re-geocoding)
-          const sessionLat = sessionStorage.getItem('homeowner_lat');
-          const sessionLng = sessionStorage.getItem('homeowner_lng');
-          
-          if (sessionLat && sessionLng) {
-            const coords = {
-              lat: parseFloat(sessionLat),
-              lng: parseFloat(sessionLng)
-            };
-            console.log('✅ Using EXACT coordinates from selection:', coords);
-            setMapCenter(coords);
-            setMapZoom(21);
-            setCoordinates(coords);
-            setAddressLoaded(true);
-          } else {
-            // Only geocode if we DON'T have coords (fallback)
-            console.log('⚠️ No saved coordinates, geocoding address...');
-            await geocodeAndCenterMap(finalAddress);
-          }
-        } else {
-          console.log('⚠️ No address provided - homeowner should not be here');
-          // Redirect back to address selector
-          navigate('/addressmethodselector');
+        // 1. Ensure Google Maps Script is Loaded
+        if (!window.google?.maps) {
+          console.log("📥 Loading Google Maps Script...");
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,drawing,geometry`;
+            script.async = true;
+            script.defer = true;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+          console.log("✅ Google Maps Script Loaded");
         }
-      } else {
-        // Roofer flow - check for lead
+
+        // 2. Determine Source (URL vs Roofer Lead)
         const leadId = searchParams.get('leadId') || sessionStorage.getItem('active_lead_id');
-        if (leadId) {
-          console.log('✅ Loading lead for roofer:', leadId);
-          await loadLeadData(leadId);
-        }
-      }
+        let targetAddress = searchParams.get('address') || sessionStorage.getItem('homeowner_address');
+        let targetCoords = null;
 
-      console.log('🏠 ═══════════════════════════════════\n');
+        // Roofer Check
+        const user = await base44.auth.me().catch(() => null);
+        if (leadId && user?.aroof_role === 'external_roofer') {
+          console.log("📋 Loading Lead:", leadId);
+          const lead = await base44.entities.Measurement.get(leadId);
+          setLeadData(lead);
+          setMeasurementId(leadId);
+          targetAddress = lead.property_address;
+          if (lead.latitude && lead.longitude) {
+            targetCoords = { lat: lead.latitude, lng: lead.longitude };
+          }
+        }
+
+        setAddress(targetAddress);
+
+        // 3. Geocode if no coordinates
+        if (!targetCoords && targetAddress) {
+          console.log("🔍 Geocoding:", targetAddress);
+          const geocoder = new window.google.maps.Geocoder();
+          const results = await new Promise((resolve, reject) => {
+            geocoder.geocode({ address: targetAddress }, (results, status) => {
+              if (status === 'OK') resolve(results);
+              else reject(status);
+            });
+          });
+
+          if (results[0]) {
+            const loc = results[0].geometry.location;
+            targetCoords = { lat: loc.lat(), lng: loc.lng() };
+          }
+        }
+
+        if (targetCoords) {
+          console.log("✅ Coordinates Ready:", targetCoords);
+          setCoordinates(targetCoords);
+          setAddressLoaded(true);
+        } else {
+          console.error("❌ No coordinates found");
+          setError("Could not locate this address. Please check and try again.");
+        }
+
+      } catch (err) {
+        console.error("💥 Load Error:", err);
+        setError(err === 'ZERO_RESULTS' ? "Address not found." : "Failed to load map data.");
+      } finally {
+        setLoading(false); // CRITICAL: Stop loading
+      }
     };
 
-    initializePage();
-  }, [searchParams]); // FIXED: React to URL parameter changes
+    loadData();
+  }, [searchParams]);
+
+  // --- STEP 2: DRAW MAP ---
+  useEffect(() => {
+    // STOP if still loading, no coordinates, or no DOM element
+    if (loading || !coordinates || !mapRef.current) return;
+    if (mapInstanceRef.current) return; // Map already exists
+
+    console.log("🗺️ INITIALIZING MAP", coordinates);
+
+    try {
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: coordinates,
+        zoom: 21,
+        mapTypeId: 'hybrid',
+        tilt: 0,
+        heading: 0,
+        disableDefaultUI: false,
+        maxZoom: 25,
+        mapTypeControl: true,
+        mapTypeControlOptions: {
+          position: window.google.maps.ControlPosition.TOP_RIGHT,
+          mapTypeIds: ["satellite", "hybrid", "roadmap"]
+        },
+      });
+
+      mapInstanceRef.current = map;
+      setMapInstance(map);
+      
+      // Setup Marker
+      new window.google.maps.Marker({
+        position: coordinates,
+        map: map,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          fillColor: "#FF0000",
+          fillOpacity: 1,
+          strokeColor: "#FFFFFF",
+          strokeWeight: 3,
+          scale: 10,
+        }
+      });
+
+      // Initialize Drawing Tools
+      setupDrawingTools(map);
+
+    } catch (err) {
+      console.error("Map Draw Error:", err);
+      setMapError("Failed to render map.");
+    }
+  }, [loading, coordinates]);
 
   // Check if roofer is accessing public page incorrectly
   useEffect(() => {
@@ -521,88 +569,12 @@ export default function MeasurementPage() {
     loadAddressFromParams();
   }, [searchParams, leadData]);
 
-  const createMap = useCallback((center) => {
-    // Safety check: Stop if no container (Fixes Infinite Loop)
-    if (!mapRef.current) {
-      console.error("❌ Map container ref is null - waiting for DOM");
-      return;
-    }
-
-    // Decide which center to use - prioritize solarCenter
-    let finalCenter = center;
-    let useZoom = 21;
-    
-    if (solarCenter) {
-      console.log('🌟 Initializing NEW MAP with Solar Center:', solarCenter);
-      finalCenter = { lat: solarCenter.lat, lng: solarCenter.lng };
-      useZoom = 19; // Use safe zoom 19 for Solar
-    }
-
-    // If map already exists, update its center instead of recreating
-    if (mapInstanceRef.current && !solarCenter) {
-      console.log("🔄 Map exists - Updating center AND marker to:", finalCenter);
-      
-      // 1. Move the Camera
-      mapInstanceRef.current.setCenter(finalCenter);
-      mapInstanceRef.current.setZoom(useZoom);
-      
-      // 2. Move the Red Dot (Marker)
-      if (markerRef.current) {
-        markerRef.current.setPosition(finalCenter);
-      } else {
-        // If marker doesn't exist for some reason, create it
-        markerRef.current = new window.google.maps.Marker({
-          position: finalCenter,
-          map: mapInstanceRef.current,
-          title: address,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            fillColor: "#FF0000",
-            fillOpacity: 1,
-            strokeColor: "#FFFFFF",
-            strokeWeight: 3,
-            scale: 10,
-          }
-        });
-      }
-      
-      setMapLoading(false);
-      return;
-    }
+  // Renamed to setupDrawingTools - Called by useEffect after Map Init
+  const setupDrawingTools = useCallback((map) => {
+    if (!map) return;
+    console.log("🎨 Setting up Drawing Tools...");
 
     try {
-      console.log("✅ Creating Google Map with center:", finalCenter);
-
-      // Memoized map options to prevent reset on re-render
-      const mapOptions = {
-        center: finalCenter,
-        zoom: useZoom,         // Use calculated zoom (19 for Solar, 21 otherwise)
-        minZoom: 18,
-        maxZoom: 25,           // Allow maximum possible detail
-        mapTypeId: "hybrid",   // Satellite + Labels
-        tilt: 0,               // ALWAYS start top-down
-        heading: 0,            // ALWAYS start facing North
-        zoomControl: true,
-        scrollwheel: true,
-        gestureHandling: 'greedy',
-        disableDoubleClickZoom: false,
-        mapTypeControl: true,
-        mapTypeControlOptions: {
-          position: window.google.maps.ControlPosition.TOP_RIGHT,
-          mapTypeIds: ["satellite", "hybrid", "roadmap"]
-        },
-        streetViewControl: false,
-        fullscreenControl: true,
-        fullscreenControlOptions: { position: window.google.maps.ControlPosition.TOP_RIGHT },
-        rotateControl: true,   // Allow user to rotate map
-        scaleControl: true
-      };
-
-      const map = new window.google.maps.Map(mapRef.current, mapOptions);
-
-      mapInstanceRef.current = map;
-      setMapInstance(map);
-      console.log("✅ Map instance created and stored in state");
       
       // Safe "Unlock" Listener - waits for map to finish loading address BEFORE applying zoom rules
       map.addListener('idle', () => {
@@ -827,162 +799,7 @@ export default function MeasurementPage() {
       }
       }, [address, solarCenter]);
 
-  const initializeMap = useCallback(async () => {
-    console.log("🔄 initializeMap called");
-    
-    // Safety check: Stop if no container (Fixes Infinite Loop)
-    if (!mapRef.current) {
-      console.log("⏳ Map ref not ready - cancelling init to prevent loop");
-      return;
-    }
 
-    // Safety check: Don't re-initialize if already done
-    if (mapInstanceRef.current) {
-      console.log("✅ Map already initialized - skipping");
-      return;
-    }
-
-    try {
-      if (!window.google || !window.google.maps || !window.google.maps.drawing) {
-        // Fallback: If API missing, show placeholder
-        if (!GOOGLE_MAPS_API_KEY) {
-           setMapError("API Key Missing");
-           return; 
-        }
-        throw new Error("Google Maps API not fully loaded");
-      }
-
-      console.log("✅ Google Maps API available");
-      const defaultCenter = { lat: 32.7767, lng: -96.7970 };
-
-      if (coordinates) {
-        console.log("✅ Using provided coordinates:", coordinates);
-        createMap(coordinates);
-        return;
-      }
-
-      if (!address) {
-        console.log("⏳ No address yet, waiting...");
-        setMapLoading(false);
-        return;
-      }
-
-      setGeocodingStatus("Finding address location...");
-      console.log("🔄 Geocoding address:", address);
-      
-      const geocoder = new window.google.maps.Geocoder();
-      
-      geocoder.geocode({ address: address }, (results, status) => {
-        if (status === "OK" && results[0]) {
-          const location = results[0].geometry.location;
-          const geocodedCenter = { lat: location.lat(), lng: location.lng() };
-          console.log("✅ Geocoded:", geocodedCenter);
-          setCoordinates(geocodedCenter);
-          localStorage.setItem('measurementLat', geocodedCenter.lat.toString());
-          localStorage.setItem('measurementLng', geocodedCenter.lng.toString());
-          setGeocodingStatus("Address found!");
-          createMap(geocodedCenter);
-        } else if (status === "ZERO_RESULTS") {
-          console.error("❌ Address not found (ZERO_RESULTS)");
-          setMapError("Could not locate this address. Please check the street, city, and zip code.");
-          setLoading(false);
-          setMapLoading(false);
-          // DO NOT call createMap() - show error card instead
-        } else {
-          console.error("❌ Geocoding failed:", status);
-          setMapError(`Geocoding failed: ${status}`);
-          setLoading(false);
-          setMapLoading(false);
-        }
-      });
-    } catch (err) {
-      console.error("❌ Map initialization failed:", err);
-      setMapError(`Failed to initialize map: ${err.message}`);
-      setMapLoading(false);
-    }
-  }, [address, coordinates, createMap]);
-
-  // Manual Script Injection - ULTRA SIMPLIFIED
-  useEffect(() => {
-    console.log("🚀 Manual Google Maps loader starting");
-
-    // Already loaded? Use it immediately
-    if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
-      console.log("✅ Google Maps already loaded - ready to use");
-      scriptLoadedRef.current = true;
-      setMapScriptLoaded(true);
-      return;
-    }
-    
-    // Check if script exists in DOM
-    let script = document.getElementById('google-map-script');
-    
-    if (!script) {
-      console.log("📥 Creating Google Maps script tag...");
-      script = document.createElement('script');
-      script.id = 'google-map-script';
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,drawing,geometry`;
-      script.async = true;
-      script.defer = true;
-      
-      script.onload = () => {
-        console.log("✅ Script tag loaded");
-      };
-      
-      script.onerror = () => {
-        console.error("❌ Script failed to load");
-        setMapError("Failed to load Google Maps. Click Retry.");
-        setMapLoading(false);
-      };
-      
-      document.head.appendChild(script);
-    }
-    
-    // Poll for API availability (simple check every 500ms)
-    const checkInterval = setInterval(() => {
-      if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
-        clearInterval(checkInterval);
-        console.log("✅ Google Maps API ready");
-        scriptLoadedRef.current = true;
-        setMapScriptLoaded(true);
-        setMapError("");
-      }
-    }, 500);
-    
-    // Timeout after 60 seconds
-    const timeout = setTimeout(() => {
-      if (!scriptLoadedRef.current) {
-        clearInterval(checkInterval);
-        console.error("❌ Google Maps timeout (60s)");
-        setMapError("Map failed to load. Click Retry.");
-        setMapLoading(false);
-      }
-    }, 60000);
-    
-    return () => {
-      clearInterval(checkInterval);
-      clearTimeout(timeout);
-    };
-  }, []);
-
-  // Initialize map ONLY after script is loaded AND we have address/coordinates
-  useEffect(() => {
-    if (!mapScriptLoaded) return;
-    if (!address && !coordinates) {
-      setMapLoading(false);
-      return;
-    }
-
-    // CRITICAL FIX: Prevent Infinite Loop
-    if (!mapRef.current) {
-      console.log("⏳ Waiting for Map DOM Element...");
-      return; 
-    }
-
-    console.log("✅ Safe to Initialize Map");
-    initializeMap();
-    
-  }, [mapScriptLoaded, address, coordinates, measurementMode, initializeMap]);
 
   // Removed auto-fetch - now handled directly in handleChooseQuickEstimate
 
