@@ -3235,28 +3235,33 @@ export default function MeasurementPage() {
           {/* MAP - ALWAYS RENDERED AS BACKGROUND (z-0) */}
           <div className="absolute inset-0 z-0">
                 {mapError ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800">
-                    <div className="text-6xl mb-4">⚠️</div>
-                    <div className="text-red-400 text-2xl font-bold mb-3">
-                      Google Maps Failed to Load
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 relative overflow-hidden">
+                    {/* Fallback Background */}
+                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524813686514-a57563d77965?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-30 blur-sm" />
+                    
+                    <div className="relative z-10 flex flex-col items-center p-8 bg-black/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl">
+                      <div className="text-6xl mb-4">⚠️</div>
+                      <div className="text-red-400 text-2xl font-bold mb-2">
+                        Map Error
+                      </div>
+                      <div className="text-slate-200 text-sm mb-6 text-center max-w-md">
+                        {mapError || "Failed to initialize map service."}
+                      </div>
+                      <Button
+                        onClick={handleRetryMap}
+                        size="lg"
+                        className="bg-red-600 hover:bg-red-700 text-white shadow-lg border border-red-400"
+                      >
+                        <RotateCcw className="w-5 h-5 mr-2" />
+                        Retry Loading Map
+                      </Button>
                     </div>
-                    <div className="text-slate-400 text-sm mb-6 text-center max-w-md">
-                      There was an error loading the map. This may be due to network issues or API configuration.
-                    </div>
-                    <Button
-                      onClick={handleRetryMap}
-                      size="lg"
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <RotateCcw className="w-5 h-5 mr-2" />
-                      Retry Loading Map
-                    </Button>
                   </div>
                 ) : (
                   <>
                     <div 
                       ref={mapRef} 
-                      className="w-full h-full"
+                      className="w-full h-full min-h-[500px]"
                     />
                     {mapLoading && (
                       <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center z-10">
