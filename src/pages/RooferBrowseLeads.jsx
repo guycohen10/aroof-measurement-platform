@@ -79,11 +79,31 @@ export default function RooferBrowseLeads() {
       
       setTimeout(() => {
         toast.dismiss(); // Clear loading
+        
+        // SAVE PURCHASE TO LOCAL STORAGE (PERSISTENCE)
+        const purchasedLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+        
+        // Convert MarketplaceLead to generic Lead structure
+        const newLead = {
+          ...marketplaceLead,
+          id: `test-lead-${Date.now()}`, // Unique ID
+          status: 'New',
+          lead_status: 'New', // Handle both naming conventions
+          name: 'Test Customer', // Marketplace leads might hide this, reveal it now
+          customer_name: 'Test Customer',
+          date: new Date().toISOString(),
+          created_date: new Date().toISOString(),
+          source: 'Marketplace'
+        };
+        
+        purchasedLeads.push(newLead);
+        localStorage.setItem('my_leads', JSON.stringify(purchasedLeads));
+        
         toast.success(`Successfully purchased lead for $${marketplaceLead.price.toFixed(2)} (Test Mode)`);
         setPurchasing(null);
         
-        // 4. Redirect to 'My Leads' to show ownership
-        // navigate('/my-leads'); // Uncomment if you want auto-redirect
+        // Redirect to 'My Leads' to show ownership
+        setTimeout(() => navigate(createPageUrl('LeadManagement')), 500);
       }, 1500);
     }
   };

@@ -48,10 +48,19 @@ export default function RooferDashboard() {
       if (currentUser?.aroof_role === 'external_roofer' || currentUser?.role === 'admin') {
         const leadData = await base44.entities.Lead.list();
         const filtered = leadData.filter(l => l.assigned_company_id === currentUser.company_id);
-        setLeads(filtered || []);
         
-        // Mock Stats for the dashboard
-        setStats({ revenue: 125000, activeJobs: 4, winRate: 35 });
+        // MERGE LOCAL TEST LEADS
+        const testLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+        const allLeads = [...testLeads, ...filtered];
+        
+        setLeads(allLeads || []);
+        
+        // Update Stats based on total leads (Active Jobs = Leads count for demo)
+        setStats({ 
+          revenue: 125000 + (testLeads.length * 150), // Fake revenue boost
+          activeJobs: 4 + allLeads.length, 
+          winRate: 35 
+        });
 
         // Load appointments for today's schedule
         try {
