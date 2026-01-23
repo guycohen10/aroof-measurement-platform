@@ -522,15 +522,9 @@ export default function MeasurementPage() {
   }, [searchParams, leadData]);
 
   const createMap = useCallback((center) => {
+    // Safety check: Stop if no container (Fixes Infinite Loop)
     if (!mapRef.current) {
-      console.error("❌ Map container ref is null");
-      if (initAttemptRef.current < 5) {
-        initAttemptRef.current++;
-        setTimeout(() => createMap(center), 300);
-      } else {
-        setMapError("Map container not available after multiple attempts");
-        setMapLoading(false);
-      }
+      console.error("❌ Map container ref is null - waiting for DOM");
       return;
     }
 
@@ -836,14 +830,25 @@ export default function MeasurementPage() {
   const initializeMap = useCallback(async () => {
     console.log("🔄 initializeMap called");
     
+    // Safety check: Stop if no container (Fixes Infinite Loop)
     if (!mapRef.current) {
-      console.log("⏳ Map ref not ready, retrying in 100ms...");
-      setTimeout(initializeMap, 100);
+      console.log("⏳ Map ref not ready - cancelling init to prevent loop");
+      return;
+    }
+
+    // Safety check: Don't re-initialize if already done
+    if (mapInstanceRef.current) {
+      console.log("✅ Map already initialized - skipping");
       return;
     }
 
     try {
       if (!window.google || !window.google.maps || !window.google.maps.drawing) {
+        // Fallback: If API missing, show placeholder
+        if (!GOOGLE_MAPS_API_KEY) {
+           setMapError("API Key Missing");
+           return; 
+        }
         throw new Error("Google Maps API not fully loaded");
       }
 
@@ -956,26 +961,22 @@ export default function MeasurementPage() {
 
   // Initialize map ONLY after script is loaded AND we have address/coordinates
   useEffect(() => {
-    if (!mapScriptLoaded) {
-      console.log("⏳ Waiting for Google Maps script to load...");
-      return;
-    }
-
+    if (!mapScriptLoaded) return;
     if (!address && !coordinates) {
-      console.log("⏳ Waiting for address or coordinates...");
       setMapLoading(false);
       return;
     }
 
-    console.log("✅ Script loaded AND address/coords ready - initializing map now");
+    // CRITICAL FIX: Prevent Infinite Loop
+    if (!mapRef.current) {
+      console.log("⏳ Waiting for Map DOM Element...");
+      return; 
+    }
+
+    console.log("✅ Safe to Initialize Map");
+    initializeMap();
     
-    // Add delay to ensure new div is ready after tab switch
-    const timer = setTimeout(() => {
-      initializeMap();
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [mapScriptLoaded, address, coordinates, measurementMode]); // Removed initializeMap from dependencies to prevent re-init
+  }, [mapScriptLoaded, address, coordinates, measurementMode, initializeMap]);
 
   // Removed auto-fetch - now handled directly in handleChooseQuickEstimate
 
