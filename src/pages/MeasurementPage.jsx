@@ -882,11 +882,17 @@ export default function MeasurementPage() {
           localStorage.setItem('measurementLng', geocodedCenter.lng.toString());
           setGeocodingStatus("Address found!");
           createMap(geocodedCenter);
+        } else if (status === "ZERO_RESULTS") {
+          console.error("❌ Address not found (ZERO_RESULTS)");
+          setMapError("Could not locate this address. Please check the street, city, and zip code.");
+          setLoading(false);
+          setMapLoading(false);
+          // DO NOT call createMap() - show error card instead
         } else {
           console.error("❌ Geocoding failed:", status);
-          setMapError(`Could not find address (${status})`);
-          setGeocodingStatus("Using default location");
-          createMap(defaultCenter);
+          setMapError(`Geocoding failed: ${status}`);
+          setLoading(false);
+          setMapLoading(false);
         }
       });
     } catch (err) {
@@ -3247,14 +3253,24 @@ export default function MeasurementPage() {
                       <div className="text-slate-200 text-sm mb-6 text-center max-w-md">
                         {mapError || "Failed to initialize map service."}
                       </div>
-                      <Button
-                        onClick={handleRetryMap}
-                        size="lg"
-                        className="bg-red-600 hover:bg-red-700 text-white shadow-lg border border-red-400"
-                      >
-                        <RotateCcw className="w-5 h-5 mr-2" />
-                        Retry Loading Map
-                      </Button>
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={() => navigate(createPageUrl("RooferDashboard"))}
+                          variant="outline"
+                          className="border-white/20 text-white hover:bg-white/10"
+                        >
+                          <ArrowLeft className="w-4 h-4 mr-2" />
+                          Back to Dashboard
+                        </Button>
+                        <Button
+                          onClick={handleRetryMap}
+                          size="lg"
+                          className="bg-red-600 hover:bg-red-700 text-white shadow-lg border border-red-400"
+                        >
+                          <RotateCcw className="w-5 h-5 mr-2" />
+                          Retry
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ) : (
