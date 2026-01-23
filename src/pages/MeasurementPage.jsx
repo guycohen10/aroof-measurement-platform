@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, MapPin, AlertTriangle, Loader2 } from 'lucide-react';
+import { ArrowLeft, MapPin, AlertTriangle, Loader2, Edit3, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function MeasurementPage() {
@@ -18,6 +18,12 @@ export default function MeasurementPage() {
   const [error, setError] = useState(null);
   const [lead, setLead] = useState(null);
   const [coordinates, setCoordinates] = useState(null);
+
+  // Drawing State
+  const [drawingManager, setDrawingManager] = useState(null);
+  const [area, setArea] = useState(0);
+  const [polygons, setPolygons] = useState([]);
+  const [currentMode, setCurrentMode] = useState(null);
 
   // 2. REFS
   const mapInstance = useRef(null);
@@ -122,6 +128,37 @@ export default function MeasurementPage() {
         disableDefaultUI: true,
         tilt: 0
       });
+
+      // Initialize Drawing Tools
+      const manager = new window.google.maps.drawing.DrawingManager({
+        drawingMode: null, // Start with no tool selected
+        drawingControl: false, // We will build custom buttons
+        polygonOptions: {
+          fillColor: '#3b82f6',
+          fillOpacity: 0.4,
+          strokeWeight: 2,
+          strokeColor: '#2563eb',
+          editable: true,
+          draggable: false,
+        },
+      });
+      manager.setMap(mapInstance.current);
+      setDrawingManager(manager);
+
+      // Add Listener for 'Polygon Complete'
+      window.google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
+        // Calculate Area
+        const sqMeters = window.google.maps.geometry.spherical.computeArea(poly.getPath());
+        const sqFeet = Math.round(sqMeters * 10.7639);
+        
+        setArea(prev => prev + sqFeet);
+        setPolygons(prev => [...prev, poly]);
+
+        // Reset tool to avoid accidental drawing
+        manager.setDrawingMode(null);
+        setCurrentMode(null);
+      });
+
     } catch (err) {
       console.error("Map Draw Error:", err);
     }
@@ -182,6 +219,48 @@ export default function MeasurementPage() {
 
       {/* Map Container - Explicit Height */}
       <div className="flex-1 relative bg-slate-200 w-full min-h-[500px]">
+        
+        {/* Floating Toolbelt */}
+        <div className="absolute top-4 left-4 z-10 bg-white p-2 rounded-lg shadow-xl flex flex-col gap-2">
+          <div className="mb-2 px-2">
+            <p className="text-xs text-slate-500 font-bold uppercase">Tools</p>
+          </div>
+          
+          <Button 
+            size="sm" 
+            variant={currentMode === 'polygon' ? 'default' : 'outline'}
+            onClick={() => {
+              if (drawingManager) {
+                drawingManager.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON);
+                setCurrentMode('polygon');
+              }
+            }}
+            className="justify-start"
+          >
+            <Edit3 className="w-4 h-4 mr-2" />
+            Draw Roof
+          </Button>
+          
+          <Button 
+            size="sm" 
+            variant="destructive" 
+            onClick={() => {
+              polygons.forEach(p => p.setMap(null));
+              setPolygons([]);
+              setArea(0);
+            }}
+            className="justify-start"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Clear All
+          </Button>
+          
+          <div className="mt-2 pt-2 border-t border-slate-100 px-2">
+            <p className="text-xs text-slate-500 font-bold uppercase mb-1">Total Area</p>
+            <p className="text-xl font-bold text-slate-900">{area.toLocaleString()} <span className="text-sm font-normal text-slate-500">sq ft</span></p>
+          </div>
+        </div>
+
         <div 
           ref={onMapRefChange} 
           className="w-full h-full absolute inset-0"
