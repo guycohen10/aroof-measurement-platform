@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Zap, PenTool, Save, CheckCircle2, RotateCcw, FileText, Calculator, Loader2 } from 'lucide-react';
+import { ArrowLeft, Zap, PenTool, Save, CheckCircle2, RotateCcw, FileText, Calculator, Loader2, MapPin, Share2, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -20,6 +20,7 @@ export default function MeasurementPage() {
   const [mapInstance, setMapInstance] = useState(null);
   const [totalArea, setTotalArea] = useState(0);
   const [waste, setWaste] = useState(10); // 10% waste default
+  const [pitch, setPitch] = useState(6); // 6/12 default pitch
 
   const drawingManagerRef = useRef(null);
   const quickPolygonRef = useRef(null);
@@ -31,7 +32,6 @@ export default function MeasurementPage() {
         try {
             const activeId = leadId || sessionStorage.getItem('active_lead_id');
             if (!activeId) {
-                // If no lead ID, try session address fallback
                 const sessionAddress = sessionStorage.getItem('lead_address');
                 if (sessionAddress) {
                     setLead({ address: sessionAddress });
@@ -118,7 +118,7 @@ export default function MeasurementPage() {
               const area = window.google.maps.geometry.spherical.computeArea(poly.getPath());
               setTotalArea(prev => prev + Math.round(area * 10.764));
               polygonsRef.current.push(poly);
-              manager.setDrawingMode(null); // Auto-stop drawing after one shape
+              manager.setDrawingMode(null);
             });
           } else {
              toast.error("Could not locate address");
@@ -129,7 +129,6 @@ export default function MeasurementPage() {
       }
     };
 
-    // Robustly wait for Google Maps to be available
     const waitForGoogle = setInterval(() => {
         if (window.google && window.google.maps) {
             clearInterval(waitForGoogle);
@@ -148,7 +147,6 @@ export default function MeasurementPage() {
     const center = mapInstance.getCenter();
     const { Polygon } = await window.google.maps.importLibrary("maps");
     
-    // Create box around center
     const rect = new Polygon({
       paths: [
         { lat: center.lat() + 0.0001, lng: center.lng() - 0.00015 },
@@ -169,9 +167,8 @@ export default function MeasurementPage() {
          setTotalArea(Math.round(area * 10.764));
     };
 
-    updateArea(); // Initial calculation
+    updateArea();
 
-    // Listener to update area on drag/edit
     rect.getPaths().forEach(p => {
        window.google.maps.event.addListener(p, 'set_at', updateArea);
        window.google.maps.event.addListener(p, 'insert_at', updateArea);
@@ -206,7 +203,7 @@ export default function MeasurementPage() {
         roof_sqft: finalArea,
         estimated_value: estPrice,
         status: 'Measured',
-        lead_status: 'Quoted' // Update lead status as well
+        lead_status: 'Quoted'
     };
 
     toast.loading("Saving Estimate...");
@@ -224,13 +221,11 @@ export default function MeasurementPage() {
              localStorage.setItem('my_leads', JSON.stringify(localLeads));
              toast.dismiss();
              toast.success("Test Lead Updated Locally!");
-             // Redirect to local lead view or list
              setTimeout(() => navigate('/roofer-dashboard'), 1000);
         } else {
              // UPDATE REAL DB LEAD
              await base44.entities.Lead.update(idToUpdate, data);
              
-             // Optionally update/create measurement record for persistence
              await base44.entities.Measurement.create({
                  company_id: lead.assigned_company_id,
                  property_address: lead.address || lead.property_address,
@@ -263,13 +258,20 @@ export default function MeasurementPage() {
       
       {/* HEADER */}
       <header className="absolute top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur-sm border-b px-4 py-3 flex items-center gap-3 shadow-sm">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+        <Button variant="ghost" size="sm" onClick={() => step === 'summary' ? setStep('selection') : navigate(-1)}>
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
+          {step === 'summary' ? 'Edit Measurement' : 'Back'}
         </Button>
-        <h1 className="font-bold text-slate-800">
+        <h1 className="font-bold text-slate-800 truncate max-w-md">
             {lead?.address || lead?.property_address || "Roof Measurement"}
         </h1>
+        {step === 'summary' && (
+           <div className="ml-auto flex items-center gap-2">
+              <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                 <CheckCircle2 className="w-3 h-3" /> Measurement Complete
+              </span>
+           </div>
+        )}
       </header>
 
       {/* Map Layer */}
@@ -281,15 +283,15 @@ export default function MeasurementPage() {
       {step === 'selection' && (
         <div className="absolute inset-0 z-10 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="grid md:grid-cols-2 gap-6 w-full max-w-3xl">
-            <Card className="p-8 cursor-pointer hover:border-green-500 border-2 transition-all hover:scale-105 shadow-2xl" onClick={startQuick}>
-              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-6">
+            <Card className="p-8 cursor-pointer hover:border-green-500 border-2 transition-all hover:scale-105 shadow-2xl group" onClick={startQuick}>
+              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Zap className="w-8 h-8 text-green-600" />
               </div>
               <h3 className="text-2xl font-bold mb-2">Quick Estimate</h3>
               <p className="text-slate-500 text-lg">AI-Assisted (60 Seconds)</p>
             </Card>
-            <Card className="p-8 cursor-pointer hover:border-blue-500 border-2 transition-all hover:scale-105 shadow-2xl" onClick={startDetailed}>
-              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mb-6">
+            <Card className="p-8 cursor-pointer hover:border-blue-500 border-2 transition-all hover:scale-105 shadow-2xl group" onClick={startDetailed}>
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                  <PenTool className="w-8 h-8 text-blue-600" />
               </div>
               <h3 className="text-2xl font-bold mb-2">Detailed Measure</h3>
@@ -327,77 +329,135 @@ export default function MeasurementPage() {
         </Card>
       )}
 
-      {/* STEP 3: SUMMARY / RESULT (Visual Upgrade) */}
+      {/* STEP 3: SUMMARY / PROPOSAL BUILDER */}
       {step === 'summary' && (
-        <div className="absolute inset-0 z-20 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-300">
-          <Card className="w-full max-w-lg shadow-2xl border-none overflow-hidden">
-            {/* Green Gradient Header */}
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-8 text-center relative">
-               <div className="absolute -bottom-6 left-1/2 -translate-x-1/2">
-                  <div className="bg-white p-2 rounded-full shadow-lg">
-                    <div className="bg-green-100 rounded-full p-2">
-                       <CheckCircle2 className="w-10 h-10 text-green-600 animate-bounce" />
+        <div className="absolute inset-0 z-10 bg-slate-50 overflow-y-auto pt-16">
+            <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* COLUMN 1: VISUALS */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Satellite Snapshot Placeholder */}
+                    <Card className="overflow-hidden border-2 border-slate-200">
+                    <CardHeader className="bg-slate-50 py-3 border-b">
+                        <CardTitle className="text-sm uppercase text-slate-500 font-bold">Satellite Diagram</CardTitle>
+                    </CardHeader>
+                    <div className="h-80 bg-slate-200 relative group">
+                        {/* Static Placeholder for now since map is in background */}
+                        <div className="absolute inset-0 flex items-center justify-center text-slate-400 bg-slate-100">
+                            <div className="text-center">
+                                <MapPin className="w-12 h-12 mb-2 mx-auto text-slate-300" />
+                                <span className="text-sm font-medium">Interactive Map Snapshot</span>
+                                <p className="text-xs text-slate-400 mt-1">(Map is preserved in background)</p>
+                            </div>
+                        </div>
                     </div>
-                  </div>
-               </div>
-               <h2 className="text-white text-2xl font-bold mb-2">Estimate Ready!</h2>
-               <p className="text-green-50 opacity-90 text-sm">Measurement completed successfully</p>
+                    </Card>
+
+                    {/* Blueprint / Dimensions */}
+                    <Card>
+                    <CardHeader className="py-3 border-b flex flex-row justify-between items-center">
+                        <CardTitle className="text-sm uppercase text-slate-500 font-bold">Roof Facets</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 text-center">
+                        <p className="text-xs text-blue-600 font-bold uppercase">Total Area</p>
+                        <p className="text-2xl font-bold text-slate-900">{totalArea.toLocaleString()}</p>
+                        <p className="text-xs text-slate-400">sq ft</p>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-lg border text-center">
+                        <p className="text-xs text-slate-500 font-bold uppercase">Ridges</p>
+                        <p className="text-xl font-bold text-slate-700">--</p>
+                        <p className="text-xs text-slate-400">linear ft</p>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-lg border text-center">
+                        <p className="text-xs text-slate-500 font-bold uppercase">Hips</p>
+                        <p className="text-xl font-bold text-slate-700">--</p>
+                        <p className="text-xs text-slate-400">linear ft</p>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-lg border text-center">
+                        <p className="text-xs text-slate-500 font-bold uppercase">Valleys</p>
+                        <p className="text-xl font-bold text-slate-700">--</p>
+                        <p className="text-xs text-slate-400">linear ft</p>
+                        </div>
+                    </CardContent>
+                    </Card>
+                </div>
+
+                {/* COLUMN 2: CALCULATOR */}
+                <div className="space-y-6">
+                    <Card className="border-t-4 border-green-500 shadow-lg">
+                    <CardHeader>
+                        <CardTitle>Project Estimate</CardTitle>
+                        <p className="text-sm text-slate-500">Adjust parameters to calculate quote.</p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <Label>Base Area</Label>
+                                <span>{totalArea.toLocaleString()} sq ft</span>
+                            </div>
+                            <div className="flex justify-between text-sm items-center">
+                                <Label>Waste Factor</Label>
+                                <div className="flex items-center gap-2">
+                                    <Input 
+                                        type="number" 
+                                        className="w-20 h-8 text-right" 
+                                        value={waste} 
+                                        onChange={e => setWaste(Number(e.target.value))} 
+                                    />
+                                    <span className="text-slate-500">%</span>
+                                </div>
+                            </div>
+                            <div className="flex justify-between text-sm items-center">
+                                <Label>Roof Pitch</Label>
+                                <div className="flex items-center gap-2">
+                                    <Input 
+                                        type="number" 
+                                        className="w-20 h-8 text-right" 
+                                        value={pitch} 
+                                        onChange={e => setPitch(Number(e.target.value))} 
+                                    />
+                                    <span className="text-slate-500">/12</span>
+                                </div>
+                            </div>
+                            <div className="h-px bg-slate-100 my-2" />
+                            <div className="flex justify-between font-bold text-slate-900">
+                                <span>Total Billable</span>
+                                <span>{Math.round(totalArea * (1 + waste/100)).toLocaleString()} sq ft</span>
+                            </div>
+                        </div>
+
+                        <div className="bg-green-50 p-4 rounded-lg border border-green-100 text-center space-y-1">
+                            <p className="text-xs text-green-700 font-bold uppercase">Estimated Price</p>
+                            <p className="text-3xl font-bold text-slate-900">
+                                ${(Math.round(totalArea * (1 + waste/100) * 4.5)).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-slate-400">@ $4.50/sq ft avg</p>
+                        </div>
+                        
+                        <Button className="w-full bg-green-600 hover:bg-green-700 h-12 text-lg" onClick={handleSaveToCRM}>
+                            <Save className="w-4 h-4 mr-2" /> Book Job & Save
+                        </Button>
+                    </CardContent>
+                    </Card>
+
+                    <Card>
+                    <CardHeader>
+                        <CardTitle className="text-sm">Client Actions</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-2 gap-3">
+                        <Button variant="ghost" className="h-24 flex flex-col gap-2 border hover:bg-blue-50 hover:border-blue-200 transition-colors">
+                            <FileText className="w-6 h-6 text-blue-600" />
+                            <span className="text-xs font-medium">Preview Proposal</span>
+                        </Button>
+                        <Button variant="ghost" className="h-24 flex flex-col gap-2 border hover:bg-yellow-50 hover:border-yellow-200 transition-colors">
+                            <Mail className="w-6 h-6 text-yellow-500" />
+                            <span className="text-xs font-medium">Email Quote</span>
+                        </Button>
+                    </CardContent>
+                    </Card>
+                </div>
             </div>
-            
-            <CardContent className="pt-12 px-8 pb-8 space-y-8">
-               {/* Big Stats */}
-               <div className="grid grid-cols-2 gap-4 text-center">
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                     <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Total Area</p>
-                     <p className="text-2xl font-black text-slate-800">{totalArea.toLocaleString()}<span className="text-sm font-medium text-slate-400 ml-1">sq ft</span></p>
-                  </div>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                     <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">With Waste</p>
-                     <p className="text-2xl font-black text-slate-800">{Math.round(totalArea * (1 + waste/100)).toLocaleString()}<span className="text-sm font-medium text-slate-400 ml-1">sq ft</span></p>
-                  </div>
-               </div>
-
-               {/* Waste Slider Input */}
-               <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                     <Label className="font-bold text-slate-700">Waste Factor</Label>
-                     <span className="text-sm font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">{waste}%</span>
-                  </div>
-                  <input 
-                     type="range" 
-                     min="0" 
-                     max="30" 
-                     step="1" 
-                     value={waste} 
-                     onChange={(e) => setWaste(Number(e.target.value))}
-                     className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-green-600"
-                  />
-                  <div className="flex justify-between text-xs text-slate-400 px-1">
-                     <span>0%</span>
-                     <span>15%</span>
-                     <span>30%</span>
-                  </div>
-               </div>
-
-               {/* Price Card */}
-               <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-2xl text-center shadow-lg transform transition-transform hover:scale-105">
-                  <p className="text-blue-200 text-xs font-bold uppercase tracking-[0.2em] mb-2">Estimated Value</p>
-                  <p className="text-4xl font-black text-white tracking-tight">
-                     ${Math.round(totalArea * (1 + waste/100) * 4.5).toLocaleString()}
-                  </p>
-                  <p className="text-slate-400 text-xs mt-2">Based on standard market rates ($4.50/sq ft)</p>
-               </div>
-            </CardContent>
-
-            <CardFooter className="bg-slate-50 p-6 flex flex-col gap-3 border-t">
-              <Button className="w-full bg-green-600 hover:bg-green-700 h-14 text-lg font-bold shadow-green-200 shadow-lg transition-all active:scale-95" onClick={handleSaveToCRM}>
-                <Save className="w-5 h-5 mr-2" /> Save to CRM
-              </Button>
-              <Button variant="ghost" className="text-slate-500 hover:text-slate-800" onClick={() => setStep('selection')}>
-                Discard & Start Over
-              </Button>
-            </CardFooter>
-          </Card>
         </div>
       )}
     </div>
