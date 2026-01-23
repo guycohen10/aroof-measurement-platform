@@ -42,7 +42,16 @@ export default function MeasurementPage() {
 
             let leadData;
             try {
-                leadData = await base44.entities.Lead.get(activeId);
+                // Try fetching from local storage first (Test Mode)
+                const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+                const localLead = localLeads.find(l => l.id === activeId);
+                
+                if (localLead) {
+                    leadData = localLead;
+                } else {
+                    // Fetch from API
+                    leadData = await base44.entities.Lead.get(activeId);
+                }
             } catch {
                 try {
                     leadData = await base44.entities.Measurement.get(activeId);
@@ -188,51 +197,57 @@ export default function MeasurementPage() {
       setTotalArea(0);
   };
 
-  // 4. SAVE TO CRM
+  // 4. SAVE TO CRM (Smart Save)
   const handleSaveToCRM = async () => {
-    try {
-      toast.loading("Saving to Lead Record...");
-      
-      const finalArea = Math.round(totalArea * (1 + waste / 100));
-      const estPrice = finalArea * 4.50; // Simple logic
-      
-      // Update Lead if we have an ID
-      if (leadId || lead?.id) {
-          const idToUpdate = leadId || lead.id;
-          await base44.entities.Lead.update(idToUpdate, {
-            // roof_sqft might not exist on Lead, check schema or use custom fields if needed
-            // Based on schema snapshot, Lead doesn't have roof_sqft explicitly, but we'll try or update notes
-            // Actually, Measurement entity has it. We might need to create a Measurement record linked to Lead.
-            // For now, based on instructions: "Updates the Lead entity... (sq_ft, status, estimate_value)"
-            // Assuming schema allows dynamic updates or fields exist (or we use notes/description)
-            lead_status: 'Sold', // Or 'Quoted'
-            // Using existing fields or assuming flexible schema
-          });
-          
-          // Also create/update a Measurement entity record which has the fields
-          await base44.entities.Measurement.create({
-              company_id: lead.assigned_company_id,
-              property_address: lead.address || lead.property_address,
-              total_sqft: finalArea,
-              quote_amount: estPrice,
-              lead_status: 'quoted',
-              user_type: 'roofer'
-          });
-      }
+    const finalArea = Math.round(totalArea * (1 + waste / 100));
+    const estPrice = Math.round(finalArea * 4.50);
+    
+    const data = {
+        roof_sqft: finalArea,
+        estimated_value: estPrice,
+        status: 'Measured',
+        lead_status: 'Quoted' // Update lead status as well
+    };
 
-      toast.dismiss();
-      toast.success("Saved! Redirecting to Lead...");
-      
-      // Redirect logic
-      setTimeout(() => {
-          if (leadId) navigate(`/customer-detail?id=${leadId}`);
-          else navigate('/roofer-dashboard');
-      }, 1000);
-      
+    toast.loading("Saving Estimate...");
+
+    try {
+        const idToUpdate = leadId || lead.id;
+        
+        // STRATEGY: Check LocalStorage First (Test Mode Support)
+        const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+        const localIndex = localLeads.findIndex(l => l.id === idToUpdate);
+
+        if (localIndex !== -1) {
+             // UPDATE LOCAL LEAD
+             localLeads[localIndex] = { ...localLeads[localIndex], ...data };
+             localStorage.setItem('my_leads', JSON.stringify(localLeads));
+             toast.dismiss();
+             toast.success("Test Lead Updated Locally!");
+             // Redirect to local lead view or list
+             setTimeout(() => navigate('/roofer-dashboard'), 1000);
+        } else {
+             // UPDATE REAL DB LEAD
+             await base44.entities.Lead.update(idToUpdate, data);
+             
+             // Optionally update/create measurement record for persistence
+             await base44.entities.Measurement.create({
+                 company_id: lead.assigned_company_id,
+                 property_address: lead.address || lead.property_address,
+                 total_sqft: finalArea,
+                 quote_amount: estPrice,
+                 lead_status: 'quoted',
+                 user_type: 'roofer'
+             });
+
+             toast.dismiss();
+             toast.success("Lead Record Updated!");
+             setTimeout(() => navigate(`/customer-detail?id=${idToUpdate}`), 1000);
+        }
     } catch (err) {
-      console.error(err);
-      toast.dismiss();
-      toast.error("Failed to save. check console.");
+        console.error(err);
+        toast.dismiss();
+        toast.error("Save failed. Check console.");
     }
   };
 
@@ -312,43 +327,75 @@ export default function MeasurementPage() {
         </Card>
       )}
 
-      {/* STEP 3: SUMMARY / RESULT */}
+      {/* STEP 3: SUMMARY / RESULT (Visual Upgrade) */}
       {step === 'summary' && (
-        <div className="absolute inset-0 z-20 bg-white/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
-          <Card className="w-full max-w-md shadow-2xl border-t-4 border-green-600">
-            <CardHeader className="text-center pb-2">
-              <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-sm">
-                <Calculator className="w-8 h-8 text-green-600" />
-              </div>
-              <CardTitle className="text-2xl">Measurement Complete</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="bg-slate-50 p-4 rounded-xl flex justify-between items-center border border-slate-100">
-                <span className="text-slate-600 font-medium">Base Area:</span>
-                <span className="font-bold text-xl text-slate-900">{totalArea.toLocaleString()} sq ft</span>
-              </div>
-              
-              <div className="flex items-center gap-4">
-                <Label className="flex-1 text-slate-600">Waste Factor (%)</Label>
-                <div className="relative w-24">
-                    <Input type="number" value={waste} onChange={e => setWaste(Number(e.target.value))} className="pr-6 text-right font-medium" />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
-                </div>
-              </div>
+        <div className="absolute inset-0 z-20 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-300">
+          <Card className="w-full max-w-lg shadow-2xl border-none overflow-hidden">
+            {/* Green Gradient Header */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-8 text-center relative">
+               <div className="absolute -bottom-6 left-1/2 -translate-x-1/2">
+                  <div className="bg-white p-2 rounded-full shadow-lg">
+                    <div className="bg-green-100 rounded-full p-2">
+                       <CheckCircle2 className="w-10 h-10 text-green-600 animate-bounce" />
+                    </div>
+                  </div>
+               </div>
+               <h2 className="text-white text-2xl font-bold mb-2">Estimate Ready!</h2>
+               <p className="text-green-50 opacity-90 text-sm">Measurement completed successfully</p>
+            </div>
+            
+            <CardContent className="pt-12 px-8 pb-8 space-y-8">
+               {/* Big Stats */}
+               <div className="grid grid-cols-2 gap-4 text-center">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                     <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Total Area</p>
+                     <p className="text-2xl font-black text-slate-800">{totalArea.toLocaleString()}<span className="text-sm font-medium text-slate-400 ml-1">sq ft</span></p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                     <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">With Waste</p>
+                     <p className="text-2xl font-black text-slate-800">{Math.round(totalArea * (1 + waste/100)).toLocaleString()}<span className="text-sm font-medium text-slate-400 ml-1">sq ft</span></p>
+                  </div>
+               </div>
 
-              <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 text-center shadow-sm">
-                <p className="text-sm text-blue-600 font-bold uppercase tracking-wide mb-1">Estimated Value</p>
-                <p className="text-4xl font-extrabold text-slate-900">
-                  ${(Math.round(totalArea * (1 + waste/100) * 4.5)).toLocaleString()}
-                </p>
-                <p className="text-xs text-blue-400 mt-2">Based on avg. market rates</p>
-              </div>
+               {/* Waste Slider Input */}
+               <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                     <Label className="font-bold text-slate-700">Waste Factor</Label>
+                     <span className="text-sm font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">{waste}%</span>
+                  </div>
+                  <input 
+                     type="range" 
+                     min="0" 
+                     max="30" 
+                     step="1" 
+                     value={waste} 
+                     onChange={(e) => setWaste(Number(e.target.value))}
+                     className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-green-600"
+                  />
+                  <div className="flex justify-between text-xs text-slate-400 px-1">
+                     <span>0%</span>
+                     <span>15%</span>
+                     <span>30%</span>
+                  </div>
+               </div>
+
+               {/* Price Card */}
+               <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-2xl text-center shadow-lg transform transition-transform hover:scale-105">
+                  <p className="text-blue-200 text-xs font-bold uppercase tracking-[0.2em] mb-2">Estimated Value</p>
+                  <p className="text-4xl font-black text-white tracking-tight">
+                     ${Math.round(totalArea * (1 + waste/100) * 4.5).toLocaleString()}
+                  </p>
+                  <p className="text-slate-400 text-xs mt-2">Based on standard market rates ($4.50/sq ft)</p>
+               </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-3 pt-2">
-              <Button className="w-full bg-green-600 hover:bg-green-700 h-12 text-lg shadow-lg shadow-green-200" onClick={handleSaveToCRM}>
-                <Save className="w-5 h-5 mr-2" /> Save to CRM & Book Job
+
+            <CardFooter className="bg-slate-50 p-6 flex flex-col gap-3 border-t">
+              <Button className="w-full bg-green-600 hover:bg-green-700 h-14 text-lg font-bold shadow-green-200 shadow-lg transition-all active:scale-95" onClick={handleSaveToCRM}>
+                <Save className="w-5 h-5 mr-2" /> Save to CRM
               </Button>
-              <Button variant="ghost" className="text-slate-500" onClick={() => setStep('selection')}>Back to Map</Button>
+              <Button variant="ghost" className="text-slate-500 hover:text-slate-800" onClick={() => setStep('selection')}>
+                Discard & Start Over
+              </Button>
             </CardFooter>
           </Card>
         </div>
