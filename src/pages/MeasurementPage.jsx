@@ -3056,54 +3056,41 @@ export default function MeasurementPage() {
           )}
 
           {/* MAP - ALWAYS RENDERED AS BACKGROUND (z-0) */}
-          <div className="absolute inset-0 z-0">
-                {mapError ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 relative overflow-hidden">
-                    {/* Fallback Background */}
-                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524813686514-a57563d77965?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-30 blur-sm" />
-                    
-                    <div className="relative z-10 flex flex-col items-center p-8 bg-black/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl">
-                      <div className="text-6xl mb-4">⚠️</div>
-                      <div className="text-red-400 text-2xl font-bold mb-2">
-                        Map Error
-                      </div>
-                      <div className="text-slate-200 text-sm mb-6 text-center max-w-md">
-                        {mapError || "Failed to initialize map service."}
-                      </div>
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={() => navigate(createPageUrl("RooferDashboard"))}
-                          variant="outline"
-                          className="border-white/20 text-white hover:bg-white/10"
-                        >
-                          <ArrowLeft className="w-4 h-4 mr-2" />
-                          Back to Dashboard
-                        </Button>
-                        <Button
-                          onClick={handleRetryMap}
-                          size="lg"
-                          className="bg-red-600 hover:bg-red-700 text-white shadow-lg border border-red-400"
-                        >
-                          <RotateCcw className="w-5 h-5 mr-2" />
-                          Retry
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div 
-                      ref={mapRef} 
-                      className="w-full h-full min-h-[500px]"
-                    />
-                    {mapLoading && (
-                      <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center z-10">
-                        <Loader2 className="w-16 h-16 animate-spin text-blue-400 mb-4" />
-                        <p className="text-xl font-semibold text-white">{geocodingStatus}</p>
-                      </div>
-                    )}
-                  </>
-                )}
+          <div className="absolute inset-0 z-0 bg-slate-100">
+            {/* Fallback / Error State */}
+            {mapError && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-900/95 backdrop-blur-sm">
+                <div className="text-6xl mb-4">⚠️</div>
+                <div className="text-red-400 text-2xl font-bold mb-2">Location Error</div>
+                <div className="text-slate-300 text-sm mb-6 text-center max-w-md px-4">
+                  {mapError}
+                </div>
+                <div className="flex gap-3">
+                  <Button onClick={() => window.location.reload()} variant="outline" className="border-white/20 text-white hover:bg-white/10">
+                    <RotateCcw className="w-4 h-4 mr-2" /> Retry
+                  </Button>
+                  <Button onClick={() => navigate(createPageUrl("RooferDashboard"))} className="bg-blue-600 hover:bg-blue-700">
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Dashboard
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Map Container - ALWAYS RENDERED */}
+            <div 
+              ref={mapRef} 
+              className="w-full h-full min-h-[500px]"
+              style={{ opacity: loading ? 0 : 1, transition: 'opacity 0.5s ease-in-out' }}
+            />
+
+            {/* Loading Overlay */}
+            {loading && !mapError && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900">
+                <Loader2 className="w-16 h-16 animate-spin text-blue-500 mb-4" />
+                <p className="text-xl font-bold text-white">Loading Satellite Data...</p>
+                <p className="text-slate-400 text-sm mt-2">Connecting to Google Earth...</p>
+              </div>
+            )}
           </div>
 
           {/* UI OVERLAYS - CONDITIONAL BASED ON MODE */}
