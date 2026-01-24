@@ -186,18 +186,14 @@ export default function Navigation() {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <Link to={createPageUrl("RooferLogin")}>
-                  <Button variant="ghost" className="text-slate-600 hover:text-blue-900 font-medium">
-                    Log In
-                  </Button>
+              <>
+                <Link to={createPageUrl("RooferLogin")} className="text-slate-600 hover:text-blue-900 font-medium">
+                  Login
                 </Link>
-                <Link to={createPageUrl("RooferSignup")}>
-                  <Button variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50 font-medium">
-                    Contractor Sign Up
-                  </Button>
+                <Link to={createPageUrl("RooferSignup")} className="text-blue-600 hover:text-blue-900 font-semibold">
+                  Sign Up
                 </Link>
-              </div>
+              </>
             )}
             
             <a href="tel:+18502389727" className="flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-4 py-2 rounded-lg font-bold shadow-lg hover:shadow-xl transition-all">
