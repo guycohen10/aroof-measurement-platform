@@ -68,12 +68,7 @@ export default function Homepage() {
         if (user) {
           setIsLoggedIn(true);
           const staffRoles = ['sales', 'estimator', 'crew', 'external_roofer', 'dispatcher'];
-          
-          // Relaxed Routing Logic: Only redirect if on landing pages
-          const path = window.location.pathname;
-          const isLanding = path === '/' || path === '/login' || path === '/rooferlogin';
-          
-          if (staffRoles.includes(user.aroof_role) && isLanding) {
+          if (staffRoles.includes(user.aroof_role)) {
             navigate(createPageUrl('RooferDashboard'));
           }
         }

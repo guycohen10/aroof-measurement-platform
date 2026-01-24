@@ -23,7 +23,6 @@ import CrewDashboard from './pages/CrewDashboard';
 import CrewManagement from './pages/CrewManagement';
 import CustomerDetail from './pages/CustomerDetail';
 import CustomerPortal from './pages/CustomerPortal';
-import Debug from './pages/Debug';
 import DispatchDashboard from './pages/DispatchDashboard';
 import DispatchJobDetail from './pages/DispatchJobDetail';
 import EPDM from './pages/EPDM';
@@ -129,7 +128,6 @@ export const PAGES = {
     "CrewManagement": CrewManagement,
     "CustomerDetail": CustomerDetail,
     "CustomerPortal": CustomerPortal,
-    "Debug": Debug,
     "DispatchDashboard": DispatchDashboard,
     "DispatchJobDetail": DispatchJobDetail,
     "EPDM": EPDM,
