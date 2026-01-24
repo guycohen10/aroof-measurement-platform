@@ -16,58 +16,106 @@ export default function LeadManagement() {
   const [leads, setLeads] = useState([]);
   const [estimators, setEstimators] = useState([]);
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'pipeline'
-
+  const [stats, setStats] = useState({
+    total: 0,
+    thisWeek: 0,
+    new: 0,
+    contacted: 0,
+    quoted: 0,
+    booked: 0
+  });
 
   useEffect(() => {
     loadData();
   }, []);
 
+  const calculateStats = (leadList) => {
+      const statsObj = {
+        total: leadList.length,
+        thisWeek: leadList.filter(l => {
+          const weekAgo = new Date();
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          return new Date(l.created_date || Date.now()) >= weekAgo;
+        }).length,
+        new: leadList.filter(l => !l.lead_status || l.lead_status === 'new').length,
+        contacted: leadList.filter(l => l.lead_status === 'contacted').length,
+        quoted: leadList.filter(l => l.lead_status === 'quoted').length,
+        booked: leadList.filter(l => l.lead_status === 'booked').length
+      };
+      setStats(statsObj);
+  };
+
   const loadData = async () => {
     try {
+      setLoading(true);
       const currentUser = await base44.auth.me();
       
-      if (currentUser.aroof_role !== 'external_roofer') {
-        toast.error('Access denied');
-        navigate(createPageUrl("Homepage"));
-        return;
+      if (currentUser) {
+         setUser(currentUser);
       }
 
-      setUser(currentUser);
+      // 1. Fetch Real DB Leads
+      let apiLeads = [];
+      try {
+          if (currentUser?.company_id) {
+             const allLeads = await base44.entities.Measurement.list('-created_date', 200);
+             apiLeads = allLeads.filter(m => 
+                m.company_id === currentUser.company_id && 
+                m.user_type === 'homeowner'
+             );
+          }
+      } catch (e) {
+          console.warn("API fetch failed", e);
+      }
 
-      // Load leads for this company
-      const allLeads = await base44.entities.Measurement.list('-created_date', 200);
-      const companyLeads = allLeads.filter(m => 
-        m.company_id === currentUser.company_id && 
-        m.user_type === 'homeowner'
-      );
-      
-      // MERGE WITH LOCAL TEST LEADS
-      const testLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
-      setLeads([...testLeads, ...companyLeads]);
+      // 2. Fetch Local Test Leads
+      const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+
+      // 3. Merge (Prevent duplicates if ID exists in both - Local takes precedence for test/demo continuity)
+      const merged = [...localLeads, ...apiLeads.filter(a => !localLeads.find(l => l.id === a.id))];
+
+      setLeads(merged);
+      calculateStats(merged);
 
       // Load estimators
-      const allUsers = await base44.entities.User.list();
-      const companyEstimators = allUsers.filter(u => 
-        u.company_id === currentUser.company_id && 
-        u.aroof_role === 'estimator'
-      );
-      setEstimators(companyEstimators);
+      if (currentUser?.company_id) {
+          try {
+            const allUsers = await base44.entities.User.list();
+            const companyEstimators = allUsers.filter(u => 
+                u.company_id === currentUser.company_id && 
+                u.aroof_role === 'estimator'
+            );
+            setEstimators(companyEstimators);
+          } catch(e) { console.warn("Estimators load failed", e); }
+      }
 
-      setLoading(false);
     } catch (err) {
       console.error('Failed to load:', err);
-      toast.error('Failed to load lead data');
-      navigate(createPageUrl("RooferDashboard"));
+      // Fallback to local only on error
+      const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+      setLeads(localLeads);
+      calculateStats(localLeads);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleStatusChange = async (leadId, newStatus) => {
     try {
-      await base44.entities.Measurement.update(leadId, {
-        lead_status: newStatus
-      });
-      
-      toast.success(`Lead moved to ${newStatus}`);
+      // Hybrid Update
+      const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+      const localIndex = localLeads.findIndex(l => l.id === leadId);
+
+      if (localIndex >= 0) {
+          localLeads[localIndex].lead_status = newStatus;
+          localStorage.setItem('my_leads', JSON.stringify(localLeads));
+          toast.success(`Lead moved to ${newStatus} (Local)`);
+      } else {
+          await base44.entities.Measurement.update(leadId, {
+            lead_status: newStatus
+          });
+          toast.success(`Lead moved to ${newStatus}`);
+      }
       loadData();
     } catch (err) {
       toast.error('Failed to update status');
@@ -76,11 +124,19 @@ export default function LeadManagement() {
 
   const handleAssign = async (leadId, userId) => {
     try {
-      await base44.entities.Measurement.update(leadId, {
-        assigned_to: userId === 'unassigned' ? null : userId
-      });
-      
-      toast.success('Lead assigned successfully');
+      const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+      const localIndex = localLeads.findIndex(l => l.id === leadId);
+
+      if (localIndex >= 0) {
+          localLeads[localIndex].assigned_to = userId === 'unassigned' ? null : userId;
+          localStorage.setItem('my_leads', JSON.stringify(localLeads));
+          toast.success('Lead assigned (Local)');
+      } else {
+          await base44.entities.Measurement.update(leadId, {
+            assigned_to: userId === 'unassigned' ? null : userId
+          });
+          toast.success('Lead assigned successfully');
+      }
       loadData();
     } catch (err) {
       toast.error('Failed to assign lead');
@@ -89,13 +145,28 @@ export default function LeadManagement() {
 
   const handleBulkAction = async (action, leadIds, value) => {
     try {
+      const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+      
       for (const id of leadIds) {
+        const isLocal = localLeads.some(l => l.id === id);
+        
         if (action === 'assign') {
-          await base44.entities.Measurement.update(id, { assigned_to: value });
+            if (isLocal) {
+                const idx = localLeads.findIndex(l => l.id === id);
+                localLeads[idx].assigned_to = value;
+            } else {
+                await base44.entities.Measurement.update(id, { assigned_to: value });
+            }
         } else if (action === 'status') {
-          await base44.entities.Measurement.update(id, { lead_status: value });
+             if (isLocal) {
+                const idx = localLeads.findIndex(l => l.id === id);
+                localLeads[idx].lead_status = value;
+            } else {
+                await base44.entities.Measurement.update(id, { lead_status: value });
+            }
         }
       }
+      localStorage.setItem('my_leads', JSON.stringify(localLeads));
       
       toast.success(`Updated ${leadIds.length} leads`);
       loadData();
@@ -106,19 +177,6 @@ export default function LeadManagement() {
 
   const handleLeadClick = (lead) => {
     navigate(createPageUrl(`CustomerDetail?id=${lead.id}`));
-  };
-
-  const stats = {
-    total: leads.length,
-    thisWeek: leads.filter(l => {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return new Date(l.created_date) >= weekAgo;
-    }).length,
-    new: leads.filter(l => l.lead_status === 'new').length,
-    contacted: leads.filter(l => l.lead_status === 'contacted').length,
-    quoted: leads.filter(l => l.lead_status === 'quoted').length,
-    booked: leads.filter(l => l.lead_status === 'booked').length
   };
 
   if (loading) {
@@ -273,8 +331,6 @@ export default function LeadManagement() {
           />
         )}
       </div>
-
-      {/* Lead Detail Modal - Removed, use CustomerDetail page instead */}
     </div>
   );
 }
