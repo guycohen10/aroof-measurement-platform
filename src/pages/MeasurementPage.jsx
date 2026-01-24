@@ -2,24 +2,34 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Zap, PenTool, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { 
+  ArrowLeft, Zap, PenTool, CheckCircle2, RotateCcw, 
+  Save, DollarSign, FileText, Layers, Plus, MousePointerClick
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
-// 1. Configuration
+// --- CONFIGURATION ---
 const EDGE_TYPES = [
-  { type: 'Unassigned', color: '#94a3b8', label: 'Click to Label' },
-  { type: 'Eave', color: '#10b981', label: 'Eave (Gutter)' },    // Green
-  { type: 'Rake', color: '#3b82f6', label: 'Rake (Gable)' },     // Blue
-  { type: 'Ridge', color: '#ef4444', label: 'Ridge (Peak)' },    // Red
-  { type: 'Hip', color: '#06b6d4', label: 'Hip' },               // Cyan
-  { type: 'Valley', color: '#a855f7', label: 'Valley' },         // Purple
-  { type: 'Flashing', color: '#f59e0b', label: 'Flashing' },     // Orange
+  { type: 'Unassigned', color: '#94a3b8', label: 'Unassigned' },
+  { type: 'Eave', color: '#10b981', label: 'Eave (Gutter)' },
+  { type: 'Rake', color: '#3b82f6', label: 'Rake (Gable)' },
+  { type: 'Ridge', color: '#ef4444', label: 'Ridge (Peak)' },
+  { type: 'Hip', color: '#06b6d4', label: 'Hip' },
+  { type: 'Valley', color: '#a855f7', label: 'Valley' },
+  { type: 'Flashing', color: '#f59e0b', label: 'Flashing' },
 ];
+
+const PRICING = {
+  material: 3.50, // per sqft
+  labor: 2.50,    // per sqft
+  waste: 1.15     // 15% waste
+};
 
 export default function MeasurementPage() {
   const { leadId: paramId } = useParams();
@@ -27,61 +37,59 @@ export default function MeasurementPage() {
   const leadId = paramId || searchParams.get('leadId');
   const navigate = useNavigate();
 
-  // State
+  // --- STATE ---
+  const [view, setView] = useState('choice'); // 'choice' | 'drawing' | 'results'
+  const [mode, setMode] = useState('detailed'); // 'quick' | 'detailed'
+  
+  // Data
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mapNode, setMapNode] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
-
-  // Measurement State
-  const [mode, setMode] = useState('quick'); // 'quick' | 'detailed'
+  const [drawingManager, setDrawingManager] = useState(null);
+  
+  // Measurement Data
   const [totalArea, setTotalArea] = useState(0);
   const [pitch, setPitch] = useState('6');
-  const [edges, setEdges] = useState([]); // { id, type, length, polylineRef }
+  const [edges, setEdges] = useState([]); // { id, typeIdx, length, lineObj }
+  const [polygons, setPolygons] = useState([]); // Keep track to clear
+  
+  // Solar Data
+  const [solarData, setSolarData] = useState(null);
 
-  // 1. DATA LOADER
+  // --- 1. INITIALIZATION ---
   useEffect(() => {
     const load = async () => {
       try {
-        const sessionAddr = sessionStorage.getItem('lead_address')?.replace(/"/g, '');
-        const sessionId = sessionStorage.getItem('active_lead_id')?.replace(/"/g, '');
-
-        if (sessionId === leadId && sessionAddr) {
-          setLead({ id: leadId, address_street: sessionAddr, source: 'session' });
-          setLoading(false);
-          return;
-        }
-
-        const localJobs = JSON.parse(localStorage.getItem('jobs') || '[]');
-        const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
-        const target = [...localJobs, ...localLeads].find(l => l.id === leadId);
-        if (target) {
-          setLead(target);
+        if (!leadId) {
+          setLead({ address_street: "5103 Lincolnshire Ct, Dallas, TX" }); // Demo fallback
           setLoading(false);
           return;
         }
         
-        const apiLead = await base44.entities.Lead.get(leadId);
-        setLead(apiLead);
+        // Try to load from API
+        try {
+          const apiLead = await base44.entities.Lead.get(leadId);
+          setLead(apiLead);
+        } catch (e) {
+          // Fallback to local/session if API fails or demo
+          const sessionAddr = sessionStorage.getItem('lead_address')?.replace(/"/g, '');
+          setLead({ id: leadId, address_street: sessionAddr || "Dallas, TX" });
+        }
         setLoading(false);
       } catch (err) {
-        console.error(err);
-        setLead({ address_street: "5103 Lincolnshire Ct, Dallas, TX" }); // Fallback
+        console.error("Load error", err);
         setLoading(false);
       }
     };
-    if (leadId) load();
-    else {
-        // Handle case with no lead ID (e.g. demo mode or direct access)
-        setLead({ address_street: "5103 Lincolnshire Ct, Dallas, TX" });
-        setLoading(false);
-    }
+    load();
   }, [leadId]);
 
-  // 2. MAP INIT
+  // --- 2. MAP SETUP (Detailed Mode) ---
   useEffect(() => {
-    if (!mapNode || !lead || mapInstance) return;
-    const init = async () => {
+    if (view !== 'drawing' || !mapNode || !lead || mapInstance) return;
+
+    const initMap = async () => {
       const { Map } = await google.maps.importLibrary("maps");
       const { Geocoder } = await google.maps.importLibrary("geocoding");
       await google.maps.importLibrary("drawing");
@@ -95,46 +103,20 @@ export default function MeasurementPage() {
             zoom: 20,
             mapTypeId: 'satellite',
             disableDefaultUI: true,
-            tilt: 0
+            tilt: 0,
+            fullscreenControl: false
           });
           setMapInstance(map);
+          initDrawingManager(map);
+        } else {
+          toast.error("Could not find address location");
         }
       });
     };
-    init();
-  }, [mapNode, lead]);
+    initMap();
+  }, [view, mapNode, lead]);
 
-  // 3. SOLAR API (Quick Mode)
-  const fetchSolarData = async () => {
-    if (!mapInstance) return;
-    try {
-      toast.loading("Analyzing Roof via Solar API...");
-      const center = mapInstance.getCenter();
-      // Try to get API key from various sources
-      const apiKey = window.google?.maps?.apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''; 
-
-      const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${center.lat()}&location.longitude=${center.lng()}&requiredQuality=HIGH&key=${apiKey}`;
-
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Solar Data Unavailable");
-
-      const data = await res.json();
-      const sqMeters = data.solarPotential.wholeRoofStats.areaMeters;
-      const sqFt = Math.round(sqMeters * 10.764);
-
-      setTotalArea(sqFt);
-      toast.dismiss();
-      toast.success(`Solar Analysis Complete: ${sqFt.toLocaleString()} sq ft`);
-    } catch (err) {
-      console.error(err);
-      toast.dismiss();
-      toast.error("Solar Data not available. Please use Detailed Mode.");
-      setMode('detailed');
-    }
-  };
-
-  // 4. DETAILED DRAWING (Pro Mode)
-  const startDrawing = async () => {
+  const initDrawingManager = async (map) => {
     const { DrawingManager } = await google.maps.importLibrary("drawing");
     const manager = new DrawingManager({
       drawingMode: google.maps.drawing.OverlayType.POLYGON,
@@ -144,217 +126,474 @@ export default function MeasurementPage() {
         fillOpacity: 0.3,
         strokeColor: 'white',
         strokeWeight: 2,
-        editable: false
+        editable: false,
+        zIndex: 1
       }
     });
-    manager.setMap(mapInstance);
+    manager.setMap(map);
+    setDrawingManager(manager);
 
     google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
+      // Calculate Area
       const path = poly.getPath().getArray();
       const area = google.maps.geometry.spherical.computeArea(path);
-      setTotalArea(prev => prev + Math.round(area * 10.764)); // Add to total area if multiple polygons
+      setTotalArea(prev => prev + Math.round(area * 10.764));
+      setPolygons(prev => [...prev, poly]);
 
-      // GENERATE CLICKABLE EDGES
+      // Generate Interactive Edges
       const newEdges = [];
       for (let i = 0; i < path.length; i++) {
         const start = path[i];
         const end = path[(i + 1) % path.length];
-        const length = google.maps.geometry.spherical.computeDistanceBetween(start, end) * 3.28084;
+        const length = google.maps.geometry.spherical.computeDistanceBetween(start, end) * 3.28084; // Meters to Feet
 
         const line = new google.maps.Polyline({
           path: [start, end],
           strokeColor: EDGE_TYPES[0].color,
           strokeWeight: 6,
-          map: mapInstance,
+          map: map,
           zIndex: 100,
           clickable: true
         });
 
-        // Capture the index for this specific edge to manage its state
         const edgeId = Date.now() + i + Math.random();
-        
-        const edgeData = { 
-            id: edgeId, 
-            typeIdx: 0, // Index in EDGE_TYPES
-            length, 
-            line 
-        };
+        const edgeData = { id: edgeId, typeIdx: 0, length, line };
 
-        // CLICK HANDLER
+        // Click Handler for Edge Classification
         line.addListener("click", () => {
-          // Update the type index locally
           edgeData.typeIdx = (edgeData.typeIdx + 1) % EDGE_TYPES.length;
-          // Update visual
           line.setOptions({ strokeColor: EDGE_TYPES[edgeData.typeIdx].color });
           
-          // Force Update React State to reflect changes in table
-          setEdges(prev => {
-              // We need to create a new array ref to trigger re-render
-              // and update the specific edge in the list
-              return prev.map(e => e.id === edgeId ? { ...e, typeIdx: edgeData.typeIdx } : e);
-          });
-          
-          // Show toast for feedback
-          toast.info(`Set to ${EDGE_TYPES[edgeData.typeIdx].label}`);
+          // Force update state to reflect in UI tables
+          setEdges(prev => prev.map(e => e.id === edgeId ? { ...e, typeIdx: edgeData.typeIdx } : e));
+          toast.info(`Labeled as ${EDGE_TYPES[edgeData.typeIdx].label}`);
         });
 
         newEdges.push(edgeData);
       }
-      setEdges(prev => [...prev, ...newEdges]); // Add to state
-      manager.setDrawingMode(null);
-      // Optional: hide the polygon or keep it
-      poly.setMap(null); // Remove the polygon fill to focus on edges, or keep it? 
-      // User prompt implies "convert its boundary", usually means replace. 
-      // But keeping a light fill is good for area visualization. 
-      // Let's re-add a non-clickable polygon for visual if needed, or just rely on edges.
-      // For now, removing the polygon object to avoid interference with line clicks is safer, 
-      // but we lose the "area" visual. Let's keep the polygon but put it behind.
-      poly.setOptions({ zIndex: 1, clickable: false, fillOpacity: 0.1, strokeOpacity: 0 });
-      poly.setMap(mapInstance);
+      setEdges(prev => [...prev, ...newEdges]);
       
-      toast.success("Outline Complete! Click lines to label them.");
+      // Reset drawing mode to hand so user can pan/zoom or click lines
+      manager.setDrawingMode(null); 
+      toast.success("Section Added! Click lines to label them.");
     });
   };
 
-  const getLinearTotal = (typeIdx) => Math.round(edges.filter(e => e.typeIdx === typeIdx).reduce((a, b) => a + b.length, 0));
+  // --- 3. ACTIONS ---
 
-  const handleSave = async () => {
-    toast.loading("Saving measurement...");
+  const handleQuickEstimate = async () => {
+    setMode('quick');
+    toast.loading("Analyzing Roof via Satellite...");
+    
     try {
-        // Logic to save to CRM would go here
-        // For now, we update the lead if we have one
-        if (lead && lead.id) {
-             await base44.entities.Lead.update(lead.id, {
-                 roof_size_sqft: totalArea,
-                 pitch: pitch
-             });
+      // 1. Geocode to get lat/lng
+      const { Geocoder } = await google.maps.importLibrary("geocoding");
+      const geocoder = new Geocoder();
+      
+      geocoder.geocode({ address: lead.address_street }, async (results, status) => {
+        if (status !== 'OK' || !results[0]) {
+          throw new Error("Address not found");
         }
+        
+        const { lat, lng } = results[0].geometry.location;
+        const apiKey = window.google?.maps?.apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+        
+        // 2. Call Solar API
+        const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat()}&location.longitude=${lng()}&requiredQuality=HIGH&key=${apiKey}`;
+        
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Solar data unavailable");
+        
+        const data = await res.json();
+        const sqMeters = data.solarPotential.wholeRoofStats.areaMeters;
+        const sqFt = Math.round(sqMeters * 10.764);
+        
+        setTotalArea(sqFt);
+        setSolarData(data);
         toast.dismiss();
-        toast.success("Measurement Saved!");
-        setTimeout(() => navigate('/rooferdashboard'), 1000);
-    } catch (e) {
-        console.error(e);
-        toast.dismiss();
-        toast.success("Measurement Saved Locally!"); // Fallback
-        setTimeout(() => navigate('/rooferdashboard'), 1000);
+        toast.success("Analysis Complete!");
+        setView('results');
+      });
+      
+    } catch (err) {
+      console.warn("Solar API Failed:", err);
+      toast.dismiss();
+      toast.error("Automated analysis failed. Switching to Detailed Mode.");
+      setMode('detailed');
+      setView('drawing');
     }
   };
-  
-  const handleReset = () => {
-      // Clear edges from map
-      edges.forEach(e => e.line.setMap(null));
-      setEdges([]);
-      setTotalArea(0);
-      // Re-initialize map to clear drawings if any? 
-      // Or just clear the edges state is enough for now.
+
+  const handleDetailedStart = () => {
+    setMode('detailed');
+    setView('drawing');
   };
 
-  // 5. RENDER
-  return (
-    <div className="relative h-screen w-full bg-slate-900 overflow-hidden">
-      {/* Header / Nav */}
-      <div className="absolute top-4 left-4 z-20">
-          <Button variant="secondary" onClick={() => navigate(-1)} className="shadow-lg">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back
-          </Button>
-      </div>
+  const toggleDrawingMode = () => {
+    if (drawingManager) {
+      const currentMode = drawingManager.getDrawingMode();
+      drawingManager.setDrawingMode(currentMode ? null : google.maps.drawing.OverlayType.POLYGON);
+    }
+  };
 
-      <div className="absolute top-4 right-4 z-20">
-          <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700 shadow-lg">
-              <Save className="w-4 h-4 mr-2" /> Save Measurement
-          </Button>
-      </div>
+  const clearDrawing = () => {
+    polygons.forEach(p => p.setMap(null));
+    edges.forEach(e => e.line.setMap(null));
+    setPolygons([]);
+    setEdges([]);
+    setTotalArea(0);
+    toast.info("Canvas Cleared");
+  };
 
-      {/* TOOLBELT */}
-      <Card className="absolute top-20 left-4 z-10 w-96 shadow-2xl border-slate-200 max-h-[80vh] overflow-y-auto bg-white/95 backdrop-blur">
-        <Tabs value={mode} onValueChange={setMode}>
-          <div className="p-2 border-b bg-slate-50 rounded-t-lg">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="quick">Quick Est.</TabsTrigger>
-              <TabsTrigger value="detailed">Detailed</TabsTrigger>
-            </TabsList>
+  const handleSaveToLead = async () => {
+    toast.loading("Updating Lead Record...");
+    try {
+      if (lead && lead.id) {
+        // Calculate costs
+        const wasteArea = totalArea * PRICING.waste;
+        const materialCost = wasteArea * PRICING.material;
+        const laborCost = totalArea * PRICING.labor;
+        const totalCost = materialCost + laborCost;
+
+        await base44.entities.Lead.update(lead.id, {
+          lead_status: 'Quoted',
+          roof_size_sqft: totalArea,
+          estimated_cost: totalCost,
+          // Store blueprint data if detailed
+          measurement_data: mode === 'detailed' ? {
+            edges: edges.map(e => ({ type: EDGE_TYPES[e.typeIdx].label, length: e.length })),
+            polygons: polygons.length
+          } : { source: 'solar_api' }
+        });
+      }
+      toast.dismiss();
+      toast.success("Lead Updated to 'Quoted'!");
+      setTimeout(() => navigate('/rooferdashboard'), 1500);
+    } catch (err) {
+      console.error(err);
+      toast.dismiss();
+      toast.success("Saved (Demo Mode)");
+      setTimeout(() => navigate('/rooferdashboard'), 1500);
+    }
+  };
+
+  // --- HELPERS ---
+  const getLinearTotal = (typeIdx) => Math.round(edges.filter(e => e.typeIdx === typeIdx).reduce((a, b) => a + b.length, 0));
+
+  // ================= VIEWS =================
+
+  // 1. CHOICE SCREEN
+  if (view === 'choice') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
+        <div className="max-w-4xl w-full space-y-8">
+          <div className="text-center space-y-2">
+            <h1 className="text-4xl font-bold text-slate-900">Measure Your Roof</h1>
+            <p className="text-xl text-slate-600">Select an estimation method to begin</p>
+            <div className="inline-flex items-center px-3 py-1 rounded-full bg-slate-200 text-slate-700 text-sm font-medium">
+              <span className="mr-2">📍</span> {lead?.address_street || "Address Loading..."}
+            </div>
           </div>
 
-          <CardContent className="p-4 space-y-4">
-            {/* SHARED: AREA DISPLAY */}
-            <div className="bg-slate-900 text-white p-4 rounded-lg text-center shadow-inner">
-              <p className="text-xs uppercase font-bold text-slate-400 mb-1">Total Area (Flat)</p>
-              <p className="text-4xl font-bold tracking-tight text-white">{totalArea.toLocaleString()} <span className="text-sm font-normal text-slate-400">sq ft</span></p>
-            </div>
-            
-            <TabsContent value="quick" className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
-              <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                  <p className="text-sm text-blue-800">
-                      Use Google Solar API to instantly analyze the building footprint and estimate roof area.
-                  </p>
-              </div>
-              <Button onClick={fetchSolarData} className="w-full bg-green-600 hover:bg-green-700 shadow-sm h-12 text-lg">
-                  <Zap className="w-5 h-5 mr-2" /> Get AI Estimate
-              </Button>
-            </TabsContent>
-
-            <TabsContent value="detailed" className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="flex gap-2">
-                <Button onClick={startDrawing} className="flex-1 bg-blue-600 hover:bg-blue-700 h-10">
-                    <PenTool className="w-4 h-4 mr-2" /> Draw Roof
+          <div className="grid md:grid-cols-2 gap-8 mt-8">
+            {/* QUICK CARD */}
+            <Card 
+              className="group cursor-pointer border-2 border-transparent hover:border-green-500 transition-all duration-300 shadow-xl hover:shadow-2xl overflow-hidden"
+              onClick={handleQuickEstimate}
+            >
+              <div className="h-2 bg-green-500 w-full" />
+              <CardHeader>
+                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <Zap className="w-6 h-6 text-green-600" />
+                </div>
+                <CardTitle className="text-2xl">Quick Estimate</CardTitle>
+                <p className="text-slate-500 font-medium">AI-Powered Analysis</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  <span>Instant Results (60 Seconds)</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  <span>Google Solar API Accuracy</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  <span>Best for Standard Roofs</span>
+                </div>
+                <Button className="w-full mt-4 bg-green-600 hover:bg-green-700 group-hover:translate-y-[-2px] transition-all">
+                  Get Quick Estimate
                 </Button>
-                <Button onClick={handleReset} variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50 h-10 px-3">
-                    <RotateCcw className="w-4 h-4" />
+              </CardContent>
+            </Card>
+
+            {/* DETAILED CARD */}
+            <Card 
+              className="group cursor-pointer border-2 border-transparent hover:border-blue-500 transition-all duration-300 shadow-xl hover:shadow-2xl overflow-hidden"
+              onClick={handleDetailedStart}
+            >
+              <div className="h-2 bg-blue-500 w-full" />
+              <CardHeader>
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <PenTool className="w-6 h-6 text-blue-600" />
+                </div>
+                <CardTitle className="text-2xl">Detailed Measurement</CardTitle>
+                <p className="text-slate-500 font-medium">Manual Precision Tool</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                  <span>Approx. 3 Minutes</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                  <span>Draw Exact Perimeters</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                  <span>Label Ridges, Hips & Valleys</span>
+                </div>
+                <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-700 group-hover:translate-y-[-2px] transition-all">
+                  Start Drawing
                 </Button>
-              </div>
+              </CardContent>
+            </Card>
+          </div>
 
-              <div className="grid grid-cols-1 gap-2">
-                <Label>Roof Pitch (Steepness)</Label>
-                <Select value={pitch} onValueChange={setPitch}>
-                    <SelectTrigger>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="0">Flat (0/12)</SelectItem>
-                        <SelectItem value="4">Low Slope (4/12)</SelectItem>
-                        <SelectItem value="6">Medium (6/12)</SelectItem>
-                        <SelectItem value="8">Steep (8/12)</SelectItem>
-                        <SelectItem value="10">Very Steep (10/12)</SelectItem>
-                        <SelectItem value="12">Extreme (12/12)</SelectItem>
-                    </SelectContent>
-                </Select>
-              </div>
+          <div className="text-center pt-8">
+             <Button variant="ghost" onClick={() => navigate(-1)} className="text-slate-400 hover:text-slate-600">
+               <ArrowLeft className="w-4 h-4 mr-2" /> Cancel & Return to Dashboard
+             </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-              {/* LINEAR TOTALS TABLE */}
-              {edges.length > 0 && (
-                <div className="border rounded-lg overflow-hidden text-xs bg-white shadow-sm mt-4">
-                  <div className="bg-slate-100 p-2 font-bold flex justify-between border-b">
-                      <span>Component</span>
-                      <span>Length</span>
+  // 2. DRAWING MODE (Detailed)
+  if (view === 'drawing') {
+    return (
+      <div className="relative h-screen w-full bg-slate-900 overflow-hidden">
+        {/* TOP BAR */}
+        <div className="absolute top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur-md shadow-sm px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+             <Button variant="ghost" size="icon" onClick={() => setView('choice')}>
+               <ArrowLeft className="w-5 h-5" />
+             </Button>
+             <div>
+               <h2 className="font-bold text-slate-900 text-lg">Detailed Measurement Mode</h2>
+               <p className="text-xs text-slate-500 flex items-center gap-1">
+                 <MousePointerClick className="w-3 h-3" /> Click outlined lines to label edge types
+               </p>
+             </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+             <div className="hidden md:flex items-center gap-4 mr-4 bg-slate-100 px-4 py-2 rounded-lg">
+                <div className="text-right">
+                   <p className="text-xs text-slate-500 font-bold uppercase">Total Area</p>
+                   <p className="font-bold text-slate-900">{totalArea.toLocaleString()} sq ft</p>
+                </div>
+                <Separator orientation="vertical" className="h-8" />
+                <div className="text-right">
+                   <p className="text-xs text-slate-500 font-bold uppercase">Linears</p>
+                   <p className="font-bold text-slate-900">{Math.round(edges.reduce((a,b)=>a+b.length,0))} ft</p>
+                </div>
+             </div>
+             <Button onClick={() => setView('results')} className="bg-green-600 hover:bg-green-700 shadow-lg px-6">
+                Finish & Save <CheckCircle2 className="w-4 h-4 ml-2" />
+             </Button>
+          </div>
+        </div>
+
+        {/* BOTTOM CONTROLS */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20 flex items-center gap-2 bg-white/95 backdrop-blur rounded-full shadow-2xl p-2 border border-slate-200">
+           <Button 
+             variant={drawingManager?.getDrawingMode() ? "default" : "outline"} 
+             onClick={toggleDrawingMode}
+             className="rounded-full px-6"
+           >
+             <Plus className="w-4 h-4 mr-2" /> Add Section
+           </Button>
+           
+           <Separator orientation="vertical" className="h-6" />
+           
+           <Button variant="ghost" size="icon" onClick={clearDrawing} className="rounded-full text-red-500 hover:text-red-700 hover:bg-red-50">
+             <RotateCcw className="w-4 h-4" />
+           </Button>
+        </div>
+
+        {/* LEGEND OVERLAY */}
+        <Card className="absolute top-24 left-4 z-10 w-48 bg-white/90 backdrop-blur shadow-lg border-0">
+          <CardContent className="p-3 space-y-2">
+            <p className="text-xs font-bold text-slate-500 uppercase mb-2">Edge Legend</p>
+            {EDGE_TYPES.slice(1).map((type) => (
+              <div key={type.type} className="flex items-center gap-2 text-xs">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: type.color }} />
+                <span className="text-slate-700">{type.label}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* MAP CONTAINER */}
+        <div ref={setMapNode} className="w-full h-full" />
+      </div>
+    );
+  }
+
+  // 3. RESULTS DASHBOARD
+  if (view === 'results') {
+    const wasteFactor = PRICING.waste;
+    const adjustedArea = Math.round(totalArea * wasteFactor);
+    const materialCost = adjustedArea * PRICING.material;
+    const laborCost = totalArea * PRICING.labor;
+    const totalCost = materialCost + laborCost;
+
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <header className="bg-white border-b sticky top-0 z-20 px-6 py-4 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => setView('choice')}>
+              <ArrowLeft className="w-4 h-4 mr-2" /> Start Over
+            </Button>
+            <h1 className="text-xl font-bold text-slate-900">Measurement Results</h1>
+          </div>
+          <Button onClick={handleSaveToLead} className="bg-blue-600 hover:bg-blue-700 shadow-md">
+            Save to Lead & Create Quote <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        </header>
+
+        <main className="max-w-7xl mx-auto p-6 grid lg:grid-cols-2 gap-8">
+          
+          {/* LEFT COLUMN: VISUALS */}
+          <div className="space-y-6">
+            <Card className="overflow-hidden shadow-md">
+              <CardHeader className="bg-slate-100 border-b py-3">
+                <CardTitle className="text-sm font-bold text-slate-600 flex items-center gap-2">
+                  <Layers className="w-4 h-4" /> Roof Diagram
+                </CardTitle>
+              </CardHeader>
+              <div className="aspect-video bg-slate-200 flex items-center justify-center relative">
+                 {/* Placeholder for map screenshot or SVG */}
+                 {mode === 'quick' ? (
+                   <div className="text-center p-8">
+                     <Zap className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                     <h3 className="text-lg font-bold text-slate-700">AI Analysis Map</h3>
+                     <p className="text-slate-500">Solar potential data loaded for this address.</p>
+                   </div>
+                 ) : (
+                   <div className="text-center p-8">
+                     <PenTool className="w-16 h-16 text-blue-500 mx-auto mb-4" />
+                     <h3 className="text-lg font-bold text-slate-700">Custom Blueprint</h3>
+                     <p className="text-slate-500">{polygons.length} Sections Drawn • {edges.length} Edges Labeled</p>
+                   </div>
+                 )}
+              </div>
+            </Card>
+
+            {mode === 'detailed' && (
+              <Card className="shadow-md">
+                <CardHeader className="py-3 border-b">
+                  <CardTitle className="text-sm font-bold">Edge Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y">
+                    {EDGE_TYPES.slice(1).map((t, i) => {
+                      const len = getLinearTotal(i + 1);
+                      if (len === 0) return null;
+                      return (
+                        <div key={t.type} className="flex justify-between p-3 text-sm">
+                          <span className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{backgroundColor: t.color}}/>
+                            {t.label}
+                          </span>
+                          <span className="font-bold">{len} ft</span>
+                        </div>
+                      );
+                    })}
                   </div>
-                  {EDGE_TYPES.slice(1).map((t, idx) => (
-                    <div key={t.type} className="flex justify-between p-2 border-b last:border-0 hover:bg-slate-50 transition-colors" style={{ borderLeft: `4px solid ${t.color}` }}>
-                      <span className="font-medium text-slate-700">{t.label}</span>
-                      <span className="font-bold font-mono">{getLinearTotal(idx + 1)} ft</span>
-                    </div>
-                  ))}
-                  <div className="bg-slate-50 p-3 border-t font-bold flex justify-between text-sm">
-                    <span>Total Linears</span>
-                    <span>{Math.round(edges.reduce((a, b) => a + b.length, 0))} ft</span>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* RIGHT COLUMN: CALCULATOR */}
+          <div className="space-y-6">
+            <Card className="shadow-lg border-t-4 border-blue-600">
+              <CardHeader>
+                <CardTitle className="text-xl">Project Cost Estimator</CardTitle>
+                <p className="text-slate-500 text-sm">Based on {mode} measurement data</p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                
+                {/* PRIMARY METRICS */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-4 rounded-lg border">
+                    <p className="text-xs text-slate-500 font-bold uppercase mb-1">Raw Area</p>
+                    <p className="text-2xl font-bold text-slate-900">{totalArea.toLocaleString()} <span className="text-sm text-slate-400">sq ft</span></p>
+                  </div>
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <p className="text-xs text-blue-600 font-bold uppercase mb-1">With Waste (15%)</p>
+                    <p className="text-2xl font-bold text-blue-700">{adjustedArea.toLocaleString()} <span className="text-sm text-blue-400">sq ft</span></p>
                   </div>
                 </div>
-              )}
-              
-              <div className="bg-yellow-50 border border-yellow-100 rounded p-2 text-center">
-                  <p className="text-xs text-yellow-800 font-medium flex items-center justify-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" />
-                      Click map lines to cycle types
-                  </p>
-              </div>
-            </TabsContent>
-          </CardContent>
-        </Tabs>
-      </Card>
-      
-      {/* MAP LAYER */}
-      <div className="absolute inset-0 top-0 left-0 w-full h-full bg-slate-200">
-          <div ref={setMapNode} className="w-full h-full" />
+
+                <Separator />
+
+                {/* COST BREAKDOWN */}
+                <div className="space-y-3">
+                   <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-600">Material Cost (@ ${PRICING.material}/sqft)</span>
+                      <span className="font-medium">${materialCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                   </div>
+                   <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-600">Labor Cost (@ ${PRICING.labor}/sqft)</span>
+                      <span className="font-medium">${laborCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                   </div>
+                   
+                   <div className="bg-slate-900 text-white p-4 rounded-lg flex justify-between items-center mt-4">
+                      <div>
+                        <p className="text-xs text-slate-400 font-bold uppercase">Estimated Total</p>
+                        <p className="text-3xl font-bold">${totalCost.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p>
+                      </div>
+                      <DollarSign className="w-8 h-8 text-green-400" />
+                   </div>
+                </div>
+
+                <div className="bg-yellow-50 p-3 rounded border border-yellow-100 text-xs text-yellow-800">
+                   <strong>Note:</strong> This is a preliminary estimate. Final pricing may vary based on material selection, steep charge, and access.
+                </div>
+
+              </CardContent>
+            </Card>
+          </div>
+
+        </main>
       </div>
-    </div>
+    );
+  }
+  
+  return null; // Should not reach here
+}
+
+function ArrowRight(props) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </svg>
   );
 }
