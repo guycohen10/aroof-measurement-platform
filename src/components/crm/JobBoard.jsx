@@ -19,6 +19,7 @@ const stages = [
 ];
 
 export default function JobBoard() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [measurements, setMeasurements] = useState([]);
