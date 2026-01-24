@@ -39,54 +39,60 @@ export default function MeasurementPage() {
   const [waste, setWaste] = useState(10);
   const [pitch, setPitch] = useState(6);
 
-  // 1. ROBUST DATA LOADER
+  // 1. UNIVERSAL DATA LOADER
   useEffect(() => {
-    const fetchLead = async () => {
-        try {
-            // A. Try Local Storage (Test Mode)
-            const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
-            const activeId = leadId || sessionStorage.getItem('active_lead_id');
-            const localLead = localLeads.find(l => l.id === activeId);
+    const load = async () => {
+      try {
+        setLoading(true);
+        const activeId = leadId || sessionStorage.getItem('active_lead_id');
 
-            if (localLead) {
-                setLead(localLead);
-                setLoading(false);
-                return;
-            }
+        // SEARCH PRIORITY 1: Check Local 'Jobs' (Job Board)
+        const localJobs = JSON.parse(localStorage.getItem('jobs') || '[]');
+        let target = localJobs.find(l => l.id === activeId);
 
-            // B. Try Real API
-            if (activeId) {
-                try {
-                    const apiLead = await base44.entities.Lead.get(activeId);
-                    if (apiLead) {
-                        setLead(apiLead);
-                        setLoading(false);
-                        return;
-                    }
-                } catch (e) {
-                     console.warn("API lookup failed", e);
-                }
-            }
-
-            // C. MOCK FALLBACK (Prevents Crash)
-            console.warn("Lead lookup failed, using Mock Fallback");
-            setLead({
-                id: 'mock-lead',
-                address_street: "5103 Lincolnshire Ct",
-                address_city: "Dallas",
-                address_state: "TX",
-                assigned_company_id: 'mock-company'
-            });
-            toast.info("Demo Mode: Using Fallback Lead Data");
-
-        } catch (e) {
-            console.error(e);
-            toast.error("Error loading lead data");
-        } finally {
-            setLoading(false);
+        // SEARCH PRIORITY 2: Check Local 'Leads' (Marketplace)
+        if (!target) {
+           const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+           target = localLeads.find(l => l.id === activeId);
         }
+
+        // SEARCH PRIORITY 3: Real Database (API)
+        if (!target && activeId) {
+           try {
+              target = await base44.entities.Lead.get(activeId);
+           } catch (e) {
+              console.warn("API Lookup failed");
+           }
+        }
+
+        // RESULT HANDLER
+        if (target) {
+           // Ensure address exists
+           if (!target.address_street) {
+              // Attempt to fix missing address from customer name or default
+              target.address_street = target.address || "Dallas, TX"; 
+           }
+           setLead(target);
+        } else {
+           // ONLY use Mock if absolutely nothing found
+           console.error("Lead ID not found anywhere:", activeId);
+           toast.error("Could not find lead details. Loading Demo Mode.");
+           setLead({
+              id: activeId || 'mock-lead',
+              address_street: "5103 Lincolnshire Ct",
+              address_city: "Dallas",
+              address_state: "TX",
+              assigned_company_id: 'mock-company'
+           });
+        }
+      } catch (e) {
+        console.error(e);
+        toast.error("Error loading lead data");
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchLead();
+    load();
   }, [leadId]);
 
   // 2. Initialize Map (Always-On)
