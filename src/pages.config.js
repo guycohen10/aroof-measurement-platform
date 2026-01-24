@@ -23,6 +23,7 @@ import CrewDashboard from './pages/CrewDashboard';
 import CrewManagement from './pages/CrewManagement';
 import CustomerDetail from './pages/CustomerDetail';
 import CustomerPortal from './pages/CustomerPortal';
+import Debug from './pages/Debug';
 import DispatchDashboard from './pages/DispatchDashboard';
 import DispatchJobDetail from './pages/DispatchJobDetail';
 import EPDM from './pages/EPDM';
@@ -99,7 +100,6 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
-import Debug from './pages/Debug';
 import __Layout from './Layout.jsx';
 
 
@@ -129,6 +129,7 @@ export const PAGES = {
     "CrewManagement": CrewManagement,
     "CustomerDetail": CustomerDetail,
     "CustomerPortal": CustomerPortal,
+    "Debug": Debug,
     "DispatchDashboard": DispatchDashboard,
     "DispatchJobDetail": DispatchJobDetail,
     "EPDM": EPDM,
@@ -205,7 +206,6 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "WalletHistory": WalletHistory,
     "Windows": Windows,
-    "Debug": Debug,
 }
 
 export const pagesConfig = {

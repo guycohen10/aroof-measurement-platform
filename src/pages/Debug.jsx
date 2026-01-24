@@ -3,10 +3,12 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { RefreshCw, Database, Globe, Shield, Trash2, Check, X } from 'lucide-react';
+import { RefreshCw, Database, Globe, Shield, Trash2, Check, X, Play, PenTool } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 export default function Debug() {
+  const navigate = useNavigate();
   const [storageData, setStorageData] = useState({});
   const [apiStatus, setApiStatus] = useState({ loading: false, status: 'idle', message: '', code: null });
   const [authStatus, setAuthStatus] = useState({ loading: false, user: null, error: null });
@@ -78,6 +80,26 @@ export default function Debug() {
         loadStorage();
         toast.success("Local Storage Cleared");
     }
+  };
+
+  const injectTestLead = () => {
+    const testLead = {
+       id: "lead_test_123",
+       customer_name: "John Doe",
+       address_street: "1 Cowboys Way",
+       address_city: "Frisco",
+       address_state: "TX",
+       status: "New",
+       sq_ft: 0
+    };
+    
+    const existing = JSON.parse(localStorage.getItem('my_leads') || '[]');
+    const filtered = existing.filter(l => l.id !== testLead.id);
+    const updated = [...filtered, testLead];
+    
+    localStorage.setItem('my_leads', JSON.stringify(updated));
+    loadStorage();
+    toast.success("Test Lead Injected! ID: lead_test_123");
   };
 
   return (
@@ -171,6 +193,23 @@ export default function Debug() {
                 </CardContent>
             </Card>
         </div>
+
+        {/* Data Injection Tool */}
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Play className="w-5 h-5" /> Data Injection
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="flex gap-4">
+                <Button onClick={injectTestLead} className="bg-indigo-600 hover:bg-indigo-700">
+                    <Database className="w-4 h-4 mr-2" /> Inject Test Lead
+                </Button>
+                <Button onClick={() => navigate('/measurementpage/lead_test_123')} variant="outline">
+                    <PenTool className="w-4 h-4 mr-2" /> Go to Measure
+                </Button>
+            </CardContent>
+        </Card>
 
         {/* Local Storage Inspector */}
         <Card>
