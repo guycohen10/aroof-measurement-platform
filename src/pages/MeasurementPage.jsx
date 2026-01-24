@@ -21,8 +21,9 @@ const EDGE_TYPES = {
 };
 
 export default function MeasurementPage() {
-  const { leadId } = useParams();
+  const { leadId: paramId } = useParams();
   const [searchParams] = useSearchParams();
+  const leadId = paramId || searchParams.get('leadId');
   const navigate = useNavigate();
 
   // State
