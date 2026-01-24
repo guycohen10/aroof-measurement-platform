@@ -205,7 +205,7 @@ export default function Debug() {
                 <Button onClick={injectTestLead} className="bg-indigo-600 hover:bg-indigo-700">
                     <Database className="w-4 h-4 mr-2" /> Inject Test Lead
                 </Button>
-                <Button onClick={() => navigate('/measurementpage/lead_test_123')} variant="outline">
+                <Button onClick={() => navigate('/MeasurementPage?leadId=lead_test_123')} variant="outline">
                     <PenTool className="w-4 h-4 mr-2" /> Go to Measure
                 </Button>
             </CardContent>

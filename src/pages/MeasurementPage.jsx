@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { ArrowLeft, CheckCircle2, Save, PenTool, Calculator, FileText, Mail, Download, MousePointerClick, Loader2 } from 'lucide-react';
@@ -22,6 +22,7 @@ const EDGE_TYPES = {
 
 export default function MeasurementPage() {
   const { leadId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   // State
@@ -44,7 +45,7 @@ export default function MeasurementPage() {
     const load = async () => {
       try {
         setLoading(true);
-        const activeId = leadId || sessionStorage.getItem('active_lead_id');
+        const activeId = leadId || searchParams.get('leadId') || sessionStorage.getItem('active_lead_id');
 
         // SEARCH PRIORITY 1: Check Local 'Jobs' (Job Board)
         const localJobs = JSON.parse(localStorage.getItem('jobs') || '[]');
