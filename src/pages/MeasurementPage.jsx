@@ -186,39 +186,62 @@ export default function MeasurementPage() {
     toast.loading("Analyzing Roof via Satellite...");
     
     try {
-      // 1. Geocode to get lat/lng
+      // 1. Geocode to get lat/lng (Wrapped in Promise)
       const { Geocoder } = await google.maps.importLibrary("geocoding");
       const geocoder = new Geocoder();
       
-      geocoder.geocode({ address: lead.address_street }, async (results, status) => {
-        if (status !== 'OK' || !results[0]) {
-          throw new Error("Address not found");
-        }
-        
-        const { lat, lng } = results[0].geometry.location;
-        const apiKey = window.google?.maps?.apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
-        
-        // 2. Call Solar API
-        const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat()}&location.longitude=${lng()}&requiredQuality=HIGH&key=${apiKey}`;
-        
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Solar data unavailable");
-        
-        const data = await res.json();
-        const sqMeters = data.solarPotential.wholeRoofStats.areaMeters;
-        const sqFt = Math.round(sqMeters * 10.764);
-        
-        setTotalArea(sqFt);
-        setSolarData(data);
-        toast.dismiss();
-        toast.success("Analysis Complete!");
-        setView('results');
+      const results = await new Promise((resolve, reject) => {
+        geocoder.geocode({ address: lead.address_street }, (results, status) => {
+          if (status === 'OK' && results[0]) {
+            resolve(results[0]);
+          } else {
+            reject(new Error("Address not found or Geocoding failed"));
+          }
+        });
       });
+
+      const { lat, lng } = results.geometry.location;
+      
+      // Try to find API Key from various sources
+      // 1. Configured via Vite env
+      // 2. Injected by Google Maps script (if accessible)
+      // 3. Fallback to empty (will likely fail but handled)
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || window.google?.maps?.apiKey || '';
+      
+      if (!apiKey) {
+        console.warn("No Google Maps API Key found for Solar API");
+      }
+
+      // 2. Call Solar API
+      const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${lat()}&location.longitude=${lng()}&requiredQuality=HIGH&key=${apiKey}`;
+      
+      const res = await fetch(url);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || "Solar data unavailable");
+      }
+      
+      const data = await res.json();
+      
+      if (!data.solarPotential?.wholeRoofStats?.areaMeters) {
+        throw new Error("Incomplete solar data received");
+      }
+
+      const sqMeters = data.solarPotential.wholeRoofStats.areaMeters;
+      const sqFt = Math.round(sqMeters * 10.764);
+      
+      setTotalArea(sqFt);
+      setSolarData(data);
+      toast.dismiss();
+      toast.success("Analysis Complete!");
+      setView('results');
       
     } catch (err) {
       console.warn("Solar API Failed:", err);
       toast.dismiss();
       toast.error("Automated analysis failed. Switching to Detailed Mode.");
+      
+      // Graceful Fallback
       setMode('detailed');
       setView('drawing');
     }
