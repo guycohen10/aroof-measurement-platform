@@ -1,8 +1,26 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 
+import { useNavigate } from 'react-router-dom';
+import { createPageUrl } from "@/utils";
+
 export default function RooferSignup() {
+  const navigate = useNavigate();
   const [activeFAQ, setActiveFAQ] = useState(null);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const user = await base44.auth.me();
+        if (user && user.aroof_role) {
+          navigate(createPageUrl('RooferDashboard'));
+        }
+      } catch (err) {
+        // User not logged in, stay on signup page
+      }
+    };
+    checkAuth();
+  }, [navigate]);
 
   // ACTIONS
   const handlePlanSelect = (planName) => {
