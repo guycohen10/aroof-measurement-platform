@@ -48,7 +48,23 @@ export default function MeasurementPage() {
         setLoading(true);
         const activeId = leadId || searchParams.get('leadId') || sessionStorage.getItem('active_lead_id');
 
-        // SEARCH PRIORITY 1: Check Local 'Jobs' (Job Board)
+        // PRIORITY 1: Check Session Storage (Immediate Handoff from New Lead Form)
+        const sessionAddress = sessionStorage.getItem('lead_address');
+        const sessionId = sessionStorage.getItem('active_lead_id');
+
+        if (activeId && activeId === sessionId && sessionAddress) {
+             console.log("Found Lead in Session Storage!");
+             setLead({
+                 id: activeId,
+                 address_street: sessionAddress,
+                 address_city: "", 
+                 address_state: ""
+             });
+             setLoading(false);
+             return;
+        }
+
+        // SEARCH PRIORITY 2: Check Local 'Jobs' (Job Board)
         const localJobs = JSON.parse(localStorage.getItem('jobs') || '[]');
         let target = localJobs.find(l => l.id === activeId);
 
