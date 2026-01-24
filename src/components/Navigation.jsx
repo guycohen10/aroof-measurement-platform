@@ -136,7 +136,11 @@ export default function Navigation() {
             <a href="#how-it-works" className="text-slate-600 hover:text-blue-900 font-medium">How It Works</a>
             <a href="#benefits" className="text-slate-600 hover:text-blue-900 font-medium">Why Aroof</a>
             
-
+            {/* Contractor Links */}
+            <Link to={createPageUrl("RooferLogin")} className="text-blue-600 hover:text-blue-900 font-semibold flex items-center gap-1">
+              <Building2 className="w-4 h-4" />
+              Contractors
+            </Link>
 
             {/* Show different options based on user role */}
             {loading ? null : user ? (
@@ -185,7 +189,7 @@ export default function Navigation() {
               <div className="flex items-center gap-2">
                 <Link to={createPageUrl("RooferLogin")}>
                   <Button variant="ghost" className="text-slate-600 hover:text-blue-900 font-medium">
-                    Roofer Login
+                    Log In
                   </Button>
                 </Link>
                 <Link to={createPageUrl("RooferSignup")}>

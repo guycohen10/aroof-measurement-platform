@@ -40,10 +40,7 @@ export default function LeadManagement() {
         m.company_id === currentUser.company_id && 
         m.user_type === 'homeowner'
       );
-      
-      // MERGE WITH LOCAL TEST LEADS
-      const testLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
-      setLeads([...testLeads, ...companyLeads]);
+      setLeads(companyLeads);
 
       // Load estimators
       const allUsers = await base44.entities.User.list();

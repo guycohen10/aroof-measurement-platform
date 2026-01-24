@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Briefcase, MapPin, Calendar, DollarSign, User, Phone, Mail, ArrowLeft } from 'lucide-react';
+import { Loader2, Briefcase, MapPin, Calendar, DollarSign, User, Phone, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 
 const stages = [
@@ -19,7 +17,6 @@ const stages = [
 ];
 
 export default function JobBoard() {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [measurements, setMeasurements] = useState([]);
@@ -121,18 +118,12 @@ export default function JobBoard() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-            <Briefcase className="w-8 h-8 text-blue-600" />
-            Job Pipeline
-          </h1>
-          <p className="text-slate-600 mt-2">Visual workflow for all company leads and jobs</p>
-        </div>
-        <Button variant="outline" onClick={() => navigate('/RooferDashboard')}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Button>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+          <Briefcase className="w-8 h-8 text-blue-600" />
+          Job Pipeline
+        </h1>
+        <p className="text-slate-600 mt-2">Visual workflow for all company leads and jobs</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">

@@ -67,10 +67,10 @@ export default function Homepage() {
         const user = await base44.auth.me();
         if (user) {
           setIsLoggedIn(true);
-          // const staffRoles = ['sales', 'estimator', 'crew', 'external_roofer', 'dispatcher'];
-          // if (staffRoles.includes(user.aroof_role)) {
-          //   navigate(createPageUrl('RooferDashboard'));
-          // }
+          const staffRoles = ['sales', 'estimator', 'crew', 'external_roofer', 'dispatcher'];
+          if (staffRoles.includes(user.aroof_role)) {
+            navigate(createPageUrl('RooferDashboard'));
+          }
         }
       } catch (err) {
         setIsLoggedIn(false);
