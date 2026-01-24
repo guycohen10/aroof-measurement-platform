@@ -129,7 +129,7 @@ export default function JobBoard() {
           </h1>
           <p className="text-slate-600 mt-2">Visual workflow for all company leads and jobs</p>
         </div>
-        <Button variant="outline" onClick={() => navigate('/roofer-dashboard')}>
+        <Button variant="outline" onClick={() => navigate('/RooferDashboard')}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
         </Button>
