@@ -2,12 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Zap, PenTool, CheckCircle2, MousePointerClick, RefreshCw, Loader2, Ruler, Mail } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Layers, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// Pitch Multipliers
+const PITCH_FACTORS = {
+  0: 1.0, 1: 1.0035, 2: 1.0138, 3: 1.0308, 4: 1.0541, 5: 1.0833,
+  6: 1.1180, 7: 1.1577, 8: 1.2019, 9: 1.2500, 10: 1.3017, 11: 1.3566, 12: 1.4142
+};
 
 const EDGE_TYPES = {
   0: { name: 'Unassigned', color: '#94a3b8' },
@@ -22,332 +26,257 @@ const EDGE_TYPES = {
 export default function MeasurementPage() {
   const { leadId: paramId } = useParams();
   const [searchParams] = useSearchParams();
-  const leadId = paramId || searchParams.get('leadId');
+  // FIX: Check both casing formats
+  const leadId = paramId || searchParams.get('leadId') || searchParams.get('leadid');
   const navigate = useNavigate();
 
   // State
-  const [step, setStep] = useState('choice'); // 'choice', 'quick', 'detailed', 'report'
   const [loading, setLoading] = useState(true);
   const [lead, setLead] = useState(null);
   
-  // Map Refs
+  // Map State
   const [mapNode, setMapNode] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
-  const [markerInstance, setMarkerInstance] = useState(null);
   const [drawingManager, setDrawingManager] = useState(null);
 
-  // Measurement Data
-  const [totalArea, setTotalArea] = useState(0);
-  const [edges, setEdges] = useState([]);
-  const [polygons, setPolygons] = useState([]);
-  const [waste, setWaste] = useState(10);
-  const [pitch, setPitch] = useState(6);
+  // Complex Measurement State
+  const [sections, setSections] = useState([]); // { id, polygon, pitch, area, edges: [] }
+  const [activeSectionId, setActiveSectionId] = useState(null);
 
-  // 1. UNIVERSAL DATA LOADER (FIXED with Quote Stripping)
+  // 1. ROBUST DATA LOADER
   useEffect(() => {
     const load = async () => {
+      if (!leadId) {
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
+        // Session Check
+        const sId = sessionStorage.getItem('active_lead_id')?.replace(/"/g, '');
+        const sAddr = sessionStorage.getItem('lead_address')?.replace(/"/g, '');
 
-        // CLEAN IDs (Remove Quotes)
-        const rawSessionId = sessionStorage.getItem('active_lead_id');
-        const sessionAddr = sessionStorage.getItem('lead_address')?.replace(/"/g, '');
-        const sessionId = rawSessionId?.replace(/"/g, '');
-
-        // A. Check Session Storage (Priority)
-        if (leadId && sessionId === leadId && sessionAddr) {
-          console.log("Using Session Data");
-          setLead({ id: leadId, address_street: sessionAddr, source: 'session' });
-          setLoading(false);
-          return;
-        }
-
-        // B. Check Local Storage
-        const localJobs = JSON.parse(localStorage.getItem('jobs') || '[]');
-        const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
-        const target = [...localJobs, ...localLeads].find(l => l.id === leadId);
-        
-        if (target) {
-           // Ensure address format
-           if (!target.address_street) {
-              target.address_street = target.address || "Dallas, TX"; 
-           }
-           setLead({ ...target, source: 'local' });
+        if (sId === leadId && sAddr) {
+           console.log("Loaded from Session Storage");
+           setLead({ id: leadId, address_street: sAddr, source: 'session' });
            setLoading(false);
            return;
         }
 
-        // C. API
-        if (leadId && leadId !== 'mock-lead') {
-            try {
-                const apiLead = await base44.entities.Lead.get(leadId);
-                setLead({ ...apiLead, source: 'api' });
-                setLoading(false);
-            } catch (e) {
-                console.warn("API Lookup failed", e);
-                toast.error("Lead not found. Using Demo Data.");
-                setLead({ id: 'demo', address_street: "5103 Lincolnshire Ct, Dallas, TX", source: 'demo' });
-                setLoading(false);
-            }
+        // Local/API Check
+        const local = [...JSON.parse(localStorage.getItem('my_leads') || '[]'), ...JSON.parse(localStorage.getItem('jobs') || '[]')];
+        const target = local.find(l => l.id === leadId);
+        
+        if (target) {
+            if (!target.address_street) target.address_street = target.address || "Dallas, TX";
+            setLead(target);
         } else {
-             // Mock/Demo Fallback
-             toast.error("Using demo mode.");
-             setLead({ id: 'demo', address_street: "5103 Lincolnshire Ct, Dallas, TX", source: 'demo' });
-             setLoading(false);
+            const api = await base44.entities.Lead.get(leadId).catch(() => null);
+            if (api) {
+                setLead(api);
+            } else {
+                toast.error("Lead not found. Demo Mode.");
+                setLead({ address_street: "5103 Lincolnshire Ct, Dallas, TX", id: 'demo' });
+            }
         }
       } catch (err) {
-        console.error("Load Error", err);
-        setLead({ id: 'demo', address_street: "5103 Lincolnshire Ct, Dallas, TX", source: 'demo' });
-        setLoading(false);
+          console.error(err);
+      } finally {
+          setLoading(false);
       }
     };
-    
-    if (leadId) load();
+    load();
   }, [leadId]);
 
-  // 2. MAP INIT & RED MARKER
+  // 2. MAP INIT
   useEffect(() => {
     if (!mapNode || !lead || mapInstance) return;
 
     const init = async () => {
       try {
         const { Map } = await window.google.maps.importLibrary("maps");
-        const { Marker } = await window.google.maps.importLibrary("marker");
         const { Geocoder } = await window.google.maps.importLibrary("geocoding");
-        await window.google.maps.importLibrary("drawing");
+        const { DrawingManager } = await window.google.maps.importLibrary("drawing");
         await window.google.maps.importLibrary("geometry");
-        
+
         const geocoder = new Geocoder();
-        // Use the cleaned address
-        const address = lead.address_street || lead.address || "Dallas, TX";
-        
-        geocoder.geocode({ address }, (results, status) => {
+        geocoder.geocode({ address: lead.address_street || "Dallas, TX" }, (results, status) => {
           if (status === 'OK' && results[0]) {
-            const location = results[0].geometry.location;
-            
-            // Init Map
             const map = new Map(mapNode, {
-              center: location,
-              zoom: 20,
-              mapTypeId: 'satellite',
-              disableDefaultUI: true,
-              tilt: 0
+                center: results[0].geometry.location,
+                zoom: 20,
+                mapTypeId: 'satellite',
+                disableDefaultUI: true,
+                tilt: 0
             });
             setMapInstance(map);
-            
-            // RED MARKER (Client Match)
-            const marker = new Marker({
-              position: location,
-              map: map,
-              title: "Target Property",
-              animation: window.google.maps.Animation.DROP
+
+            const manager = new DrawingManager({
+              drawingMode: null, // Start disabled
+              drawingControl: false,
+              polygonOptions: {
+                  fillColor: '#3b82f6',
+                  fillOpacity: 0.3,
+                  strokeColor: '#2563eb',
+                  strokeWeight: 2,
+                  editable: true
+              }
             });
-            setMarkerInstance(marker);
+            manager.setMap(map);
+            setDrawingManager(manager);
+
+            window.google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
+               const path = poly.getPath().getArray();
+               const area = window.google.maps.geometry.spherical.computeArea(path) * 10.764; // sq ft conversion
+               
+               // Generate Edges
+               const newEdges = [];
+               for(let i = 0; i < path.length; i++) {
+                   const start = path[i];
+                   const end = path[(i + 1) % path.length];
+                   const len = window.google.maps.geometry.spherical.computeDistanceBetween(start, end) * 3.28084;
+                   
+                   const line = new window.google.maps.Polyline({
+                       path: [start, end],
+                       strokeColor: EDGE_TYPES[0].color,
+                       strokeWeight: 5,
+                       map: map,
+                       zIndex: 100
+                   });
+                   
+                   const edge = { id: Date.now() + i, lineInstance: line, type: 0, length: len };
+                   
+                   line.addListener("click", () => {
+                       edge.type = (edge.type + 1) % 7;
+                       line.setOptions({ strokeColor: EDGE_TYPES[edge.type].color });
+                   });
+                   newEdges.push(edge);
+               }
+
+               // Recalculate area on edit
+               ['set_at', 'insert_at', 'remove_at'].forEach(evt => {
+                   window.google.maps.event.addListener(poly.getPath(), evt, () => {
+                       const newArea = window.google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764;
+                       setSections(prev => prev.map(s => s.polygon === poly ? { ...s, area: Math.round(newArea) } : s));
+                   });
+               });
+
+               const newSection = {
+                   id: Date.now(),
+                   polygon: poly,
+                   area: Math.round(area),
+                   pitch: 6, // Default 6/12
+                   edges: newEdges
+               };
+               
+               setSections(prev => [...prev, newSection]);
+               setActiveSectionId(newSection.id);
+               manager.setDrawingMode(null);
+               toast.success("Section Added! Click edges to label.");
+            });
           } else {
-              toast.error("Could not locate address on map");
+              toast.error("Could not locate address");
           }
         });
-      } catch (e) {
-          console.error("Map init error", e);
+      } catch (err) {
+          console.error("Map init error:", err);
       }
     };
-
-    const checkGoogle = setInterval(() => {
+    
+    // Check for Google Maps
+    const interval = setInterval(() => {
         if (window.google && window.google.maps) {
-            clearInterval(checkGoogle);
+            clearInterval(interval);
             init();
         }
     }, 100);
-    return () => clearInterval(checkGoogle);
-  }, [mapNode, lead]);
+    return () => clearInterval(interval);
 
-  // 3. WORKFLOW HANDLERS
-  const startQuick = () => {
-    setStep('quick');
-    if (!markerInstance || !mapInstance) return;
+  }, [mapNode, lead]); // Intentionally not dependent on mapInstance to avoid re-init
 
-    // Auto-Draw Green Box (Solar API Sim)
-    const center = markerInstance.getPosition();
-    const lat = center.lat();
-    const lng = center.lng();
-    
-    const bounds = [
-      { lat: lat + 0.00015, lng: lng - 0.0002 },
-      { lat: lat + 0.00015, lng: lng + 0.0002 },
-      { lat: lat - 0.00015, lng: lng + 0.0002 },
-      { lat: lat - 0.00015, lng: lng - 0.0002 },
-    ];
-    
-    const poly = new window.google.maps.Polygon({
-       paths: bounds,
-       fillColor: '#22c55e', 
-       fillOpacity: 0.4, 
-       strokeColor: '#16a34a', 
-       strokeWeight: 2,
-       map: mapInstance, 
-       editable: true
-    });
-    
-    const area = window.google.maps.geometry.spherical.computeArea(poly.getPath());
-    setTotalArea(Math.round(area * 10.764));
-    setPolygons([poly]);
-    
-    // Update area on edit
-    ['set_at', 'insert_at'].forEach(evt => {
-        window.google.maps.event.addListener(poly.getPath(), evt, () => {
-             const newArea = window.google.maps.geometry.spherical.computeArea(poly.getPath());
-             setTotalArea(Math.round(newArea * 10.764));
-        });
-    });
-    
-    // Zoom out slightly
-    mapInstance.setZoom(21);
-  };
-
-  const startDetailed = async () => {
-    setStep('detailed');
-    if (markerInstance) markerInstance.setMap(null); // Clear marker for drawing
-
-    const { DrawingManager } = await window.google.maps.importLibrary("drawing");
-    const manager = new DrawingManager({
-       drawingMode: window.google.maps.drawing.OverlayType.POLYGON,
-       drawingControl: false,
-       polygonOptions: { 
-           fillColor: 'white', 
-           fillOpacity: 0.1, 
-           strokeColor: 'white', 
-           strokeWeight: 2, 
-           editable: false 
-       }
-    });
-    manager.setMap(mapInstance);
-    setDrawingManager(manager);
-    
-    window.google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
-       const path = poly.getPath().getArray();
-       const area = window.google.maps.geometry.spherical.computeArea(path);
-       setTotalArea(Math.round(area * 10.764));
-       
-       // Convert to Edges logic
-       const newEdges = [];
-       for (let i = 0; i < path.length; i++) {
-           const start = path[i];
-           const end = path[(i + 1) % path.length];
-           const length = window.google.maps.geometry.spherical.computeDistanceBetween(start, end) * 3.28084;
-           
-           const line = new window.google.maps.Polyline({
-               path: [start, end],
-               geodesic: true,
-               strokeColor: EDGE_TYPES[0].color,
-               strokeOpacity: 1.0,
-               strokeWeight: 6,
-               map: mapInstance,
-               zIndex: 100
-           });
-           
-           const edgeObj = { id: Date.now() + i, lineInstance: line, type: 0, length };
-           
-           line.addListener("click", () => {
-               edgeObj.type = (edgeObj.type + 1) % 7;
-               line.setOptions({ strokeColor: EDGE_TYPES[edgeObj.type].color });
-               setEdges(prev => prev.map(e => e.id === edgeObj.id ? {...e, type: edgeObj.type} : e));
-           });
-           
-           newEdges.push(edgeObj);
-       }
-       
-       setEdges(newEdges);
-       setPolygons([poly]);
-       
-       manager.setDrawingMode(null);
-       setStep('report');
-       toast.success("Outline Complete! Click edges to classify.");
-    });
-    
-    toast.info("Draw the roof outline.");
-  };
-
-  const handleSave = async () => {
-    toast.loading("Saving to Lead Manager...");
-    
-    const finalPrice = Math.round(totalArea * (1 + waste/100) * 4.50);
-    const leadData = {
-      ...lead,
-      roof_sqft: totalArea,
-      status: 'Quoted',
-      lead_status: 'Quoted',
-      estimated_value: finalPrice,
-      quote_amount: finalPrice,
-      last_updated: new Date().toISOString()
-    };
-    
-    // Promote Session to Local
-    if (lead.source === 'session' || lead.source === 'demo') {
-       const currentLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
-       const filtered = currentLeads.filter(l => l.id !== lead.id);
-       localStorage.setItem('my_leads', JSON.stringify([...filtered, leadData]));
-       toast.dismiss();
-       toast.success("Saved to Dashboard!");
-    } else if (lead.source === 'local') {
-       // Update Local
-       const currentLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
-       const idx = currentLeads.findIndex(l => l.id === lead.id);
-       if (idx !== -1) {
-           currentLeads[idx] = { ...currentLeads[idx], ...leadData };
-           localStorage.setItem('my_leads', JSON.stringify(currentLeads));
-       } else {
-           const currentJobs = JSON.parse(localStorage.getItem('jobs') || '[]');
-           const jIdx = currentJobs.findIndex(j => j.id === lead.id);
-           if (jIdx !== -1) {
-               currentJobs[jIdx] = { ...currentJobs[jIdx], ...leadData };
-               localStorage.setItem('jobs', JSON.stringify(currentJobs));
-           }
-       }
-       toast.dismiss();
-       toast.success("Updated Local Lead!");
-    } else {
-       // API Update
-       try {
-           await base44.entities.Lead.update(lead.id, {
-               roof_sqft: totalArea,
-               lead_status: 'Quoted',
-               price_sold: finalPrice
-           });
-           toast.dismiss();
-           toast.success("Updated in CRM!");
-       } catch (e) {
-           console.error("API Save Failed", e);
-           // Fallback to local save if API fails
-           const currentLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
-           localStorage.setItem('my_leads', JSON.stringify([...currentLeads, leadData]));
-           toast.dismiss();
-           toast.warning("API Error - Saved Locally Instead");
-       }
-    }
-    
-    setTimeout(() => navigate('/roofer-dashboard'), 1000);
+  // 3. HELPERS
+  const updatePitch = (id, newPitch) => {
+      setSections(prev => prev.map(s => s.id === id ? { ...s, pitch: newPitch } : s));
   };
   
-  const handleReset = () => {
-      setStep('choice');
-      setTotalArea(0);
-      setEdges([]);
-      // Clear Map Objects
-      polygons.forEach(p => p.setMap(null));
-      setPolygons([]);
-      edges.forEach(e => e.lineInstance.setMap(null));
-      if (drawingManager) {
-          drawingManager.setMap(null);
-          setDrawingManager(null);
+  const deleteSection = (id) => {
+      const section = sections.find(s => s.id === id);
+      if (section) {
+          section.polygon.setMap(null);
+          section.edges.forEach(e => e.lineInstance.setMap(null));
+          setSections(prev => prev.filter(s => s.id !== id));
       }
-      if (markerInstance) markerInstance.setMap(mapInstance);
-      if (mapInstance) mapInstance.setZoom(20);
-  };
-  
-  const getLinearTotal = (typeIndex) => {
-      return Math.round(edges.filter(e => e.type === typeIndex).reduce((sum, e) => sum + e.length, 0));
   };
 
+  const getTotalAdjustedArea = () => {
+      return sections.reduce((sum, s) => sum + (s.area * (PITCH_FACTORS[s.pitch] || 1)), 0);
+  };
+
+  const saveMeasurement = async () => {
+      toast.loading("Saving Measurement Record...");
+      const finalSqFt = Math.round(getTotalAdjustedArea());
+      
+      // Calculate Edge Totals
+      const edgeTotals = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 }; // Eave, Rake, etc.
+      sections.forEach(s => s.edges.forEach(e => {
+          if(edgeTotals[e.type] !== undefined) edgeTotals[e.type] += e.length;
+      }));
+
+      // Create Measurement Entity Payload
+      const payload = {
+          company_id: lead.assigned_company_id, // If available
+          property_address: lead.address_street,
+          measurement_type: 'detailed_polygon',
+          total_sqft: Math.round(sections.reduce((a, b) => a + b.area, 0)),
+          total_adjusted_sqft: finalSqFt,
+          eaves_ft: Math.round(edgeTotals[1]),
+          rakes_ft: Math.round(edgeTotals[2]),
+          ridges_ft: Math.round(edgeTotals[3]),
+          hips_ft: Math.round(edgeTotals[4]),
+          valleys_ft: Math.round(edgeTotals[5]),
+          measurement_data: { 
+              sections: sections.map(s => ({ pitch: s.pitch, area: s.area })),
+              edges: sections.flatMap(s => s.edges.map(e => ({ type: e.type, length: e.length })))
+          },
+          lead_status: 'quoted'
+      };
+
+      try {
+          // 1. Save to Measurement Table
+          await base44.entities.Measurement.create(payload);
+          
+          // 2. Update Lead
+          await base44.entities.Lead.update(lead.id, { 
+              roof_sqft: finalSqFt, 
+              lead_status: 'Quoted',
+              price_sold: Math.round(finalSqFt * 4.5) // Using price_sold as value placeholder based on previous logic
+          });
+
+          // 3. Local Storage Sync (If needed)
+          if (lead.source === 'session' || lead.source === 'local') {
+              const currentLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+              const idx = currentLeads.findIndex(l => l.id === lead.id);
+              const updatedLead = { ...lead, roof_sqft: finalSqFt, lead_status: 'Quoted' };
+              
+              if (idx !== -1) {
+                  currentLeads[idx] = updatedLead;
+                  localStorage.setItem('my_leads', JSON.stringify(currentLeads));
+              } else if (lead.source === 'session') {
+                  localStorage.setItem('my_leads', JSON.stringify([...currentLeads, updatedLead]));
+              }
+          }
+          
+          toast.dismiss();
+          toast.success("Measurement Record Created!");
+          setTimeout(() => navigate('/roofer-dashboard'), 1000);
+      } catch (err) {
+          console.error(err);
+          toast.dismiss();
+          toast.error("Save failed - check console");
+      }
+  };
+
+  // 4. RENDER
   if (loading) return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-50">
           <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
@@ -355,133 +284,94 @@ export default function MeasurementPage() {
   );
 
   return (
-    <div className="flex flex-col h-screen w-full relative bg-slate-200">
-      
-      {/* HEADER */}
-      <header className="absolute top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur-sm border-b px-4 py-3 flex items-center gap-3 shadow-sm">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-        <h1 className="font-bold text-slate-800 truncate flex-1">
-            {lead?.address_street || lead?.address || "Measurement"}
-        </h1>
-        
-        <div className="flex gap-2">
-            {step !== 'choice' && (
-                <Button variant="outline" size="sm" onClick={handleReset}>
-                    <RefreshCw className="w-4 h-4 mr-2" /> Reset
+    <div className="flex h-screen w-full overflow-hidden bg-slate-100">
+        {/* SIDEBAR */}
+        <div className="w-96 flex flex-col bg-white border-r shadow-xl z-20">
+            {/* Header */}
+            <div className="p-4 border-b bg-slate-50">
+                <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-2 pl-0 hover:bg-transparent">
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Back
                 </Button>
-            )}
-            {step === 'quick' && (
-                 <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={handleSave}>
-                    <Save className="w-4 h-4 mr-2"/> Save
+                <h1 className="font-bold text-slate-800 truncate" title={lead?.address_street}>
+                    {lead?.address_street || "Measurement Tool"}
+                </h1>
+            </div>
+
+            {/* Scrollable Sections */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <Button 
+                    className="w-full bg-blue-600 hover:bg-blue-700 shadow-sm" 
+                    onClick={() => drawingManager?.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON)}
+                >
+                    <Plus className="w-4 h-4 mr-2"/> Add Roof Section
                 </Button>
-            )}
-        </div>
-      </header>
+                
+                {sections.length === 0 && (
+                    <div className="text-center py-10 text-slate-400 border-2 border-dashed rounded-xl">
+                        <Layers className="w-10 h-10 mx-auto mb-2 opacity-50"/>
+                        <p>No sections drawn</p>
+                    </div>
+                )}
 
-      {/* MAP LAYER */}
-      <div className="absolute inset-0 top-14 z-0">
-        <div ref={setMapNode} className="w-full h-full" />
-      </div>
+                {sections.map((s, idx) => (
+                    <Card 
+                        key={s.id} 
+                        className={`border-2 cursor-pointer transition-all ${activeSectionId === s.id ? 'border-blue-500 shadow-md' : 'border-transparent hover:border-slate-200'}`} 
+                        onClick={() => setActiveSectionId(s.id)}
+                    >
+                        <CardContent className="p-3">
+                            <div className="flex justify-between items-center mb-3">
+                                <span className="font-bold text-sm flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500"/>
+                                    Section {idx + 1}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-mono text-slate-500">{s.area} sq ft</span>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); deleteSection(s.id); }}>
+                                        <Trash2 className="w-3 h-3"/>
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded">
+                                <span className="text-xs font-bold text-slate-500 uppercase">Pitch:</span>
+                                <Select value={s.pitch.toString()} onValueChange={(v) => updatePitch(s.id, Number(v))}>
+                                    <SelectTrigger className="h-8 text-xs border-none bg-transparent shadow-none focus:ring-0">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(p => (
+                                            <SelectItem key={p} value={p.toString()}>{p}/12</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
 
-      {/* CHOICE SCREEN */}
-      {step === 'choice' && !loading && (
-        <div className="absolute inset-0 top-14 z-10 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-           <div className="grid md:grid-cols-2 gap-6 max-w-4xl w-full">
-              <Card className="p-8 cursor-pointer hover:border-green-500 border-2 bg-white transition-all hover:scale-105 shadow-xl" onClick={startQuick}>
-                 <div className="flex justify-center mb-6"><div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center"><Zap className="w-10 h-10 text-green-600"/></div></div>
-                 <h2 className="text-2xl font-bold text-center mb-2 text-slate-900">Quick Estimate</h2>
-                 <p className="text-center text-slate-500 mb-6">AI-Powered Instant Result. Best for speed.</p>
-                 <Button className="w-full bg-green-600 hover:bg-green-700">Start Quick Mode</Button>
-              </Card>
-              <Card className="p-8 cursor-pointer hover:border-blue-500 border-2 bg-white transition-all hover:scale-105 shadow-xl" onClick={startDetailed}>
-                 <div className="flex justify-center mb-6"><div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center"><PenTool className="w-10 h-10 text-blue-600"/></div></div>
-                 <h2 className="text-2xl font-bold text-center mb-2 text-slate-900">Detailed Measure</h2>
-                 <p className="text-center text-slate-500 mb-6">Manual Precision. Best for contracts.</p>
-                 <Button className="w-full bg-blue-600 hover:bg-blue-700">Start Detailed Mode</Button>
-              </Card>
-           </div>
-        </div>
-      )}
-      
-      {/* QUICK RESULT OVERLAY */}
-      {step === 'quick' && (
-         <Card className="absolute bottom-10 left-1/2 -translate-x-1/2 w-80 shadow-2xl z-10 animate-in slide-in-from-bottom-10 border-t-4 border-green-500">
-            <CardContent className="p-6 text-center">
-               <p className="text-xs font-bold text-slate-400 uppercase mb-2">Estimated Area</p>
-               <p className="text-4xl font-bold text-green-600 mb-1">{totalArea.toLocaleString()}</p>
-               <p className="text-sm text-slate-400 mb-4">sq ft</p>
-               <Button variant="link" onClick={() => setStep('detailed')} className="text-xs text-slate-500">Switch to Detailed Mode</Button>
-            </CardContent>
-         </Card>
-      )}
-      
-      {/* REPORT / DETAILED OVERLAY */}
-      {step === 'report' && (
-        <div className="absolute inset-0 top-14 z-10 bg-slate-900/90 backdrop-blur p-4 md:p-8 overflow-y-auto">
-          <Card className="max-w-5xl mx-auto bg-white shadow-xl min-h-[600px] animate-in zoom-in-95 duration-200">
-             <Tabs defaultValue="blueprint" className="h-full flex flex-col">
-                <div className="p-4 border-b flex justify-between items-center bg-slate-50 rounded-t-xl">
-                    <TabsList>
-                        <TabsTrigger value="blueprint">Blueprint</TabsTrigger>
-                        <TabsTrigger value="quote">Quote</TabsTrigger>
-                    </TabsList>
-                    <div className="flex gap-2">
-                        <Button variant="ghost" onClick={handleReset}>Close</Button>
+            {/* Footer Summary */}
+            <div className="p-4 border-t bg-slate-50 space-y-4 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+                <div className="space-y-1">
+                    <div className="flex justify-between text-sm text-slate-500">
+                        <span>Flat Area:</span>
+                        <span>{Math.round(sections.reduce((a,b)=>a+b.area, 0)).toLocaleString()} sq ft</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-lg text-slate-800">
+                        <span>Adjusted Total:</span>
+                        <span className="text-green-600">{Math.round(getTotalAdjustedArea()).toLocaleString()} sq ft</span>
                     </div>
                 </div>
-                
-                <TabsContent value="blueprint" className="p-6">
-                    <div className="grid md:grid-cols-2 gap-8">
-                        <div>
-                            <h3 className="font-bold border-b pb-2 mb-4">Linear Measurements</h3>
-                            <div className="space-y-2">
-                                {Object.entries(EDGE_TYPES).slice(1).map(([idx, t]) => (
-                                    <div key={idx} className="flex justify-between p-2 bg-slate-50 rounded border-l-4" style={{borderColor: t.color}}>
-                                        <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{backgroundColor: t.color}}/>{t.name}</span>
-                                        <span className="font-bold">{getLinearTotal(Number(idx))} ft</span>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="mt-4 pt-4 border-t flex justify-between text-xl font-bold">
-                                <span>Total Area</span>
-                                <span>{totalArea.toLocaleString()} sq ft</span>
-                            </div>
-                        </div>
-                        <div className="bg-slate-50 border-2 border-dashed rounded-xl flex items-center justify-center p-8 text-slate-400 min-h-[300px]">
-                             <div className="text-center">
-                                <Ruler className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                <p>Blueprint Generated</p>
-                             </div>
-                        </div>
-                    </div>
-                </TabsContent>
-                
-                <TabsContent value="quote" className="p-6">
-                     <div className="flex flex-col items-center justify-center py-10 space-y-6">
-                        <div className="text-center">
-                            <h2 className="text-5xl font-black text-slate-900">${(Math.round(totalArea * (1 + waste/100) * 4.5)).toLocaleString()}</h2>
-                            <p className="text-slate-500">Estimated Project Total</p>
-                        </div>
-                        <div className="w-full max-w-sm space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><Label>Waste %</Label><Input type="number" value={waste} onChange={e => setWaste(Number(e.target.value))}/></div>
-                                <div><Label>Pitch</Label><Input type="number" value={pitch} onChange={e => setPitch(Number(e.target.value))}/></div>
-                            </div>
-                        </div>
-                        <div className="flex gap-2 w-full max-w-sm">
-                            <Button size="lg" className="bg-green-600 hover:bg-green-700 flex-1" onClick={handleSave}>
-                                <Save className="w-4 h-4 mr-2" /> Save Quote
-                            </Button>
-                        </div>
-                     </div>
-                </TabsContent>
-             </Tabs>
-          </Card>
+                <Button className="w-full bg-green-600 hover:bg-green-700 h-12 text-lg font-bold shadow-lg shadow-green-200" onClick={saveMeasurement}>
+                    <Save className="w-5 h-5 mr-2"/> Finish & Save
+                </Button>
+            </div>
         </div>
-      )}
+
+        {/* MAP AREA */}
+        <div className="flex-1 relative bg-slate-200">
+             <div ref={setMapNode} className="w-full h-full" />
+        </div>
     </div>
   );
 }
