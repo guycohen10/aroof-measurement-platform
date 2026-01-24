@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Briefcase, MapPin, Calendar, DollarSign, User, Phone, Mail } from 'lucide-react';
+import { Loader2, Briefcase, MapPin, Calendar, DollarSign, User, Phone, Mail, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 
 const stages = [
