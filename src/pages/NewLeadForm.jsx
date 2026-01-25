@@ -141,9 +141,9 @@ export default function NewLeadForm() {
       }, 1000);
       
       console.log('🔵 NewLeadForm: Lead created with ID:', lead.id);
-      console.log('🔵 NewLeadForm: Navigating to:', `MeasurementPage?leadId=${lead.id}`);
+      console.log('🔵 NewLeadForm: Navigating to:', `RooferMeasurement?leadId=${lead.id}`);
       
-      navigate(createPageUrl(`MeasurementPage?leadId=${lead.id}`));
+      navigate(createPageUrl(`RooferMeasurement?leadId=${lead.id}`));
 
     } catch (err) {
       console.error('Failed to create lead:', err);
