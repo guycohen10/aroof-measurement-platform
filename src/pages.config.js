@@ -98,8 +98,8 @@ import LeadManagement from './pages/LeadManagement';
 import RooferBrowseLeads from './pages/RooferBrowseLeads';
 import RooferDashboard from './pages/RooferDashboard';
 import MeasurementPage from './pages/MeasurementPage';
-import Homepage from './pages/Homepage';
 import RooferMeasurement from './pages/RooferMeasurement';
+import Homepage from './pages/Homepage';
 import __Layout from './Layout.jsx';
 
 
@@ -204,8 +204,8 @@ export const PAGES = {
     "RooferBrowseLeads": RooferBrowseLeads,
     "RooferDashboard": RooferDashboard,
     "MeasurementPage": MeasurementPage,
-    "Homepage": Homepage,
     "RooferMeasurement": RooferMeasurement,
+    "Homepage": Homepage,
 }
 
 export const pagesConfig = {
