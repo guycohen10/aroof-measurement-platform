@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Plus, Zap, PenTool } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Zap, PenTool, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 const EDGE_TYPES = { 0: { name: 'Unassigned', color: '#94a3b8' }, 1: { name: 'Eave', color: '#3b82f6' }, 2: { name: 'Rake', color: '#22c55e' }, 3: { name: 'Ridge', color: '#ef4444' }, 4: { name: 'Hip', color: '#f97316' }, 5: { name: 'Valley', color: '#a855f7' }, 6: { name: 'Wall', color: '#eab308' }, };
 
@@ -26,12 +27,15 @@ export default function RooferMeasurement() {
   const [sections, setSections] = useState([]); 
   const [quickArea, setQuickArea] = useState(0);
 
+  // API KEY MANAGEMENT 
+  const [apiKey, setApiKey] = useState(''); 
+  const [needsKey, setNeedsKey] = useState(false);
+
   // 1. DATA LOADER 
   useEffect(() => { 
     const load = async () => { 
       if(!leadId) { setLoading(false); return; }
 
-      // Session
       const sId = sessionStorage.getItem('active_lead_id')?.replace(/"/g, '');
       if(sId === leadId) {
           const sessionLead = {
@@ -43,7 +47,6 @@ export default function RooferMeasurement() {
           if(sessionLead.address_street) { setLead(sessionLead); setLoading(false); return; }
       }
       
-      // Local/API
       const local = JSON.parse(localStorage.getItem('my_leads')||'[]');
       const target = local.find(l => l.id === leadId);
       if(target) { setLead(target); setLoading(false); }
@@ -58,20 +61,26 @@ export default function RooferMeasurement() {
     load();
   }, [leadId]);
 
-  // 2. FORCE MAP LOAD 
+  // 2. MAP LOADER (With Fallback) 
   useEffect(() => { 
     if (!mapNode || !lead || mapInstance) return;
 
-    const loadScript = () => {
-        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-        if (!apiKey) { toast.error("Missing Google Maps API Key"); return; }
+    const attemptLoad = () => {
+        // Priority: 1. Env Var, 2. LocalStorage, 3. Ask User
+        let key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        if(!key) key = localStorage.getItem('user_provided_maps_key');
         
+        if (!key) {
+            setNeedsKey(true);
+            return;
+        }
         if (window.google?.maps) { initMap(); return; }
         
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,drawing,geometry`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,drawing,geometry`;
         script.async = true;
         script.onload = initMap;
+        script.onerror = () => { toast.error("Invalid API Key"); setNeedsKey(true); localStorage.removeItem('user_provided_maps_key'); };
         document.head.appendChild(script);
     };
     const initMap = async () => {
@@ -104,7 +113,6 @@ export default function RooferMeasurement() {
                             const start = path[i];
                             const end = path[(i+1)%path.length];
                             const len = google.maps.geometry.spherical.computeDistanceBetween(start, end) * 3.28084;
-                            
                             const line = new google.maps.Polyline({
                                 path: [start, end], strokeColor: EDGE_TYPES[0].color, strokeWeight: 8, zIndex: 9999, map: map 
                             });
@@ -124,8 +132,14 @@ export default function RooferMeasurement() {
             });
         } catch(e) { console.error(e); }
     };
-    loadScript();
+    attemptLoad();
   }, [mapNode, lead]);
+
+  const handleManualKey = () => { 
+    if(apiKey.length < 10) { toast.error("Invalid Key"); return; } 
+    localStorage.setItem('user_provided_maps_key', apiKey); 
+    window.location.reload(); // Reload to force script injection 
+  };
 
   // 3. HANDLERS 
   const startQuick = () => { 
@@ -178,6 +192,23 @@ export default function RooferMeasurement() {
   };
 
   // 4. RENDER 
+  if (needsKey) { 
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-slate-100">
+            <Card className="w-full max-w-md shadow-xl">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Key className="w-5 h-5"/> Enter Google Maps API Key</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <p className="text-sm text-slate-500">The app requires a Google Maps API Key to function. Please enter it below.</p>
+                    <Input placeholder="AIzaSy..." value={apiKey} onChange={e => setApiKey(e.target.value)} />
+                    <Button onClick={handleManualKey} className="w-full">Load Map</Button>
+                </CardContent>
+            </Card>
+        </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col relative bg-slate-100 overflow-hidden">
         {/* HEADER */}
@@ -189,56 +220,50 @@ export default function RooferMeasurement() {
         </div>
 
         <div className="flex flex-1 h-full">
-            {step === 'detailed' && (
-                <div className="w-80 bg-white border-r z-10 mt-16 flex flex-col shadow-xl">
-                    <div className="p-4 border-b bg-blue-50">
-                        <h3 className="font-bold text-blue-900">Pro Measurement</h3>
-                        <p className="text-xs text-blue-600">Total: {Math.round(sections.reduce((a,b)=>a+b.area,0))} sq ft</p>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 p-2 bg-slate-50 text-[10px]">
-                        {Object.entries(EDGE_TYPES).slice(1).map(([k,v]) => (
-                            <div key={k} className="flex items-center gap-1"><div className="w-3 h-3 rounded-full" style={{background:v.color}}/>{v.name}</div>
-                        ))}
-                    </div>
-                    <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-                        <Button className="w-full bg-blue-600" onClick={() => drawingManager?.setDrawingMode('polygon')}><Plus className="w-4 h-4 mr-2"/> Draw Section</Button>
-                        {sections.map((s, i) => (
-                            <Card key={s.id} className="p-3 border-l-4 border-blue-500">
-                                <div className="font-bold text-sm mb-2">Section {i+1} ({s.area} sq ft)</div>
-                                <Select value={s.pitch.toString()} onValueChange={v => {
-                                    setSections(prev => prev.map(sec => sec.id === s.id ? {...sec, pitch: Number(v)} : sec));
-                                }}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>{[0,4,5,6,7,8,9,10,12].map(p => <SelectItem key={p} value={p.toString()}>{p}/12 Pitch</SelectItem>)}</SelectContent>
-                                </Select>
-                            </Card>
-                        ))}
-                    </div>
-                    <div className="p-4 border-t"><Button className="w-full bg-green-600" onClick={saveMeasurement}><Save className="w-4 h-4 mr-2"/> Save</Button></div>
-                </div>
-            )}
-            
-            {/* MAP CONTAINER */}
-            <div className="flex-1 relative pt-16">
-                <div ref={setMapNode} className="w-full h-full" />
-            </div>
-        </div>
-
-        {/* MODAL OVERLAY */}
-        {step === 'choice' && !loading && (
-            <div className="absolute inset-0 z-30 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center pt-16">
-                <div className="grid md:grid-cols-2 gap-8 max-w-4xl w-full p-4">
+           {step === 'detailed' && (
+              <div className="w-80 bg-white border-r z-10 mt-16 flex flex-col shadow-xl">
+                  <div className="p-4 border-b bg-blue-50">
+                      <h3 className="font-bold text-blue-900">Pro Measurement</h3>
+                      <p className="text-xs text-blue-600">Total: {Math.round(sections.reduce((a,b)=>a+b.area,0))} sq ft</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 p-2 bg-slate-50 text-[10px]">
+                      {Object.entries(EDGE_TYPES).slice(1).map(([k,v]) => (
+                          <div key={k} className="flex items-center gap-1"><div className="w-3 h-3 rounded-full" style={{background:v.color}}/>{v.name}</div>
+                      ))}
+                  </div>
+                  <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+                      <Button className="w-full bg-blue-600" onClick={() => drawingManager?.setDrawingMode('polygon')}><Plus className="w-4 h-4 mr-2"/> Draw Section</Button>
+                      {sections.map((s, i) => (
+                          <Card key={s.id} className="p-3 border-l-4 border-blue-500">
+                              <div className="font-bold text-sm mb-2">Section {i+1} ({s.area} sq ft)</div>
+                              <Select value={s.pitch.toString()} onValueChange={v => {
+                                  setSections(prev => prev.map(sec => sec.id === s.id ? {...sec, pitch: Number(v)} : sec));
+                              }}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>{[0,4,5,6,7,8,9,10,12].map(p => <SelectItem key={p} value={p.toString()}>{p}/12 Pitch</SelectItem>)}</SelectContent>
+                              </Select>
+                          </Card>
+                      ))}
+                  </div>
+                  <div className="p-4 border-t"><Button className="w-full bg-green-600" onClick={saveMeasurement}><Save className="w-4 h-4 mr-2"/> Save</Button></div>
+              </div>
+           )}
+           <div className="flex-1 relative pt-16"><div ref={setMapNode} className="w-full h-full" /></div>
+           {step === 'choice' && !loading && (
+              <div className="absolute inset-0 z-30 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center pt-16">
+                 <div className="grid md:grid-cols-2 gap-8 max-w-4xl w-full p-4">
                     <Card className="p-8 cursor-pointer hover:scale-105 transition-all bg-white border-green-500 border-b-4" onClick={startQuick}>
-                        <Zap className="w-12 h-12 text-green-600 mb-4 mx-auto"/>
-                        <h2 className="text-2xl font-bold text-center">Quick Estimate</h2>
+                       <Zap className="w-12 h-12 text-green-600 mb-4 mx-auto"/>
+                       <h2 className="text-2xl font-bold text-center">Quick Estimate</h2>
                     </Card>
                     <Card className="p-8 cursor-pointer hover:scale-105 transition-all bg-white border-blue-500 border-b-4" onClick={() => { setStep('detailed'); markerInstance?.setMap(null); }}>
-                        <PenTool className="w-12 h-12 text-blue-600 mb-4 mx-auto"/>
-                        <h2 className="text-2xl font-bold text-center">Pro Measure</h2>
+                       <PenTool className="w-12 h-12 text-blue-600 mb-4 mx-auto"/>
+                       <h2 className="text-2xl font-bold text-center">Pro Measure</h2>
                     </Card>
-                </div>
-            </div>
-        )}
+                 </div>
+              </div>
+           )}
+        </div>
     </div>
   ); 
 }
