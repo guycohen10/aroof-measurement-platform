@@ -88,7 +88,7 @@ export default function RooferMeasurement() {
               const end = path[(i + 1) % path.length];
               const len = google.maps.geometry.spherical.computeDistanceBetween(start, end) * 3.28084;
               const line = new google.maps.Polyline({
-                path: [start, end], strokeColor: EDGE_TYPES[0].color, strokeWeight: 6, map: map, zIndex: 100
+                path: [start, end], strokeColor: EDGE_TYPES[0].color, strokeWeight: 8, map: map, zIndex: 1000
               });
               const edgeData = { id: Date.now() + i, type: 0, length: len, lineInstance: line };
               line.addListener("click", () => {

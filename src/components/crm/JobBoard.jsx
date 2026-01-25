@@ -48,7 +48,14 @@ export default function JobBoard() {
         l.assigned_company_id === currentUser.company_id ||
         l.company_id === currentUser.company_id
       );
-      setLeads(companyLeads);
+      
+      // Load Local Leads
+      const localLeads = JSON.parse(localStorage.getItem('my_leads') || '[]');
+      
+      // Merge unique leads
+      const leadMap = new Map();
+      [...companyLeads, ...localLeads].forEach(l => leadMap.set(l.id, l));
+      setLeads(Array.from(leadMap.values()));
 
       // Load jobs for this company
       const allJobs = await base44.entities.Job.list('-created_date', 100);
