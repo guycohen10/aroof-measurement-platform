@@ -17,57 +17,49 @@ export default function RooferMeasurement() {
   const [lead, setLead] = useState(null); 
   const [mapNode, setMapNode] = useState(null); 
   const [mapInstance, setMapInstance] = useState(null); 
-  const [totalArea, setTotalArea] = useState(0);
+  const [totalArea, setTotalArea] = useState(0); 
 
-  // Debug Log
-  console.log("RooferMeasurement Mounting. Step:", step, "LeadID:", leadId);
-
-  // 1. SAFE DATA LOADER 
+  // 1. DATA LOADER 
   useEffect(() => { 
     const load = async () => { 
       try { 
-        // Safe helper
-        const getSafeLocal = (key) => {
-            try {
-                const val = JSON.parse(localStorage.getItem(key));
-                return Array.isArray(val) ? val : [];
-            } catch { return []; }
-        };
-
+        // Check Session First 
         const sessionAddr = sessionStorage.getItem('lead_address')?.replace(/"/g, ''); 
-        const sessionId = sessionStorage.getItem('active_lead_id')?.replace(/"/g, '');
+        const sessionId = sessionStorage.getItem('active_lead_id')?.replace(/"/g, ''); 
 
         if (sessionId === leadId && sessionAddr) {
-          setLead({ id: leadId, address_street: sessionAddr, source: 'session' });
-          return;
+           setLead({ id: leadId, address_street: sessionAddr });
+           return;
         }
-        
-        const local = [...getSafeLocal('jobs'), ...getSafeLocal('my_leads')];
+        // Check Local Storage
+        const getLocal = (k) => { try { return JSON.parse(localStorage.getItem(k)||'[]'); } catch { return []; }};
+        const local = [...getLocal('jobs'), ...getLocal('my_leads')];
         const target = local.find(l => l.id === leadId);
         if (target) { setLead(target); return; }
      
+        // Check API
         const api = await base44.entities.Lead.get(leadId);
         setLead(api);
       } catch (err) {
-        console.error("Load Error:", err);
-        setLead({ address_street: "Dallas, TX" }); // Fallback to prevent white screen
+         console.error(err);
+         setLead({ address_street: "Dallas, TX" }); // Fallback
       }
     };
     if (leadId) load();
-  }, [leadId]);
+  }, [leadId]); 
 
   // 2. MAP INIT 
   useEffect(() => { 
     if (!mapNode || !lead) return; 
     const init = async () => { 
-      try {
+      try { 
         const { Map } = await google.maps.importLibrary("maps"); 
         const { Geocoder } = await google.maps.importLibrary("geocoding"); 
         await google.maps.importLibrary("drawing"); 
-        await google.maps.importLibrary("geometry");
+        await google.maps.importLibrary("geometry"); 
 
         const geocoder = new Geocoder();
-        geocoder.geocode({ address: lead.address_street || lead.address || "Dallas, TX" }, (results, status) => {
+        geocoder.geocode({ address: lead.address_street || "Dallas, TX" }, (results, status) => {
            if (status === 'OK' && results[0]) {
               const map = new Map(mapNode, {
                  center: results[0].geometry.location, 
@@ -79,9 +71,7 @@ export default function RooferMeasurement() {
               setMapInstance(map);
            }
         });
-      } catch (e) {
-          console.error("Map Init Error:", e);
-      }
+      } catch (e) { console.error(e); }
     };
     init();
   }, [mapNode, lead]);
@@ -91,7 +81,7 @@ export default function RooferMeasurement() {
     try { 
       toast.loading("Analyzing..."); 
       const center = mapInstance.getCenter(); 
-      // Try to get key from script tag
+      
       let apiKey = '';
       const scripts = document.getElementsByTagName('script');
       for (let i = 0; i < scripts.length; i++) {
@@ -101,11 +91,11 @@ export default function RooferMeasurement() {
           break;
         }
       }
-      
+
       const url = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${center.lat()}&location.longitude=${center.lng()}&requiredQuality=HIGH&key=${apiKey}`;
 
       const res = await fetch(url);
-      if (!res.ok) throw new Error("Solar Data Unavailable");
+      if (!res.ok) throw new Error("Solar Unavailable");
       const data = await res.json();
       setTotalArea(Math.round(data.solarPotential.wholeRoofStats.areaMeters * 10.764));
       setStep('result');
@@ -132,7 +122,7 @@ export default function RooferMeasurement() {
         editable: false 
       } 
     }); 
-    manager.setMap(mapInstance);
+    manager.setMap(mapInstance); 
 
     google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
       const path = poly.getPath().getArray();
@@ -141,22 +131,24 @@ export default function RooferMeasurement() {
       manager.setDrawingMode(null);
       setStep('result');
     });
-  };
+  }; 
 
   const handleSave = () => { 
     if (leadId) {
-        try {
-            base44.entities.Lead.update(leadId, { lead_status: 'Quoted' }).catch(console.error);
-        } catch(e) {}
+        // Optimistic update or fire and forget
+        base44.entities.Lead.update(leadId, { lead_status: 'Quoted' }).catch(console.error);
     }
     toast.success("Quote Saved!"); 
     setTimeout(() => navigate('/rooferdashboard'), 1000); 
-  };
+  }; 
+
+  // PREVENT CRASH IF LOADING 
+  if (!lead) return <div className="h-screen flex items-center justify-center">Loading Lead...</div>; 
 
   // 5. RENDER 
-  return (
-    <div className="h-screen w-screen relative bg-slate-100 overflow-hidden">
-        {/* Header - Essential for layout and navigation */}
+  return ( 
+    <div className="h-screen flex flex-col relative bg-slate-100 overflow-hidden">
+        {/* Header */}
         <div className="absolute top-0 left-0 right-0 h-16 bg-white z-30 flex items-center justify-between px-4 shadow-sm">
             <div className="flex items-center gap-4">
                 <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
@@ -190,7 +182,6 @@ export default function RooferMeasurement() {
               </div>
            </div>
         )}
-
         {/* Result Overlay */}
         {step === 'result' && (
            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
@@ -203,11 +194,11 @@ export default function RooferMeasurement() {
               </Card>
            </div>
         )}
-
         {/* Map Layer */}
         <div className="absolute inset-0 top-16">
+            {/* CORRECTED REF: One underscore */}
             <div ref={setMapNode} className="w-full h-full" />
         </div>
-     </div>
+    </div>
   ); 
 }
