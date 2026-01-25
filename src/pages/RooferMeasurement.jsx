@@ -1,21 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Zap, PenTool, RotateCcw } from 'lucide-react';
+import { Zap, PenTool, ArrowLeft, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-
-const EDGE_TYPES = [ 
-  { type: 'Unassigned', color: '#94a3b8' }, 
-  { type: 'Eave', color: '#10b981' }, 
-  { type: 'Rake', color: '#3b82f6' }, 
-  { type: 'Ridge', color: '#ef4444' }, 
-  { type: 'Hip', color: '#06b6d4' }, 
-  { type: 'Valley', color: '#a855f7' }, 
-  { type: 'Flashing', color: '#f59e0b' }, 
-];
+import { Card } from '@/components/ui/card';
 
 export default function RooferMeasurement() { 
   const { leadId: paramId } = useParams(); 
@@ -24,12 +13,11 @@ export default function RooferMeasurement() {
   const navigate = useNavigate();
 
   // State 
-  const [step, setStep] = useState('choice'); // 'choice', 'detailed', 'result' 
+  const [step, setStep] = useState('choice'); 
   const [lead, setLead] = useState(null); 
   const [mapNode, setMapNode] = useState(null); 
   const [mapInstance, setMapInstance] = useState(null); 
-  const [totalArea, setTotalArea] = useState(0); 
-  const [edges, setEdges] = useState([]);
+  const [totalArea, setTotalArea] = useState(0);
 
   // 1. DATA LOADER 
   useEffect(() => { 
@@ -50,7 +38,7 @@ export default function RooferMeasurement() {
         setLead(api);
       } catch (err) {
         console.error(err);
-        setLead({ address_street: "Dallas, TX" }); // Fallback
+        setLead({ address_street: "Dallas, TX" }); 
       }
     };
     if (leadId) load();
@@ -60,15 +48,14 @@ export default function RooferMeasurement() {
   useEffect(() => { 
     if (!mapNode || !lead) return; 
     const init = async () => { 
-      try {
-        const { Map } = await google.maps.importLibrary("maps"); 
-        const { Geocoder } = await google.maps.importLibrary("geocoding"); 
-        await google.maps.importLibrary("drawing"); 
-        await google.maps.importLibrary("geometry");
+      const { Map } = await google.maps.importLibrary("maps"); 
+      const { Geocoder } = await google.maps.importLibrary("geocoding"); 
+      await google.maps.importLibrary("drawing"); 
+      await google.maps.importLibrary("geometry");
 
-        const geocoder = new Geocoder();
-        geocoder.geocode({ address: lead.address_street || lead.address || "Dallas, TX" }, (results, status) => {
-          if (status === 'OK' && results[0]) {
+      const geocoder = new Geocoder();
+      geocoder.geocode({ address: lead.address_street || lead.address || "Dallas, TX" }, (results, status) => {
+         if (status === 'OK' && results[0]) {
             const map = new Map(mapNode, {
                center: results[0].geometry.location, 
                zoom: 20, 
@@ -77,11 +64,8 @@ export default function RooferMeasurement() {
                tilt: 0
             });
             setMapInstance(map);
-          }
-        });
-      } catch (e) {
-        console.error("Map Load Error", e);
-      }
+         }
+      });
     };
     init();
   }, [mapNode, lead]);
@@ -91,7 +75,7 @@ export default function RooferMeasurement() {
     try { 
       toast.loading("Analyzing..."); 
       const center = mapInstance.getCenter(); 
-      
+      // Try to get key from script tag
       let apiKey = '';
       const scripts = document.getElementsByTagName('script');
       for (let i = 0; i < scripts.length; i++) {
@@ -143,11 +127,11 @@ export default function RooferMeasurement() {
     });
   };
 
-  const handleSave = async () => { 
+  const handleSave = () => { 
     if (leadId) {
         try {
-            await base44.entities.Lead.update(leadId, { lead_status: 'Quoted' });
-        } catch(e) { console.log("Update failed", e); }
+            base44.entities.Lead.update(leadId, { lead_status: 'Quoted' }).catch(console.error);
+        } catch(e) {}
     }
     toast.success("Quote Saved!"); 
     setTimeout(() => navigate('/rooferdashboard'), 1000); 
@@ -156,12 +140,17 @@ export default function RooferMeasurement() {
   // 5. RENDER 
   return (
     <div className="h-screen w-screen relative bg-slate-100 overflow-hidden">
+        {/* Header - Essential for layout and navigation */}
         <div className="absolute top-0 left-0 right-0 h-16 bg-white z-30 flex items-center justify-between px-4 shadow-sm">
             <div className="flex items-center gap-4">
                 <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
                 <h1 className="font-bold text-lg">Measurement Tool</h1>
             </div>
-            {step === 'result' && <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700 text-white"><Save className="mr-2 w-4 h-4"/> Save Quote</Button>}
+            {step === 'result' && (
+                <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700 text-white">
+                    <Save className="mr-2 w-4 h-4"/> Save Quote
+                </Button>
+            )}
         </div>
 
         {/* Choice Screen */}
@@ -181,6 +170,7 @@ export default function RooferMeasurement() {
               </div>
            </div>
         )}
+
         {/* Result Overlay */}
         {step === 'result' && (
            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
@@ -191,6 +181,7 @@ export default function RooferMeasurement() {
               </Card>
            </div>
         )}
+
         {/* Map Layer */}
         <div className="absolute inset-0 top-16">
             <div ref={setMapNode} className="w-full h-full" />
