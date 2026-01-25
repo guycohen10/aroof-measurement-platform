@@ -136,12 +136,6 @@ export default function Navigation() {
             <a href="#how-it-works" className="text-slate-600 hover:text-blue-900 font-medium">How It Works</a>
             <a href="#benefits" className="text-slate-600 hover:text-blue-900 font-medium">Why Aroof</a>
             
-            {/* Contractor Links */}
-            <Link to={createPageUrl("RooferLogin")} className="text-blue-600 hover:text-blue-900 font-semibold flex items-center gap-1">
-              <Building2 className="w-4 h-4" />
-              Contractors
-            </Link>
-
             {/* Show different options based on user role */}
             {loading ? null : user ? (
               <div className="flex items-center gap-4">
@@ -186,14 +180,18 @@ export default function Navigation() {
                 </button>
               </div>
             ) : (
-              <>
-                <Link to={createPageUrl("RooferLogin")} className="text-slate-600 hover:text-blue-900 font-medium">
-                  Login
+              <div className="flex items-center gap-2">
+                <Link to={createPageUrl("RooferLogin")}>
+                  <Button variant="ghost" className="text-slate-700 font-medium hover:text-blue-600 hover:bg-blue-50">
+                    Log In
+                  </Button>
                 </Link>
-                <Link to={createPageUrl("RooferSignup")} className="text-blue-600 hover:text-blue-900 font-semibold">
-                  Sign Up
+                <Link to={createPageUrl("RooferSignup")}>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm">
+                    Get Started
+                  </Button>
                 </Link>
-              </>
+              </div>
             )}
             
             <a href="tel:+18502389727" className="flex items-center gap-2 text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-4 py-2 rounded-lg font-bold shadow-lg hover:shadow-xl transition-all">
