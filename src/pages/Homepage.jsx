@@ -68,7 +68,8 @@ export default function Homepage() {
         if (user) {
           setIsLoggedIn(true);
           const staffRoles = ['sales', 'estimator', 'crew', 'external_roofer', 'dispatcher'];
-          if (staffRoles.includes(user.aroof_role)) {
+          // Only redirect if explicitly on the homepage (prevent redirect loops on other pages)
+          if (staffRoles.includes(user.aroof_role) && (window.location.pathname === '/' || window.location.pathname === '/homepage')) {
             navigate(createPageUrl('RooferDashboard'));
           }
         }
