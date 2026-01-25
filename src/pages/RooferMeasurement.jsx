@@ -78,6 +78,15 @@ export default function RooferMeasurement() {
     if (!mapNode || !lead || mapInstance) return;
 
     const init = async () => {
+      // GOOGLE MAPS LOADER
+      if (!window.google || !window.google.maps) {
+         const script = document.createElement("script");
+         // NOTE: You must provide a valid API Key with Maps & Places enabled
+         script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}&libraries=places,drawing,geometry,marker&v=weekly`;
+         script.async = true;
+         document.head.appendChild(script);
+         await new Promise(resolve => script.onload = resolve);
+      }
       const { Map } = await google.maps.importLibrary("maps");
       const { Marker } = await google.maps.importLibrary("marker");
       const { Geocoder } = await google.maps.importLibrary("geocoding");
