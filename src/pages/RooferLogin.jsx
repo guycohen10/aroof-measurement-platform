@@ -95,7 +95,8 @@ export default function RooferLogin() {
            return; 
         }
 
-        if (user && user.aroof_role) {
+        // Only redirect if explicitly on login page to avoid loops
+        if (user && user.aroof_role && (window.location.pathname.includes('login'))) {
           navigate(createPageUrl('RooferDashboard'));
         }
       } catch (err) {
