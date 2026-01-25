@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Plus, Zap, PenTool, Key } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Zap, PenTool, Key, Pencil, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const EDGE_TYPES = { 0: { name: 'Unassigned', color: '#94a3b8' }, 1: { name: 'Eave', color: '#3b82f6' }, 2: { name: 'Rake', color: '#22c55e' }, 3: { name: 'Ridge', color: '#ef4444' }, 4: { name: 'Hip', color: '#f97316' }, 5: { name: 'Valley', color: '#a855f7' }, 6: { name: 'Wall', color: '#eab308' }, };
 
@@ -27,9 +28,11 @@ export default function RooferMeasurement() {
   const [sections, setSections] = useState([]); 
   const [quickArea, setQuickArea] = useState(0);
 
-  // API KEY MANAGEMENT 
+  // API & Edit State 
   const [apiKey, setApiKey] = useState(''); 
-  const [needsKey, setNeedsKey] = useState(false);
+  const [needsKey, setNeedsKey] = useState(false); 
+  const [isEditing, setIsEditing] = useState(false); 
+  const [editForm, setEditForm] = useState({});
 
   // 1. DATA LOADER 
   useEffect(() => { 
@@ -44,36 +47,45 @@ export default function RooferMeasurement() {
               customer_name: sessionStorage.getItem('customer_name')?.replace(/"/g, ''),
               source: 'session'
           };
-          if(sessionLead.address_street) { setLead(sessionLead); setLoading(false); return; }
+          if(sessionLead.address_street) { 
+              setLead(sessionLead); 
+              setEditForm(sessionLead);
+              setLoading(false); 
+              return; 
+          }
       }
       
       const local = JSON.parse(localStorage.getItem('my_leads')||'[]');
       const target = local.find(l => l.id === leadId);
-      if(target) { setLead(target); setLoading(false); }
+      if(target) { 
+          setLead(target); 
+          setEditForm(target);
+          setLoading(false); 
+      }
       else {
           try {
               const api = await base44.entities.Lead.get(leadId);
               setLead(api);
-          } catch(e) { setLead({ address_street: "5103 Lincolnshire Ct, Dallas, TX", id: 'demo' }); }
+              setEditForm(api);
+          } catch(e) { 
+              const demo = { address_street: "5103 Lincolnshire Ct, Dallas, TX", id: 'demo' };
+              setLead(demo); setEditForm(demo);
+          }
           finally { setLoading(false); }
       }
     };
     load();
   }, [leadId]);
 
-  // 2. MAP LOADER (With Fallback) 
+  // 2. MAP LOADER (Responsive to lead changes) 
   useEffect(() => { 
-    if (!mapNode || !lead || mapInstance) return;
+    if (!mapNode || !lead || !lead.address_street) return;
 
     const attemptLoad = () => {
-        // Priority: 1. Env Var, 2. LocalStorage, 3. Ask User
         let key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
         if(!key) key = localStorage.getItem('user_provided_maps_key');
         
-        if (!key) {
-            setNeedsKey(true);
-            return;
-        }
+        if (!key) { setNeedsKey(true); return; }
         if (window.google?.maps) { initMap(); return; }
         
         const script = document.createElement('script');
@@ -128,17 +140,31 @@ export default function RooferMeasurement() {
                         manager.setDrawingMode(null);
                         toast.success("Section Added!");
                     });
-                } else { toast.error("Could not locate address"); }
+                } else { 
+                    toast.error("Google Maps: " + status); 
+                }
             });
         } catch(e) { console.error(e); }
     };
     attemptLoad();
-  }, [mapNode, lead]);
+  }, [mapNode, lead]); // Reloads when 'lead' changes
 
   const handleManualKey = () => { 
     if(apiKey.length < 10) { toast.error("Invalid Key"); return; } 
     localStorage.setItem('user_provided_maps_key', apiKey); 
-    window.location.reload(); // Reload to force script injection 
+    window.location.reload(); 
+  };
+
+  const handleUpdateLead = () => { 
+    // Update local state to trigger map reload 
+    setLead(prev => ({ ...prev, ...editForm })); 
+    // Also update session/local storage so it persists 
+    if(lead.source === 'session') { 
+        sessionStorage.setItem('lead_address', editForm.address_street); 
+        sessionStorage.setItem('customer_name', editForm.customer_name); 
+    } 
+    setIsEditing(false); 
+    toast.success("Address Updated - Reloading Map..."); 
   };
 
   // 3. HANDLERS 
@@ -177,14 +203,12 @@ export default function RooferMeasurement() {
                 dbId = newLead.id;
             }
         }
-        
         await base44.entities.RoofMeasurement.create({
             lead_id: dbId,
             total_sqft: Math.round(totalAdj),
             measurement_status: 'Completed',
             sections_data: { sections: sections.map(s => ({ pitch: s.pitch, area: s.area })) }
         });
-        
         await base44.entities.Lead.update(dbId, { status: 'Measured', roof_sqft: Math.round(totalAdj) });
         toast.success("Saved!");
         setTimeout(() => navigate('/jobboard'), 1000);
@@ -217,9 +241,36 @@ export default function RooferMeasurement() {
             <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
             <h1 className="font-bold text-lg">Measurement Tool</h1>
           </div>
-        </div>
-
-        <div className="flex flex-1 h-full">
+          <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}><Pencil className="w-4 h-4 mr-2"/> Edit Info</Button>
+              <Button variant="outline" size="sm" onClick={() => setSections([])}>Clear Map</Button>
+          </div>
+       </div>
+       {/* EDIT OVERLAY */}
+       {isEditing && (
+           <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+               <Card className="w-full max-w-lg shadow-2xl">
+                   <CardHeader><CardTitle>Update Lead Info</CardTitle></CardHeader>
+                   <CardContent className="space-y-4">
+                       <div><Label>Customer Name</Label><Input value={editForm.customer_name||''} onChange={e=>setEditForm({...editForm, customer_name:e.target.value})}/></div>
+                       <div><Label>Address (Google Maps Search)</Label><Input value={editForm.address_street||''} onChange={e=>setEditForm({...editForm, address_street:e.target.value})}/></div>
+                       <div><Label>Phone</Label><Input value={editForm.phone||''} onChange={e=>setEditForm({...editForm, phone:e.target.value})}/></div>
+                       <div className="flex gap-2 pt-2">
+                           <Button className="flex-1 bg-blue-600" onClick={handleUpdateLead}>Update & Reload Map</Button>
+                           <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
+                       </div>
+                       <div className="border-t pt-4 mt-2">
+                            <p className="text-xs text-slate-400 mb-2">Map still not loading?</p>
+                            <Button variant="destructive" size="sm" className="w-full" onClick={() => { localStorage.removeItem('user_provided_maps_key'); window.location.reload(); }}>
+                                <RotateCcw className="w-3 h-3 mr-2"/> Reset API Key
+                            </Button>
+                       </div>
+                   </CardContent>
+               </Card>
+           </div>
+       )}
+       {/* SIDEBAR */}
+       <div className="flex flex-1 h-full">
            {step === 'detailed' && (
               <div className="w-80 bg-white border-r z-10 mt-16 flex flex-col shadow-xl">
                   <div className="p-4 border-b bg-blue-50">
