@@ -24,7 +24,7 @@ export default function NewLeadForm() {
   });
   const [saving, setSaving] = useState(false);
   
-  const GOOGLE_MAPS_API_KEY = 'AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc';
+  const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
   const leadSources = [
     { value: 'purchased_lead', label: 'Purchased Lead' },
@@ -61,7 +61,7 @@ export default function NewLeadForm() {
 
       // Load script
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,drawing,geometry,marker&v=weekly`;
       script.async = true;
       script.onload = initAutocomplete;
       document.head.appendChild(script);

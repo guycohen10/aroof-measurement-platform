@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Home, Star, Shield } from "lucide-react";
 import AddressAutocomplete from "../components/AddressAutocomplete";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 export default function Start() {
   const navigate = useNavigate();
@@ -23,7 +23,7 @@ export default function Start() {
       }
       if (!existingScript) {
         const script = document.createElement("script");
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,drawing,geometry,marker&v=weekly`;
         script.async = true;
         script.onload = () => setScriptLoaded(true);
         script.onerror = () => setError("Failed to load Google Maps. Please refresh the page.");
