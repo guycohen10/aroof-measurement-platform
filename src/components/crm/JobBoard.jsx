@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,9 +19,10 @@ const stages = [
 ];
 
 export default function JobBoard() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const [measurements, setMeasurements] = useState([]);
+  const [leads, setLeads] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -40,14 +42,13 @@ export default function JobBoard() {
         return;
       }
 
-      // CRITICAL: Filter by assigned_company_id, NOT user_id
-      const allMeasurements = await base44.entities.Measurement.list('-created_date', 100);
-      const companyMeasurements = allMeasurements.filter(m => 
-        m.assigned_company_id === currentUser.company_id ||
-        m.purchased_by === currentUser.company_id ||
-        m.company_id === currentUser.company_id
+      // Load LEADS instead of legacy Measurements
+      const allLeads = await base44.entities.Lead.list('-created_date', 100);
+      const companyLeads = allLeads.filter(l => 
+        l.assigned_company_id === currentUser.company_id ||
+        l.company_id === currentUser.company_id
       );
-      setMeasurements(companyMeasurements);
+      setLeads(companyLeads);
 
       // Load jobs for this company
       const allJobs = await base44.entities.Job.list('-created_date', 100);
@@ -71,19 +72,19 @@ export default function JobBoard() {
   };
 
   const getLeadsByStage = (stageId) => {
-    // Map measurement lead_status to stages
+    // Map Lead status to stages
     if (stageId === 'new') {
-      return measurements.filter(m => !m.lead_status || m.lead_status === 'new');
+      return leads.filter(l => !l.lead_status || l.lead_status === 'New' || l.lead_status === 'new');
     } else if (stageId === 'contacted') {
-      return measurements.filter(m => m.lead_status === 'contacted');
+      return leads.filter(l => l.lead_status === 'Contacted' || l.lead_status === 'contacted' || l.lead_status === 'Measured');
     } else if (stageId === 'quoted') {
-      return measurements.filter(m => m.lead_status === 'quoted');
+      return leads.filter(l => l.lead_status === 'Quoted' || l.lead_status === 'quoted');
     } else if (stageId === 'scheduled') {
-      return jobs.filter(j => j.status === 'scheduled');
+      return jobs.filter(j => j.stage === 'Scheduled' || j.stage === 'scheduled');
     } else if (stageId === 'in_progress') {
-      return jobs.filter(j => j.status === 'in_progress');
+      return jobs.filter(j => j.stage === 'In Progress' || j.stage === 'in_progress');
     } else if (stageId === 'completed') {
-      return jobs.filter(j => j.status === 'completed');
+      return jobs.filter(j => j.stage === 'Complete' || j.stage === 'completed' || j.stage === 'Paid');
     }
     return [];
   };
@@ -99,7 +100,7 @@ export default function JobBoard() {
       if (itemType === 'job') {
         await base44.entities.Job.update(itemId, { assigned_to: userId });
       } else {
-        await base44.entities.Measurement.update(itemId, { assigned_to: userId });
+        await base44.entities.Lead.update(itemId, { assigned_user_id: userId });
       }
       toast.success('Assigned successfully!');
       loadData();
@@ -153,7 +154,7 @@ export default function JobBoard() {
                           <div className="space-y-2">
                             <div className="flex items-start justify-between">
                               <p className="font-bold text-sm text-slate-900 line-clamp-1">
-                                {item.customer_name || 'Unnamed Customer'}
+                                {item.name || item.customer_name || 'Unnamed Customer'}
                               </p>
                               {item.priority === 'high' && (
                                 <Badge className="bg-red-100 text-red-800 text-xs">High</Badge>
@@ -162,7 +163,7 @@ export default function JobBoard() {
                             
                             <div className="flex items-center gap-1 text-xs text-slate-600">
                               <MapPin className="w-3 h-3" />
-                              <span className="line-clamp-2 font-medium">{item.property_address}</span>
+                              <span className="line-clamp-2 font-medium">{item.address || item.property_address}</span>
                             </div>
                             
                             {isJob && item.scheduled_date && (
@@ -224,34 +225,34 @@ export default function JobBoard() {
                   <p className="text-sm text-slate-600 mb-1">Customer Name</p>
                   <p className="font-semibold text-slate-900 flex items-center gap-2">
                     <User className="w-4 h-4" />
-                    {selectedItem.customer_name || 'Unnamed Customer'}
+                    {selectedItem.name || selectedItem.customer_name || 'Unnamed Customer'}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-slate-600 mb-1">Property Address</p>
                   <p className="font-semibold text-slate-900 flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
-                    {selectedItem.property_address}
+                    {selectedItem.address || selectedItem.property_address}
                   </p>
                 </div>
               </div>
 
-              {selectedItem.customer_email && (
+              {(selectedItem.email || selectedItem.customer_email) && (
                 <div>
                   <p className="text-sm text-slate-600 mb-1">Email</p>
                   <p className="font-semibold text-slate-900 flex items-center gap-2">
                     <Mail className="w-4 h-4" />
-                    {selectedItem.customer_email}
+                    {selectedItem.email || selectedItem.customer_email}
                   </p>
                 </div>
               )}
 
-              {selectedItem.customer_phone && (
+              {(selectedItem.phone || selectedItem.customer_phone) && (
                 <div>
                   <p className="text-sm text-slate-600 mb-1">Phone</p>
                   <p className="font-semibold text-slate-900 flex items-center gap-2">
                     <Phone className="w-4 h-4" />
-                    {selectedItem.customer_phone}
+                    {selectedItem.phone || selectedItem.customer_phone}
                   </p>
                 </div>
               )}
@@ -288,7 +289,7 @@ export default function JobBoard() {
               <div className="pt-6 mt-6 border-t">
                 <Button 
                   className="w-full bg-green-600 hover:bg-green-700" 
-                  onClick={() => window.location.href = `/quotebuilder?leadId=${selectedItem.id || selectedItem.lead_id}`}
+                  onClick={() => navigate(`/quotebuilder?leadId=${selectedItem.id}`)}
                 >
                   <FileText className="w-4 h-4 mr-2" />
                   Build Quote
