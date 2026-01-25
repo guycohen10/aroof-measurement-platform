@@ -39,6 +39,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import GetEstimate from './pages/GetEstimate';
 import GreenRoof from './pages/GreenRoof';
 import Gutters from './pages/Gutters';
+import Homepage from './pages/Homepage';
 import Insurance from './pages/Insurance';
 import InvoiceManager from './pages/InvoiceManager';
 import InvoiceView from './pages/InvoiceView';
@@ -46,8 +47,10 @@ import JobBoard from './pages/JobBoard';
 import JobDetail from './pages/JobDetail';
 import JobScheduling from './pages/JobScheduling';
 import JoinTeam from './pages/JoinTeam';
+import LeadManagement from './pages/LeadManagement';
 import LeaveReview from './pages/LeaveReview';
 import MaintenancePlans from './pages/MaintenancePlans';
+import MeasurementPage from './pages/MeasurementPage';
 import MetalShingles from './pages/MetalShingles';
 import MetalStandingSeam from './pages/MetalStandingSeam';
 import MyProfile from './pages/MyProfile';
@@ -66,12 +69,16 @@ import RoofPreview from './pages/RoofPreview';
 import RoofRepair from './pages/RoofRepair';
 import RoofReplacement from './pages/RoofReplacement';
 import RooferBilling from './pages/RooferBilling';
+import RooferBrowseLeads from './pages/RooferBrowseLeads';
+import RooferDashboard from './pages/RooferDashboard';
 import RooferDirectory from './pages/RooferDirectory';
 import RooferForgotPassword from './pages/RooferForgotPassword';
 import RooferLogin from './pages/RooferLogin';
+import RooferMeasurement from './pages/RooferMeasurement';
 import RooferPlans from './pages/RooferPlans';
 import RooferProfile from './pages/RooferProfile';
 import RooferSettings from './pages/RooferSettings';
+import RooferSignup from './pages/RooferSignup';
 import RoofingTypesIndex from './pages/RoofingTypesIndex';
 import SelectReportType from './pages/SelectReportType';
 import Services from './pages/Services';
@@ -93,13 +100,6 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
-import RooferSignup from './pages/RooferSignup';
-import LeadManagement from './pages/LeadManagement';
-import RooferBrowseLeads from './pages/RooferBrowseLeads';
-import RooferDashboard from './pages/RooferDashboard';
-import MeasurementPage from './pages/MeasurementPage';
-import RooferMeasurement from './pages/RooferMeasurement';
-import Homepage from './pages/Homepage';
 import __Layout from './Layout.jsx';
 
 
@@ -145,6 +145,7 @@ export const PAGES = {
     "GetEstimate": GetEstimate,
     "GreenRoof": GreenRoof,
     "Gutters": Gutters,
+    "Homepage": Homepage,
     "Insurance": Insurance,
     "InvoiceManager": InvoiceManager,
     "InvoiceView": InvoiceView,
@@ -152,8 +153,10 @@ export const PAGES = {
     "JobDetail": JobDetail,
     "JobScheduling": JobScheduling,
     "JoinTeam": JoinTeam,
+    "LeadManagement": LeadManagement,
     "LeaveReview": LeaveReview,
     "MaintenancePlans": MaintenancePlans,
+    "MeasurementPage": MeasurementPage,
     "MetalShingles": MetalShingles,
     "MetalStandingSeam": MetalStandingSeam,
     "MyProfile": MyProfile,
@@ -172,12 +175,16 @@ export const PAGES = {
     "RoofRepair": RoofRepair,
     "RoofReplacement": RoofReplacement,
     "RooferBilling": RooferBilling,
+    "RooferBrowseLeads": RooferBrowseLeads,
+    "RooferDashboard": RooferDashboard,
     "RooferDirectory": RooferDirectory,
     "RooferForgotPassword": RooferForgotPassword,
     "RooferLogin": RooferLogin,
+    "RooferMeasurement": RooferMeasurement,
     "RooferPlans": RooferPlans,
     "RooferProfile": RooferProfile,
     "RooferSettings": RooferSettings,
+    "RooferSignup": RooferSignup,
     "RoofingTypesIndex": RoofingTypesIndex,
     "SelectReportType": SelectReportType,
     "Services": Services,
@@ -199,13 +206,6 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "WalletHistory": WalletHistory,
     "Windows": Windows,
-    "RooferSignup": RooferSignup,
-    "LeadManagement": LeadManagement,
-    "RooferBrowseLeads": RooferBrowseLeads,
-    "RooferDashboard": RooferDashboard,
-    "MeasurementPage": MeasurementPage,
-    "RooferMeasurement": RooferMeasurement,
-    "Homepage": Homepage,
 }
 
 export const pagesConfig = {
