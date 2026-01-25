@@ -60,6 +60,7 @@ import PDFDownload from './pages/PDFDownload';
 import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import ProposalView from './pages/ProposalView';
 import QuoteBuilder from './pages/QuoteBuilder';
 import QuoteManager from './pages/QuoteManager';
 import QuoteView from './pages/QuoteView';
@@ -100,7 +101,6 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
-import ProposalView from './pages/ProposalView';
 import __Layout from './Layout.jsx';
 
 
@@ -167,6 +167,7 @@ export const PAGES = {
     "Payment": Payment,
     "PaymentSuccess": PaymentSuccess,
     "PrivacyPolicy": PrivacyPolicy,
+    "ProposalView": ProposalView,
     "QuoteBuilder": QuoteBuilder,
     "QuoteManager": QuoteManager,
     "QuoteView": QuoteView,
@@ -207,7 +208,6 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "WalletHistory": WalletHistory,
     "Windows": Windows,
-    "ProposalView": ProposalView,
 }
 
 export const pagesConfig = {

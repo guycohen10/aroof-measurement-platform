@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Wand2, DollarSign, Check, FileText, Save } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Wand2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,11 +18,11 @@ export default function QuoteBuilder() {
   const [measurement, setMeasurement] = useState(null); 
   const [activeTier, setActiveTier] = useState('Standard');
 
-  // Quote Data (3 Tiers) 
-  const [quotes, setQuotes] = useState({ 
-    Economy: { price: 0, cost: 0, margin: 25, warranty: '10 Year', materials: [] }, 
-    Standard: { price: 0, cost: 0, margin: 35, warranty: 'Lifetime', materials: [] }, 
-    Premium: { price: 0, cost: 0, margin: 45, warranty: 'Lifetime + Labor', materials: [] } 
+  // State for Each Tier's Line Items 
+  const [tiers, setTiers] = useState({ 
+    Economy: { items: [], margin: 25, warranty: '10 Year' }, 
+    Standard: { items: [], margin: 35, warranty: 'Lifetime' }, 
+    Premium: { items: [], margin: 45, warranty: 'Lifetime + Labor' } 
   });
 
   useEffect(() => { 
@@ -32,10 +32,9 @@ export default function QuoteBuilder() {
         const l = await base44.entities.Lead.get(leadId); 
         setLead(l); 
         const measures = await base44.entities.RoofMeasurement.list(); 
-        // Find the measurement for this lead 
         const m = measures.find(x => x.lead_id === leadId); 
         setMeasurement(m); 
-        if(m) runAiEstimate(m); // Auto-Run AI on load 
+        if(m) generateDefaultItems(m); 
       } catch (e) { 
         console.error(e); 
       } finally { 
@@ -45,184 +44,161 @@ export default function QuoteBuilder() {
     load(); 
   }, [leadId]);
 
-  // THE "AI" CALCULATOR 
-  const runAiEstimate = (m) => { 
-    const sq = m.total_squares || 0; 
-    const waste = 1.10; // 10% default 
-    const actualSq = sq * waste;
-
-    // Material Formulas
-    const shingles = Math.ceil(actualSq * 3); // 3 bundles/sq
-    const starter = Math.ceil((m.eaves_ft + m.rakes_ft) / 100);
-    const hipRidge = Math.ceil((m.ridges_ft + m.hips_ft) / 29); // 29ft per bundle
-    const valleyMetal = Math.ceil(m.valleys_ft / 50);
-    
-    const baseMaterials = [
-       { name: "Shingles (Bundles)", qty: shingles, unitCost: 35 },
-       { name: "Starter Strip", qty: starter, unitCost: 18 },
-       { name: "Hip & Ridge Cap", qty: hipRidge, unitCost: 45 },
-       { name: "Valley Protection", qty: valleyMetal, unitCost: 25 },
-       { name: "Synthetic Underlayment", qty: Math.ceil(actualSq / 10), unitCost: 65 },
-       { name: "Labor (per Sq)", qty: Math.ceil(actualSq), unitCost: 85 }
+  const generateDefaultItems = (m) => { 
+    const sq = m.total_squares * 1.10; // 10% waste default 
+    const defaults = [ 
+      { name: "Architectural Shingles (Bundles)", qty: Math.ceil(sq * 3), cost: 35 }, 
+      { name: "Synthetic Underlayment (Rolls)", qty: Math.ceil(sq / 10), cost: 65 }, 
+      { name: "Starter Strip (Bundles)", qty: Math.ceil((m.eaves_ft + m.rakes_ft) / 100), cost: 18 }, 
+      { name: "Hip & Ridge Cap (Bundles)", qty: Math.ceil((m.ridges_ft + m.hips_ft) / 29), cost: 45 }, 
+      { name: "Ice & Water Shield (Rolls)", qty: Math.ceil(m.valleys_ft / 50), cost: 85 }, 
+      { name: "Pipe Boots / Vents", qty: 4, cost: 25 }, 
+      { name: "Installation Labor (Sq)", qty: Math.ceil(sq), cost: 85 }, 
+      { name: "Dumpster & Disposal", qty: 1, cost: 450 } 
     ];
-    // Generate Tiers
-    const newQuotes = { ...quotes };
-    ['Economy', 'Standard', 'Premium'].forEach(tier => {
-        const multiplier = tier === 'Economy' ? 1 : (tier === 'Standard' ? 1.2 : 1.5); // Better materials cost more
-        
-        let totalCost = 0;
-        const tierMaterials = baseMaterials.map(item => {
-            const cost = item.unitCost * multiplier;
-            totalCost += (cost * item.qty);
-            return { ...item, unitCost: cost };
+
+    setTiers(prev => {
+        const next = { ...prev };
+        ['Economy', 'Standard', 'Premium'].forEach(t => {
+            const mult = t === 'Economy' ? 1.0 : (t === 'Standard' ? 1.2 : 1.5);
+            next[t].items = defaults.map(d => ({ ...d, cost: Math.round(d.cost * mult) }));
         });
-        const margin = newQuotes[tier].margin / 100;
-        const sellPrice = totalCost / (1 - margin);
-        
-        newQuotes[tier] = {
-            ...newQuotes[tier],
-            cost: Math.round(totalCost),
-            price: Math.round(sellPrice),
-            materials: tierMaterials
-        };
+        return next;
     });
-    setQuotes(newQuotes);
-    toast.success("AI Estimate Generated!");
   };
 
-  const handleSave = async () => { 
-    const selected = quotes[activeTier]; 
-    toast.loading("Publishing Quote..."); 
-    try { 
-      // Create Quote record
-      const newQuote = await base44.entities.Quote.create({ 
-        lead_id: lead.id, 
-        measurement_id: measurement?.id, // Corrected from measurement_id to id
-        tier_name: activeTier, 
-        total_price: selected.price, 
-        status: 'Sent' 
-      }); 
-      // Update Lead status
-      await base44.entities.Lead.update(lead.id, { 
-        lead_status: 'Quoted', // Corrected from status to lead_status based on previous files 
-        price_sold: selected.price 
-      }); 
-      toast.success("Quote Sent to Customer!"); 
-      setTimeout(() => navigate(`/proposalview?quoteId=${newQuote.id}`), 1000); 
+  // Helper: Calculate Totals 
+  const getTotals = (tierName) => { 
+    const t = tiers[tierName]; 
+    const cost = t.items.reduce((sum, i) => sum + (i.qty * i.cost), 0); 
+    const price = cost / (1 - (t.margin / 100)); 
+    return { cost, price, profit: price - cost }; 
+  };
+
+  // Handlers 
+  const updateItem = (tier, index, field, val) => { 
+    setTiers(prev => { 
+      const newItems = [...prev[tier].items]; 
+      newItems[index] = { ...newItems[index], [field]: val }; 
+      return { ...prev, [tier]: { ...prev[tier], items: newItems } }; 
+    }); 
+  };
+
+  const addItem = (tier) => { 
+    setTiers(prev => ({ ...prev, [tier]: { ...prev[tier], items: [...prev[tier].items, { name: "New Item", qty: 1, cost: 0 }] } })); 
+  };
+
+  const removeItem = (tier, index) => { 
+    setTiers(prev => { 
+      const newItems = prev[tier].items.filter((_, i) => i !== index); 
+      return { ...prev, [tier]: { ...prev[tier], items: newItems } }; 
+    }); 
+  };
+
+  const handlePublish = async () => { 
+    const t = tiers[activeTier]; 
+    const totals = getTotals(activeTier); 
+    toast.loading("Creating Proposal...");
+
+    try {
+        // 1. Create Quote
+        const quote = await base44.entities.Quote.create({
+            lead_id: lead.id,
+            measurement_id: measurement?.id,
+            tier_name: activeTier,
+            total_price: Math.round(totals.price),
+            material_cost: Math.round(totals.cost),
+            margin_percent: t.margin,
+            status: 'Sent',
+            // Storing custom items for the proposal to read:
+            line_items_json: JSON.stringify(t.items) 
+        });
+        // 2. Update Lead
+        await base44.entities.Lead.update(lead.id, { status: 'Quoted', price_sold: Math.round(totals.price) });
+        toast.dismiss();
+        toast.success("Quote Published!");
+        setTimeout(() => navigate(`/proposalview?quoteId=${quote.id}`), 1000);
     } catch(e) { 
-      console.error(e);
+      console.error(e); 
       toast.error("Error saving"); 
-    } 
+    }
   };
 
-  if(loading) return <div className="p-10 text-center">Loading AI Engine...</div>;
+  if(loading) return <div className="flex h-screen items-center justify-center">Loading Calculator...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
        <div className="max-w-6xl mx-auto mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-             <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5"/></Button>
-             <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Wand2 className="w-6 h-6 text-purple-600"/> 
-                AI Quote Builder
-             </h1>
-          </div>
-          <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
-             <Save className="w-4 h-4 mr-2"/> Publish Quote
-          </Button>
+           <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
+             <ArrowLeft className="w-5 h-5"/> Back
+           </Button>
+           <h1 className="text-2xl font-bold">Quote Builder Pro</h1>
        </div>
-
-       <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-6">
-          {/* LEFT: ROOF STATS */}
-          <Card className="h-fit">
-             <CardHeader className="bg-slate-900 text-white rounded-t-lg">
-                <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4"/> Measurement Data</CardTitle>
-             </CardHeader>
-             <CardContent className="p-4 space-y-3 text-sm">
-                {measurement ? (
-                    <>
-                        <div className="flex justify-between"><span>Squares</span><span className="font-bold">{measurement.total_squares}</span></div>
-                        <div className="flex justify-between"><span>Pitch</span><span className="font-bold">{measurement.pitch_primary || measurement.primary_pitch || '6'}</span></div>
-                        <div className="border-t my-2"></div>
-                        <div className="flex justify-between text-slate-500"><span>Eaves</span><span>{measurement.eaves_ft || 0} ft</span></div>
-                        <div className="flex justify-between text-slate-500"><span>Ridges</span><span>{measurement.ridges_ft || 0} ft</span></div>
-                        <div className="flex justify-between text-slate-500"><span>Valleys</span><span>{measurement.valleys_ft || 0} ft</span></div>
-                    </>
-                ) : <p className="text-red-500">No data linked. Go back and measure first.</p>}
-             </CardContent>
-          </Card>
-
-          {/* CENTER/RIGHT: TIERS */}
-          <div className="md:col-span-2 space-y-6">
-             <Tabs value={activeTier} onValueChange={setActiveTier} className="w-full">
-                <TabsList className="grid w-full grid-cols-3 h-14 bg-slate-200 p-1">
-                   {['Economy', 'Standard', 'Premium'].map(tier => (
-                       <TabsTrigger key={tier} value={tier} className="flex flex-col items-center py-2 h-full data-[state=active]:bg-white data-[state=active]:shadow-md transition-all">
-                           <span className="font-bold">{tier}</span>
-                           <span className="text-xs text-slate-500">${quotes[tier].price.toLocaleString()}</span>
-                       </TabsTrigger>
-                   ))}
-                </TabsList>
-                
-                {['Economy', 'Standard', 'Premium'].map(tier => (
-                    <TabsContent key={tier} value={tier} className="mt-4 animate-in fade-in slide-in-from-bottom-2">
-                       <Card className="border-t-4 border-blue-600 shadow-lg">
-                          <CardHeader className="flex flex-row justify-between items-start pb-2">
-                              <div>
-                                 <CardTitle className="text-3xl font-bold text-slate-900">${quotes[tier].price.toLocaleString()}</CardTitle>
-                                 <p className="text-green-600 font-bold mt-1 text-sm">Est. Profit: ${(quotes[tier].price - quotes[tier].cost).toLocaleString()}</p>
-                              </div>
-                              <div className="text-right">
-                                 <div className="text-sm font-bold bg-blue-50 text-blue-700 px-3 py-1 rounded-full border border-blue-100">
-                                    {quotes[tier].warranty} Warranty
-                                 </div>
-                              </div>
-                          </CardHeader>
-                          <CardContent>
-                             <h3 className="font-bold mb-3 flex items-center gap-2 text-slate-700"><Check className="w-4 h-4 text-green-500"/> Material Breakdown (AI Generated)</h3>
-                             <div className="space-y-2 bg-slate-50 p-4 rounded-lg border border-slate-100">
-                                {quotes[tier].materials.map((m, i) => (
-                                    <div key={i} className="flex justify-between text-sm">
-                                        <span className="text-slate-700">{m.qty} x {m.name}</span>
-                                        <span className="text-slate-400 font-mono">${(m.unitCost * m.qty).toLocaleString()}</span>
-                                    </div>
-                                ))}
-                                <div className="border-t border-slate-200 pt-2 flex justify-between font-bold mt-2 text-slate-900">
-                                    <span>Total Cost</span>
-                                    <span>${quotes[tier].cost.toLocaleString()}</span>
-                                </div>
-                             </div>
-                             
-                             <div className="mt-6 grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Target Margin %</label>
-                                    <div className="relative mt-1">
-                                        <Input 
-                                            type="number" 
-                                            value={quotes[tier].margin} 
-                                            onChange={(e) => {
-                                                const newM = Number(e.target.value);
-                                                const cost = quotes[tier].cost;
-                                                // Avoid division by zero
-                                                const marginFactor = newM >= 99 ? 0.01 : (1 - (newM/100));
-                                                const newPrice = cost / marginFactor;
-                                                setQuotes(prev => ({
-                                                    ...prev,
-                                                    [tier]: { ...prev[tier], margin: newM, price: Math.round(newPrice) }
-                                                }));
-                                            }}
-                                            className="pl-8"
-                                        />
-                                        <span className="absolute left-3 top-2.5 text-slate-400">%</span>
-                                    </div>
-                                </div>
-                             </div>
-                          </CardContent>
-                       </Card>
-                    </TabsContent>
-                ))}
-             </Tabs>
-          </div>
+       <div className="max-w-6xl mx-auto">
+           <Tabs value={activeTier} onValueChange={setActiveTier}>
+               <TabsList className="grid w-full grid-cols-3 h-16 mb-6">
+                   {['Economy', 'Standard', 'Premium'].map(tier => {
+                       const tot = getTotals(tier);
+                       return (
+                           <TabsTrigger key={tier} value={tier} className="flex flex-col h-full data-[state=active]:bg-white data-[state=active]:shadow">
+                               <span className="font-bold text-lg">{tier}</span>
+                               <span className="text-xs text-slate-500">${Math.round(tot.price).toLocaleString()}</span>
+                           </TabsTrigger>
+                       );
+                   })}
+               </TabsList>
+               {['Economy', 'Standard', 'Premium'].map(tier => (
+                   <TabsContent key={tier} value={tier}>
+                       <div className="grid md:grid-cols-3 gap-6">
+                           {/* LEFT: LINE ITEMS */}
+                           <Card className="md:col-span-2 shadow-lg">
+                               <CardHeader className="flex flex-row justify-between items-center bg-slate-100 py-3">
+                                   <CardTitle className="text-sm uppercase text-slate-500">Scope of Work</CardTitle>
+                                   <Button size="sm" variant="outline" onClick={() => addItem(tier)}><Plus className="w-3 h-3 mr-1"/> Add Item</Button>
+                               </CardHeader>
+                               <CardContent className="p-0">
+                                   <table className="w-full text-sm">
+                                       <thead className="bg-slate-50 text-slate-500">
+                                           <tr>
+                                               <th className="text-left p-3 font-medium">Item Description</th>
+                                               <th className="text-center p-3 font-medium w-20">Qty</th>
+                                               <th className="text-center p-3 font-medium w-24">Cost</th>
+                                               <th className="text-right p-3 font-medium w-24">Total</th>
+                                               <th className="w-10"></th>
+                                           </tr>
+                                       </thead>
+                                       <tbody className="divide-y">
+                                           {tiers[tier].items.map((item, idx) => (
+                                               <tr key={idx} className="group hover:bg-slate-50">
+                                                   <td className="p-2"><Input value={item.name} onChange={e => updateItem(tier, idx, 'name', e.target.value)} className="h-8 border-transparent hover:border-slate-200 focus:border-blue-500"/></td>
+                                                   <td className="p-2"><Input type="number" value={item.qty} onChange={e => updateItem(tier, idx, 'qty', Number(e.target.value))} className="h-8 text-center border-transparent hover:border-slate-200"/></td>
+                                                   <td className="p-2"><Input type="number" value={item.cost} onChange={e => updateItem(tier, idx, 'cost', Number(e.target.value))} className="h-8 text-center border-transparent hover:border-slate-200"/></td>
+                                                   <td className="p-3 text-right font-medium">${(item.qty * item.cost).toLocaleString()}</td>
+                                                   <td className="p-2 text-center"><Trash2 className="w-4 h-4 text-slate-300 hover:text-red-500 cursor-pointer" onClick={() => removeItem(tier, idx)}/></td>
+                                               </tr>
+                                           ))}
+                                       </tbody>
+                                   </table>
+                               </CardContent>
+                           </Card>
+                           {/* RIGHT: TOTALS */}
+                           <Card className="h-fit shadow-lg bg-slate-900 text-white border-0 sticky top-6">
+                               <CardHeader><CardTitle>Financials</CardTitle></CardHeader>
+                               <CardContent className="space-y-4">
+                                   <div className="flex justify-between text-slate-400"><span>Hard Cost</span><span>${Math.round(getTotals(tier).cost).toLocaleString()}</span></div>
+                                   <div>
+                                       <div className="flex justify-between text-sm mb-1"><span>Target Margin</span><span>{tiers[tier].margin}%</span></div>
+                                       <input type="range" min="10" max="60" value={tiers[tier].margin} onChange={e => setTiers(p => ({...p, [tier]: {...p[tier], margin: Number(e.target.value)}}))} className="w-full accent-green-500"/>
+                                   </div>
+                                   <div className="flex justify-between text-green-400 font-bold border-t border-slate-700 pt-4"><span>Net Profit</span><span>${Math.round(getTotals(tier).profit).toLocaleString()}</span></div>
+                                   <div className="flex justify-between text-3xl font-black pt-2"><span>${Math.round(getTotals(tier).price).toLocaleString()}</span></div>
+                                   <Button className="w-full bg-green-600 hover:bg-green-500 mt-4" onClick={handlePublish}>Generate Proposal</Button>
+                               </CardContent>
+                           </Card>
+                       </div>
+                   </TabsContent>
+               ))}
+           </Tabs>
        </div>
     </div>
   ); 
