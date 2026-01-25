@@ -3,8 +3,9 @@ import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Briefcase, MapPin, Calendar, DollarSign, User, Phone, Mail } from 'lucide-react';
+import { Loader2, Briefcase, MapPin, Calendar, DollarSign, User, Phone, Mail, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 
 const stages = [
@@ -282,6 +283,17 @@ export default function JobBoard() {
                   </p>
                 </div>
               )}
+
+              {/* ACTION: Build Quote */}
+              <div className="pt-6 mt-6 border-t">
+                <Button 
+                  className="w-full bg-green-600 hover:bg-green-700" 
+                  onClick={() => window.location.href = `/quotebuilder?leadId=${selectedItem.id || selectedItem.lead_id}`}
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Build Quote
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

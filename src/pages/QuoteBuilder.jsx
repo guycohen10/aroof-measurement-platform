@@ -1,270 +1,177 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { createPageUrl } from "@/utils";
-import { base44 } from "@/api/base44Client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, Send, Save, Loader2 } from 'lucide-react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { format, addDays } from 'date-fns';
+import { ArrowLeft, Calculator, DollarSign, FileText, Save } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function QuoteBuilder() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const leadId = searchParams.get('leadId');
+  const navigate = useNavigate();
 
-  const [user, setUser] = useState(null);
-  const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [lead, setLead] = useState(null);
+  const [measurement, setMeasurement] = useState(null);
 
-  const [quoteNumber, setQuoteNumber] = useState('');
-  const [validUntil, setValidUntil] = useState(format(addDays(new Date(), 30), 'yyyy-MM-dd'));
-  const [items, setItems] = useState([
-    { description: '', quantity: 1, unit: 'square', unit_price: 0, total: 0, category: 'materials' }
-  ]);
+  // Pricing Inputs
+  const [pricePerSq, setPricePerSq] = useState(350); // Default market rate
+  const [waste, setWaste] = useState(10);
+  const [margin, setMargin] = useState(30);
+
+  // Calculated State
+  const [lineItems, setLineItems] = useState([]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const load = async () => {
+      if (!leadId) return;
+      try {
+        const l = await base44.entities.Lead.get(leadId);
+        setLead(l);
 
-  const loadData = async () => {
+        // Find latest measurement for this lead
+        // Note: Assuming we filter or just grab the latest if multiple exist
+        // For now, we simulate fetching the specific one linked to the lead
+        const measures = await base44.entities.RoofMeasurement.list();
+        // Client-side filter fallback if API doesn't support filter yet
+        const m = measures.find(x => x.lead_id === leadId) || null;
+
+        setMeasurement(m);
+        if (m) setWaste(m.waste_factor || 10);
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    };
+    load();
+  }, [leadId]);
+
+  // Real-time Calculation
+  const calculateTotals = () => {
+    if (!measurement) return { subtotal: 0, total: 0 };
+
+    const squares = measurement.total_squares || 0;
+    const wasteMult = 1 + (waste / 100);
+    const finalSquares = squares * wasteMult;
+
+    const cost = finalSquares * pricePerSq;
+    const sellPrice = cost / (1 - (margin / 100));
+
+    return {
+      squares: finalSquares.toFixed(2),
+      cost: Math.round(cost),
+      total: Math.round(sellPrice),
+      profit: Math.round(sellPrice - cost)
+    };
+  };
+
+  const totals = calculateTotals();
+
+  const handleSaveQuote = async () => {
+    if (!lead || !measurement) return;
+    toast.loading("Generating Quote...");
     try {
-      const currentUser = await base44.auth.me();
-      setUser(currentUser);
-
-      if (leadId) {
-        const leadData = await base44.entities.Measurement.list();
-        const foundLead = leadData.find(m => m.id === leadId);
-        setLead(foundLead);
-      }
-
-      // Generate quote number
-      const quotes = await base44.entities.Quote.list('-created_date', 1);
-      const lastNum = quotes.length > 0 ? parseInt(quotes[0].quote_number.split('-')[1]) : 0;
-      setQuoteNumber(`EST-${String(lastNum + 1).padStart(4, '0')}`);
-    } catch (err) {
-      toast.error('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateItem = (index, field, value) => {
-    const newItems = [...items];
-    newItems[index][field] = field === 'quantity' || field === 'unit_price' ? parseFloat(value) || 0 : value;
-    
-    // Auto-calculate total
-    if (field === 'quantity' || field === 'unit_price') {
-      newItems[index].total = newItems[index].quantity * newItems[index].unit_price;
-    }
-    
-    setItems(newItems);
-  };
-
-  const addItem = () => {
-    setItems([...items, { description: '', quantity: 1, unit: 'square', unit_price: 0, total: 0, category: 'materials' }]);
-  };
-
-  const removeItem = (index) => {
-    setItems(items.filter((_, i) => i !== index));
-  };
-
-  const getTotalAmount = () => {
-    return items.reduce((sum, item) => sum + (item.total || 0), 0);
-  };
-
-  const handleSaveAndSend = async () => {
-    if (!items.some(i => i.description && i.unit_price > 0)) {
-      toast.error('Add at least one line item');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const totalAmount = getTotalAmount();
-
-      // Create Quote
       const quote = await base44.entities.Quote.create({
-        company_id: user.company_id,
-        lead_id: leadId,
-        quote_number: quoteNumber,
-        status: 'sent',
-        total_amount: totalAmount,
-        customer_name: lead?.customer_name || '',
-        customer_email: lead?.customer_email || '',
-        customer_phone: lead?.customer_phone || '',
-        property_address: lead?.property_address || '',
-        valid_until: validUntil,
-        sent_date: new Date().toISOString(),
-        notes: ''
+        lead_id: lead.id,
+        measurement_id: measurement.id,
+        tier_name: "Standard",
+        total_price: totals.total,
+        material_cost: totals.cost * 0.4, // Est split
+        labor_cost: totals.cost * 0.6, // Est split
+        margin_percent: margin,
+        status: 'Draft'
       });
 
-      // Create Line Items
-      for (const item of items) {
-        if (item.description) {
-          await base44.entities.QuoteItem.create({
-            quote_id: quote.id,
-            ...item
-          });
-        }
-      }
+      // Update Lead
+      await base44.entities.Lead.update(lead.id, { status: 'Quoted', price_sold: totals.total });
 
-      toast.success('Quote created and sent!');
-      navigate(createPageUrl(`QuoteView?id=${quote.id}`));
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to save quote');
-    } finally {
-      setSaving(false);
+      toast.dismiss();
+      toast.success("Quote Created!");
+      setTimeout(() => navigate('/rooferdashboard'), 1000);
+    } catch (e) {
+      toast.error("Error saving quote");
     }
   };
 
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen"><Loader2 className="w-8 h-8 animate-spin" /></div>;
-  }
+  if (loading) return <div>Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">Create Quote</h1>
-          {lead && <p className="text-slate-600 mt-1">{lead.customer_name} • {lead.property_address}</p>}
+    <div className="min-h-screen bg-slate-50 p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
+          <h1 className="text-2xl font-bold">Quote Builder: {lead?.address}</h1>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4">
-              <label className="block text-sm font-medium text-slate-600 mb-1">Quote Number</label>
-              <input
-                type="text"
-                value={quoteNumber}
-                readOnly
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50"
-              />
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* LEFT: Measurement Summary */}
+          <Card className="md:col-span-1 h-fit">
+            <CardHeader className="bg-blue-50 border-b">
+              <CardTitle className="text-blue-900 flex items-center gap-2">
+                <FileText className="w-5 h-5" /> Roof Data
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              {measurement ? (
+                <>
+                  <div className="flex justify-between border-b pb-2"><span>Total Squares</span><span className="font-bold">{measurement.total_squares} sq</span></div>
+                  <div className="flex justify-between border-b pb-2"><span>Primary Pitch</span><span className="font-bold">{measurement.primary_pitch || 'N/A'}</span></div>
+                  <div className="flex justify-between border-b pb-2"><span>Ridges</span><span>{measurement.ridges_ft || 0} ft</span></div>
+                  <div className="flex justify-between border-b pb-2"><span>Hips</span><span>{measurement.hips_ft || 0} ft</span></div>
+                  <div className="flex justify-between border-b pb-2"><span>Valleys</span><span>{measurement.valleys_ft || 0} ft</span></div>
+                  <div className="flex justify-between border-b pb-2"><span>Eaves</span><span>{measurement.eaves_ft || 0} ft</span></div>
+                  <div className="flex justify-between"><span>Rakes</span><span>{measurement.rakes_ft || 0} ft</span></div>
+                </>
+              ) : (
+                <div className="text-red-500 text-sm">No measurement data found. Please measure roof first.</div>
+              )}
             </CardContent>
           </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <label className="block text-sm font-medium text-slate-600 mb-1">Valid Until</label>
-              <input
-                type="date"
-                value={validUntil}
-                onChange={(e) => setValidUntil(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle>Line Items</CardTitle>
-              <Button onClick={addItem} variant="outline" size="sm" className="gap-1">
-                <Plus className="w-4 h-4" /> Add Item
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b">
-                  <tr className="text-left">
-                    <th className="pb-3 text-slate-600 font-medium">Description</th>
-                    <th className="pb-3 text-slate-600 font-medium w-20">Qty</th>
-                    <th className="pb-3 text-slate-600 font-medium w-24">Unit</th>
-                    <th className="pb-3 text-slate-600 font-medium w-28">Price/Unit</th>
-                    <th className="pb-3 text-slate-600 font-medium w-32">Total</th>
-                    <th className="pb-3 text-slate-600 font-medium w-12"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {items.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50">
-                      <td className="py-3">
-                        <input
-                          type="text"
-                          value={item.description}
-                          onChange={(e) => updateItem(idx, 'description', e.target.value)}
-                          placeholder="e.g., GAF Timberline Shingles"
-                          className="w-full px-2 py-1 border border-slate-200 rounded"
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
-                          className="w-full px-2 py-1 border border-slate-200 rounded text-right"
-                        />
-                      </td>
-                      <td>
-                        <select
-                          value={item.unit}
-                          onChange={(e) => updateItem(idx, 'unit', e.target.value)}
-                          className="w-full px-2 py-1 border border-slate-200 rounded"
-                        >
-                          <option value="square">square</option>
-                          <option value="sqft">sq ft</option>
-                          <option value="each">each</option>
-                          <option value="hour">hour</option>
-                        </select>
-                      </td>
-                      <td>
-                        <div className="flex items-center">
-                          <span className="text-slate-600">$</span>
-                          <input
-                            type="number"
-                            value={item.unit_price}
-                            onChange={(e) => updateItem(idx, 'unit_price', e.target.value)}
-                            className="w-full px-2 py-1 border border-slate-200 rounded text-right"
-                          />
-                        </div>
-                      </td>
-                      <td className="text-right font-semibold">
-                        ${(item.total || 0).toFixed(2)}
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => removeItem(idx)}
-                          className="text-red-600 hover:text-red-700 p-1"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mt-6 border-t pt-4">
-              <div className="flex justify-end">
-                <div className="w-48">
-                  <div className="flex justify-between mb-2 text-slate-600">
-                    <span>Subtotal:</span>
-                    <span>${getTotalAmount().toFixed(2)}</span>
+          {/* RIGHT: Pricing Calculator */}
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Calculator className="w-5 h-5" /> Pricing Engine</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Base Cost / Sq</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-slate-400">$</span>
+                    <Input type="number" className="pl-6" value={pricePerSq} onChange={e => setPricePerSq(Number(e.target.value))} />
                   </div>
-                  <div className="flex justify-between text-lg font-bold pt-2 border-t">
-                    <span>Total:</span>
-                    <span className="text-green-600">${getTotalAmount().toFixed(2)}</span>
-                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Material + Labor</p>
+                </div>
+                <div>
+                  <Label>Waste Factor %</Label>
+                  <Input type="number" value={waste} onChange={e => setWaste(Number(e.target.value))} />
+                </div>
+                <div>
+                  <Label>Target Margin %</Label>
+                  <Input type="number" value={margin} onChange={e => setMargin(Number(e.target.value))} />
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex gap-3 justify-end">
-          <Button variant="outline" onClick={() => navigate(-1)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSaveAndSend} disabled={saving} className="bg-blue-600 hover:bg-blue-700 gap-2">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            Save & Send
-          </Button>
+              <div className="bg-slate-900 text-white p-6 rounded-xl space-y-4">
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>Est. Cost</span>
+                  <span>${totals.cost.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center text-green-400">
+                  <span>Est. Profit</span>
+                  <span>+ ${totals.profit.toLocaleString()}</span>
+                </div>
+                <div className="h-px bg-slate-700 my-2"></div>
+                <div className="flex justify-between items-center text-3xl font-bold">
+                  <span>Total Price</span>
+                  <span>${totals.total.toLocaleString()}</span>
+                </div>
+              </div>
+              <Button className="w-full h-12 text-lg bg-green-600 hover:bg-green-700" onClick={handleSaveQuote} disabled={!measurement}>
+                <Save className="w-5 h-5 mr-2" /> Save & Generate Quote
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
