@@ -95,7 +95,7 @@ export default function QuoteBuilder() {
     toast.loading("Publishing Quote..."); 
     try { 
       // Create Quote record
-      await base44.entities.Quote.create({ 
+      const newQuote = await base44.entities.Quote.create({ 
         lead_id: lead.id, 
         measurement_id: measurement?.id, // Corrected from measurement_id to id
         tier_name: activeTier, 
@@ -108,7 +108,7 @@ export default function QuoteBuilder() {
         price_sold: selected.price 
       }); 
       toast.success("Quote Sent to Customer!"); 
-      setTimeout(() => navigate('/rooferdashboard'), 1500); 
+      setTimeout(() => navigate(`/proposalview?quoteId=${newQuote.id}`), 1000); 
     } catch(e) { 
       console.error(e);
       toast.error("Error saving"); 
