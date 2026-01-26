@@ -48,21 +48,16 @@ export default function RooferMeasurement() {
                 const l = await base44.entities.Lead.get(leadId);
                 setLead(l);
             } catch(e) {
-                console.error("Lead load error", e);
-                // If lead missing, try session fallback or show error
+                console.error(e);
                 toast.error("Could not load lead data");
             }
         };
         load();
     }, [leadId]);
 
-    // 2. LOAD MAP (With Timeout Fallback)
+    // 2. LOAD MAP (No Auto-Timeout)
     useEffect(() => {
         if (!mapNode || !lead?.address) return;
-
-        const timer = setTimeout(() => {
-            if (!mapInstance) setShowKeyInput(true);
-        }, 5000); // 5 sec timeout
 
         const initMap = async () => {
             try {
@@ -117,13 +112,18 @@ export default function RooferMeasurement() {
                                     zIndex: 999, 
                                     map: map 
                                 });
-                                const edgeData = { id: Date.now()+i, type: 0, length: len, lineInstance: line };
+                                newEdges.push({ id: Date.now()+i, type: 0, length: len, lineInstance: line });
+                                
+                                // Add click listener to change edge type
+                                const edgeIdx = newEdges.length - 1;
                                 line.addListener("click", () => {
-                                    edgeData.type = (edgeData.type + 1) % 7;
-                                    line.setOptions({ strokeColor: EDGE_TYPES[edgeData.type].color });
+                                    const currentType = newEdges[edgeIdx].type;
+                                    const nextType = (currentType + 1) % 7;
+                                    newEdges[edgeIdx].type = nextType;
+                                    line.setOptions({ strokeColor: EDGE_TYPES[nextType].color });
                                 });
-                                newEdges.push(edgeData);
                             }
+                            
                             setSections(p => [...p, { id: Date.now(), area: Math.round(area), pitch: 6, edges: newEdges }]);
                             manager.setDrawingMode(null);
                         });
@@ -147,19 +147,16 @@ export default function RooferMeasurement() {
                 document.head.appendChild(script);
             } else if (window.google?.maps) {
                 initMap();
-            } else {
-                setShowKeyInput(true);
             }
         };
 
         loadScript(); 
-        return () => clearTimeout(timer);
     }, [mapNode, lead]);
 
     // 3. ACTIONS
     const startQuick = () => {
         if(!mapInstance || !markerInstance) {
-            toast.error("Map not fully loaded yet. Please wait.");
+            toast.error("Map not ready yet");
             return;
         }
         setStep('quick');
@@ -182,7 +179,7 @@ export default function RooferMeasurement() {
         
         const area = google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764;
 
-        // Save immediately
+        // Save immediately with valid payload
         saveMeasurement(Math.round(area), true);
     };
 
@@ -195,21 +192,29 @@ export default function RooferMeasurement() {
         }
 
         toast.loading("Saving...");
+        
+        // CRITICAL FIX: Ensure sections_data is never empty
+        const finalSections = isQuick 
+            ? [{ pitch: 4, area: Math.round(total) }] // Create a dummy section for Quick Estimate
+            : sections.map(s => ({ pitch: s.pitch, area: s.area }));
+
         try {
             await base44.entities.RoofMeasurement.create({
                 lead_id: lead.id,
                 total_sqft: Math.round(total),
-                status: 'Complete',
-                sections_data: { sections: isQuick ? [] : sections.map(s => ({ pitch: s.pitch, area: s.area })) }
+                measurement_status: 'Completed',
+                sections_data: { sections: finalSections }
             });
-            await base44.entities.Lead.update(lead.id, { lead_status: 'Contacted' }); // Updating status
+            await base44.entities.Lead.update(lead.id, { lead_status: 'Measured', roof_sqft: Math.round(total) });
+            toast.dismiss();
             toast.success("Measurement Saved!");
             
             // Navigate to Quote Builder (Next Step in Flow)
-            setTimeout(() => navigate(`/quotebuilder?leadId=${lead.id}`), 1000);
+            setTimeout(() => navigate(`/quotebuilder?leadId=${lead.id}`), 500);
         } catch(e) { 
             console.error(e);
-            toast.error("Save Failed"); 
+            toast.dismiss();
+            toast.error("Save Failed - Check Console"); 
         }
     };
 
@@ -247,7 +252,9 @@ export default function RooferMeasurement() {
             <div className="absolute top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm shadow-sm h-16 flex items-center px-4 justify-between">
                 <Button variant="ghost" onClick={() => navigate('/rooferdashboard')}><ArrowLeft className="w-4 h-4 mr-2"/> Exit</Button>
                 <div className="font-bold text-slate-800">{lead?.address || 'Loading Address...'}</div>
-                <div className="w-20"></div>
+                <Button variant="ghost" size="icon" onClick={() => setShowKeyInput(true)} title="Fix Map Key">
+                    <Key className="w-4 h-4 text-slate-400"/>
+                </Button>
             </div>
 
             {/* MAP CONTAINER */}
