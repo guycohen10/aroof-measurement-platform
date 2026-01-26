@@ -56,7 +56,6 @@ import MetalShingles from './pages/MetalShingles';
 import MetalStandingSeam from './pages/MetalStandingSeam';
 import MyProfile from './pages/MyProfile';
 import NaturalSlate from './pages/NaturalSlate';
-import NewLeadForm from './pages/NewLeadForm';
 import PDFDownload from './pages/PDFDownload';
 import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
@@ -86,7 +85,6 @@ import SelectReportType from './pages/SelectReportType';
 import Services from './pages/Services';
 import Siding from './pages/Siding';
 import SolarTiles from './pages/SolarTiles';
-import Start from './pages/Start';
 import StartFunnel from './pages/StartFunnel';
 import StormDamage from './pages/StormDamage';
 import StormTracking from './pages/StormTracking';
@@ -102,6 +100,8 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
+import Start from './pages/Start';
+import NewLeadForm from './pages/NewLeadForm';
 import __Layout from './Layout.jsx';
 
 
@@ -164,7 +164,6 @@ export const PAGES = {
     "MetalStandingSeam": MetalStandingSeam,
     "MyProfile": MyProfile,
     "NaturalSlate": NaturalSlate,
-    "NewLeadForm": NewLeadForm,
     "PDFDownload": PDFDownload,
     "Payment": Payment,
     "PaymentSuccess": PaymentSuccess,
@@ -194,7 +193,6 @@ export const PAGES = {
     "Services": Services,
     "Siding": Siding,
     "SolarTiles": SolarTiles,
-    "Start": Start,
     "StartFunnel": StartFunnel,
     "StormDamage": StormDamage,
     "StormTracking": StormTracking,
@@ -210,6 +208,8 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "WalletHistory": WalletHistory,
     "Windows": Windows,
+    "Start": Start,
+    "NewLeadForm": NewLeadForm,
 }
 
 export const pagesConfig = {
