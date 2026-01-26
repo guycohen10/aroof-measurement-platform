@@ -4,7 +4,6 @@ import { ArrowRight, Home, ShieldCheck, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { toast } from 'sonner';
 
 export default function Start() { 
   const navigate = useNavigate(); 
@@ -12,37 +11,38 @@ export default function Start() {
   const [loading, setLoading] = useState(false); 
   const inputRef = useRef(null);
 
-  // ROBUST MAP LOADER (Matches Roofer Side Fix) 
+  // ROBUST KEY LOADER 
   useEffect(() => { 
-    const initMap = () => { 
-      if (!window.google?.maps?.places) return; 
-      const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, { types: ['address'], componentRestrictions: { country: 'us' } }); 
-      autocomplete.addListener('place_changed', () => { 
-        const place = autocomplete.getPlace(); 
-        if (place.formatted_address) { 
-          setAddress(place.formatted_address); 
-          // Optional: Auto-navigate on selection 
-          // navigate('/newleadform?address=' + encodeURIComponent(place.formatted_address)); 
-        } 
-      }); 
+    const loadScript = () => { 
+      // 1. Try Environment 
+      let key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY; 
+      // 2. Try Local Storage (The Admin Key) 
+      if (!key || key.includes('your_key')) key = localStorage.getItem('user_provided_maps_key');
+
+      if (!key) { console.error("No API Key found"); return; }
+      if (window.google?.maps) { initAutocomplete(); return; }
+      
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+      script.async = true;
+      script.onload = initAutocomplete;
+      document.head.appendChild(script);
     };
 
-    const loadScript = () => {
-        // Try Env Var -> Then LocalStorage -> Then Fail
-        let key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-        if (!key || key.includes('your_key')) key = localStorage.getItem('user_provided_maps_key');
-        
-        if (!key) {
-            console.error("No API Key found for Client Page");
-            return;
-        }
-        if (window.google?.maps) { initMap(); return; }
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
-        script.async = true;
-        script.onload = initMap;
-        document.head.appendChild(script);
+    const initAutocomplete = () => {
+      if (!inputRef.current || !window.google?.maps?.places) return;
+      const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+          types: ['address'],
+          componentRestrictions: { country: 'us' }
+      });
+      autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (place.formatted_address) {
+              setAddress(place.formatted_address);
+          }
+      });
     };
+    
     loadScript();
   }, []);
 
@@ -50,13 +50,14 @@ export default function Start() {
     e.preventDefault(); 
     if (!address) return; 
     setLoading(true); 
-    // Save to Session for the next step 
+    // Save to session to ensure data passes to next step 
     sessionStorage.setItem('client_address', address); 
-    setTimeout(() => navigate(`/newleadform?address=${encodeURIComponent(address)}`), 500); 
+    // Use timeout to allow UI update 
+    setTimeout(() => navigate(`/newleadform?address=${encodeURIComponent(address)}`), 300); 
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-blue-50/30 flex flex-col font-sans">
       {/* HERO */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 text-center py-20 relative overflow-hidden">
         <div className="max-w-4xl mx-auto z-10 space-y-8">
@@ -91,26 +92,12 @@ export default function Start() {
           </Card>
           {/* TRUST SIGNALS */}
           <div className="flex flex-wrap justify-center gap-8 pt-8 opacity-80">
-            <div className="flex items-center gap-2 text-slate-600 font-medium">
-              <Home className="w-5 h-5 text-blue-500"/> 5,000+ Homes Visualized
-            </div>
-            <div className="flex items-center gap-2 text-slate-600 font-medium">
-              <Star className="w-5 h-5 text-yellow-500 fill-yellow-500"/> 4.9★ Rating
-            </div>
-            <div className="flex items-center gap-2 text-slate-600 font-medium">
-              <ShieldCheck className="w-5 h-5 text-green-500"/> Licensed & Insured
-            </div>
+            <div className="flex items-center gap-2 text-slate-600 font-medium"><Home className="w-5 h-5 text-blue-500"/> 5,000+ Homes Visualized</div>
+            <div className="flex items-center gap-2 text-slate-600 font-medium"><Star className="w-5 h-5 text-yellow-500 fill-yellow-500"/> 4.9★ Rating</div>
+            <div className="flex items-center gap-2 text-slate-600 font-medium"><ShieldCheck className="w-5 h-5 text-green-500"/> Licensed & Insured</div>
           </div>
         </div>
       </main>
-      {/* FOOTER TEASER */}
-      <div className="bg-white py-12 border-t border-slate-100">
-          <div className="max-w-4xl mx-auto px-6 grid md:grid-cols-3 gap-8 text-center">
-              <div><div className="text-4xl mb-2">⚡</div><h3 className="font-bold">60-Second Process</h3></div>
-              <div><div className="text-4xl mb-2">💯</div><h3 className="font-bold">100% Free & Private</h3></div>
-              <div><div className="text-4xl mb-2">🤝</div><h3 className="font-bold">Connect with Top Roofers</h3></div>
-          </div>
-      </div>
     </div>
   ); 
 }
