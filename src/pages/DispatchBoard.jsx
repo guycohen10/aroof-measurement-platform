@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { DndContext, DragOverlay, useDroppable, closestCorners } from '@hello-pangea/dnd';
+import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import { addDays, startOfWeek, format, isSameDay, parseISO } from 'date-fns';
 import { ChevronLeft, ChevronRight, Truck, LayoutGrid, Calendar as CalIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 
@@ -14,27 +14,38 @@ import JobBriefModal from '@/components/dispatch/JobBriefModal';
 // --- Internal Droppable Cell Component ---
 function CalendarCell({ date, crewId, children }) {
     const dateStr = format(date, 'yyyy-MM-dd');
-    const { setNodeRef, isOver } = useDroppable({
-        id: `${crewId}::${dateStr}`,
-        data: { crewId, date: dateStr }
-    });
-
+    const droppableId = `${crewId}::${dateStr}`;
+    
     return (
-        <div 
-            ref={setNodeRef} 
-            className={`h-32 border-r border-b p-1 transition-colors ${isOver ? 'bg-blue-100' : ''}`}
-        >
-            {children}
-        </div>
+        <Droppable droppableId={droppableId}>
+            {(provided, snapshot) => (
+                <div 
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`h-32 border-r border-b p-1 transition-colors overflow-y-auto ${snapshot.isDraggingOver ? 'bg-blue-100' : ''}`}
+                >
+                    {children}
+                    {provided.placeholder}
+                </div>
+            )}
+        </Droppable>
     );
 }
 
 function SidebarDroppable({ children }) {
-    const { setNodeRef, isOver } = useDroppable({ id: 'pool' });
     return (
-        <div ref={setNodeRef} className={`flex-1 p-4 ${isOver ? 'bg-slate-100' : ''}`}>
-            {children}
-        </div>
+        <Droppable droppableId="pool">
+            {(provided, snapshot) => (
+                <div 
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`flex-1 p-4 min-h-[200px] ${snapshot.isDraggingOver ? 'bg-slate-100' : ''}`}
+                >
+                    {children}
+                    {provided.placeholder}
+                </div>
+            )}
+        </Droppable>
     );
 }
 
@@ -45,7 +56,6 @@ export default function DispatchBoard() {
   const [crews, setCrews] = useState([]);
   const [unassignedJobs, setUnassignedJobs] = useState([]);
   const [dispatches, setDispatches] = useState([]);
-  const [activeJob, setActiveJob] = useState(null); // For Drag Overlay
   const [selectedJob, setSelectedJob] = useState(null); // For Modal
   const [loading, setLoading] = useState(true);
 
@@ -60,10 +70,9 @@ export default function DispatchBoard() {
         const [crewsData, jobsData, dispatchesData] = await Promise.all([
             base44.entities.Crew.list(),
             base44.entities.Job.filter({ stage: 'Sold' }),
-            base44.entities.Dispatch.list() // Ideally filter by date range, but fetching all for now for simplicity
+            base44.entities.Dispatch.list() 
         ]);
         
-        // Active Crews Only
         setCrews(crewsData.filter(c => c.status === 'Active'));
 
         // Identify dispatched Job IDs
@@ -73,7 +82,6 @@ export default function DispatchBoard() {
         setUnassignedJobs(jobsData.filter(j => !dispatchedJobIds.has(j.id)));
 
         // Enrich dispatches with Job Data
-        // We need to fetch the job details for each dispatch
         const fullDispatches = await Promise.all(dispatchesData.map(async (d) => {
              const job = jobsData.find(j => j.id === d.job_id) || await base44.entities.Job.get(d.job_id).catch(() => null);
              return { ...d, job };
@@ -95,99 +103,133 @@ export default function DispatchBoard() {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentDate, i));
 
   // Drag Handlers
-  const handleDragStart = (event) => {
-    setActiveJob(event.active.data.current.job);
-  };
+  const onDragEnd = async (result) => {
+    const { source, destination, draggableId } = result;
 
-  const handleDragEnd = async (event) => {
-    const { active, over } = event;
-    setActiveJob(null);
+    // Dropped outside
+    if (!destination) return;
 
-    if (!over) return;
+    // Dropped in same place
+    if (source.droppableId === destination.droppableId) return;
 
-    const jobId = active.id;
-    const sourcePool = !active.data.current.dispatchId; // If from sidebar
-    
-    // Dropped on Calendar Cell
-    if (over.id.includes('::')) {
-        const [crewId, dateStr] = over.id.split('::');
-        
-        // Calculate new times
+    // Logic
+    const jobId = draggableId;
+    const isSourcePool = source.droppableId === 'pool';
+    const isDestPool = destination.droppableId === 'pool';
+
+    // 1. Pool -> Calendar (Schedule)
+    if (isSourcePool && !isDestPool) {
+        const [crewId, dateStr] = destination.droppableId.split('::');
         const start = `${dateStr}T08:00:00`;
         const end = `${dateStr}T17:00:00`;
 
         toast.loading("Scheduling...");
-
         try {
-            if (sourcePool) {
-                // CREATE DISPATCH
-                const newDispatch = await base44.entities.Dispatch.create({
-                    job_id: jobId,
-                    crew_id: crewId,
-                    scheduled_start: start,
-                    scheduled_end: end,
-                    status: 'Scheduled',
-                    company_id: 'default' // Should be handled by backend usually
-                });
-                
-                // UPDATE JOB STAGE
-                await base44.entities.Job.update(jobId, { 
-                    stage: 'Scheduled',
-                    start_date: start,
-                    end_date: end
-                });
+            // Optimistic UI Update
+            const jobToMove = unassignedJobs.find(j => j.id === jobId);
+            
+            // Create Dispatch
+            const newDispatch = await base44.entities.Dispatch.create({
+                job_id: jobId,
+                crew_id: crewId,
+                scheduled_start: start,
+                scheduled_end: end,
+                status: 'Scheduled',
+                company_id: 'default'
+            });
 
-                // Update Local State
-                const job = unassignedJobs.find(j => j.id === jobId);
-                setUnassignedJobs(prev => prev.filter(j => j.id !== jobId));
-                setDispatches(prev => [...prev, { ...newDispatch, job: { ...job, stage: 'Scheduled' } }]);
-                toast.dismiss();
-                toast.success("Job Dispatched");
+            // Update Job
+            await base44.entities.Job.update(jobId, { 
+                stage: 'Scheduled',
+                start_date: start,
+                end_date: end
+            });
 
-            } else {
-                // MOVE EXISTING DISPATCH
-                const dispatchId = active.data.current.dispatchId;
-                await base44.entities.Dispatch.update(dispatchId, {
-                    crew_id: crewId,
-                    scheduled_start: start,
-                    scheduled_end: end
-                });
-                 // Update Job Dates too
-                 await base44.entities.Job.update(jobId, { start_date: start, end_date: end });
-
-                // Update Local State
-                setDispatches(prev => prev.map(d => 
-                    d.id === dispatchId ? { ...d, crew_id: crewId, scheduled_start: start, scheduled_end: end } : d
-                ));
-                toast.dismiss();
-                toast.success("Rescheduled");
-            }
-        } catch (e) {
+            // Update State
+            setUnassignedJobs(prev => prev.filter(j => j.id !== jobId));
+            setDispatches(prev => [...prev, { ...newDispatch, job: { ...jobToMove, stage: 'Scheduled' } }]);
+            toast.dismiss();
+            toast.success("Job Scheduled");
+        } catch(e) {
             console.error(e);
             toast.error("Failed to schedule");
+            loadData(); // Revert on error
         }
+    }
+
+    // 2. Calendar -> Calendar (Reschedule)
+    else if (!isSourcePool && !isDestPool) {
+        const [crewId, dateStr] = destination.droppableId.split('::');
+        const start = `${dateStr}T08:00:00`;
+        const end = `${dateStr}T17:00:00`;
+        
+        // Find existing dispatch
+        const dispatch = dispatches.find(d => d.job.id === jobId);
+        if(!dispatch) return;
+
+        toast.loading("Rescheduling...");
+        try {
+             // Update Dispatch
+             await base44.entities.Dispatch.update(dispatch.id, {
+                crew_id: crewId,
+                scheduled_start: start,
+                scheduled_end: end
+            });
+            // Update Job
+            await base44.entities.Job.update(jobId, { start_date: start, end_date: end });
+
+            // Update State
+            setDispatches(prev => prev.map(d => 
+                d.id === dispatch.id ? { ...d, crew_id: crewId, scheduled_start: start, scheduled_end: end } : d
+            ));
+            toast.dismiss();
+            toast.success("Rescheduled");
+        } catch(e) {
+            console.error(e);
+            toast.error("Failed to move");
+        }
+    }
+
+    // 3. Calendar -> Pool (Unschedule)
+    else if (!isSourcePool && isDestPool) {
+         const dispatch = dispatches.find(d => d.job.id === jobId);
+         if(!dispatch) return;
+
+         toast.loading("Unscheduling...");
+         try {
+             await base44.entities.Dispatch.delete(dispatch.id);
+             await base44.entities.Job.update(jobId, { stage: 'Sold', start_date: null, end_date: null });
+
+             setDispatches(prev => prev.filter(d => d.id !== dispatch.id));
+             setUnassignedJobs(prev => [...prev, { ...dispatch.job, stage: 'Sold' }]);
+             toast.dismiss();
+             toast.success("Job returned to pool");
+         } catch(e) {
+             console.error(e);
+             toast.error("Failed to unschedule");
+         }
     }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white">
-        {/* HEADER */}
-        <div className="h-16 border-b flex items-center justify-between px-6 bg-slate-50">
-            <div className="flex items-center gap-4">
-                <Truck className="w-6 h-6 text-blue-600" />
-                <h1 className="text-xl font-bold text-slate-800">Dispatch Command Center</h1>
-            </div>
-            <div className="flex items-center gap-4 bg-white p-1 rounded-lg border shadow-sm">
-                <Button variant="ghost" size="icon" onClick={prevWeek}><ChevronLeft className="w-4 h-4" /></Button>
-                <div className="flex items-center gap-2 px-2 font-medium w-40 justify-center">
-                    <CalIcon className="w-4 h-4 text-slate-500" />
-                    {format(currentDate, 'MMM d')} - {format(addDays(currentDate, 6), 'MMM d')}
+    <DragDropContext onDragEnd={onDragEnd}>
+        <div className="flex flex-col h-screen bg-white">
+            {/* HEADER */}
+            <div className="h-16 border-b flex items-center justify-between px-6 bg-slate-50">
+                <div className="flex items-center gap-4">
+                    <Truck className="w-6 h-6 text-blue-600" />
+                    <h1 className="text-xl font-bold text-slate-800">Dispatch Command Center</h1>
                 </div>
-                <Button variant="ghost" size="icon" onClick={nextWeek}><ChevronRight className="w-4 h-4" /></Button>
+                <div className="flex items-center gap-4 bg-white p-1 rounded-lg border shadow-sm">
+                    <Button variant="ghost" size="icon" onClick={prevWeek}><ChevronLeft className="w-4 h-4" /></Button>
+                    <div className="flex items-center gap-2 px-2 font-medium w-40 justify-center">
+                        <CalIcon className="w-4 h-4 text-slate-500" />
+                        {format(currentDate, 'MMM d')} - {format(addDays(currentDate, 6), 'MMM d')}
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={nextWeek}><ChevronRight className="w-4 h-4" /></Button>
+                </div>
             </div>
-        </div>
 
-        <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
             <div className="flex flex-1 overflow-hidden">
                 {/* SIDEBAR: POOL */}
                 <div className="w-80 border-r flex flex-col bg-slate-50">
@@ -199,8 +241,8 @@ export default function DispatchBoard() {
                     </div>
                     <ScrollArea className="flex-1">
                         <SidebarDroppable>
-                            {unassignedJobs.map(job => (
-                                <JobCard key={job.id} job={job} onClick={setSelectedJob} />
+                            {unassignedJobs.map((job, index) => (
+                                <JobCard key={job.id} job={job} index={index} onClick={setSelectedJob} />
                             ))}
                             {unassignedJobs.length === 0 && (
                                 <div className="text-center text-slate-400 text-sm mt-10">No unassigned jobs</div>
@@ -227,12 +269,8 @@ export default function DispatchBoard() {
                     <ScrollArea className="flex-1 min-w-[1000px]">
                         {crews.map(crew => (
                             <div key={crew.id} className="flex border-b min-h-[8rem]">
-                                {/* Crew Header (Sticky-ish via logic or just layout) */}
-                                <div className="w-0" /> {/* Hack for grid alignment if needed, but we use grid below */}
-                                
                                 <div className="grid grid-cols-7 flex-1">
                                     {weekDays.map(day => {
-                                        // Find jobs for this cell
                                         const cellJobs = dispatches.filter(d => 
                                             d.crew_id === crew.id && 
                                             isSameDay(parseISO(d.scheduled_start), day)
@@ -240,14 +278,11 @@ export default function DispatchBoard() {
 
                                         return (
                                             <CalendarCell key={day.toISOString()} date={day} crewId={crew.id}>
-                                                {/* Mobile/Crew Label Overlay on first cell or separate sidebar? 
-                                                    Let's put crew name in background or separate column. 
-                                                    Actually, user asked for Crew Lanes. Let's add a left column for names.
-                                                */}
-                                                {cellJobs.map(d => (
+                                                {cellJobs.map((d, index) => (
                                                     <JobCard 
                                                         key={d.job.id} 
-                                                        job={{...d.job, dispatchId: d.id}} // Attach dispatch ID for identifying move
+                                                        job={{...d.job, dispatchId: d.id}} 
+                                                        index={index}
                                                         onClick={setSelectedJob}
                                                         isCompact
                                                     />
@@ -262,14 +297,9 @@ export default function DispatchBoard() {
                              <div className="text-center p-10 text-slate-500">No active crews found. Add crews in settings.</div>
                         )}
                     </ScrollArea>
-                    
-                    {/* Fixed Crew Column overlay for visual clarity if needed, or just let them scroll together. 
-                        Better approach: Use a Grid with fixed first col.
-                        Re-implementing layout slightly to show Crew Names on left.
-                    */}
                 </div>
                  {/* Crew Names Sidebar (Left of Calendar) */}
-                 <div className="w-48 border-r bg-white flex flex-col pt-[calc(3.5rem+1px)] border-l"> {/* Offset for header height */}
+                 <div className="w-48 border-r bg-white flex flex-col pt-[calc(3.5rem+1px)] border-l shadow-lg z-10"> 
                      <div className="h-[4.5rem] border-b bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-xs uppercase tracking-wider">
                          Crews
                      </div>
@@ -287,20 +317,12 @@ export default function DispatchBoard() {
                  </div>
             </div>
 
-            <DragOverlay>
-                {activeJob ? (
-                    <div className="w-64 opacity-90 rotate-3">
-                        <JobCard job={activeJob} onClick={()=>{}} />
-                    </div>
-                ) : null}
-            </DragOverlay>
-        </DndContext>
-
-        <JobBriefModal 
-            job={selectedJob} 
-            isOpen={!!selectedJob} 
-            onClose={() => setSelectedJob(null)} 
-        />
-    </div>
+            <JobBriefModal 
+                job={selectedJob} 
+                isOpen={!!selectedJob} 
+                onClose={() => setSelectedJob(null)} 
+            />
+        </div>
+    </DragDropContext>
   );
 }
