@@ -1,119 +1,300 @@
-import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
-import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle2, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, User, Phone, Mail, MapPin, Tag, FileText } from 'lucide-react';
 
-export default function NewLeadForm() { 
-    const navigate = useNavigate(); 
-    const [searchParams] = useSearchParams();
+export default function NewLeadForm() {
+  const navigate = useNavigate();
+  const addressInputRef = useRef(null);
+  const autocompleteRef = useRef(null);
+  
+  const [formData, setFormData] = useState({
+    customerName: '',
+    email: '',
+    phone: '',
+    propertyAddress: '',
+    leadSource: 'phone_call',
+    notes: ''
+  });
+  const [saving, setSaving] = useState(false);
+  
+  const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-    // Load from URL or Session 
-    const [form, setForm] = useState({ 
-        name: '', 
-        email: '', 
-        phone: '', 
-        address: searchParams.get('address') || sessionStorage.getItem('client_address') || '' 
-    });
+  const leadSources = [
+    { value: 'purchased_lead', label: 'Purchased Lead' },
+    { value: 'phone_call', label: 'Phone Call' },
+    { value: 'door_knock', label: 'Door Knock / Canvassing' },
+    { value: 'website', label: 'Website Form' },
+    { value: 'referral', label: 'Referral' },
+    { value: 'storm_chasing', label: 'Storm Chasing' },
+    { value: 'social_media', label: 'Social Media' },
+    { value: 'other', label: 'Other' }
+  ];
 
-    const handleSubmit = async () => { 
-        if(!form.name || !form.phone) { 
-            toast.error("Name and Phone are required"); 
-            return; 
-        } 
-        toast.loading("Creating your profile...");
+  // Load Google Places API
+  useEffect(() => {
+    const loadGooglePlaces = () => {
+      // Check if already loaded
+      if (window.google?.maps?.places) {
+        initAutocomplete();
+        return;
+      }
 
-        try {
-            // Create the Lead in the DB immediately
-            const newLead = await base44.entities.Lead.create({
-                customer_name: form.name,
-                email_address: form.email,
-                phone_number: form.phone,
-                property_address: form.address,
-                status: 'New',
-                lead_source: 'Website'
-            });
-            
-            // Save to Session for the tool to pick up
-            sessionStorage.setItem('active_lead_id', newLead.id);
-            sessionStorage.setItem('lead_address', form.address);
-            
-            toast.dismiss();
-            // Redirect to Measurement Tool with the REAL ID
-            navigate(`/roofermeasurement?leadId=${newLead.id}`);
-        } catch(e) {
-            console.error(e);
-            toast.error("Error creating lead. Please try again.");
-        }
+      // Check if script exists
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        const checkInterval = setInterval(() => {
+          if (window.google?.maps?.places) {
+            clearInterval(checkInterval);
+            initAutocomplete();
+          }
+        }, 100);
+        setTimeout(() => clearInterval(checkInterval), 5000);
+        return;
+      }
+
+      // Load script
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,drawing,geometry,marker&v=weekly`;
+      script.async = true;
+      script.onload = initAutocomplete;
+      document.head.appendChild(script);
     };
 
-    return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-            <Card className="w-full max-w-md shadow-xl border-t-4 border-green-600">
-                <CardHeader className="text-center pb-2">
-                    <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4 shadow-sm">
-                        <CheckCircle2 className="w-6 h-6 text-green-600" />
-                    </div>
-                    <CardTitle className="text-2xl">Address Found!</CardTitle>
-                    <p className="text-slate-500">Please confirm your details to view the estimate.</p>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="name">Full Name</Label>
-                        <Input 
-                            id="name"
-                            placeholder="John Doe"
-                            value={form.name} 
-                            onChange={e => setForm({...form, name: e.target.value})}
-                        />
-                    </div>
-                    
-                    <div className="space-y-2">
-                        <Label htmlFor="phone">Phone Number</Label>
-                        <Input 
-                            id="phone"
-                            placeholder="(555) 123-4567"
-                            value={form.phone} 
-                            onChange={e => setForm({...form, phone: e.target.value})}
-                        />
-                    </div>
+    loadGooglePlaces();
+  }, []);
 
-                    <div className="space-y-2">
-                        <Label htmlFor="email">Email Address</Label>
-                        <Input 
-                            id="email"
-                            type="email"
-                            placeholder="john@example.com"
-                            value={form.email} 
-                            onChange={e => setForm({...form, email: e.target.value})}
-                        />
-                    </div>
+  const initAutocomplete = () => {
+    if (!addressInputRef.current || !window.google?.maps?.places) return;
 
-                    <div className="space-y-2">
-                        <Label>Property Address</Label>
-                        <div className="relative">
-                            <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-                            <Input 
-                                value={form.address} 
-                                disabled 
-                                className="bg-slate-100 pl-9 text-slate-600"
-                            />
-                        </div>
-                    </div>
+    autocompleteRef.current = new window.google.maps.places.Autocomplete(
+      addressInputRef.current,
+      {
+        types: ['address'],
+        componentRestrictions: { country: 'us' },
+        fields: ['formatted_address', 'geometry']
+      }
+    );
 
-                    <Button className="w-full h-12 text-lg bg-green-600 hover:bg-green-700 mt-4 shadow-md transition-all hover:scale-[1.02]" onClick={handleSubmit}>
-                        See My Roof Estimate
-                    </Button>
-                    
-                    <Button variant="ghost" size="sm" className="w-full text-slate-400 hover:text-slate-600" onClick={() => navigate(-1)}>
-                        <ArrowLeft className="w-4 h-4 mr-1" /> Back
-                    </Button>
-                </CardContent>
-            </Card>
-        </div>
-    ); 
+    autocompleteRef.current.addListener('place_changed', () => {
+      const place = autocompleteRef.current.getPlace();
+      
+      if (place.geometry) {
+        setFormData(prev => ({
+          ...prev,
+          propertyAddress: place.formatted_address
+        }));
+        console.log('✅ Address selected:', place.formatted_address);
+      }
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!formData.customerName || !formData.phone || !formData.propertyAddress) {
+      alert('Please fill in customer name, phone, and property address');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const user = await base44.auth.me();
+
+      const lead = await base44.entities.Measurement.create({
+        customer_name: formData.customerName,
+        customer_email: formData.email,
+        customer_phone: formData.phone,
+        property_address: formData.propertyAddress,
+        roofer_notes: `Lead Source: ${formData.leadSource}\n${formData.notes}`,
+        user_id: user.id,
+        company_id: user.company_id,
+        lead_status: 'new',
+        user_type: 'roofer',
+        measurement_type: 'detailed_polygon'
+      });
+
+      sessionStorage.setItem('active_lead_id', lead.id);
+      sessionStorage.setItem('lead_address', formData.propertyAddress);
+      
+      // COMPREHENSIVE DEBUG LOGGING
+      console.log('📦 SESSION STORAGE SAVED:');
+      console.log('  active_lead_id:', sessionStorage.getItem('active_lead_id'));
+      console.log('  lead_address:', sessionStorage.getItem('lead_address'));
+      console.log('  All session storage:', JSON.stringify({
+        active_lead_id: sessionStorage.getItem('active_lead_id'),
+        lead_address: sessionStorage.getItem('lead_address'),
+        pending_measurement_id: sessionStorage.getItem('pending_measurement_id')
+      }, null, 2));
+      
+      // Test if it persists
+      setTimeout(() => {
+        console.log('📦 SESSION STORAGE CHECK (after 1 second):');
+        console.log('  active_lead_id:', sessionStorage.getItem('active_lead_id'));
+        console.log('  Still there?', sessionStorage.getItem('active_lead_id') === lead.id ? '✅ YES' : '❌ NO');
+      }, 1000);
+      
+      console.log('🔵 NewLeadForm: Lead created with ID:', lead.id);
+      console.log('🔵 NewLeadForm: Navigating to:', `RooferMeasurement?leadId=${lead.id}`);
+      
+      navigate(createPageUrl(`RooferMeasurement?leadId=${lead.id}`));
+
+    } catch (err) {
+      console.error('Failed to create lead:', err);
+      alert('Failed to create lead: ' + err.message);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white py-8">
+      <div className="max-w-2xl mx-auto px-4">
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate(createPageUrl('RooferDashboard'))}
+          className="mb-4"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Dashboard
+        </Button>
+
+        <Card className="shadow-xl">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-white border-b">
+            <CardTitle className="text-2xl">New Lead Information</CardTitle>
+            <p className="text-slate-600 text-sm">
+              Enter customer details to create a lead and measure their roof
+            </p>
+          </CardHeader>
+          <CardContent className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <Label className="flex items-center gap-2 mb-2">
+                  <User className="w-4 h-4 text-blue-600" />
+                  Customer Name *
+                </Label>
+                <Input
+                  value={formData.customerName}
+                  onChange={(e) => setFormData({...formData, customerName: e.target.value})}
+                  placeholder="John Smith"
+                  required
+                  className="h-11"
+                />
+              </div>
+
+              <div>
+                <Label className="flex items-center gap-2 mb-2">
+                  <Phone className="w-4 h-4 text-blue-600" />
+                  Phone Number *
+                </Label>
+                <Input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  placeholder="(214) 555-0123"
+                  required
+                  className="h-11"
+                />
+              </div>
+
+              <div>
+                <Label className="flex items-center gap-2 mb-2">
+                  <Mail className="w-4 h-4 text-blue-600" />
+                  Email Address
+                </Label>
+                <Input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  placeholder="john@example.com"
+                  className="h-11"
+                />
+                <p className="text-xs text-slate-500 mt-1">Optional - but needed to email reports</p>
+              </div>
+
+              <div>
+                <Label className="flex items-center gap-2 mb-2">
+                  <MapPin className="w-4 h-4 text-blue-600" />
+                  Property Address *
+                </Label>
+                <Input
+                  ref={addressInputRef}
+                  value={formData.propertyAddress}
+                  onChange={(e) => setFormData({...formData, propertyAddress: e.target.value})}
+                  placeholder="Start typing address..."
+                  required
+                  className="h-11"
+                  autoComplete="off"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Start typing and select from suggestions
+                </p>
+              </div>
+
+              <div>
+                <Label className="flex items-center gap-2 mb-2">
+                  <Tag className="w-4 h-4 text-blue-600" />
+                  Lead Source
+                </Label>
+                <Select
+                  value={formData.leadSource}
+                  onValueChange={(value) => setFormData({...formData, leadSource: value})}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leadSources.map(source => (
+                      <SelectItem key={source.value} value={source.value}>
+                        {source.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="flex items-center gap-2 mb-2">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  Notes (Optional)
+                </Label>
+                <textarea
+                  className="w-full border rounded-lg p-3 min-h-[100px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                  placeholder="Any additional notes about this lead..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  type="submit" 
+                  size="lg" 
+                  className="flex-1 h-14 text-lg bg-blue-600 hover:bg-blue-700"
+                  disabled={saving}
+                >
+                  {saving ? 'Creating Lead...' : 'Continue to Measurement →'}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="lg"
+                  onClick={() => navigate(createPageUrl('RooferDashboard'))}
+                  disabled={saving}
+                  className="h-14"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 }
