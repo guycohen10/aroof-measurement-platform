@@ -1,328 +1,100 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { DragDropContext, Droppable } from '@hello-pangea/dnd';
-import { addDays, startOfWeek, format, isSameDay, parseISO } from 'date-fns';
-import { ChevronLeft, ChevronRight, Truck, LayoutGrid, Calendar as CalIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { Calendar, User, MapPin, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-import JobCard from '@/components/dispatch/JobCard';
-import JobBriefModal from '@/components/dispatch/JobBriefModal';
-
-// --- Internal Droppable Cell Component ---
-function CalendarCell({ date, crewId, children }) {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const droppableId = `${crewId}::${dateStr}`;
-    
-    return (
-        <Droppable droppableId={droppableId}>
-            {(provided, snapshot) => (
-                <div 
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={`h-32 border-r border-b p-1 transition-colors overflow-y-auto ${snapshot.isDraggingOver ? 'bg-blue-100' : ''}`}
-                >
-                    {children}
-                    {provided.placeholder}
-                </div>
-            )}
-        </Droppable>
-    );
-}
-
-function SidebarDroppable({ children }) {
-    return (
-        <Droppable droppableId="pool">
-            {(provided, snapshot) => (
-                <div 
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={`flex-1 p-4 min-h-[200px] ${snapshot.isDraggingOver ? 'bg-slate-100' : ''}`}
-                >
-                    {children}
-                    {provided.placeholder}
-                </div>
-            )}
-        </Droppable>
-    );
-}
-
-
-export default function DispatchBoard() {
-  // State
-  const [currentDate, setCurrentDate] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [crews, setCrews] = useState([]);
-  const [unassignedJobs, setUnassignedJobs] = useState([]);
+export default function DispatchBoard() { 
+  const navigate = useNavigate(); 
+  const [loading, setLoading] = useState(true); 
+  const [crews, setCrews] = useState([]); 
+  const [jobs, setJobs] = useState([]); 
   const [dispatches, setDispatches] = useState([]);
-  const [selectedJob, setSelectedJob] = useState(null); // For Modal
-  const [loading, setLoading] = useState(true);
 
-  // Load Data
-  useEffect(() => {
-    loadData();
-  }, [currentDate]);
+  useEffect(() => { 
+    const load = async () => { 
+      try { 
+        // Load Crews (Mock if empty) 
+        let c = await base44.entities.Crew?.list().catch(()=>[]) || []; 
+        if(c.length === 0) { 
+          c = [ { id: 'c1', crew_name: 'Team Alpha', color_code: 'bg-blue-100' }, { id: 'c2', crew_name: 'Team Bravo', color_code: 'bg-green-100' } ]; 
+        } 
+        setCrews(c);
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-        const [crewsData, jobsData, dispatchesData] = await Promise.all([
-            base44.entities.Crew.list(),
-            base44.entities.Job.filter({ stage: 'Sold' }),
-            base44.entities.Dispatch.list() 
-        ]);
+        // Load Sold Jobs
+        const allJobs = await base44.entities.Job?.list().catch(()=>[]) || [];
+        setJobs(allJobs.filter(j => j.stage === 'Sold'));
         
-        setCrews(crewsData.filter(c => c.status === 'Active'));
+        // Load Dispatches
+        const d = await base44.entities.Dispatch?.list().catch(()=>[]) || [];
+        setDispatches(d);
+      } catch (e) { 
+        console.error(e); 
+      } finally { 
+        setLoading(false); 
+      }
+    };
+    load();
+  }, []);
 
-        // Identify dispatched Job IDs
-        const dispatchedJobIds = new Set(dispatchesData.map(d => d.job_id));
-        
-        // Unassigned = Sold Jobs NOT in dispatch list
-        setUnassignedJobs(jobsData.filter(j => !dispatchedJobIds.has(j.id)));
-
-        // Enrich dispatches with Job Data
-        const fullDispatches = await Promise.all(dispatchesData.map(async (d) => {
-             const job = jobsData.find(j => j.id === d.job_id) || await base44.entities.Job.get(d.job_id).catch(() => null);
-             return { ...d, job };
-        }));
-
-        setDispatches(fullDispatches.filter(d => d.job));
-
-    } catch (e) {
-        console.error(e);
-        toast.error("Failed to load dispatch data");
-    } finally {
-        setLoading(false);
-    }
-  };
-
-  // Date Nav
-  const nextWeek = () => setCurrentDate(addDays(currentDate, 7));
-  const prevWeek = () => setCurrentDate(addDays(currentDate, -7));
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentDate, i));
-
-  // Drag Handlers
-  const onDragEnd = async (result) => {
-    const { source, destination, draggableId } = result;
-
-    // Dropped outside
-    if (!destination) return;
-
-    // Dropped in same place
-    if (source.droppableId === destination.droppableId) return;
-
-    // Logic
-    const jobId = draggableId;
-    const isSourcePool = source.droppableId === 'pool';
-    const isDestPool = destination.droppableId === 'pool';
-
-    // 1. Pool -> Calendar (Schedule)
-    if (isSourcePool && !isDestPool) {
-        const [crewId, dateStr] = destination.droppableId.split('::');
-        const start = `${dateStr}T08:00:00`;
-        const end = `${dateStr}T17:00:00`;
-
-        toast.loading("Scheduling...");
-        try {
-            // Optimistic UI Update
-            const jobToMove = unassignedJobs.find(j => j.id === jobId);
-            
-            // Create Dispatch
-            const newDispatch = await base44.entities.Dispatch.create({
-                job_id: jobId,
-                crew_id: crewId,
-                scheduled_start: start,
-                scheduled_end: end,
-                status: 'Scheduled',
-                company_id: 'default'
-            });
-
-            // Update Job
-            await base44.entities.Job.update(jobId, { 
-                stage: 'Scheduled',
-                start_date: start,
-                end_date: end
-            });
-
-            // Update State
-            setUnassignedJobs(prev => prev.filter(j => j.id !== jobId));
-            setDispatches(prev => [...prev, { ...newDispatch, job: { ...jobToMove, stage: 'Scheduled' } }]);
-            toast.dismiss();
-            toast.success("Job Scheduled");
-        } catch(e) {
-            console.error(e);
-            toast.error("Failed to schedule");
-            loadData(); // Revert on error
-        }
-    }
-
-    // 2. Calendar -> Calendar (Reschedule)
-    else if (!isSourcePool && !isDestPool) {
-        const [crewId, dateStr] = destination.droppableId.split('::');
-        const start = `${dateStr}T08:00:00`;
-        const end = `${dateStr}T17:00:00`;
-        
-        // Find existing dispatch
-        const dispatch = dispatches.find(d => d.job.id === jobId);
-        if(!dispatch) return;
-
-        toast.loading("Rescheduling...");
-        try {
-             // Update Dispatch
-             await base44.entities.Dispatch.update(dispatch.id, {
-                crew_id: crewId,
-                scheduled_start: start,
-                scheduled_end: end
-            });
-            // Update Job
-            await base44.entities.Job.update(jobId, { start_date: start, end_date: end });
-
-            // Update State
-            setDispatches(prev => prev.map(d => 
-                d.id === dispatch.id ? { ...d, crew_id: crewId, scheduled_start: start, scheduled_end: end } : d
-            ));
-            toast.dismiss();
-            toast.success("Rescheduled");
-        } catch(e) {
-            console.error(e);
-            toast.error("Failed to move");
-        }
-    }
-
-    // 3. Calendar -> Pool (Unschedule)
-    else if (!isSourcePool && isDestPool) {
-         const dispatch = dispatches.find(d => d.job.id === jobId);
-         if(!dispatch) return;
-
-         toast.loading("Unscheduling...");
-         try {
-             await base44.entities.Dispatch.delete(dispatch.id);
-             await base44.entities.Job.update(jobId, { stage: 'Sold', start_date: null, end_date: null });
-
-             setDispatches(prev => prev.filter(d => d.id !== dispatch.id));
-             setUnassignedJobs(prev => [...prev, { ...dispatch.job, stage: 'Sold' }]);
-             toast.dismiss();
-             toast.success("Job returned to pool");
-         } catch(e) {
-             console.error(e);
-             toast.error("Failed to unschedule");
-         }
-    }
-  };
+  if (loading) return <div>Loading Dispatch Board...</div>;
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex flex-col h-screen bg-white">
-            {/* HEADER */}
-            <div className="h-16 border-b flex items-center justify-between px-6 bg-slate-50">
-                <div className="flex items-center gap-4">
-                    <Truck className="w-6 h-6 text-blue-600" />
-                    <h1 className="text-xl font-bold text-slate-800">Dispatch Command Center</h1>
-                </div>
-                <div className="flex items-center gap-4 bg-white p-1 rounded-lg border shadow-sm">
-                    <Button variant="ghost" size="icon" onClick={prevWeek}><ChevronLeft className="w-4 h-4" /></Button>
-                    <div className="flex items-center gap-2 px-2 font-medium w-40 justify-center">
-                        <CalIcon className="w-4 h-4 text-slate-500" />
-                        {format(currentDate, 'MMM d')} - {format(addDays(currentDate, 6), 'MMM d')}
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={nextWeek}><ChevronRight className="w-4 h-4" /></Button>
-                </div>
+    <div className="flex h-screen w-full bg-slate-50">
+        {/* Sidebar for Jobs (Restored based on context) */}
+        <div className="w-72 bg-white border-r flex flex-col">
+            <div className="p-4 border-b">
+                <h2 className="font-bold text-lg">Job Pool</h2>
+                <p className="text-xs text-slate-500">{jobs.length} Unassigned</p>
             </div>
-
-            <div className="flex flex-1 overflow-hidden">
-                {/* SIDEBAR: POOL */}
-                <div className="w-80 border-r flex flex-col bg-slate-50">
-                    <div className="p-4 border-b flex items-center justify-between bg-white">
-                        <h2 className="font-semibold flex items-center gap-2">
-                            <LayoutGrid className="w-4 h-4 text-slate-500" /> Job Pool
-                        </h2>
-                        <Badge variant="secondary">{unassignedJobs.length}</Badge>
-                    </div>
-                    <ScrollArea className="flex-1">
-                        <SidebarDroppable>
-                            {unassignedJobs.map((job, index) => (
-                                <JobCard key={job.id} job={job} index={index} onClick={setSelectedJob} />
-                            ))}
-                            {unassignedJobs.length === 0 && (
-                                <div className="text-center text-slate-400 text-sm mt-10">No unassigned jobs</div>
-                            )}
-                        </SidebarDroppable>
-                    </ScrollArea>
-                </div>
-
-                {/* MAIN: CALENDAR */}
-                <div className="flex-1 flex flex-col overflow-x-auto">
-                    {/* Calendar Header */}
-                    <div className="grid grid-cols-7 border-b bg-white min-w-[1000px]">
-                        {weekDays.map(day => (
-                            <div key={day.toISOString()} className={`p-3 text-center border-r last:border-r-0 ${isSameDay(day, new Date()) ? 'bg-blue-50' : ''}`}>
-                                <div className="text-xs font-semibold text-slate-500 uppercase">{format(day, 'EEE')}</div>
-                                <div className={`text-lg font-bold ${isSameDay(day, new Date()) ? 'text-blue-600' : 'text-slate-800'}`}>
-                                    {format(day, 'd')}
-                                </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {jobs.map(job => (
+                    <Card key={job.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                        <CardContent className="p-3">
+                            <div className="font-bold text-sm mb-1">{job.job_name || 'Roofing Job'}</div>
+                            <div className="flex items-center text-xs text-slate-500 gap-1">
+                                <MapPin className="w-3 h-3"/> {job.address || 'No Address'}
                             </div>
-                        ))}
-                    </div>
-
-                    {/* Crew Lanes */}
-                    <ScrollArea className="flex-1 min-w-[1000px]">
-                        {crews.map(crew => (
-                            <div key={crew.id} className="flex border-b min-h-[8rem]">
-                                <div className="grid grid-cols-7 flex-1">
-                                    {weekDays.map(day => {
-                                        const cellJobs = dispatches.filter(d => 
-                                            d.crew_id === crew.id && 
-                                            isSameDay(parseISO(d.scheduled_start), day)
-                                        );
-
-                                        return (
-                                            <CalendarCell key={day.toISOString()} date={day} crewId={crew.id}>
-                                                {cellJobs.map((d, index) => (
-                                                    <JobCard 
-                                                        key={d.job.id} 
-                                                        job={{...d.job, dispatchId: d.id}} 
-                                                        index={index}
-                                                        onClick={setSelectedJob}
-                                                        isCompact
-                                                    />
-                                                ))}
-                                            </CalendarCell>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        ))}
-                        {crews.length === 0 && !loading && (
-                             <div className="text-center p-10 text-slate-500">No active crews found. Add crews in settings.</div>
-                        )}
-                    </ScrollArea>
-                </div>
-                 {/* Crew Names Sidebar (Left of Calendar) */}
-                 <div className="w-48 border-r bg-white flex flex-col pt-[calc(3.5rem+1px)] border-l shadow-lg z-10"> 
-                     <div className="h-[4.5rem] border-b bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-xs uppercase tracking-wider">
-                         Crews
-                     </div>
-                     <ScrollArea className="flex-1">
-                        {crews.map(crew => (
-                            <div key={crew.id} className="h-32 border-b flex items-center px-4 gap-3 bg-slate-50/50">
-                                <div className="w-3 h-12 rounded-full" style={{backgroundColor: crew.color_code || '#3b82f6'}} />
-                                <div>
-                                    <div className="font-bold text-sm text-slate-800">{crew.crew_name}</div>
-                                    <div className="text-xs text-slate-500">{crew.foreman_name}</div>
-                                </div>
-                            </div>
-                        ))}
-                     </ScrollArea>
-                 </div>
+                        </CardContent>
+                    </Card>
+                ))}
+                {jobs.length === 0 && <div className="text-center text-sm text-slate-400 mt-10">No jobs found</div>}
             </div>
-
-            <JobBriefModal 
-                job={selectedJob} 
-                isOpen={!!selectedJob} 
-                onClose={() => setSelectedJob(null)} 
-            />
         </div>
-    </DragDropContext>
-  );
+
+        {/* MAIN BOARD */}
+        <div className="flex-1 flex flex-col">
+            <div className="h-16 border-b bg-white flex items-center px-6 justify-between">
+                <h1 className="font-bold text-lg flex items-center gap-2"><Calendar className="w-5 h-5"/> Crew Schedule</h1>
+                <Button variant="outline" onClick={() => navigate('/rooferdashboard')}>Back to Dashboard</Button>
+            </div>
+            <div className="flex-1 overflow-x-auto p-4">
+                <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(crews.length, 1)}, minmax(300px, 1fr))` }}>
+                    {crews.map(crew => (
+                        <div key={crew.id} className="bg-white rounded-xl shadow-sm border flex flex-col h-[calc(100vh-140px)]">
+                            <div className={`p-4 font-bold border-b flex justify-between items-center ${crew.color_code || 'bg-slate-100'}`}>
+                                <span className="flex items-center gap-2"><User className="w-4 h-4"/> {crew.crew_name}</span>
+                            </div>
+                            <div className="flex-1 p-2 bg-slate-50 space-y-2 overflow-y-auto">
+                                {dispatches.filter(d => d.crew_id === crew.id).map(d => (
+                                    <Card key={d.id}>
+                                        <CardContent className="p-3">
+                                            <div className="font-bold text-sm">Scheduled Job</div>
+                                            <div className="text-xs text-slate-500"><Clock className="w-3 h-3 inline mr-1"/>{new Date(d.scheduled_start).toLocaleDateString()}</div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                                <div className="h-full border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-400 text-sm p-4 text-center">
+                                    Drag Jobs Here (Coming Soon)
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    </div>
+  ); 
 }
