@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, FileText, Calculator } from 'lucide-react';
+import { ArrowLeft, FileText, Calculator, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,10 +12,11 @@ export default function QuoteBuilder() {
     const [searchParams] = useSearchParams();
     const leadId = searchParams.get('leadId')?.replace(/"/g, '');
     const navigate = useNavigate();
+
     const [lead, setLead] = useState(null);
+    const [sqft, setSqft] = useState(0);
     const [margin, setMargin] = useState(35);
 
-    // Default Items with Cost Basis
     const [items, setItems] = useState([
         { id: 1, name: 'Architectural Shingles (Bundles)', qty: 0, cost: 42 },
         { id: 2, name: 'Synthetic Underlayment (Rolls)', qty: 0, cost: 78 },
@@ -28,34 +29,50 @@ export default function QuoteBuilder() {
     ]);
 
     useEffect(() => {
-        const load = async () => {
+        const loadData = async () => {
             if(!leadId) return;
             try {
+                // 1. Fetch Lead
                 const l = await base44.entities.Lead.get(leadId);
                 setLead(l);
 
-                // AUTO-CALCULATE QUANTITIES
-                if(l.roof_sqft) {
-                    const sqft = l.roof_sqft;
-                    const waste = 1.15; // 15% waste
-                    const totalArea = sqft * waste;
-                    const squares = Math.ceil(totalArea / 100);
-                    
-                    setItems(prev => prev.map(item => {
-                        if(item.name.includes('Shingles')) return { ...item, qty: Math.ceil(squares * 3) }; // 3 bundles per sq
-                        if(item.name.includes('Underlayment')) return { ...item, qty: Math.ceil(sqft / 1000) }; // 10 sq per roll
-                        if(item.name.includes('Labor')) return { ...item, qty: squares };
-                        if(item.name.includes('Starter')) return { ...item, qty: Math.ceil(squares * 0.1) }; // Rough estimate
-                        if(item.name.includes('Hip')) return { ...item, qty: Math.ceil(squares * 0.1) };
-                        if(item.name.includes('Ice')) return { ...item, qty: Math.ceil(sqft * 0.1 / 200) }; // 10% coverage
-                        return item;
-                    }));
-                    toast.success(`Materials calculated for ${sqft} sq ft`);
+                // 2. Fetch Measurement (The specific record)
+                // We list all and find in client because we might not have exact ID, or filter support might vary
+                const measurements = await base44.entities.RoofMeasurement.list();
+                const myMeasure = measurements.find(m => m.lead_id === leadId) || measurements.sort((a,b) => b.created_date.localeCompare(a.created_date))[0]; // Fallback to latest if not found by ID, but ideally matching lead_id
+
+                // 3. Determine SqFt
+                let foundSqft = 0;
+                if (myMeasure && myMeasure.total_sqft > 0) foundSqft = myMeasure.total_sqft;
+                else if (l.roof_sqft > 0) foundSqft = l.roof_sqft;
+
+                if(foundSqft > 0) {
+                    setSqft(foundSqft);
+                    calculateMaterials(foundSqft);
+                    toast.success(`Loaded Measurement: ${foundSqft.toLocaleString()} sq ft`);
+                } else {
+                    toast.error("No measurement data found.");
                 }
             } catch(e) { console.error(e); }
         };
-        load();
+        loadData();
     }, [leadId]);
+
+    const calculateMaterials = (area) => {
+        const waste = 1.15; // 15% waste
+        const totalArea = area * waste;
+        const squares = Math.ceil(totalArea / 100);
+
+        setItems(prev => prev.map(item => {
+            if(item.name.includes('Shingles')) return { ...item, qty: Math.ceil(squares * 3) };
+            if(item.name.includes('Underlayment')) return { ...item, qty: Math.ceil(area / 1000) };
+            if(item.name.includes('Labor')) return { ...item, qty: squares };
+            if(item.name.includes('Starter')) return { ...item, qty: Math.ceil(squares * 0.12) };
+            if(item.name.includes('Hip')) return { ...item, qty: Math.ceil(squares * 0.1) };
+            if(item.name.includes('Ice')) return { ...item, qty: Math.ceil(area * 0.1 / 200) };
+            return item;
+        }));
+    };
 
     const totalCost = items.reduce((acc, item) => acc + (item.qty * item.cost), 0);
     const price = Math.round(totalCost / (1 - (margin / 100)));
@@ -65,18 +82,16 @@ export default function QuoteBuilder() {
         toast.loading("Publishing Quote...");
         try {
             await base44.entities.Job.create({
-                job_name: (lead?.name || 'Customer') + " - Roof Replacement",
-                address: lead?.address || '',
+                job_name: (lead?.name || "Client") + " - Roof Replacement",
+                address: lead?.address,
                 stage: 'Sold',
-                // Adding custom fields if they exist in schema, otherwise ignoring or adding to notes
-                // Ideally we'd have explicit fields for price/cost
+                contract_price: price, // Ensure these fields exist in Job entity or store in notes/custom fields
+                material_cost: totalCost
             });
-            // Update Lead Status
             await base44.entities.Lead.update(leadId, { lead_status: 'Sold' });
 
             toast.dismiss();
-            toast.success("Quote Sent!");
-            // Redirect to Job Board
+            toast.success("Quote Published to Job Board!");
             setTimeout(() => navigate('/jobboard'), 1000);
         } catch(e) { 
             console.error(e);
@@ -93,35 +108,35 @@ export default function QuoteBuilder() {
                     <div className="flex items-center gap-4 mb-4">
                         <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft className="mr-2 h-4 w-4"/> Back</Button>
                         <div>
-                            <h1 className="text-2xl font-bold">Quote Builder</h1>
+                            <h1 className="text-2xl font-bold text-slate-900">Quote Builder</h1>
                             <p className="text-slate-500 text-sm">
-                                {lead?.address} • <span className="font-bold text-blue-600">{lead?.roof_sqft ? lead.roof_sqft.toLocaleString() + ' sq ft' : 'No Measurement'}</span>
+                                {lead?.address} • <span className="font-bold text-blue-600">{sqft > 0 ? sqft.toLocaleString() + ' sq ft' : 'No Measurement Found'}</span>
                             </p>
                         </div>
                     </div>
-                    <Card>
-                        <CardHeader className="bg-slate-100 py-3 border-b flex flex-row justify-between items-center">
-                            <CardTitle className="text-sm font-bold uppercase text-slate-500">Scope of Work</CardTitle>
-                            <Button size="sm" variant="outline"><Calculator className="w-3 h-3 mr-2"/> Recalculate</Button>
+                    <Card className="shadow-sm border-slate-200">
+                        <CardHeader className="bg-slate-50 py-3 border-b flex flex-row justify-between items-center">
+                            <CardTitle className="text-xs font-bold uppercase text-slate-500 tracking-wider">Materials & Labor</CardTitle>
+                            <Button size="sm" variant="outline" onClick={() => calculateMaterials(sqft)}><RefreshCw className="w-3 h-3 mr-2"/> Reset Calc</Button>
                         </CardHeader>
                         <CardContent className="p-0">
                             <table className="w-full text-sm">
-                                <thead className="bg-slate-50 text-slate-500 text-left">
+                                <thead className="bg-white text-slate-400 text-left border-b">
                                     <tr>
-                                        <th className="p-3 pl-6 font-medium">Item Description</th>
-                                        <th className="p-3 w-20 font-medium">Qty</th>
-                                        <th className="p-3 w-24 font-medium">Cost</th>
-                                        <th className="p-3 w-24 font-medium text-right pr-6">Total</th>
+                                        <th className="p-4 pl-6 font-medium">Item</th>
+                                        <th className="p-4 w-24 font-medium">Qty</th>
+                                        <th className="p-4 w-24 font-medium">Unit Cost</th>
+                                        <th className="p-4 w-28 font-medium text-right pr-6">Total</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y">
-                                    {items.map((item, i) => (
-                                        <tr key={item.id} className="hover:bg-slate-50">
-                                            <td className="p-3 pl-6 font-medium">{item.name}</td>
+                                <tbody className="divide-y divide-slate-100">
+                                    {items.map((item) => (
+                                        <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="p-3 pl-6 font-medium text-slate-700">{item.name}</td>
                                             <td className="p-3">
                                                 <Input 
                                                     type="number" 
-                                                    className="h-8 w-16 text-center" 
+                                                    className="h-9 w-20 text-center bg-white border-slate-200" 
                                                     value={item.qty}
                                                     onChange={(e) => {
                                                         const val = Number(e.target.value);
@@ -130,7 +145,7 @@ export default function QuoteBuilder() {
                                                 />
                                             </td>
                                             <td className="p-3 text-slate-500">${item.cost}</td>
-                                            <td className="p-3 pr-6 text-right font-bold text-slate-700">${(item.qty * item.cost).toLocaleString()}</td>
+                                            <td className="p-3 pr-6 text-right font-bold text-slate-900">${(item.qty * item.cost).toLocaleString()}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -138,37 +153,49 @@ export default function QuoteBuilder() {
                         </CardContent>
                     </Card>
                 </div>
-                {/* SIDEBAR: PRICING */}
+                {/* SIDEBAR: PRICING ENGINE */}
                 <div className="space-y-6">
-                    <Card className="bg-slate-900 text-white border-0 shadow-xl sticky top-6">
-                        <CardHeader>
-                            <CardTitle>Financials</CardTitle>
+                    <Card className="bg-slate-900 text-white border-0 shadow-2xl sticky top-6">
+                        <CardHeader className="border-b border-slate-800 pb-4">
+                            <CardTitle className="flex justify-between items-center">
+                                <span>Profit Engine</span>
+                                <span className={`text-xs px-2 py-1 rounded ${profit > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                    {Math.round((profit/price)*100 || 0)}% Net
+                                </span>
+                            </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="flex justify-between text-slate-400 text-sm">
-                                <span>Hard Material Cost</span>
-                                <span>${totalCost.toLocaleString()}</span>
+                        <CardContent className="space-y-6 pt-6">
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-slate-400 text-sm">
+                                    <span>Total Material & Labor</span>
+                                    <span>${totalCost.toLocaleString()}</span>
+                                </div>
                             </div>
                             
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-sm font-bold">
-                                    <span>Target Margin</span>
+                            <div className="space-y-4">
+                                <div className="flex justify-between text-sm font-bold text-white">
+                                    <span>Margin</span>
                                     <span>{margin}%</span>
                                 </div>
-                                <Slider value={[margin]} onValueChange={(v) => setMargin(v[0])} max={60} min={10} step={1} className="py-2" />
+                                <Slider 
+                                    value={[margin]} 
+                                    onValueChange={(v) => setMargin(v[0])} 
+                                    max={60} min={10} step={1} 
+                                    className="cursor-pointer"
+                                />
                             </div>
-                            <div className="pt-4 border-t border-slate-700">
-                                <div className="flex justify-between items-end mb-2">
-                                    <span className="text-slate-400">Net Profit</span>
-                                    <span className="text-green-400 font-bold text-lg">+${profit.toLocaleString()}</span>
-                                </div>
+                            <div className="pt-6 border-t border-slate-800 space-y-4">
                                 <div className="flex justify-between items-end">
-                                    <span className="text-xl font-bold">Final Price</span>
-                                    <span className="text-4xl font-black tracking-tight">${price.toLocaleString()}</span>
+                                    <span className="text-slate-400 text-sm">Net Profit</span>
+                                    <span className="text-green-400 font-bold text-xl">+${profit.toLocaleString()}</span>
+                                </div>
+                                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                                    <div className="text-slate-400 text-xs uppercase tracking-wider mb-1">Total Contract Price</div>
+                                    <div className="text-4xl font-black tracking-tight text-white">${price.toLocaleString()}</div>
                                 </div>
                             </div>
-                            <Button className="w-full h-12 text-lg bg-green-500 hover:bg-green-600 text-black font-bold" onClick={saveQuote}>
-                                <FileText className="w-5 h-5 mr-2"/> Generate Proposal
+                            <Button className="w-full h-14 text-lg bg-green-500 hover:bg-green-600 text-slate-900 font-bold shadow-lg shadow-green-900/20" onClick={saveQuote}>
+                                <FileText className="w-5 h-5 mr-2"/> Publish Quote
                             </Button>
                         </CardContent>
                     </Card>
