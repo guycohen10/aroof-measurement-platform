@@ -1,131 +1,119 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { toast } from 'sonner';
+import { ArrowLeft, CheckCircle2, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 
-export default function NewLeadForm() {
-    const navigate = useNavigate();
+export default function NewLeadForm() { 
+    const navigate = useNavigate(); 
     const [searchParams] = useSearchParams();
-    const urlAddress = searchParams.get('address');
 
+    // Load from URL or Session 
     const [form, setForm] = useState({ 
         name: '', 
         email: '', 
         phone: '', 
-        address: urlAddress || '', 
-        source: 'Online' 
+        address: searchParams.get('address') || sessionStorage.getItem('client_address') || '' 
     });
 
-    const addressInputRef = useRef(null);
-
-    // LOAD KEY & AUTOCOMPLETE
-    useEffect(() => {
-        const initMap = () => {
-            if (!window.google?.maps?.places || !addressInputRef.current) return;
-            const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
-                types: ['address'],
-                componentRestrictions: { country: 'us' }
-            });
-            autocomplete.addListener('place_changed', () => {
-                const place = autocomplete.getPlace();
-                if (place.formatted_address) {
-                    setForm(prev => ({ ...prev, address: place.formatted_address }));
-                }
-            });
-        };
-
-        const loadScript = () => {
-             let key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-             if (!key || key.includes('your_key')) key = localStorage.getItem('user_provided_maps_key');
-             
-             if(key && !window.google?.maps) {
-                 const script = document.createElement('script');
-                 script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
-                 script.async = true;
-                 script.onload = initMap;
-                 document.head.appendChild(script);
-             } else if(window.google?.maps) {
-                 initMap();
-             }
-        };
-        
-        loadScript();
-    }, []);
-
-    const handleSubmit = () => {
-        // Basic validation
-        if(!form.name || !form.phone || !form.address) {
-            // Using browser alert for simplicity as per user snippet style, or could use toast if available
-            // But preserving user logic flow mainly.
+    const handleSubmit = async () => { 
+        if(!form.name || !form.phone) { 
+            toast.error("Name and Phone are required"); 
             return; 
-        }
-        
-        // SAVE TO SESSION (So Roofer Tool can find it)
-        sessionStorage.setItem('lead_address', form.address);
-        sessionStorage.setItem('customer_name', form.name);
-        sessionStorage.setItem('customer_email', form.email);
-        sessionStorage.setItem('customer_phone', form.phone);
+        } 
+        toast.loading("Creating your profile...");
 
-        // Also save a 'Temp' ID to trigger the edit mode if needed
-        navigate(`/roofermeasurement?leadId=session_new`);
+        try {
+            // Create the Lead in the DB immediately
+            const newLead = await base44.entities.Lead.create({
+                customer_name: form.name,
+                email_address: form.email,
+                phone_number: form.phone,
+                property_address: form.address,
+                status: 'New',
+                lead_source: 'Website'
+            });
+            
+            // Save to Session for the tool to pick up
+            sessionStorage.setItem('active_lead_id', newLead.id);
+            sessionStorage.setItem('lead_address', form.address);
+            
+            toast.dismiss();
+            // Redirect to Measurement Tool with the REAL ID
+            navigate(`/roofermeasurement?leadId=${newLead.id}`);
+        } catch(e) {
+            console.error(e);
+            toast.error("Error creating lead. Please try again.");
+        }
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-             <Card className="w-full max-w-md shadow-xl border-0 ring-1 ring-slate-200">
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+            <Card className="w-full max-w-md shadow-xl border-t-4 border-green-600">
                 <CardHeader className="text-center pb-2">
-                    <CardTitle className="text-2xl font-bold text-slate-900">Contact Details</CardTitle>
-                    <p className="text-sm text-slate-500">Where should we send your estimate?</p>
+                    <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                        <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    </div>
+                    <CardTitle className="text-2xl">Address Found!</CardTitle>
+                    <p className="text-slate-500">Please confirm your details to view the estimate.</p>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 pt-4">
                     <div className="space-y-2">
-                        <Label>Full Name</Label>
+                        <Label htmlFor="name">Full Name</Label>
                         <Input 
-                            placeholder="John Doe" 
+                            id="name"
+                            placeholder="John Doe"
                             value={form.name} 
                             onChange={e => setForm({...form, name: e.target.value})}
                         />
                     </div>
                     
                     <div className="space-y-2">
-                        <Label>Property Address</Label>
+                        <Label htmlFor="phone">Phone Number</Label>
                         <Input 
-                            ref={addressInputRef}
-                            placeholder="123 Maple Ave" 
-                            value={form.address} 
-                            onChange={e => setForm({...form, address: e.target.value})}
+                            id="phone"
+                            placeholder="(555) 123-4567"
+                            value={form.phone} 
+                            onChange={e => setForm({...form, phone: e.target.value})}
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Email Address</Label>
+                        <Label htmlFor="email">Email Address</Label>
                         <Input 
+                            id="email"
                             type="email"
-                            placeholder="john@example.com" 
+                            placeholder="john@example.com"
                             value={form.email} 
                             onChange={e => setForm({...form, email: e.target.value})}
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Phone Number</Label>
-                        <Input 
-                            type="tel"
-                            placeholder="(555) 123-4567" 
-                            value={form.phone} 
-                            onChange={e => setForm({...form, phone: e.target.value})}
-                        />
+                        <Label>Property Address</Label>
+                        <div className="relative">
+                            <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                            <Input 
+                                value={form.address} 
+                                disabled 
+                                className="bg-slate-100 pl-9 text-slate-600"
+                            />
+                        </div>
                     </div>
 
-                    <Button className="w-full h-12 text-lg bg-blue-600 hover:bg-blue-700 mt-4" onClick={handleSubmit}>
-                        Get Instant Estimate <ArrowRight className="ml-2 w-5 h-5"/>
+                    <Button className="w-full h-12 text-lg bg-green-600 hover:bg-green-700 mt-4 shadow-md transition-all hover:scale-[1.02]" onClick={handleSubmit}>
+                        See My Roof Estimate
                     </Button>
-                    <p className="text-xs text-center text-slate-400 mt-4"><ShieldCheck className="w-3 h-3 inline mr-1"/> Your data is secure and private.</p>
+                    
+                    <Button variant="ghost" size="sm" className="w-full text-slate-400 hover:text-slate-600" onClick={() => navigate(-1)}>
+                        <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                    </Button>
                 </CardContent>
-             </Card>
+            </Card>
         </div>
-    );
+    ); 
 }
