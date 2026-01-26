@@ -2,204 +2,178 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, Trash2, Save, Wand2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Save, FileText, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
 
-export default function QuoteBuilder() { 
-  const [searchParams] = useSearchParams(); 
-  const leadId = searchParams.get('leadId'); 
-  const navigate = useNavigate();
+export default function QuoteBuilder() {
+    const [searchParams] = useSearchParams();
+    const leadId = searchParams.get('leadId')?.replace(/"/g, '');
+    const navigate = useNavigate();
+    const [lead, setLead] = useState(null);
+    const [margin, setMargin] = useState(35);
 
-  const [loading, setLoading] = useState(true); 
-  const [lead, setLead] = useState(null); 
-  const [measurement, setMeasurement] = useState(null); 
-  const [activeTier, setActiveTier] = useState('Standard');
+    // Default Items with Cost Basis
+    const [items, setItems] = useState([
+        { id: 1, name: 'Architectural Shingles (Bundles)', qty: 0, cost: 42 },
+        { id: 2, name: 'Synthetic Underlayment (Rolls)', qty: 0, cost: 78 },
+        { id: 3, name: 'Starter Strip (Bundles)', qty: 0, cost: 22 },
+        { id: 4, name: 'Hip & Ridge Cap (Bundles)', qty: 0, cost: 54 },
+        { id: 5, name: 'Ice & Water Shield (Rolls)', qty: 0, cost: 102 },
+        { id: 6, name: 'Pipe Boots / Vents', qty: 4, cost: 30 },
+        { id: 7, name: 'Installation Labor (Sq)', qty: 0, cost: 102 },
+        { id: 8, name: 'Dumpster & Disposal', qty: 1, cost: 540 },
+    ]);
 
-  // State for Each Tier's Line Items 
-  const [tiers, setTiers] = useState({ 
-    Economy: { items: [], margin: 25, warranty: '10 Year' }, 
-    Standard: { items: [], margin: 35, warranty: 'Lifetime' }, 
-    Premium: { items: [], margin: 45, warranty: 'Lifetime + Labor' } 
-  });
+    useEffect(() => {
+        const load = async () => {
+            if(!leadId) return;
+            try {
+                const l = await base44.entities.Lead.get(leadId);
+                setLead(l);
 
-  useEffect(() => { 
-    const load = async () => { 
-      if(!leadId) return; 
-      try { 
-        const l = await base44.entities.Lead.get(leadId); 
-        setLead(l); 
-        const measures = await base44.entities.RoofMeasurement.list(); 
-        const m = measures.find(x => x.lead_id === leadId); 
-        setMeasurement(m); 
-        if(m) generateDefaultItems(m); 
-      } catch (e) { 
-        console.error(e); 
-      } finally { 
-        setLoading(false); 
-      } 
-    }; 
-    load(); 
-  }, [leadId]);
+                // AUTO-CALCULATE QUANTITIES
+                if(l.roof_sqft) {
+                    const sqft = l.roof_sqft;
+                    const waste = 1.15; // 15% waste
+                    const totalArea = sqft * waste;
+                    const squares = Math.ceil(totalArea / 100);
+                    
+                    setItems(prev => prev.map(item => {
+                        if(item.name.includes('Shingles')) return { ...item, qty: Math.ceil(squares * 3) }; // 3 bundles per sq
+                        if(item.name.includes('Underlayment')) return { ...item, qty: Math.ceil(sqft / 1000) }; // 10 sq per roll
+                        if(item.name.includes('Labor')) return { ...item, qty: squares };
+                        if(item.name.includes('Starter')) return { ...item, qty: Math.ceil(squares * 0.1) }; // Rough estimate
+                        if(item.name.includes('Hip')) return { ...item, qty: Math.ceil(squares * 0.1) };
+                        if(item.name.includes('Ice')) return { ...item, qty: Math.ceil(sqft * 0.1 / 200) }; // 10% coverage
+                        return item;
+                    }));
+                    toast.success(`Materials calculated for ${sqft} sq ft`);
+                }
+            } catch(e) { console.error(e); }
+        };
+        load();
+    }, [leadId]);
 
-  const generateDefaultItems = (m) => { 
-    const sq = m.total_squares * 1.10; // 10% waste default 
-    const defaults = [ 
-      { name: "Architectural Shingles (Bundles)", qty: Math.ceil(sq * 3), cost: 35 }, 
-      { name: "Synthetic Underlayment (Rolls)", qty: Math.ceil(sq / 10), cost: 65 }, 
-      { name: "Starter Strip (Bundles)", qty: Math.ceil((m.eaves_ft + m.rakes_ft) / 100), cost: 18 }, 
-      { name: "Hip & Ridge Cap (Bundles)", qty: Math.ceil((m.ridges_ft + m.hips_ft) / 29), cost: 45 }, 
-      { name: "Ice & Water Shield (Rolls)", qty: Math.ceil(m.valleys_ft / 50), cost: 85 }, 
-      { name: "Pipe Boots / Vents", qty: 4, cost: 25 }, 
-      { name: "Installation Labor (Sq)", qty: Math.ceil(sq), cost: 85 }, 
-      { name: "Dumpster & Disposal", qty: 1, cost: 450 } 
-    ];
+    const totalCost = items.reduce((acc, item) => acc + (item.qty * item.cost), 0);
+    const price = Math.round(totalCost / (1 - (margin / 100)));
+    const profit = price - totalCost;
 
-    setTiers(prev => {
-        const next = { ...prev };
-        ['Economy', 'Standard', 'Premium'].forEach(t => {
-            const mult = t === 'Economy' ? 1.0 : (t === 'Standard' ? 1.2 : 1.5);
-            next[t].items = defaults.map(d => ({ ...d, cost: Math.round(d.cost * mult) }));
-        });
-        return next;
-    });
-  };
+    const saveQuote = async () => {
+        toast.loading("Publishing Quote...");
+        try {
+            await base44.entities.Job.create({
+                job_name: (lead?.name || 'Customer') + " - Roof Replacement",
+                address: lead?.address || '',
+                stage: 'Sold',
+                // Adding custom fields if they exist in schema, otherwise ignoring or adding to notes
+                // Ideally we'd have explicit fields for price/cost
+            });
+            // Update Lead Status
+            await base44.entities.Lead.update(leadId, { lead_status: 'Sold' });
 
-  // Helper: Calculate Totals 
-  const getTotals = (tierName) => { 
-    const t = tiers[tierName]; 
-    const cost = t.items.reduce((sum, i) => sum + (i.qty * i.cost), 0); 
-    const price = cost / (1 - (t.margin / 100)); 
-    return { cost, price, profit: price - cost }; 
-  };
+            toast.dismiss();
+            toast.success("Quote Sent!");
+            // Redirect to Job Board
+            setTimeout(() => navigate('/jobboard'), 1000);
+        } catch(e) { 
+            console.error(e);
+            toast.dismiss();
+            toast.error("Error saving quote"); 
+        }
+    };
 
-  // Handlers 
-  const updateItem = (tier, index, field, val) => { 
-    setTiers(prev => { 
-      const newItems = [...prev[tier].items]; 
-      newItems[index] = { ...newItems[index], [field]: val }; 
-      return { ...prev, [tier]: { ...prev[tier], items: newItems } }; 
-    }); 
-  };
-
-  const addItem = (tier) => { 
-    setTiers(prev => ({ ...prev, [tier]: { ...prev[tier], items: [...prev[tier].items, { name: "New Item", qty: 1, cost: 0 }] } })); 
-  };
-
-  const removeItem = (tier, index) => { 
-    setTiers(prev => { 
-      const newItems = prev[tier].items.filter((_, i) => i !== index); 
-      return { ...prev, [tier]: { ...prev[tier], items: newItems } }; 
-    }); 
-  };
-
-  const handlePublish = async () => { 
-    const t = tiers[activeTier]; 
-    const totals = getTotals(activeTier); 
-    toast.loading("Creating Proposal...");
-
-    try {
-        // 1. Create Quote
-        const quote = await base44.entities.Quote.create({
-            lead_id: lead.id,
-            measurement_id: measurement?.id,
-            tier_name: activeTier,
-            total_price: Math.round(totals.price),
-            material_cost: Math.round(totals.cost),
-            margin_percent: t.margin,
-            status: 'Sent',
-            // Storing custom items for the proposal to read:
-            line_items_json: JSON.stringify(t.items) 
-        });
-        // 2. Update Lead
-        await base44.entities.Lead.update(lead.id, { status: 'Quoted', price_sold: Math.round(totals.price) });
-        toast.dismiss();
-        toast.success("Quote Published!");
-        setTimeout(() => navigate(`/proposalview?quoteId=${quote.id}`), 1000);
-    } catch(e) { 
-      console.error(e); 
-      toast.error("Error saving"); 
-    }
-  };
-
-  if(loading) return <div className="flex h-screen items-center justify-center">Loading Calculator...</div>;
-
-  return (
-    <div className="min-h-screen bg-slate-50 p-6">
-       <div className="max-w-6xl mx-auto mb-6 flex items-center justify-between">
-           <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
-             <ArrowLeft className="w-5 h-5"/> Back
-           </Button>
-           <h1 className="text-2xl font-bold">Quote Builder Pro</h1>
-       </div>
-       <div className="max-w-6xl mx-auto">
-           <Tabs value={activeTier} onValueChange={setActiveTier}>
-               <TabsList className="grid w-full grid-cols-3 h-16 mb-6">
-                   {['Economy', 'Standard', 'Premium'].map(tier => {
-                       const tot = getTotals(tier);
-                       return (
-                           <TabsTrigger key={tier} value={tier} className="flex flex-col h-full data-[state=active]:bg-white data-[state=active]:shadow">
-                               <span className="font-bold text-lg">{tier}</span>
-                               <span className="text-xs text-slate-500">${Math.round(tot.price).toLocaleString()}</span>
-                           </TabsTrigger>
-                       );
-                   })}
-               </TabsList>
-               {['Economy', 'Standard', 'Premium'].map(tier => (
-                   <TabsContent key={tier} value={tier}>
-                       <div className="grid md:grid-cols-3 gap-6">
-                           {/* LEFT: LINE ITEMS */}
-                           <Card className="md:col-span-2 shadow-lg">
-                               <CardHeader className="flex flex-row justify-between items-center bg-slate-100 py-3">
-                                   <CardTitle className="text-sm uppercase text-slate-500">Scope of Work</CardTitle>
-                                   <Button size="sm" variant="outline" onClick={() => addItem(tier)}><Plus className="w-3 h-3 mr-1"/> Add Item</Button>
-                               </CardHeader>
-                               <CardContent className="p-0">
-                                   <table className="w-full text-sm">
-                                       <thead className="bg-slate-50 text-slate-500">
-                                           <tr>
-                                               <th className="text-left p-3 font-medium">Item Description</th>
-                                               <th className="text-center p-3 font-medium w-20">Qty</th>
-                                               <th className="text-center p-3 font-medium w-24">Cost</th>
-                                               <th className="text-right p-3 font-medium w-24">Total</th>
-                                               <th className="w-10"></th>
-                                           </tr>
-                                       </thead>
-                                       <tbody className="divide-y">
-                                           {tiers[tier].items.map((item, idx) => (
-                                               <tr key={idx} className="group hover:bg-slate-50">
-                                                   <td className="p-2"><Input value={item.name} onChange={e => updateItem(tier, idx, 'name', e.target.value)} className="h-8 border-transparent hover:border-slate-200 focus:border-blue-500"/></td>
-                                                   <td className="p-2"><Input type="number" value={item.qty} onChange={e => updateItem(tier, idx, 'qty', Number(e.target.value))} className="h-8 text-center border-transparent hover:border-slate-200"/></td>
-                                                   <td className="p-2"><Input type="number" value={item.cost} onChange={e => updateItem(tier, idx, 'cost', Number(e.target.value))} className="h-8 text-center border-transparent hover:border-slate-200"/></td>
-                                                   <td className="p-3 text-right font-medium">${(item.qty * item.cost).toLocaleString()}</td>
-                                                   <td className="p-2 text-center"><Trash2 className="w-4 h-4 text-slate-300 hover:text-red-500 cursor-pointer" onClick={() => removeItem(tier, idx)}/></td>
-                                               </tr>
-                                           ))}
-                                       </tbody>
-                                   </table>
-                               </CardContent>
-                           </Card>
-                           {/* RIGHT: TOTALS */}
-                           <Card className="h-fit shadow-lg bg-slate-900 text-white border-0 sticky top-6">
-                               <CardHeader><CardTitle>Financials</CardTitle></CardHeader>
-                               <CardContent className="space-y-4">
-                                   <div className="flex justify-between text-slate-400"><span>Hard Cost</span><span>${Math.round(getTotals(tier).cost).toLocaleString()}</span></div>
-                                   <div>
-                                       <div className="flex justify-between text-sm mb-1"><span>Target Margin</span><span>{tiers[tier].margin}%</span></div>
-                                       <input type="range" min="10" max="60" value={tiers[tier].margin} onChange={e => setTiers(p => ({...p, [tier]: {...p[tier], margin: Number(e.target.value)}}))} className="w-full accent-green-500"/>
-                                   </div>
-                                   <div className="flex justify-between text-green-400 font-bold border-t border-slate-700 pt-4"><span>Net Profit</span><span>${Math.round(getTotals(tier).profit).toLocaleString()}</span></div>
-                                   <div className="flex justify-between text-3xl font-black pt-2"><span>${Math.round(getTotals(tier).price).toLocaleString()}</span></div>
-                                   <Button className="w-full bg-green-600 hover:bg-green-500 mt-4" onClick={handlePublish}>Generate Proposal</Button>
-                               </CardContent>
-                           </Card>
-                       </div>
-                   </TabsContent>
-               ))}
-           </Tabs>
-       </div>
-    </div>
-  ); 
+    return (
+        <div className="min-h-screen bg-slate-50 p-6">
+            <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-8">
+                {/* MAIN EDITOR */}
+                <div className="lg:col-span-2 space-y-6">
+                    <div className="flex items-center gap-4 mb-4">
+                        <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft className="mr-2 h-4 w-4"/> Back</Button>
+                        <div>
+                            <h1 className="text-2xl font-bold">Quote Builder</h1>
+                            <p className="text-slate-500 text-sm">
+                                {lead?.address} • <span className="font-bold text-blue-600">{lead?.roof_sqft ? lead.roof_sqft.toLocaleString() + ' sq ft' : 'No Measurement'}</span>
+                            </p>
+                        </div>
+                    </div>
+                    <Card>
+                        <CardHeader className="bg-slate-100 py-3 border-b flex flex-row justify-between items-center">
+                            <CardTitle className="text-sm font-bold uppercase text-slate-500">Scope of Work</CardTitle>
+                            <Button size="sm" variant="outline"><Calculator className="w-3 h-3 mr-2"/> Recalculate</Button>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-50 text-slate-500 text-left">
+                                    <tr>
+                                        <th className="p-3 pl-6 font-medium">Item Description</th>
+                                        <th className="p-3 w-20 font-medium">Qty</th>
+                                        <th className="p-3 w-24 font-medium">Cost</th>
+                                        <th className="p-3 w-24 font-medium text-right pr-6">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {items.map((item, i) => (
+                                        <tr key={item.id} className="hover:bg-slate-50">
+                                            <td className="p-3 pl-6 font-medium">{item.name}</td>
+                                            <td className="p-3">
+                                                <Input 
+                                                    type="number" 
+                                                    className="h-8 w-16 text-center" 
+                                                    value={item.qty}
+                                                    onChange={(e) => {
+                                                        const val = Number(e.target.value);
+                                                        setItems(prev => prev.map(p => p.id === item.id ? {...p, qty: val} : p));
+                                                    }}
+                                                />
+                                            </td>
+                                            <td className="p-3 text-slate-500">${item.cost}</td>
+                                            <td className="p-3 pr-6 text-right font-bold text-slate-700">${(item.qty * item.cost).toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </CardContent>
+                    </Card>
+                </div>
+                {/* SIDEBAR: PRICING */}
+                <div className="space-y-6">
+                    <Card className="bg-slate-900 text-white border-0 shadow-xl sticky top-6">
+                        <CardHeader>
+                            <CardTitle>Financials</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex justify-between text-slate-400 text-sm">
+                                <span>Hard Material Cost</span>
+                                <span>${totalCost.toLocaleString()}</span>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-sm font-bold">
+                                    <span>Target Margin</span>
+                                    <span>{margin}%</span>
+                                </div>
+                                <Slider value={[margin]} onValueChange={(v) => setMargin(v[0])} max={60} min={10} step={1} className="py-2" />
+                            </div>
+                            <div className="pt-4 border-t border-slate-700">
+                                <div className="flex justify-between items-end mb-2">
+                                    <span className="text-slate-400">Net Profit</span>
+                                    <span className="text-green-400 font-bold text-lg">+${profit.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between items-end">
+                                    <span className="text-xl font-bold">Final Price</span>
+                                    <span className="text-4xl font-black tracking-tight">${price.toLocaleString()}</span>
+                                </div>
+                            </div>
+                            <Button className="w-full h-12 text-lg bg-green-500 hover:bg-green-600 text-black font-bold" onClick={saveQuote}>
+                                <FileText className="w-5 h-5 mr-2"/> Generate Proposal
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        </div>
+    );
 }
