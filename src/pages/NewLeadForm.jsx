@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { toast } from 'sonner';
+import { ArrowLeft, ArrowRight, MapPin, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,78 +11,82 @@ import { Label } from '@/components/ui/label';
 export default function NewLeadForm() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const urlAddress = searchParams.get('address');
+    const [loading, setLoading] = useState(false);
 
     const [form, setForm] = useState({ 
         name: '', 
         email: '', 
         phone: '', 
-        address: urlAddress || '', 
-        source: 'Online' 
+        address: searchParams.get('address') || sessionStorage.getItem('client_address') || '' 
     });
 
     const addressInputRef = useRef(null);
 
-    // LOAD KEY & AUTOCOMPLETE
+    // MAP LOADER (For Autocomplete)
     useEffect(() => {
-        const initMap = () => {
-            if (!window.google?.maps?.places) return;
-            
-            const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
-                types: ['address'],
-                componentRestrictions: { country: 'us' }
-            });
-
-            autocomplete.addListener('place_changed', () => {
-                const place = autocomplete.getPlace();
-                if (place.formatted_address) {
-                    setForm(prev => ({ ...prev, address: place.formatted_address }));
-                }
-            });
-        };
-
         const loadScript = () => {
-            let key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+            let key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || localStorage.getItem('user_provided_maps_key');
             
-            // Try Local Storage (The Admin Key)
-            if (!key || key.includes('your_key')) {
-                key = localStorage.getItem('user_provided_maps_key');
+            if(key && !window.google?.maps) {
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+                script.async = true;
+                script.onload = initAutocomplete;
+                document.head.appendChild(script);
+            } else if (window.google?.maps) {
+                initAutocomplete();
             }
-
-            if (!key) {
-                console.error("No API Key found");
-                return;
-            }
-
-            if (window.google?.maps) {
-                initMap();
-                return;
-            }
-
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
-            script.async = true;
-            script.onload = initMap;
-            document.head.appendChild(script);
         };
 
+        const initAutocomplete = () => {
+            if (!addressInputRef.current || !window.google?.maps?.places) return;
+            try {
+                const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, { types: ['address'] });
+                autocomplete.addListener('place_changed', () => {
+                    const place = autocomplete.getPlace();
+                    if (place.formatted_address) setForm(prev => ({ ...prev, address: place.formatted_address }));
+                });
+            } catch(e) { console.error(e); }
+        };
         loadScript();
     }, []);
 
-    const handleSubmit = () => {
-        if (!form.name || !form.email || !form.phone || !form.address) {
-            alert("Please fill in all fields to continue.");
+    const handleSubmit = async () => {
+        if(!form.name || !form.address) {
+            toast.error("Name and Address required");
             return;
         }
+        setLoading(true);
+        toast.loading("Creating your project...");
 
-        // SAVE TO SESSION (So Roofer Tool can find it)
-        sessionStorage.setItem('lead_address', form.address);
-        sessionStorage.setItem('customer_name', form.name);
-        sessionStorage.setItem('customer_email', form.email);
-        sessionStorage.setItem('customer_phone', form.phone);
-
-        // Also save a 'Temp' ID to trigger the edit mode if needed
-        navigate(`/roofermeasurement?leadId=session_new`);
+        try {
+            // 1. CREATE REAL DB RECORD
+            // Mapping fields to Lead entity schema
+            const newLead = await base44.entities.Lead.create({
+                name: form.name,
+                email: form.email,
+                phone: form.phone,
+                address: form.address,
+                lead_status: 'New'
+            });
+            
+            // 2. SAVE ID FOR SESSION
+            sessionStorage.setItem('active_lead_id', newLead.id);
+            sessionStorage.setItem('lead_address', form.address);
+            sessionStorage.setItem('customer_name', form.name);
+            sessionStorage.setItem('customer_email', form.email);
+            sessionStorage.setItem('customer_phone', form.phone);
+            
+            toast.dismiss();
+            
+            // 3. NAVIGATE WITH REAL ID
+            navigate(`/roofermeasurement?leadId=${newLead.id}`);
+        } catch(e) {
+            console.error(e);
+            toast.dismiss();
+            toast.error("Connection Error. Please try again.");
+            setLoading(false);
+        }
     };
 
     return (
@@ -140,8 +146,8 @@ export default function NewLeadForm() {
                         </div>
                     </div>
 
-                    <Button className="w-full h-12 text-lg bg-blue-600 hover:bg-blue-700 mt-6 font-bold shadow-lg shadow-blue-600/20" onClick={handleSubmit}>
-                        Get Instant Estimate <ArrowRight className="ml-2 w-5 h-5"/>
+                    <Button className="w-full h-12 text-lg bg-blue-600 hover:bg-blue-700 mt-6 font-bold shadow-lg shadow-blue-600/20" onClick={handleSubmit} disabled={loading}>
+                        {loading ? "Processing..." : "Get Instant Estimate"} <ArrowRight className="ml-2 w-5 h-5"/>
                     </Button>
                     <p className="text-xs text-center text-slate-400 mt-4 flex items-center justify-center">
                         <ShieldCheck className="w-3 h-3 inline mr-1 text-green-500"/> Your data is secure and private.
