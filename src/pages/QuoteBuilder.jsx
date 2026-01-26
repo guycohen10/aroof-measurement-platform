@@ -36,11 +36,10 @@ export default function QuoteBuilder() {
                 const l = await base44.entities.Lead.get(leadId);
                 setLead(l);
 
-                // 2. Fetch Measurement (The specific record)
-                // We list all and find in client because we might not have exact ID, or filter support might vary
+                // 2. Fetch Measurement
                 const measurements = await base44.entities.RoofMeasurement.list();
-                const myMeasure = measurements.find(m => m.lead_id === leadId) || measurements.sort((a,b) => b.created_date.localeCompare(a.created_date))[0]; // Fallback to latest if not found by ID, but ideally matching lead_id
-
+                const myMeasure = measurements.find(m => m.lead_id === leadId) || measurements.sort((a,b) => b.created_date.localeCompare(a.created_date))[0];
+                
                 // 3. Determine SqFt
                 let foundSqft = 0;
                 if (myMeasure && myMeasure.total_sqft > 0) foundSqft = myMeasure.total_sqft;
@@ -79,24 +78,36 @@ export default function QuoteBuilder() {
     const profit = price - totalCost;
 
     const saveQuote = async () => {
-        toast.loading("Publishing Quote...");
+        toast.loading("Generating Quote...");
         try {
+            // 1. Create QUOTE Record (Required First)
+            const newQuote = await base44.entities.Quote.create({
+                lead_id: leadId,
+                total_price: price,
+                material_cost: totalCost,
+                margin_percent: margin,
+                line_items_json: JSON.stringify(items),
+                status: 'Draft'
+            });
+
+            // 2. Create JOB Record (Linked to Quote & Lead)
             await base44.entities.Job.create({
                 job_name: (lead?.name || "Client") + " - Roof Replacement",
                 address: lead?.address,
-                stage: 'Sold',
-                contract_price: price, // Ensure these fields exist in Job entity or store in notes/custom fields
-                material_cost: totalCost
+                stage: 'Sold', // Default stage
+                quote_id: newQuote.id,      // LINK QUOTE
+                customer_id: leadId         // LINK CUSTOMER (Lead)
             });
+            
             await base44.entities.Lead.update(leadId, { lead_status: 'Sold' });
-
+            
             toast.dismiss();
-            toast.success("Quote Published to Job Board!");
+            toast.success("Quote Published!");
             setTimeout(() => navigate('/jobboard'), 1000);
         } catch(e) { 
-            console.error(e);
+            console.error("Save Error:", e);
             toast.dismiss();
-            toast.error("Error saving quote"); 
+            toast.error("Save Failed: " + (e.message || "Unknown error")); 
         }
     };
 
