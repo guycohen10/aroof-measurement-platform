@@ -101,6 +101,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
+import DispatchBoard from './pages/DispatchBoard';
 import __Layout from './Layout.jsx';
 
 
@@ -208,6 +209,7 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "WalletHistory": WalletHistory,
     "Windows": Windows,
+    "DispatchBoard": DispatchBoard,
 }
 
 export const pagesConfig = {
