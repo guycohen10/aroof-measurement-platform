@@ -32,59 +32,52 @@ export default function RooferMeasurement() {
   const [apiKey, setApiKey] = useState(''); 
   const [needsKey, setNeedsKey] = useState(false); 
   const [isEditing, setIsEditing] = useState(false); 
-  const [editForm, setEditForm] = useState({});
+  const [editForm, setEditForm] = useState({}); 
+  const addressInputRef = useRef(null);
 
   // 1. DATA LOADER 
   useEffect(() => { 
     const load = async () => { 
       if(!leadId) { setLoading(false); return; }
 
+      // Check DB first for most accurate data
+      try {
+          const api = await base44.entities.Lead.get(leadId);
+          setLead(api);
+          setEditForm(api);
+          setLoading(false);
+          return;
+      } catch(e) { console.log("Lead not in DB yet, checking local"); }
+      
+      // Fallback to Session/Local
       const sId = sessionStorage.getItem('active_lead_id')?.replace(/"/g, '');
       if(sId === leadId) {
           const sessionLead = {
               id: leadId,
               address_street: sessionStorage.getItem('lead_address')?.replace(/"/g, ''),
               customer_name: sessionStorage.getItem('customer_name')?.replace(/"/g, ''),
+              email: sessionStorage.getItem('customer_email')?.replace(/"/g, ''),
+              phone: sessionStorage.getItem('customer_phone')?.replace(/"/g, ''),
               source: 'session'
           };
-          if(sessionLead.address_street) { 
-              setLead(sessionLead); 
-              setEditForm(sessionLead);
-              setLoading(false); 
-              return; 
-          }
+          setLead(sessionLead); setEditForm(sessionLead); setLoading(false); return;
       }
       
       const local = JSON.parse(localStorage.getItem('my_leads')||'[]');
       const target = local.find(l => l.id === leadId);
-      if(target) { 
-          setLead(target); 
-          setEditForm(target);
-          setLoading(false); 
-      }
-      else {
-          try {
-              const api = await base44.entities.Lead.get(leadId);
-              setLead(api);
-              setEditForm(api);
-          } catch(e) { 
-              const demo = { address_street: "5103 Lincolnshire Ct, Dallas, TX", id: 'demo' };
-              setLead(demo); setEditForm(demo);
-          }
-          finally { setLoading(false); }
-      }
+      if(target) { setLead(target); setEditForm(target); setLoading(false); }
+      else { setLoading(false); } // Allow empty load to trigger edit mode
     };
     load();
   }, [leadId]);
 
-  // 2. MAP LOADER (Responsive to lead changes) 
+  // 2. MAP LOADER + AUTOCOMPLETE 
   useEffect(() => { 
     if (!mapNode || !lead || !lead.address_street) return;
 
     const attemptLoad = () => {
         let key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
         if(!key) key = localStorage.getItem('user_provided_maps_key');
-        
         if (!key) { setNeedsKey(true); return; }
         if (window.google?.maps) { initMap(); return; }
         
@@ -102,6 +95,8 @@ export default function RooferMeasurement() {
             const { Geocoder } = await google.maps.importLibrary("geocoding");
             await google.maps.importLibrary("drawing");
             await google.maps.importLibrary("geometry");
+            await google.maps.importLibrary("places");
+            // Geocode & Map
             const geocoder = new Geocoder();
             geocoder.geocode({ address: lead.address_street }, (results, status) => {
                 if (status === 'OK' && results[0]) {
@@ -120,7 +115,6 @@ export default function RooferMeasurement() {
                         const area = google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764;
                         const newEdges = [];
                         const path = poly.getPath().getArray();
-                        
                         for(let i=0; i<path.length; i++) {
                             const start = path[i];
                             const end = path[(i+1)%path.length];
@@ -128,7 +122,6 @@ export default function RooferMeasurement() {
                             const line = new google.maps.Polyline({
                                 path: [start, end], strokeColor: EDGE_TYPES[0].color, strokeWeight: 8, zIndex: 9999, map: map 
                             });
-                            
                             const edgeData = { id: Date.now()+i, type: 0, length: len, lineInstance: line };
                             line.addListener("click", () => {
                                 edgeData.type = (edgeData.type + 1) % 7;
@@ -140,48 +133,63 @@ export default function RooferMeasurement() {
                         manager.setDrawingMode(null);
                         toast.success("Section Added!");
                     });
-                } else { 
-                    toast.error("Google Maps: " + status); 
-                }
+                } else { toast.error("Address not found on map"); }
             });
         } catch(e) { console.error(e); }
     };
     attemptLoad();
-  }, [mapNode, lead]); // Reloads when 'lead' changes
+  }, [mapNode, lead]);
 
-  const handleManualKey = () => { 
-    if(apiKey.length < 10) { toast.error("Invalid Key"); return; } 
-    localStorage.setItem('user_provided_maps_key', apiKey); 
-    window.location.reload(); 
-  };
-
-  const handleUpdateLead = () => { 
-    // Update local state to trigger map reload 
-    setLead(prev => ({ ...prev, ...editForm })); 
-    // Also update session/local storage so it persists 
-    if(lead.source === 'session') { 
-        sessionStorage.setItem('lead_address', editForm.address_street); 
-        sessionStorage.setItem('customer_name', editForm.customer_name); 
+  // 3. AUTOCOMPLETE HOOK 
+  useEffect(() => { 
+    if(isEditing && addressInputRef.current && window.google?.maps?.places) { 
+        const autocomplete = new google.maps.places.Autocomplete(addressInputRef.current); 
+        autocomplete.addListener("place_changed", () => { 
+            const place = autocomplete.getPlace(); 
+            if(place.formatted_address) { 
+                setEditForm(prev => ({ ...prev, address_street: place.formatted_address })); 
+            } 
+        }); 
     } 
-    setIsEditing(false); 
-    toast.success("Address Updated - Reloading Map..."); 
-  };
+  }, [isEditing]);
 
-  // 3. HANDLERS 
-  const startQuick = () => { 
-    setStep('quick'); 
-    if(markerInstance && mapInstance) { 
-        const center = markerInstance.getPosition(); 
-        const box = [ 
-            { lat: center.lat() + 0.00015, lng: center.lng() - 0.0002 }, 
-            { lat: center.lat() + 0.00015, lng: center.lng() + 0.0002 }, 
-            { lat: center.lat() - 0.00015, lng: center.lng() + 0.0002 }, 
-            { lat: center.lat() - 0.00015, lng: center.lng() - 0.0002 }, 
-        ]; 
-        const poly = new google.maps.Polygon({ paths: box, fillColor: '#22c55e', strokeColor: '#16a34a', map: mapInstance }); 
-        const area = google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764; 
-        setQuickArea(Math.round(area)); 
-    } 
+  const handleUpdateLead = async () => { 
+    // Save to DB immediately if possible 
+    try { 
+        // Check if lead exists in DB 
+        let dbId = lead.id; 
+        try { await base44.entities.Lead.get(dbId); } 
+        catch { 
+            // Create if missing 
+            const newLead = await base44.entities.Lead.create({ 
+                customer_name: editForm.customer_name, 
+                property_address: editForm.address_street, 
+                email_address: editForm.email, 
+                phone_number: editForm.phone, 
+                status: 'New' 
+            }); 
+            dbId = newLead.id; 
+        }
+
+        // Update existing
+        if(dbId === lead.id) {
+            await base44.entities.Lead.update(dbId, {
+                customer_name: editForm.customer_name,
+                property_address: editForm.address_street,
+                email_address: editForm.email,
+                phone_number: editForm.phone
+            });
+        }
+        
+        setLead({ ...editForm, id: dbId });
+        setIsEditing(false);
+        toast.success("Info Saved & Map Reloading...");
+    } catch(e) {
+        // Fallback to local state if DB fails (offline/demo)
+        setLead(editForm);
+        setIsEditing(false);
+        toast.success("Preview Updated");
+    }
   };
 
   const saveMeasurement = async () => { 
@@ -190,49 +198,23 @@ export default function RooferMeasurement() {
     sections.forEach(s => totalAdj += (s.area * (PITCH_FACTORS[s.pitch]||1.1)));
 
     try {
-        let dbId = lead.id;
-        if(lead.source === 'session' || lead.source === 'local') {
-            try { await base44.entities.Lead.get(dbId); } 
-            catch(e) {
-                const newLead = await base44.entities.Lead.create({
-                    customer_name: lead.customer_name || "New Customer",
-                    property_address: lead.address_street,
-                    status: 'Measured',
-                    roof_sqft: Math.round(totalAdj)
-                });
-                dbId = newLead.id;
-            }
-        }
+        // Ensure lead is up to date in DB
+        await handleUpdateLead();
+        
         await base44.entities.RoofMeasurement.create({
-            lead_id: dbId,
+            lead_id: lead.id,
             total_sqft: Math.round(totalAdj),
             measurement_status: 'Completed',
             sections_data: { sections: sections.map(s => ({ pitch: s.pitch, area: s.area })) }
         });
-        await base44.entities.Lead.update(dbId, { status: 'Measured', roof_sqft: Math.round(totalAdj) });
+        
+        await base44.entities.Lead.update(lead.id, { status: 'Measured', roof_sqft: Math.round(totalAdj) });
         toast.success("Saved!");
         setTimeout(() => navigate('/jobboard'), 1000);
     } catch(e) { toast.error("Save Failed"); }
   };
 
-  // 4. RENDER 
-  if (needsKey) { 
-    return (
-        <div className="flex items-center justify-center min-h-screen bg-slate-100">
-            <Card className="w-full max-w-md shadow-xl">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Key className="w-5 h-5"/> Enter Google Maps API Key</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <p className="text-sm text-slate-500">The app requires a Google Maps API Key to function. Please enter it below.</p>
-                    <Input placeholder="AIzaSy..." value={apiKey} onChange={e => setApiKey(e.target.value)} />
-                    <Button onClick={handleManualKey} className="w-full">Load Map</Button>
-                </CardContent>
-            </Card>
-        </div>
-    );
-  }
-
+  // RENDER EDIT MODAL 
   return (
     <div className="h-screen flex flex-col relative bg-slate-100 overflow-hidden">
         {/* HEADER */}
@@ -246,6 +228,7 @@ export default function RooferMeasurement() {
               <Button variant="outline" size="sm" onClick={() => setSections([])}>Clear Map</Button>
           </div>
        </div>
+
        {/* EDIT OVERLAY */}
        {isEditing && (
            <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
@@ -253,14 +236,17 @@ export default function RooferMeasurement() {
                    <CardHeader><CardTitle>Update Lead Info</CardTitle></CardHeader>
                    <CardContent className="space-y-4">
                        <div><Label>Customer Name</Label><Input value={editForm.customer_name||''} onChange={e=>setEditForm({...editForm, customer_name:e.target.value})}/></div>
-                       <div><Label>Address (Google Maps Search)</Label><Input value={editForm.address_street||''} onChange={e=>setEditForm({...editForm, address_street:e.target.value})}/></div>
+                       <div><Label>Email</Label><Input value={editForm.email||''} onChange={e=>setEditForm({...editForm, email:e.target.value})}/></div>
                        <div><Label>Phone</Label><Input value={editForm.phone||''} onChange={e=>setEditForm({...editForm, phone:e.target.value})}/></div>
+                       <div>
+                          <Label>Property Address</Label>
+                          <Input ref={addressInputRef} value={editForm.address_street||''} onChange={e=>setEditForm({...editForm, address_street:e.target.value})} placeholder="Start typing address..."/>
+                       </div>
                        <div className="flex gap-2 pt-2">
-                           <Button className="flex-1 bg-blue-600" onClick={handleUpdateLead}>Update & Reload Map</Button>
+                           <Button className="flex-1 bg-blue-600" onClick={handleUpdateLead}>Save & Update Map</Button>
                            <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
                        </div>
-                       <div className="border-t pt-4 mt-2">
-                            <p className="text-xs text-slate-400 mb-2">Map still not loading?</p>
+                        <div className="border-t pt-4 mt-2">
                             <Button variant="destructive" size="sm" className="w-full" onClick={() => { localStorage.removeItem('user_provided_maps_key'); window.location.reload(); }}>
                                 <RotateCcw className="w-3 h-3 mr-2"/> Reset API Key
                             </Button>
@@ -269,7 +255,7 @@ export default function RooferMeasurement() {
                </Card>
            </div>
        )}
-       {/* SIDEBAR */}
+       
        <div className="flex flex-1 h-full">
            {step === 'detailed' && (
               <div className="w-80 bg-white border-r z-10 mt-16 flex flex-col shadow-xl">
@@ -303,7 +289,7 @@ export default function RooferMeasurement() {
            {step === 'choice' && !loading && (
               <div className="absolute inset-0 z-30 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center pt-16">
                  <div className="grid md:grid-cols-2 gap-8 max-w-4xl w-full p-4">
-                    <Card className="p-8 cursor-pointer hover:scale-105 transition-all bg-white border-green-500 border-b-4" onClick={startQuick}>
+                    <Card className="p-8 cursor-pointer hover:scale-105 transition-all bg-white border-green-500 border-b-4" onClick={() => setStep('quick')}>
                        <Zap className="w-12 h-12 text-green-600 mb-4 mx-auto"/>
                        <h2 className="text-2xl font-bold text-center">Quick Estimate</h2>
                     </Card>
@@ -314,7 +300,25 @@ export default function RooferMeasurement() {
                  </div>
               </div>
            )}
-        </div>
+       </div>
+       
+       {/* KEY FALLBACK */}
+       {needsKey && (
+          <div className="flex h-screen items-center justify-center bg-slate-900 p-4 absolute inset-0 z-50">
+              <Card className="w-full max-w-md">
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Key className="w-5 h-5" /> Enter API Key</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                      <p className="text-sm text-slate-500">Google Maps needs a valid API Key.</p>
+                      <Input placeholder="AIzaSy..." value={apiKey} onChange={e => setApiKey(e.target.value)} />
+                      <Button className="w-full bg-blue-600" onClick={() => { 
+                          if(apiKey.length < 10) return;
+                          localStorage.setItem('user_provided_maps_key', apiKey);
+                          window.location.reload();
+                      }}>Load Map</Button>
+                  </CardContent>
+              </Card>
+          </div>
+       )}
     </div>
   ); 
 }
