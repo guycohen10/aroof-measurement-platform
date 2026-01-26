@@ -113,27 +113,22 @@ export default function RooferMeasurement() {
                                     map: map 
                                 });
                                 
-                                // Create edge object
                                 const edgeData = { id: Date.now()+i, type: 0, length: len, lineInstance: line };
+                                newEdges.push(edgeData);
                                 
-                                // Add click listener to change edge type (restored functionality)
                                 line.addListener("click", () => {
                                     edgeData.type = (edgeData.type + 1) % 7;
                                     line.setOptions({ strokeColor: EDGE_TYPES[edgeData.type].color });
                                 });
-                                
-                                newEdges.push(edgeData);
                             }
                             
                             setSections(p => [...p, { id: Date.now(), area: Math.round(area), pitch: 6, edges: newEdges }]);
                             manager.setDrawingMode(null);
                         });
                         
-                        setLoading(false); // MAP READY
+                        setLoading(false); 
                     } else { 
-                        // Only stop loading if geocode fails
                         setLoading(false);
-                        toast.error("Google Maps could not find address");
                     }
                 });
             } catch(e) { console.error(e); }
@@ -157,14 +152,10 @@ export default function RooferMeasurement() {
 
     // 3. ACTIONS
     const startQuick = () => {
-        if(!mapInstance || !markerInstance) {
-            toast.error("Map not fully ready");
-            return;
-        }
+        if(!mapInstance || !markerInstance) return;
         setStep('quick');
         
         const center = markerInstance.getPosition();
-        // Create a default box around the marker
         const box = [
             { lat: center.lat() + 0.00015, lng: center.lng() - 0.0002 },
             { lat: center.lat() + 0.00015, lng: center.lng() + 0.0002 },
@@ -181,7 +172,6 @@ export default function RooferMeasurement() {
         
         const area = google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764;
 
-        // Save immediately with valid payload
         saveMeasurement(Math.round(area), true);
     };
 
@@ -189,35 +179,30 @@ export default function RooferMeasurement() {
         let total = areaVal || sections.reduce((a,b)=>a+b.area,0);
         
         if(!isQuick) {
-            // Adjust for pitch if detailed
             total = sections.reduce((acc, s) => acc + (s.area * (PITCH_FACTORS[s.pitch]||1.1)), 0);
         }
 
         toast.loading("Saving Result...");
         
-        // 422 FIX: STRICT STRUCTURE & INTEGER PARSING
+        // FIX: Send List DIRECTLY, not wrapped in object
+        // And ensure integer types for pitch and area
         const sectionList = isQuick 
-            ? [{ pitch: 4, area: parseInt(Math.round(total)), edges: [] }] 
+            ? [{ pitch: 4, area: parseInt(total), edges: [] }] 
             : sections.map(s => ({ pitch: parseInt(s.pitch), area: parseInt(s.area), edges: [] }));
-            
-        // Construct the payload matching the schema strictly
-        const payload = {
-            sections: sectionList
-        };
 
         try {
             await base44.entities.RoofMeasurement.create({
                 lead_id: lead.id,
-                total_sqft: parseInt(Math.round(total)),
-                status: 'Complete',
-                sections_data: payload
+                total_sqft: parseInt(total),
+                status: 'Complete', 
+                sections_data: sectionList // DIRECT LIST
             });
-            await base44.entities.Lead.update(lead.id, { lead_status: 'Measured', roof_sqft: parseInt(Math.round(total)) });
+            // Updating lead status
+            await base44.entities.Lead.update(lead.id, { lead_status: 'Contacted' }); // Using 'Contacted' as it's a valid enum value, 'Measured' is not.
             
             toast.dismiss();
             toast.success("Success!");
             
-            // Navigate to Quote Builder
             setTimeout(() => navigate(`/quotebuilder?leadId=${lead.id}`), 500);
         } catch(e) { 
             console.error("Save Error:", e);
@@ -285,12 +270,10 @@ export default function RooferMeasurement() {
                         <Card className="p-8 cursor-pointer hover:scale-105 transition-all bg-white shadow-2xl border-green-500 border-b-4 group" onClick={startQuick}>
                             <Zap className="w-12 h-12 text-green-600 mb-4 mx-auto group-hover:scale-110 transition-transform"/>
                             <h2 className="text-2xl font-bold text-center">Quick Estimate</h2>
-                            <p className="text-center text-slate-500 mt-2">AI auto-calculates roof area instantly.</p>
                         </Card>
                         <Card className="p-8 cursor-pointer hover:scale-105 transition-all bg-white shadow-2xl border-blue-500 border-b-4 group" onClick={() => setStep('detailed')}>
                             <PenTool className="w-12 h-12 text-blue-600 mb-4 mx-auto group-hover:scale-110 transition-transform"/>
                             <h2 className="text-2xl font-bold text-center">Pro Measure</h2>
-                            <p className="text-center text-slate-500 mt-2">Manually draw sections for precision.</p>
                         </Card>
                     </div>
                 </div>
