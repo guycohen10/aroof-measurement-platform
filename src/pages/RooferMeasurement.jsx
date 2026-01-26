@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Plus, Zap, PenTool, Key, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Zap, PenTool, Key, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,7 +15,7 @@ const EDGE_TYPES = {
     3: { name: 'Ridge', color: '#ef4444' }, 
     4: { name: 'Hip', color: '#f97316' }, 
     5: { name: 'Valley', color: '#a855f7' }, 
-    6: { name: 'Wall', color: '#eab308' }
+    6: { name: 'Wall', color: '#eab308' }, 
 };
 
 const PITCH_FACTORS = { 
@@ -35,7 +35,7 @@ export default function RooferMeasurement() {
     const [markerInstance, setMarkerInstance] = useState(null);
     const [drawingManager, setDrawingManager] = useState(null);
     const [sections, setSections] = useState([]);
-
+    
     // API & Fallback
     const [apiKey, setApiKey] = useState('');
     const [showKeyInput, setShowKeyInput] = useState(false);
@@ -112,16 +112,17 @@ export default function RooferMeasurement() {
                                     zIndex: 999, 
                                     map: map 
                                 });
-                                newEdges.push({ id: Date.now()+i, type: 0, length: len, lineInstance: line });
                                 
-                                // Add click listener to change edge type
-                                const edgeIdx = newEdges.length - 1;
+                                // Create edge object
+                                const edgeData = { id: Date.now()+i, type: 0, length: len, lineInstance: line };
+                                
+                                // Add click listener to change edge type (restored functionality)
                                 line.addListener("click", () => {
-                                    const currentType = newEdges[edgeIdx].type;
-                                    const nextType = (currentType + 1) % 7;
-                                    newEdges[edgeIdx].type = nextType;
-                                    line.setOptions({ strokeColor: EDGE_TYPES[nextType].color });
+                                    edgeData.type = (edgeData.type + 1) % 7;
+                                    line.setOptions({ strokeColor: EDGE_TYPES[edgeData.type].color });
                                 });
+                                
+                                newEdges.push(edgeData);
                             }
                             
                             setSections(p => [...p, { id: Date.now(), area: Math.round(area), pitch: 6, edges: newEdges }]);
@@ -130,8 +131,9 @@ export default function RooferMeasurement() {
                         
                         setLoading(false); // MAP READY
                     } else { 
-                        toast.error("Google Maps could not find address");
+                        // Only stop loading if geocode fails
                         setLoading(false);
+                        toast.error("Google Maps could not find address");
                     }
                 });
             } catch(e) { console.error(e); }
@@ -156,7 +158,7 @@ export default function RooferMeasurement() {
     // 3. ACTIONS
     const startQuick = () => {
         if(!mapInstance || !markerInstance) {
-            toast.error("Map not ready yet");
+            toast.error("Map not fully ready");
             return;
         }
         setStep('quick');
@@ -191,30 +193,36 @@ export default function RooferMeasurement() {
             total = sections.reduce((acc, s) => acc + (s.area * (PITCH_FACTORS[s.pitch]||1.1)), 0);
         }
 
-        toast.loading("Saving...");
+        toast.loading("Saving Result...");
         
-        // CRITICAL FIX: Ensure sections_data is never empty
-        const finalSections = isQuick 
-            ? [{ pitch: 4, area: Math.round(total) }] // Create a dummy section for Quick Estimate
-            : sections.map(s => ({ pitch: s.pitch, area: s.area }));
+        // 422 FIX: STRICT STRUCTURE & INTEGER PARSING
+        const sectionList = isQuick 
+            ? [{ pitch: 4, area: parseInt(Math.round(total)), edges: [] }] 
+            : sections.map(s => ({ pitch: parseInt(s.pitch), area: parseInt(s.area), edges: [] }));
+            
+        // Construct the payload matching the schema strictly
+        const payload = {
+            sections: sectionList
+        };
 
         try {
             await base44.entities.RoofMeasurement.create({
                 lead_id: lead.id,
-                total_sqft: Math.round(total),
-                measurement_status: 'Completed',
-                sections_data: { sections: finalSections }
+                total_sqft: parseInt(Math.round(total)),
+                status: 'Complete',
+                sections_data: payload
             });
-            await base44.entities.Lead.update(lead.id, { lead_status: 'Measured', roof_sqft: Math.round(total) });
-            toast.dismiss();
-            toast.success("Measurement Saved!");
+            await base44.entities.Lead.update(lead.id, { lead_status: 'Measured', roof_sqft: parseInt(Math.round(total)) });
             
-            // Navigate to Quote Builder (Next Step in Flow)
+            toast.dismiss();
+            toast.success("Success!");
+            
+            // Navigate to Quote Builder
             setTimeout(() => navigate(`/quotebuilder?leadId=${lead.id}`), 500);
         } catch(e) { 
-            console.error(e);
+            console.error("Save Error:", e);
             toast.dismiss();
-            toast.error("Save Failed - Check Console"); 
+            toast.error("Error Saving Estimate");
         }
     };
 
@@ -279,7 +287,7 @@ export default function RooferMeasurement() {
                             <h2 className="text-2xl font-bold text-center">Quick Estimate</h2>
                             <p className="text-center text-slate-500 mt-2">AI auto-calculates roof area instantly.</p>
                         </Card>
-                        <Card className="p-8 cursor-pointer hover:scale-105 transition-all bg-white shadow-2xl border-blue-500 border-b-4 group" onClick={() => { setStep('detailed'); }}>
+                        <Card className="p-8 cursor-pointer hover:scale-105 transition-all bg-white shadow-2xl border-blue-500 border-b-4 group" onClick={() => setStep('detailed')}>
                             <PenTool className="w-12 h-12 text-blue-600 mb-4 mx-auto group-hover:scale-110 transition-transform"/>
                             <h2 className="text-2xl font-bold text-center">Pro Measure</h2>
                             <p className="text-center text-slate-500 mt-2">Manually draw sections for precision.</p>
