@@ -3,19 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { 
-  Plus, Search, MoreHorizontal, Trash2, Save, MapPin, 
-  LayoutGrid, List as ListIcon, Calendar, DollarSign, Filter,
-  ArrowUpRight, Users, Trophy
+  LayoutDashboard, Plus, Search, Filter, ArrowUpDown, 
+  MoreHorizontal, MapPin, Calendar, DollarSign, Trash2, 
+  Save, X, Phone, Mail, LayoutGrid, List as ListIcon, Settings, Bell, ChevronDown 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 const STAGES = ['New Lead', 'Measured', 'Quote Sent', 'Sold', 'In Progress', 'Completed'];
 
@@ -23,27 +22,24 @@ export default function JobBoard() {
     const navigate = useNavigate();
     const [jobs, setJobs] = useState([]);
     const [filteredJobs, setFilteredJobs] = useState([]);
-    const [viewMode, setViewMode] = useState('board'); // 'board' or 'list'
+    const [viewMode, setViewMode] = useState('board');
     const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all'); // 'all' or 'active'
+    const [filterStage, setFilterStage] = useState('All');
     const [selectedJob, setSelectedJob] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [stats, setStats] = useState({ totalValue: 0, activeCount: 0, winRate: 0 });
+    const [draggedJob, setDraggedJob] = useState(null);
 
-    // 1. LOAD & CALCULATE
+    // 1. DATA LOADING
     const fetchJobs = async () => {
         try {
             const data = await base44.entities.Job.list();
             const companyId = localStorage.getItem('company_id');
+            const myJobs = companyId ? data.filter(j => j.company_id === companyId) : data;
 
-            // Filter by Company & Sort Newest
-            const myJobs = companyId 
-                ? data.filter(j => j.company_id === companyId).sort((a,b) => (b.id||"").localeCompare(a.id||""))
-                : data.sort((a,b) => (b.id||"").localeCompare(a.id||""));
-            
-            setJobs(myJobs);
-            applyFilters(myJobs, search, statusFilter);
-            calculateStats(myJobs);
+            // Sort Newest First by default
+            const sorted = myJobs.sort((a,b) => (b.id || "").localeCompare(a.id || ""));
+            setJobs(sorted);
+            applyFilters(sorted, search, filterStage);
         } catch (e) {
             console.error(e);
         }
@@ -51,236 +47,308 @@ export default function JobBoard() {
 
     useEffect(() => { fetchJobs(); }, []);
 
-    // 2. SMART SEARCH & STATS
-    const applyFilters = (data, query, status) => {
-        let result = [...data];
-        
-        // Status Filter
-        if (status === 'active') {
-            result = result.filter(j => j.stage !== 'Completed');
-        }
-
-        // Search Filter
-        if(query) {
-            const lowerQ = query.toLowerCase();
-            result = result.filter(j => 
-                j.job_name?.toLowerCase().includes(lowerQ) || 
-                j.address?.toLowerCase().includes(lowerQ) || 
-                j.stage?.toLowerCase().includes(lowerQ)
+    // 2. FILTERS & SEARCH
+    const applyFilters = (data, q, stage) => {
+        let res = data;
+        if (stage !== 'All') res = res.filter(j => j.stage === stage);
+        if (q) {
+            const lower = q.toLowerCase();
+            res = res.filter(j => 
+                j.job_name?.toLowerCase().includes(lower) || 
+                j.address?.toLowerCase().includes(lower) ||
+                j.customer_phone?.toLowerCase().includes(lower)
             );
         }
-        
-        setFilteredJobs(result);
+        setFilteredJobs(res);
     };
 
     const handleSearch = (e) => {
-        const val = e.target.value;
-        setSearch(val);
-        applyFilters(jobs, val, statusFilter);
+        setSearch(e.target.value);
+        applyFilters(jobs, e.target.value, filterStage);
     };
 
-    const handleStatusFilterChange = (val) => {
-        setStatusFilter(val);
+    const handleStageFilter = (val) => {
+        setFilterStage(val);
         applyFilters(jobs, search, val);
     };
 
-    const calculateStats = (data) => {
-        const totalVal = data.reduce((acc, j) => acc + (j.contract_price || 0), 0);
-        const active = data.filter(j => j.stage !== 'Completed').length;
-        const sold = data.filter(j => j.stage === 'Sold' || j.stage === 'In Progress' || j.stage === 'Completed').length;
-        const rate = data.length ? Math.round((sold / data.length) * 100) : 0;
-        setStats({ totalValue: totalVal, activeCount: active, winRate: rate });
-    };
-
-    // 3. ACTIONS
+    // 3. ACTIONS (Edit/Delete/Move)
     const handleEdit = (job) => {
         setSelectedJob({ ...job });
         setIsModalOpen(true);
     };
 
     const handleSave = async () => {
-        toast.loading("Updating...");
+        toast.loading("Saving...");
         try {
             await base44.entities.Job.update(selectedJob.id, {
                 job_name: selectedJob.job_name,
                 stage: selectedJob.stage,
                 contract_price: Number(selectedJob.contract_price)
             });
+            // Optional: If 'Sold', sync Lead status
+            if(selectedJob.stage === 'Sold' && selectedJob.customer_id) {
+                try {
+                    await base44.entities.Lead.update(selectedJob.customer_id, { lead_status: 'Sold' });
+                } catch(err) { console.log('Lead update skipped'); }
+            }
             toast.dismiss();
             toast.success("Saved");
             setIsModalOpen(false);
             fetchJobs();
         } catch(e) {
             toast.dismiss();
-            toast.error("Error updating");
+            toast.error("Error saving");
         }
     };
 
     const handleDelete = async () => {
-        if(!window.confirm("Delete this job permanently?")) return;
+        if(!window.confirm("Permanently delete this project?")) return;
         try {
             await base44.entities.Job.delete(selectedJob.id);
-            toast.success("Deleted");
+            toast.success("Project Deleted");
             setIsModalOpen(false);
             fetchJobs();
         } catch(e) {
-            toast.error("Error deleting");
+            toast.error("Delete failed");
         }
     };
 
-    // 4. RENDERERS
-    const renderBoardColumn = (stage) => {
-        const colJobs = filteredJobs.filter(j => j.stage === stage || (stage === 'New Lead' && !j.stage));
-        const colorClass = {
-            'New Lead': 'border-blue-400',
-            'Measured': 'border-purple-400',
-            'Quote Sent': 'border-orange-400',
-            'Sold': 'border-green-400',
-            'In Progress': 'border-yellow-400',
-            'Completed': 'border-slate-400'
-        }[stage] || 'border-slate-300';
+    // 4. DRAG AND DROP LOGIC
+    const onDragStart = (e, job) => {
+        setDraggedJob(job);
+        e.dataTransfer.setData('jobId', job.id);
+    };
+
+    const onDrop = async (e, newStage) => {
+        e.preventDefault();
+        if(!draggedJob) return;
+        if(draggedJob.stage === newStage) return;
+
+        // Optimistic Update
+        const updated = { ...draggedJob, stage: newStage };
+        const newJobs = jobs.map(j => j.id === draggedJob.id ? updated : j);
+        setJobs(newJobs);
+        applyFilters(newJobs, search, filterStage);
+        
+        try {
+            await base44.entities.Job.update(draggedJob.id, { stage: newStage });
+            toast.success(`Moved to ${newStage}`);
+        } catch(e) {
+            toast.error("Move failed");
+            fetchJobs(); // Revert
+        }
+        setDraggedJob(null);
+    };
+
+    // 5. RENDER BOARD
+    const renderColumn = (stage) => {
+        const items = filteredJobs.filter(j => j.stage === stage || (stage === 'New Lead' && !j.stage));
+        const colorMap = {
+            'New Lead': 'bg-blue-500',
+            'Measured': 'bg-purple-500',
+            'Quote Sent': 'bg-orange-500',
+            'Sold': 'bg-green-500',
+            'In Progress': 'bg-yellow-500',
+            'Completed': 'bg-slate-500'
+        };
 
         return (
-            <div key={stage} className="flex-1 min-w-[300px] bg-slate-100/50 rounded-xl p-4 flex flex-col h-full border border-slate-200">
-                <div className={`flex items-center justify-between mb-4 pb-2 border-b-2 ${colorClass}`}>
-                    <h3 className="font-bold text-slate-700 uppercase text-xs tracking-wider">{stage}</h3>
-                    <Badge variant="secondary" className="bg-white">{colJobs.length}</Badge>
+            <div 
+                key={stage}
+                className="flex-1 min-w-[320px] bg-slate-100/50 rounded-xl flex flex-col h-full border border-slate-200"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => onDrop(e, stage)}
+            >
+                <div className="p-3 border-b border-slate-200 bg-white/50 rounded-t-xl flex justify-between items-center sticky top-0 backdrop-blur-sm z-10">
+                    <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${colorMap[stage] || 'bg-slate-400'}`} />
+                        <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wider">{stage}</h3>
+                    </div>
+                    <Badge variant="secondary" className="bg-white border shadow-sm text-slate-600">
+                        {items.length}
+                    </Badge>
                 </div>
-                <div className="space-y-3 overflow-y-auto flex-1 pr-2">
-                    {colJobs.map(job => (
+                <div className="flex-1 p-2 space-y-2 overflow-y-auto">
+                    {items.map(job => (
                         <Card 
-                            key={job.id} 
+                            key={job.id}
+                            draggable
+                            onDragStart={(e) => onDragStart(e, job)}
                             onClick={() => handleEdit(job)}
-                            className="cursor-pointer hover:shadow-md hover:border-blue-300 transition-all group bg-white border-slate-200"
+                            className="cursor-pointer hover:shadow-lg hover:border-blue-400 transition-all bg-white group active:scale-[0.98] duration-200"
                         >
                             <CardContent className="p-4">
                                 <div className="flex justify-between items-start mb-2">
-                                    <div className="font-bold text-slate-900 leading-tight">{job.job_name}</div>
+                                    <div className="font-bold text-slate-800 leading-snug">{job.job_name}</div>
                                     {job.contract_price > 0 && (
-                                        <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-0">
+                                        <div className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100">
                                             ${Number(job.contract_price).toLocaleString()}
-                                        </Badge>
+                                        </div>
                                     )}
                                 </div>
-                                <div className="text-xs text-slate-500 flex items-center gap-1 mb-3">
-                                    <MapPin className="w-3 h-3"/> {job.address || 'No Address'}
+                                <div className="text-xs text-slate-500 flex items-center gap-1.5 mb-2 truncate">
+                                    <MapPin className="w-3 h-3 text-slate-400 shrink-0"/> 
+                                    {job.address || 'No Address Provided'}
                                 </div>
-                                <div className="flex justify-between items-center text-xs text-slate-400">
-                                    <span>{new Date(job.created_at || Date.now()).toLocaleDateString()}</span>
-                                    <MoreHorizontal className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"/>
+                                <div className="flex justify-between items-center pt-2 border-t border-slate-50 mt-2">
+                                    <div className="text-[10px] text-slate-400 font-medium">
+                                        {new Date(job.created_at || Date.now()).toLocaleDateString()}
+                                    </div>
+                                    <MoreHorizontal className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors"/>
                                 </div>
                             </CardContent>
                         </Card>
                     ))}
-                    {colJobs.length === 0 && <div className="text-center text-slate-400 text-xs py-10 italic opacity-50">Empty</div>}
+                    {items.length === 0 && (
+                        <div className="h-24 flex items-center justify-center text-slate-300 text-xs italic border-2 border-dashed border-slate-200 rounded-lg m-2">
+                            Drop Here
+                        </div>
+                    )}
                 </div>
             </div>
         );
     };
 
     return (
-        <div className="flex flex-col h-screen overflow-hidden bg-slate-50">
-            {/* TOP BAR: KPI & SEARCH */}
-            <div className="bg-white border-b px-6 py-4 space-y-4 shadow-sm z-10">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-800">Operations Command</h1>
-                        <p className="text-slate-500 text-sm">Manage {jobs.length} total jobs across all stages</p>
+        <div className="flex flex-col h-screen bg-slate-50">
+            {/* 1. GLOBAL HEADER */}
+            <div className="h-16 bg-slate-900 text-white flex items-center justify-between px-6 shrink-0 z-20">
+                <div className="flex items-center gap-8">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-lg">A</div>
+                        <span className="font-bold text-lg tracking-tight">Aroof OS</span>
                     </div>
-                    <div className="flex gap-4">
-                        <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-                            <DollarSign className="w-4 h-4 text-blue-600"/>
-                            <div>
-                                <div className="text-[10px] uppercase font-bold text-blue-400">Pipeline Value</div>
-                                <div className="font-bold text-blue-900">${stats.totalValue.toLocaleString()}</div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
-                            <Trophy className="w-4 h-4 text-green-600"/>
-                            <div>
-                                <div className="text-[10px] uppercase font-bold text-green-400">Win Rate</div>
-                                <div className="font-bold text-green-900">{stats.winRate}%</div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-100">
-                            <Users className="w-4 h-4 text-purple-600"/>
-                            <div>
-                                <div className="text-[10px] uppercase font-bold text-purple-400">Active Jobs</div>
-                                <div className="font-bold text-purple-900">{stats.activeCount}</div>
-                            </div>
-                        </div>
-                    </div>
+                    <nav className="hidden md:flex items-center gap-1">
+                        <Button 
+                            variant="ghost" 
+                            className="text-slate-300 hover:text-white hover:bg-slate-800"
+                            onClick={() => navigate('/rooferdashboard')}
+                        >
+                            <LayoutDashboard className="w-4 h-4 mr-2"/> Dashboard
+                        </Button>
+                        <Button variant="ghost" className="text-white bg-slate-800">
+                            <LayoutGrid className="w-4 h-4 mr-2"/> Pipeline
+                        </Button>
+                    </nav>
                 </div>
-
-                {/* TOOLBAR */}
-                <div className="flex justify-between items-center gap-4">
-                    <div className="relative flex-1 max-w-md flex gap-2">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400"/>
-                            <Input 
-                                placeholder="Search clients, addresses, or stages..." 
-                                className="pl-9 bg-slate-100 border-0"
-                                value={search}
-                                onChange={handleSearch}
-                            />
-                        </div>
-                        <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                            <SelectTrigger className="w-[140px] bg-slate-100 border-0">
-                                <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Jobs</SelectItem>
-                                <SelectItem value="active">Active Only</SelectItem>
-                            </SelectContent>
-                        </Select>
+                <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-slate-800">
+                        <Bell className="w-5 h-5"/>
+                    </Button>
+                    <div className="w-8 h-8 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-xs font-bold">
+                        JD
                     </div>
-                    <Tabs value={viewMode} onValueChange={setViewMode} className="w-[200px]">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="board"><LayoutGrid className="w-4 h-4 mr-2"/> Board</TabsTrigger>
-                            <TabsTrigger value="list"><ListIcon className="w-4 h-4 mr-2"/> List</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
                 </div>
             </div>
 
-            {/* CONTENT AREA */}
+            {/* 2. CONTROL BAR */}
+            <div className="h-16 border-b bg-white flex items-center justify-between px-6 shrink-0 gap-4 shadow-sm z-10">
+                <div className="flex items-center gap-4 flex-1">
+                    <div className="relative w-full max-w-sm">
+                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400"/>
+                        <Input 
+                            placeholder="Search pipeline..." 
+                            className="pl-9 h-10 bg-slate-50 border-slate-200 focus:bg-white transition-colors"
+                            value={search} onChange={handleSearch}
+                        />
+                    </div>
+                    <Select value={filterStage} onValueChange={handleStageFilter}>
+                        <SelectTrigger className="w-[160px] h-10 bg-white border-slate-200">
+                            <Filter className="w-3.5 h-3.5 mr-2 text-slate-500"/> <SelectValue/>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="All">All Stages</SelectItem>
+                            {STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                    <div className="bg-slate-100 p-1 rounded-lg flex gap-1 border border-slate-200">
+                        <Button 
+                            variant="ghost" 
+                            size="sm" onClick={() => setViewMode('board')}
+                            className={`h-8 px-3 rounded-md transition-all ${viewMode === 'board' ? 'bg-white shadow-sm text-blue-600 font-medium' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            <LayoutGrid className="w-4 h-4 mr-2"/> Board
+                        </Button>
+                        <Button 
+                            variant="ghost" 
+                            size="sm" onClick={() => setViewMode('list')}
+                            className={`h-8 px-3 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-blue-600 font-medium' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            <ListIcon className="w-4 h-4 mr-2"/> List
+                        </Button>
+                    </div>
+                    <div className="h-8 w-px bg-slate-200 mx-1"></div>
+                    <Button 
+                        className="h-10 bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-900/20 px-6 font-medium" 
+                        onClick={() => navigate('/newleadform')}
+                    >
+                        <Plus className="w-4 h-4 mr-2"/> New Opportunity
+                    </Button>
+                </div>
+            </div>
+
+            {/* 3. MAIN CONTENT */}
             <div className="flex-1 overflow-hidden p-6">
                 {viewMode === 'board' ? (
-                    <div className="flex gap-4 h-full overflow-x-auto pb-4">
-                        {STAGES.map(stage => renderBoardColumn(stage))}
+                    <div className="flex gap-4 h-full overflow-x-auto pb-2 px-2">
+                        {STAGES.map(stage => renderColumn(stage))}
                     </div>
                 ) : (
-                    <Card className="h-full overflow-hidden border-0 shadow-sm">
-                        <div className="overflow-y-auto h-full">
+                    <Card className="h-full border shadow-sm flex flex-col rounded-xl overflow-hidden">
+                        <div className="overflow-auto flex-1">
                             <Table>
-                                <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
+                                <TableHeader className="sticky top-0 bg-slate-50 z-10 shadow-sm">
                                     <TableRow>
-                                        <TableHead>Job Name</TableHead>
+                                        <TableHead className="w-[300px]">Opportunity Name</TableHead>
                                         <TableHead>Stage</TableHead>
-                                        <TableHead>Price</TableHead>
-                                        <TableHead>Address</TableHead>
+                                        <TableHead>Contract Value</TableHead>
+                                        <TableHead>Location</TableHead>
+                                        <TableHead>Created</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {filteredJobs.map(job => (
-                                        <TableRow key={job.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => handleEdit(job)}>
-                                            <TableCell className="font-medium text-slate-900">{job.job_name}</TableCell>
+                                        <TableRow key={job.id} className="hover:bg-blue-50/50 cursor-pointer group transition-colors" onClick={() => handleEdit(job)}>
+                                            <TableCell className="font-medium text-slate-900">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                                                        {(job.job_name || 'U').substring(0,2).toUpperCase()}
+                                                    </div>
+                                                    {job.job_name}
+                                                </div>
+                                            </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline" className="bg-slate-50 text-slate-600">{job.stage}</Badge>
+                                                <Badge variant="outline" className="font-normal bg-white">{job.stage}</Badge>
                                             </TableCell>
                                             <TableCell className="font-bold text-green-600">
                                                 {job.contract_price ? `$${Number(job.contract_price).toLocaleString()}` : '-'}
                                             </TableCell>
-                                            <TableCell className="text-slate-500 truncate max-w-[200px]">{job.address}</TableCell>
+                                            <TableCell className="text-slate-500">
+                                                <div className="flex items-center gap-1">
+                                                    <MapPin className="w-3.5 h-3.5 text-slate-400"/>
+                                                    {job.address}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-slate-400 text-sm">
+                                                {new Date(job.created_at || Date.now()).toLocaleDateString()}
+                                            </TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4"/></Button>
+                                                 <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <MoreHorizontal className="w-4 h-4 text-slate-400 hover:text-blue-600"/>
+                                                </Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
                                     {filteredJobs.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="text-center py-10 text-slate-400">No jobs found matching your filters.</TableCell>
+                                            <TableCell colSpan={6} className="h-32 text-center text-slate-400 italic">
+                                                No opportunities found matching your criteria.
+                                            </TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
@@ -290,32 +358,61 @@ export default function JobBoard() {
                 )}
             </div>
 
-            {/* EDIT MODAL */}
+            {/* 4. EDIT MODAL */}
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <DialogContent>
-                    <DialogHeader><DialogTitle>Manage Project</DialogTitle></DialogHeader>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl">Edit Opportunity</DialogTitle>
+                    </DialogHeader>
                     {selectedJob && (
-                        <div className="space-y-4 py-4">
-                            <div>
-                                <label className="text-xs uppercase font-bold text-slate-500">Client / Job Name</label>
-                                <Input value={selectedJob.job_name} onChange={e => setSelectedJob({...selectedJob, job_name: e.target.value})} />
+                        <div className="space-y-6 py-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Opportunity Name</label>
+                                <Input 
+                                    value={selectedJob.job_name} 
+                                    onChange={e => setSelectedJob({...selectedJob, job_name: e.target.value})}
+                                    className="font-medium text-lg"
+                                />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs uppercase font-bold text-slate-500">Stage</label>
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Stage</label>
                                     <Select value={selectedJob.stage} onValueChange={v => setSelectedJob({...selectedJob, stage: v})}>
                                         <SelectTrigger><SelectValue/></SelectTrigger>
-                                        <SelectContent>{STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                                        <SelectContent>
+                                            {STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                        </SelectContent>
                                     </Select>
                                 </div>
-                                <div>
-                                    <label className="text-xs uppercase font-bold text-slate-500">Contract Value</label>
-                                    <Input type="number" value={selectedJob.contract_price} onChange={e => setSelectedJob({...selectedJob, contract_price: e.target.value})} />
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Contract Value</label>
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-slate-400"/>
+                                        <Input 
+                                            type="number" 
+                                            className="pl-9"
+                                            value={selectedJob.contract_price} 
+                                            onChange={e => setSelectedJob({...selectedJob, contract_price: e.target.value})}
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex gap-2 pt-4 border-t">
-                                <Button className="flex-1 bg-blue-600" onClick={handleSave}><Save className="w-4 h-4 mr-2"/> Save Changes</Button>
-                                <Button variant="destructive" size="icon" onClick={handleDelete}><Trash2 className="w-4 h-4"/></Button>
+                            <div className="bg-slate-50 p-4 rounded-lg space-y-2">
+                                <div className="text-xs font-bold text-slate-500 uppercase">Details</div>
+                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                    <MapPin className="w-4 h-4 text-slate-400"/> {selectedJob.address || 'No address'}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                    <Calendar className="w-4 h-4 text-slate-400"/> Created: {new Date(selectedJob.created_at || Date.now()).toLocaleDateString()}
+                                </div>
+                            </div>
+                            <div className="flex justify-between pt-4 border-t">
+                                <Button variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100" onClick={handleDelete}>
+                                    <Trash2 className="w-4 h-4 mr-2"/> Delete
+                                </Button>
+                                <Button className="bg-blue-600 hover:bg-blue-700 px-8" onClick={handleSave}>
+                                    <Save className="w-4 h-4 mr-2"/> Save Changes
+                                </Button>
                             </div>
                         </div>
                     )}
