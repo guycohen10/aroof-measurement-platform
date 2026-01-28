@@ -141,7 +141,7 @@ export default function RooferSidebar({ className }) {
   const handleLogout = async () => {
     try {
       await base44.auth.logout();
-      window.location.href = '/';
+      window.location.href = '/rooferlogin'; // Force hard refresh to login
     } catch (err) {
       console.error('Logout failed:', err);
     }
