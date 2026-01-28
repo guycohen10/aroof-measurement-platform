@@ -24,13 +24,19 @@ const PITCH_FACTORS = {
 };
 
 export default function RooferMeasurement() {
-    const [searchParams] = useSearchParams();
-    const leadId = searchParams.get('leadId')?.replace(/"/g, '');
+    const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
+
+    // 1. STABLE PARAMS
+    const rawAddress = searchParams.get('address');
+    const urlLeadId = searchParams.get('leadId')?.replace(/"/g, '');
 
     const [step, setStep] = useState('choice');
     const [loading, setLoading] = useState(true);
     const [lead, setLead] = useState(null);
+    const [mapAddress, setMapAddress] = useState(rawAddress || '');
+
+    // Map State
     const [mapNode, setMapNode] = useState(null);
     const [mapInstance, setMapInstance] = useState(null);
     const [markerInstance, setMarkerInstance] = useState(null);
@@ -42,24 +48,61 @@ export default function RooferMeasurement() {
     const [apiKey, setApiKey] = useState('');
     const [showKeyInput, setShowKeyInput] = useState(false);
 
-    // 1. LOAD DATA
+    // 2. SELF-HEALING INITIALIZATION
     useEffect(() => {
-        const load = async () => {
-            if(!leadId) return;
-            try {
-                const l = await base44.entities.Lead.get(leadId);
-                setLead(l);
-            } catch(e) {
-                console.error(e);
-                toast.error("Could not load lead data");
+        let isMounted = true;
+
+        const initialize = async () => {
+            // A. We have an ID -> Fetch it
+            if (urlLeadId) {
+                try {
+                    const l = await base44.entities.Lead.get(urlLeadId);
+                    if (isMounted) {
+                        setLead(l);
+                        if (l.address) setMapAddress(l.address); // Changed from property_address to address based on entity
+                        else if (l.property_address) setMapAddress(l.property_address);
+                    }
+                } catch (e) { 
+                    console.warn("Lead fetch failed, likely invalid ID"); 
+                }
+            } 
+            // B. No ID, but we have Address -> CREATE IT (Fixes Loop & Enables Data Capture)
+            else if (rawAddress && !urlLeadId) {
+                try {
+                    const newLead = await base44.entities.Lead.create({
+                        address: decodeURIComponent(rawAddress), // Changed from property_address to address based on entity
+                        name: 'New Lead', // Default name
+                        email: 'temp@placeholder.com', // Placeholder
+                        phone: '000-000-0000', // Placeholder
+                        lead_status: 'New',
+                        lead_source: 'Website Measurement'
+                    });
+                    
+                    if (isMounted) {
+                        setLead(newLead);
+                        setMapAddress(decodeURIComponent(rawAddress));
+                        
+                        // Silent URL Update (No Reload)
+                        const newUrl = new URL(window.location);
+                        newUrl.searchParams.set('leadId', newLead.id);
+                        window.history.replaceState({}, '', newUrl);
+                    }
+                } catch (e) { 
+                    console.error("Auto-create failed", e); 
+                    // Fallback to just using the address if creation fails (e.g. permission issues)
+                    if (isMounted) setMapAddress(decodeURIComponent(rawAddress));
+                }
             }
         };
-        load();
-    }, [leadId]);
+        
+        initialize();
+        
+        return () => { isMounted = false; };
+    }, [urlLeadId, rawAddress]); // Only run if URL changes
 
-    // 2. LOAD MAP (No Auto-Timeout)
+    // 3. LOAD MAP (Depends on mapAddress)
     useEffect(() => {
-        if (!mapNode || !lead?.address) return;
+        if (!mapNode || !mapAddress) return;
 
         const initMap = async () => {
             try {
@@ -70,7 +113,7 @@ export default function RooferMeasurement() {
                 await google.maps.importLibrary("geometry");
 
                 const geocoder = new Geocoder();
-                geocoder.geocode({ address: lead.address }, (results, status) => {
+                geocoder.geocode({ address: mapAddress }, (results, status) => {
                     if (status === 'OK' && results[0]) {
                         const map = new Map(mapNode, { 
                             center: results[0].geometry.location, 
@@ -102,13 +145,12 @@ export default function RooferMeasurement() {
                             const area = google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764;
                             const sectionId = Date.now();
                             
-                            // --- NEW: Add Text Label to Map ---
+                            // --- LABEL (White Text) ---
                             const bounds = new google.maps.LatLngBounds();
                             poly.getPath().forEach(p => bounds.extend(p));
-                            const center = bounds.getCenter();
                             
                             const labelMarker = new google.maps.Marker({
-                                position: center,
+                                position: bounds.getCenter(),
                                 map: map,
                                 icon: { path: google.maps.SymbolPath.CIRCLE, scale: 0 }, // Invisible icon
                                 label: {
@@ -116,7 +158,7 @@ export default function RooferMeasurement() {
                                     color: "white",
                                     fontWeight: "bold",
                                     fontSize: "14px",
-                                    className: "map-label-shadow" // Will add shadow via CSS if supported, or just rely on contrast
+                                    className: "map-label-shadow"
                                 }
                             });
                             
@@ -154,6 +196,7 @@ export default function RooferMeasurement() {
                         setLoading(false); 
                     } else { 
                         setLoading(false);
+                        toast.error("Address not found on map");
                     }
                 });
             } catch(e) { console.error(e); }
@@ -173,9 +216,9 @@ export default function RooferMeasurement() {
         };
 
         loadScript(); 
-    }, [mapNode, lead]);
+    }, [mapNode, mapAddress]);
 
-    // 3. ACTIONS
+    // 4. ACTIONS
     const startQuick = () => {
         if(!mapInstance || !markerInstance) return;
         setStep('quick');
@@ -207,10 +250,14 @@ export default function RooferMeasurement() {
             total = sections.reduce((acc, s) => acc + (s.area * (PITCH_FACTORS[s.pitch]||1.1)), 0);
         }
 
-        toast.loading("Saving Result...");
+        // Ensure we have a Lead ID (Should be created by init, but double check)
+        if (!lead?.id) { 
+            toast.error("System Error: No Lead ID found"); 
+            return; 
+        }
+
+        toast.loading("Saving...");
         
-        // FIX: Send List DIRECTLY, not wrapped in object
-        // And ensure integer types for pitch and area
         const sectionList = isQuick 
             ? [{ pitch: 4, area: parseInt(total), edges: [] }] 
             : sections.map(s => ({ pitch: parseInt(s.pitch), area: parseInt(s.area), edges: [] }));
@@ -219,11 +266,10 @@ export default function RooferMeasurement() {
             await base44.entities.RoofMeasurement.create({
                 lead_id: lead.id,
                 total_sqft: parseInt(total),
-                status: 'Complete', 
-                sections_data: sectionList // DIRECT LIST
+                measurement_status: 'Completed',
+                sections_data: sectionList
             });
-            // Updating lead status
-            await base44.entities.Lead.update(lead.id, { lead_status: 'Contacted' }); // Using 'Contacted' as it's a valid enum value
+            await base44.entities.Lead.update(lead.id, { lead_status: 'Contacted' }); // Using 'Contacted' as generic progress status
             
             toast.dismiss();
             toast.success("Success!");
@@ -236,7 +282,7 @@ export default function RooferMeasurement() {
         }
     };
 
-    // 4. RENDER
+    // 5. RENDER
     if (showKeyInput) {
         return (
             <div className="flex h-screen items-center justify-center bg-slate-900 p-4">
@@ -272,7 +318,7 @@ export default function RooferMeasurement() {
             {/* NAVIGATION BAR */}
             <div className="absolute top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm shadow-sm h-16 flex items-center px-4 justify-between">
                 <Button variant="ghost" onClick={() => navigate('/rooferdashboard')}><ArrowLeft className="w-4 h-4 mr-2"/> Exit</Button>
-                <div className="font-bold text-slate-800">{lead?.address || 'Loading Address...'}</div>
+                <div className="font-bold text-slate-800">{mapAddress || 'Loading Address...'}</div>
                 <Button variant="ghost" size="icon" onClick={() => setShowKeyInput(true)} title="Fix Map Key">
                     <Key className="w-4 h-4 text-slate-400"/>
                 </Button>
@@ -282,7 +328,7 @@ export default function RooferMeasurement() {
             <div className="flex-1 relative pt-16 h-screen w-full">
                 <div ref={setMapNode} className="w-full h-full bg-slate-200" />
                 
-                {/* NEW: TOP FLOATING RESULT (HEADS UP DISPLAY) */}
+                {/* TOP FLOATING RESULT (HEADS UP DISPLAY) */}
                 {step === 'detailed' && (
                     <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-10 bg-slate-900 text-white px-6 py-2 rounded-full shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
                         <span className="text-sm font-medium text-slate-400">Total Area:</span>
@@ -339,7 +385,7 @@ export default function RooferMeasurement() {
                                         setSections(prev => prev.map(sec => sec.id === s.id ? {...sec, pitch: Number(v)} : sec));
                                     }}>
                                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                        <SelectContent>{[0,4,5,6,7,8,9,10,12].map(p => <SelectItem key={p} value={p.toString()}>{p}/12</SelectItem>)}</SelectContent>
+                                        <SelectContent>{[0,4,5,6,7,8,9,10,12].map(p => <SelectItem key={p} value={p.toString()}>{p}/12 Pitch</SelectItem>)}</SelectContent>
                                     </Select>
                                 </div>
                             </Card>
