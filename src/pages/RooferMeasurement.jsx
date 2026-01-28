@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Plus, Zap, PenTool, Key, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Zap, PenTool, Key, Loader2, Eraser } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 const EDGE_TYPES = { 
     0: { name: 'Unassigned', color: '#94a3b8' }, 
@@ -35,6 +36,7 @@ export default function RooferMeasurement() {
     const [markerInstance, setMarkerInstance] = useState(null);
     const [drawingManager, setDrawingManager] = useState(null);
     const [sections, setSections] = useState([]);
+    const [areaLabels, setAreaLabels] = useState([]); // Store text markers
     
     // API & Fallback
     const [apiKey, setApiKey] = useState('');
@@ -98,6 +100,29 @@ export default function RooferMeasurement() {
 
                         google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
                             const area = google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764;
+                            const sectionId = Date.now();
+                            
+                            // --- NEW: Add Text Label to Map ---
+                            const bounds = new google.maps.LatLngBounds();
+                            poly.getPath().forEach(p => bounds.extend(p));
+                            const center = bounds.getCenter();
+                            
+                            const labelMarker = new google.maps.Marker({
+                                position: center,
+                                map: map,
+                                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 0 }, // Invisible icon
+                                label: {
+                                    text: `${Math.round(area).toLocaleString()} sq ft`,
+                                    color: "white",
+                                    fontWeight: "bold",
+                                    fontSize: "14px",
+                                    className: "map-label-shadow" // Will add shadow via CSS if supported, or just rely on contrast
+                                }
+                            });
+                            
+                            setAreaLabels(prev => [...prev, { id: sectionId, marker: labelMarker }]);
+                            // ----------------------------------
+
                             const newEdges = [];
                             const path = poly.getPath().getArray();
                             
@@ -122,7 +147,7 @@ export default function RooferMeasurement() {
                                 });
                             }
                             
-                            setSections(p => [...p, { id: Date.now(), area: Math.round(area), pitch: 6, edges: newEdges }]);
+                            setSections(p => [...p, { id: sectionId, area: Math.round(area), pitch: 6, edges: newEdges, polyInstance: poly }]);
                             manager.setDrawingMode(null);
                         });
                         
@@ -198,7 +223,7 @@ export default function RooferMeasurement() {
                 sections_data: sectionList // DIRECT LIST
             });
             // Updating lead status
-            await base44.entities.Lead.update(lead.id, { lead_status: 'Contacted' }); // Using 'Contacted' as it's a valid enum value, 'Measured' is not.
+            await base44.entities.Lead.update(lead.id, { lead_status: 'Contacted' }); // Using 'Contacted' as it's a valid enum value
             
             toast.dismiss();
             toast.success("Success!");
@@ -239,6 +264,9 @@ export default function RooferMeasurement() {
         );
     }
 
+    // Calculate Total Live
+    const currentTotal = sections.reduce((acc, s) => acc + (s.area * (PITCH_FACTORS[s.pitch]||1.0)), 0);
+
     return (
         <div className="flex flex-col h-screen w-full relative overflow-hidden">
             {/* NAVIGATION BAR */}
@@ -251,8 +279,17 @@ export default function RooferMeasurement() {
             </div>
 
             {/* MAP CONTAINER */}
-            <div className="flex-1 relative w-full h-full bg-slate-100">
-                <div ref={setMapNode} className="w-full h-full" />
+            <div className="flex-1 relative pt-16 h-screen w-full">
+                <div ref={setMapNode} className="w-full h-full bg-slate-200" />
+                
+                {/* NEW: TOP FLOATING RESULT (HEADS UP DISPLAY) */}
+                {step === 'detailed' && (
+                    <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-10 bg-slate-900 text-white px-6 py-2 rounded-full shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                        <span className="text-sm font-medium text-slate-400">Total Area:</span>
+                        <span className="text-xl font-bold">{Math.round(currentTotal).toLocaleString()} sq ft</span>
+                        {sections.length > 0 && <Badge variant="secondary" className="bg-green-500 text-white border-0">{sections.length} Sections</Badge>}
+                    </div>
+                )}
             </div>
 
             {/* LOADING OVERLAY */}
@@ -279,28 +316,40 @@ export default function RooferMeasurement() {
                 </div>
             )}
 
-            {/* SIDEBAR (Detailed Mode) */}
+            {/* SIDEBAR (Detailed Mode) - SIMPLIFIED */}
             {step === 'detailed' && (
-                <div className="w-80 bg-white border-r z-40 shadow-xl absolute left-0 bottom-0 top-16 flex flex-col">
-                    <div className="p-4 border-b bg-blue-50">
-                        <h3 className="font-bold text-blue-900">Measurements</h3>
-                        <p className="text-xs text-blue-600">Total: {Math.round(sections.reduce((a,b)=>a+b.area,0))} sq ft</p>
+                <div className="w-72 bg-white border-r z-40 shadow-xl absolute left-0 bottom-0 top-16 flex flex-col transition-all">
+                    <div className="p-4 border-b bg-slate-50">
+                        <Button className="w-full bg-blue-600 shadow-blue-200 shadow-lg" onClick={() => drawingManager?.setDrawingMode('polygon')}>
+                            <Plus className="w-4 h-4 mr-2"/> Draw Section
+                        </Button>
                     </div>
-                    <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-                        <Button className="w-full bg-blue-600" onClick={() => drawingManager?.setDrawingMode('polygon')}><Plus className="w-4 h-4 mr-2"/> Draw Section</Button>
+                    <div className="flex-1 p-3 space-y-3 overflow-y-auto">
+                        {sections.length === 0 && <div className="text-center text-slate-400 text-sm mt-10 p-4">Draw the roof outline on the map to begin.</div>}
+                        
                         {sections.map((s, i) => (
-                            <Card key={s.id} className="p-3 border-l-4 border-blue-500">
-                                <div className="font-bold text-sm mb-2">Section {i+1} ({s.area} sq ft)</div>
-                                <Select value={s.pitch.toString()} onValueChange={v => {
-                                    setSections(prev => prev.map(sec => sec.id === s.id ? {...sec, pitch: Number(v)} : sec));
-                                }}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>{[0,4,5,6,7,8,9,10,12].map(p => <SelectItem key={p} value={p.toString()}>{p}/12 Pitch</SelectItem>)}</SelectContent>
-                                </Select>
+                            <Card key={s.id} className="p-3 border-l-4 border-blue-500 shadow-sm">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="font-bold text-sm">Section {i+1}</span>
+                                    <span className="text-xs font-mono bg-slate-100 px-1 rounded">{s.area} sqft</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-xs text-slate-500">Pitch:</label>
+                                    <Select value={s.pitch.toString()} onValueChange={v => {
+                                        setSections(prev => prev.map(sec => sec.id === s.id ? {...sec, pitch: Number(v)} : sec));
+                                    }}>
+                                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                        <SelectContent>{[0,4,5,6,7,8,9,10,12].map(p => <SelectItem key={p} value={p.toString()}>{p}/12</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
                             </Card>
                         ))}
                     </div>
-                    <div className="p-4 border-t"><Button className="w-full bg-green-600" onClick={() => saveMeasurement(0, false)}><Save className="w-4 h-4 mr-2"/> Finish & Save</Button></div>
+                    <div className="p-4 border-t bg-white">
+                        <Button className="w-full bg-green-600 h-12 text-lg font-bold shadow-green-200 shadow-lg" onClick={() => saveMeasurement(0, false)}>
+                            <Save className="w-5 h-5 mr-2"/> Finish & Quote
+                        </Button>
+                    </div>
                 </div>
             )}
         </div>
