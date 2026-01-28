@@ -34,7 +34,7 @@ export default function RooferMeasurement() {
     const [step, setStep] = useState('choice');
     const [loading, setLoading] = useState(true);
     const [lead, setLead] = useState(null);
-    const [mapAddress, setMapAddress] = useState(rawAddress || '');
+    const [mapAddress, setMapAddress] = useState(rawAddress ? decodeURIComponent(rawAddress) : '');
 
     // Map State
     const [mapNode, setMapNode] = useState(null);
@@ -48,57 +48,35 @@ export default function RooferMeasurement() {
     const [apiKey, setApiKey] = useState('');
     const [showKeyInput, setShowKeyInput] = useState(false);
 
-    // 2. SELF-HEALING INITIALIZATION
+    // 2. DEFENSIVE INITIALIZATION
     useEffect(() => {
         let isMounted = true;
 
         const initialize = async () => {
-            // A. We have an ID -> Fetch it
+            // A. If we have an ID, try to fetch it... GENTLY.
             if (urlLeadId) {
                 try {
                     const l = await base44.entities.Lead.get(urlLeadId);
                     if (isMounted) {
                         setLead(l);
-                        if (l.address) setMapAddress(l.address); // Changed from property_address to address based on entity
+                        // Handle both possible address fields
+                        if (l.address) setMapAddress(l.address);
                         else if (l.property_address) setMapAddress(l.property_address);
                     }
                 } catch (e) { 
-                    console.warn("Lead fetch failed, likely invalid ID"); 
+                    // SILENT FAIL: If ID is bad, just ignore it and use address
+                    console.warn("Lead ID invalid or not found. Proceeding as New User."); 
                 }
             } 
-            // B. No ID, but we have Address -> CREATE IT (Fixes Loop & Enables Data Capture)
-            else if (rawAddress && !urlLeadId) {
-                try {
-                    const newLead = await base44.entities.Lead.create({
-                        address: decodeURIComponent(rawAddress), // Changed from property_address to address based on entity
-                        name: 'New Lead', // Default name
-                        email: 'temp@placeholder.com', // Placeholder
-                        phone: '000-000-0000', // Placeholder
-                        lead_status: 'New',
-                        lead_source: 'Website Measurement'
-                    });
-                    
-                    if (isMounted) {
-                        setLead(newLead);
-                        setMapAddress(decodeURIComponent(rawAddress));
-                        
-                        // Silent URL Update (No Reload)
-                        const newUrl = new URL(window.location);
-                        newUrl.searchParams.set('leadId', newLead.id);
-                        window.history.replaceState({}, '', newUrl);
-                    }
-                } catch (e) { 
-                    console.error("Auto-create failed", e); 
-                    // Fallback to just using the address if creation fails (e.g. permission issues)
-                    if (isMounted) setMapAddress(decodeURIComponent(rawAddress));
-                }
-            }
+            
+            // B. If no ID (or fetch failed), we rely on the mapAddress initialized from URL.
+            // We do NOT auto-create the lead here to avoid ghost records.
         };
         
         initialize();
         
         return () => { isMounted = false; };
-    }, [urlLeadId, rawAddress]); // Only run if URL changes
+    }, [urlLeadId]); // Removed rawAddress dependency to avoid re-runs, usually sufficient if logic handles initial state
 
     // 3. LOAD MAP (Depends on mapAddress)
     useEffect(() => {
@@ -250,31 +228,42 @@ export default function RooferMeasurement() {
             total = sections.reduce((acc, s) => acc + (s.area * (PITCH_FACTORS[s.pitch]||1.1)), 0);
         }
 
-        // Ensure we have a Lead ID (Should be created by init, but double check)
-        if (!lead?.id) { 
-            toast.error("System Error: No Lead ID found"); 
-            return; 
-        }
-
         toast.loading("Saving...");
         
-        const sectionList = isQuick 
-            ? [{ pitch: 4, area: parseInt(total), edges: [] }] 
-            : sections.map(s => ({ pitch: parseInt(s.pitch), area: parseInt(s.area), edges: [] }));
-
         try {
+            // 1. Ensure Lead Exists (Create if missing)
+            let activeLeadId = lead?.id;
+            
+            // If we don't have a lead ID (or the one we had was invalid/404), create a new one now
+            if (!activeLeadId) {
+                const newLead = await base44.entities.Lead.create({
+                    address: mapAddress,
+                    name: 'New Website Lead',
+                    email: 'placeholder@email.com', 
+                    phone: '0000000000',
+                    lead_status: 'New'
+                });
+                activeLeadId = newLead.id;
+                setLead(newLead);
+            }
+            
+            const sectionList = isQuick 
+                ? [{ pitch: 4, area: parseInt(total), edges: [] }] 
+                : sections.map(s => ({ pitch: parseInt(s.pitch), area: parseInt(s.area), edges: [] }));
+                
             await base44.entities.RoofMeasurement.create({
-                lead_id: lead.id,
+                lead_id: activeLeadId,
                 total_sqft: parseInt(total),
-                measurement_status: 'Completed',
+                status: 'Complete', 
                 sections_data: sectionList
             });
-            await base44.entities.Lead.update(lead.id, { lead_status: 'Contacted' }); // Using 'Contacted' as generic progress status
+            
+            await base44.entities.Lead.update(activeLeadId, { lead_status: 'Contacted' }); 
             
             toast.dismiss();
             toast.success("Success!");
             
-            setTimeout(() => navigate(`/quotebuilder?leadId=${lead.id}`), 500);
+            setTimeout(() => navigate(`/quotebuilder?leadId=${activeLeadId}`), 500);
         } catch(e) { 
             console.error("Save Error:", e);
             toast.dismiss();
