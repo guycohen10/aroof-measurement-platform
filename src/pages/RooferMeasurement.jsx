@@ -27,7 +27,7 @@ export default function RooferMeasurement() {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
 
-    // 1. STABLE PARAMS
+    // 1. GET PARAMS
     const rawAddress = searchParams.get('address');
     const urlLeadId = searchParams.get('leadId')?.replace(/"/g, '');
 
@@ -48,35 +48,45 @@ export default function RooferMeasurement() {
     const [apiKey, setApiKey] = useState('');
     const [showKeyInput, setShowKeyInput] = useState(false);
 
-    // 2. DEFENSIVE INITIALIZATION
+    // 2. SELF-CORRECTING INITIALIZATION
     useEffect(() => {
         let isMounted = true;
 
         const initialize = async () => {
-            // A. If we have an ID, try to fetch it... GENTLY.
+            // A. Handle Lead ID (if present)
             if (urlLeadId) {
                 try {
                     const l = await base44.entities.Lead.get(urlLeadId);
                     if (isMounted) {
                         setLead(l);
-                        // Handle both possible address fields
                         if (l.address) setMapAddress(l.address);
                         else if (l.property_address) setMapAddress(l.property_address);
                     }
                 } catch (e) { 
-                    // SILENT FAIL: If ID is bad, just ignore it and use address
-                    console.warn("Lead ID invalid or not found. Proceeding as New User."); 
+                    // *** THE FIX: CLEAN THE URL ***
+                    console.warn("Invalid Lead ID. Cleaning URL...");
+                    if (isMounted) {
+                        // Remove the bad ID from the URL bar without reloading
+                        const cleanUrl = new URL(window.location);
+                        cleanUrl.searchParams.delete('leadId');
+                        window.history.replaceState({}, '', cleanUrl);
+                        
+                        toast.error("Invalid Lead Link - Starting Fresh");
+                        // Fallback to address immediately
+                        if (rawAddress) setMapAddress(decodeURIComponent(rawAddress));
+                    }
                 }
             } 
-            
-            // B. If no ID (or fetch failed), we rely on the mapAddress initialized from URL.
-            // We do NOT auto-create the lead here to avoid ghost records.
+            // B. No Lead ID? Just use the Address.
+            else if (rawAddress) {
+               setMapAddress(decodeURIComponent(rawAddress));
+            }
         };
         
         initialize();
         
         return () => { isMounted = false; };
-    }, [urlLeadId]); // Removed rawAddress dependency to avoid re-runs, usually sufficient if logic handles initial state
+    }, [urlLeadId, rawAddress]);
 
     // 3. LOAD MAP (Depends on mapAddress)
     useEffect(() => {
@@ -231,7 +241,7 @@ export default function RooferMeasurement() {
         toast.loading("Saving...");
         
         try {
-            // 1. Ensure Lead Exists (Create if missing)
+            // AUTO-CREATE LEAD IF MISSING
             let activeLeadId = lead?.id;
             
             // If we don't have a lead ID (or the one we had was invalid/404), create a new one now
