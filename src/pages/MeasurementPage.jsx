@@ -1,18 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Plus, Zap, PenTool, Loader2, Eraser } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Zap, PenTool, Loader2, Eraser, Check, MousePointerClick } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 
-const EDGE_TYPES = { 0: { name: 'Unassigned', color: '#94a3b8' } };
-const PITCH_FACTORS = { 0: 1.0, 4: 1.054, 5: 1.083, 6: 1.118, 7: 1.158, 8: 1.202, 9: 1.25, 10: 1.302, 12: 1.414 };
-
 export default function MeasurementPage() {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
 
     // 1. GET PARAMS
@@ -32,14 +28,12 @@ export default function MeasurementPage() {
     const [sections, setSections] = useState([]);
     const [areaLabels, setAreaLabels] = useState([]);
 
-    // 2. SELF-CORRECTING INITIALIZATION (The Fix)
+    // 2. SELF-CORRECTING INITIALIZATION
     useEffect(() => {
         let isMounted = true;
         const initialize = async () => {
-            // A. Handle Lead ID (if present)
             if (urlLeadId) {
                 try {
-                    // Correctly fetch LEAD, not Measurement
                     const l = await base44.entities.Lead.get(urlLeadId);
                     if (isMounted) {
                         setLead(l);
@@ -47,20 +41,14 @@ export default function MeasurementPage() {
                         else if (l.property_address) setMapAddress(l.property_address);
                     }
                 } catch (e) {
-                    // Clean URL if Lead ID is bad
-                    console.warn("Invalid Lead ID on Client Page. Cleaning URL...");
                     if (isMounted) {
                         const cleanUrl = new URL(window.location);
                         cleanUrl.searchParams.delete('leadId');
                         window.history.replaceState({}, '', cleanUrl);
-                        
-                        // Fallback to address immediately
                         if (rawAddress) setMapAddress(decodeURIComponent(rawAddress));
                     }
                 }
-            }
-            // B. No Lead ID? Just use the Address.
-            else if (rawAddress) {
+            } else if (rawAddress) {
                 setMapAddress(decodeURIComponent(rawAddress));
             }
         };
@@ -100,7 +88,7 @@ export default function MeasurementPage() {
                             drawingControl: false,
                             polygonOptions: {
                                 fillColor: '#3b82f6',
-                                fillOpacity: 0.2,
+                                fillOpacity: 0.3,
                                 strokeColor: '#2563eb',
                                 strokeWeight: 2,
                                 editable: true
@@ -113,49 +101,34 @@ export default function MeasurementPage() {
                             const area = google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764;
                             const sectionId = Date.now();
                             
-                            // LABEL
+                            // LABEL (White Text inside Polygon)
                             const bounds = new google.maps.LatLngBounds();
                             poly.getPath().forEach(p => bounds.extend(p));
                             
                             const labelMarker = new google.maps.Marker({
                                 position: bounds.getCenter(),
                                 map: map,
-                                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 0 },
+                                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 0 }, // Invisible icon
                                 label: {
                                     text: `${Math.round(area).toLocaleString()} sq ft`,
                                     color: "white",
                                     fontWeight: "bold",
-                                    fontSize: "14px",
-                                    className: "map-label-shadow"
+                                    fontSize: "16px",
+                                    className: "drop-shadow-md"
                                 }
                             });
                             
                             setAreaLabels(prev => [...prev, { id: sectionId, marker: labelMarker }]);
                             
-                            const newEdges = [];
-                            const path = poly.getPath().getArray();
-                            for (let i = 0; i < path.length; i++) {
-                                const start = path[i];
-                                const end = path[(i + 1) % path.length];
-                                const len = google.maps.geometry.spherical.computeDistanceBetween(start, end) * 3.28084;
-                                const line = new google.maps.Polyline({
-                                    path: [start, end],
-                                    strokeColor: EDGE_TYPES[0].color,
-                                    strokeWeight: 8,
-                                    zIndex: 999,
-                                    map: map
-                                });
-                                newEdges.push({ id: Date.now() + i, type: 0, length: len, lineInstance: line });
-                            }
-                            
-                            setSections(p => [...p, { id: sectionId, area: Math.round(area), pitch: 6, edges: newEdges, polyInstance: poly }]);
+                            // Simple Section (Default Pitch 6)
+                            setSections(p => [...p, { id: sectionId, area: Math.round(area), pitch: 6, polyInstance: poly }]);
                             manager.setDrawingMode(null);
                         });
                         
                         setLoading(false);
                     } else {
                         setLoading(false);
-                        toast.error("Address not found on map");
+                        toast.error("Address not found");
                     }
                 });
             } catch (e) { console.error(e); }
@@ -198,19 +171,32 @@ export default function MeasurementPage() {
         });
         
         const area = google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764;
+        
+        // Add a temporary section for the quick estimate so logic holds
+        setSections([{ id: Date.now(), area: Math.round(area), pitch: 6, polyInstance: poly }]);
+        
+        // Immediately save
         saveMeasurement(Math.round(area), true);
+    };
+
+    const resetAll = () => {
+        sections.forEach(s => s.polyInstance?.setMap(null));
+        areaLabels.forEach(l => l.marker.setMap(null));
+        setSections([]);
+        setAreaLabels([]);
     };
 
     const saveMeasurement = async (areaVal, isQuick = false) => {
         let total = areaVal || sections.reduce((a, b) => a + b.area, 0);
+        
         if (!isQuick) {
-            total = sections.reduce((acc, s) => acc + (s.area * (PITCH_FACTORS[s.pitch] || 1.1)), 0);
+            // Add waste factor automatically for clients (simulating pitch/waste)
+            total = Math.round(total * 1.15); 
         }
 
-        toast.loading("Saving Measurement...");
+        toast.loading("Calculating Quote...");
         
         try {
-            // AUTO-CREATE LEAD IF MISSING
             let activeLeadId = lead?.id;
             
             if (!activeLeadId) {
@@ -227,8 +213,8 @@ export default function MeasurementPage() {
             }
             
             const sectionList = isQuick
-                ? [{ pitch: 4, area: parseInt(total), edges: [] }]
-                : sections.map(s => ({ pitch: parseInt(s.pitch), area: parseInt(s.area), edges: [] }));
+                ? [{ pitch: 6, area: parseInt(total), edges: [] }]
+                : sections.map(s => ({ pitch: 6, area: parseInt(s.area), edges: [] }));
                 
             await base44.entities.RoofMeasurement.create({
                 lead_id: activeLeadId,
@@ -242,99 +228,93 @@ export default function MeasurementPage() {
             toast.dismiss();
             toast.success("Quote Ready!");
             
-            // Navigate to Client Quote View
             setTimeout(() => navigate(`/quotebuilder?leadId=${activeLeadId}`), 500);
         } catch (e) {
-            console.error("Save Error:", e);
-            toast.error("Could not save measurement");
+            console.error("Save error", e);
+            toast.error("Could not save");
         }
     };
 
-    const currentTotal = sections.reduce((acc, s) => acc + (s.area * (PITCH_FACTORS[s.pitch] || 1.0)), 0);
+    const currentTotal = sections.reduce((acc, s) => acc + s.area, 0);
 
     return (
         <div className="flex flex-col h-screen w-full relative overflow-hidden">
-            {/* NAVIGATION BAR - Simplified for Client */}
+            {/* 1. NAV BAR */}
             <div className="absolute top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm shadow-sm h-16 flex items-center px-4 justify-between">
                 <Button variant="ghost" onClick={() => navigate('/')}><ArrowLeft className="w-4 h-4 mr-2"/> Home</Button>
                 <div className="font-bold text-slate-800 truncate max-w-[200px] sm:max-w-md">{mapAddress || 'Locating...'}</div>
-                <div className="w-10"></div> {/* Spacer for center alignment */}
+                <div className="w-10"></div>
             </div>
 
-            {/* MAP CONTAINER */}
+            {/* 2. MAP AREA */}
             <div className="flex-1 relative pt-16 h-screen w-full">
                 <div ref={setMapNode} className="w-full h-full bg-slate-200" />
 
-                {/* TOP FLOATING RESULT (HEADS UP DISPLAY) */}
+                {/* NEW: VISIBLE FLOATING HEADER */}
                 {step === 'detailed' && (
-                    <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-10 bg-slate-900 text-white px-6 py-2 rounded-full shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-                        <span className="text-sm font-medium text-slate-400">Total:</span>
-                        <span className="text-xl font-bold">{Math.round(currentTotal).toLocaleString()} sq ft</span>
-                        {sections.length > 0 && <Badge variant="secondary" className="bg-green-500 text-white border-0">{sections.length} Sections</Badge>}
+                    <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-10 w-auto">
+                        <Card className="shadow-2xl border-0 ring-4 ring-black/5">
+                            <CardContent className="px-8 py-3 flex items-center gap-4">
+                                <div className="text-right">
+                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Area</div>
+                                    <div className="text-2xl font-black text-slate-900">{Math.round(currentTotal).toLocaleString()} <span className="text-sm font-normal text-slate-400">sq ft</span></div>
+                                </div>
+                                {sections.length > 0 && <Badge className="bg-green-500 h-8 px-3 rounded-full text-white">{sections.length} Sections</Badge>}
+                            </CardContent>
+                        </Card>
                     </div>
                 )}
             </div>
 
-            {/* LOADING OVERLAY */}
-            {loading && (
-                <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur flex flex-col items-center justify-center">
-                    <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-                    <h2 className="text-xl font-bold text-slate-800">Locating Property...</h2>
-                </div>
-            )}
+            {loading && <div className="absolute inset-0 z-50 bg-white flex items-center justify-center"><Loader2 className="animate-spin text-blue-600"/></div>}
 
-            {/* CHOICE OVERLAY (Only shows when map is ready) */}
+            {/* 3. MODE SELECTION */}
             {!loading && step === 'choice' && (
-                <div className="absolute inset-0 z-30 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center pt-16">
-                    <div className="grid md:grid-cols-2 gap-8 max-w-4xl w-full p-4">
-                        <Card className="p-8 cursor-pointer hover:scale-105 transition-all bg-white shadow-2xl border-green-500 border-b-4 group" onClick={startQuick}>
-                            <Zap className="w-12 h-12 text-green-600 mb-4 mx-auto group-hover:scale-110 transition-transform" />
-                            <h2 className="text-2xl font-bold text-center">Instant Estimate</h2>
-                            <p className="text-center text-slate-500 mt-2">I just need a rough number</p>
-                        </Card>
-                        <Card className="p-8 cursor-pointer hover:scale-105 transition-all bg-white shadow-2xl border-blue-500 border-b-4 group" onClick={() => setStep('detailed')}>
-                            <PenTool className="w-12 h-12 text-blue-600 mb-4 mx-auto group-hover:scale-110 transition-transform" />
-                            <h2 className="text-2xl font-bold text-center">Precise Measure</h2>
-                            <p className="text-center text-slate-500 mt-2">I want to draw the roof myself</p>
-                        </Card>
+                <div className="absolute inset-0 z-30 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="grid md:grid-cols-2 gap-6 max-w-4xl w-full">
+                        {/* Instant Card */}
+                        <div onClick={startQuick} className="bg-white rounded-2xl p-8 cursor-pointer hover:scale-105 transition-all shadow-2xl group border-b-8 border-green-500">
+                            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 group-hover:bg-green-200 transition-colors">
+                                <Zap className="w-8 h-8 text-green-600"/>
+                            </div>
+                            <h2 className="text-3xl font-bold text-slate-900 mb-2">Instant Estimate</h2>
+                            <p className="text-slate-500">Get a ballpark price in 10 seconds based on your address.</p>
+                        </div>
+                        {/* Precise Card */}
+                        <div onClick={() => setStep('detailed')} className="bg-white rounded-2xl p-8 cursor-pointer hover:scale-105 transition-all shadow-2xl group border-b-8 border-blue-600">
+                            <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 group-hover:bg-blue-200 transition-colors">
+                                <PenTool className="w-8 h-8 text-blue-600"/>
+                            </div>
+                            <h2 className="text-3xl font-bold text-slate-900 mb-2">Precise Measure</h2>
+                            <p className="text-slate-500">Draw your roof yourself for an exact material list.</p>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {/* SIDEBAR (Detailed Mode) */}
+            {/* 4. CLIENT SIDEBAR (Simplified) */}
             {step === 'detailed' && (
-                <div className="w-72 bg-white border-r z-40 shadow-xl absolute left-0 bottom-0 top-16 flex flex-col transition-all">
-                    <div className="p-4 border-b bg-slate-50">
-                        <Button className="w-full bg-blue-600 shadow-blue-200 shadow-lg" onClick={() => drawingManager?.setDrawingMode('polygon')}>
-                            <Plus className="w-4 h-4 mr-2" /> Draw Roof Section
-                        </Button>
-                    </div>
-                    <div className="flex-1 p-3 space-y-3 overflow-y-auto">
-                        {sections.length === 0 && <div className="text-center text-slate-400 text-sm mt-10 p-4">Tap points on the map to trace your roof.</div>}
-                        
-                        {sections.map((s, i) => (
-                            <Card key={s.id} className="p-3 border-l-4 border-blue-500 shadow-sm">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="font-bold text-sm">Section {i + 1}</span>
-                                    <span className="text-xs font-mono bg-slate-100 px-1 rounded">{s.area} sqft</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <label className="text-xs text-slate-500">Pitch:</label>
-                                    <Select value={s.pitch.toString()} onValueChange={v => {
-                                        setSections(prev => prev.map(sec => sec.id === s.id ? { ...sec, pitch: Number(v) } : sec));
-                                    }}>
-                                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                        <SelectContent>{[0, 4, 5, 6, 7, 8, 9, 10, 12].map(p => <SelectItem key={p} value={p.toString()}>{p}/12 Pitch</SelectItem>)}</SelectContent>
-                                    </Select>
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
-                    <div className="p-4 border-t bg-white">
-                        <Button className="w-full bg-green-600 h-12 text-lg font-bold shadow-green-200 shadow-lg" onClick={() => saveMeasurement(0, false)}>
-                            <Save className="w-5 h-5 mr-2" /> View My Quote
-                        </Button>
-                    </div>
+                <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 md:translate-x-0 md:left-8 md:bottom-auto md:top-32 w-[90%] md:w-80 z-30 space-y-3">
+                    <Card className="border-0 shadow-2xl ring-1 ring-black/5 bg-white/95 backdrop-blur">
+                        <CardContent className="p-4 space-y-4">
+                            <div className="text-sm text-slate-600 leading-relaxed">
+                                <span className="font-bold text-slate-900">How to Measure:</span> Tap the corners of your roof on the map. Close the shape to see the area.
+                            </div>
+                            <Button className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-lg font-bold shadow-lg shadow-blue-900/10" onClick={() => drawingManager?.setDrawingMode('polygon')}>
+                                <MousePointerClick className="w-5 h-5 mr-2"/> Trace Roof
+                            </Button>
+                            {sections.length > 0 && (
+                                <Button className="w-full bg-green-600 hover:bg-green-700 h-12 text-lg font-bold shadow-lg shadow-green-900/10" onClick={() => saveMeasurement(0, false)}>
+                                    <Check className="w-5 h-5 mr-2"/> See My Price
+                                </Button>
+                            )}
+                            {sections.length > 0 && (
+                                <Button className="w-full text-red-500 hover:text-red-700 hover:bg-red-50 h-10" variant="ghost" onClick={resetAll}>
+                                    <Eraser className="w-4 h-4 mr-2"/> Clear All
+                                </Button>
+                            )}
+                        </CardContent>
+                    </Card>
                 </div>
             )}
         </div>
