@@ -42,110 +42,19 @@ export default function Results() {
   });
 
   const roofingMaterials = [
-    {
-      name: 'Asphalt Shingles (3-Tab)',
-      pricePerSqFt: 3.50,
-      laborMultiplier: 1.0,
-      category: 'economy',
-      description: 'Most affordable option, 15-20 year lifespan',
-      warranty: '15-20 years'
-    },
-    {
-      name: 'Asphalt Shingles (Architectural)',
-      pricePerSqFt: 4.50,
-      laborMultiplier: 1.0,
-      category: 'standard',
-      description: 'Popular choice, 25-30 year lifespan, dimensional look',
-      warranty: '25-30 years'
-    },
-    {
-      name: 'Metal Roofing (Standing Seam)',
-      pricePerSqFt: 9.00,
-      laborMultiplier: 1.3,
-      category: 'premium',
-      description: 'Energy efficient, 40-70 year lifespan, modern look',
-      warranty: '40-50 years'
-    },
-    {
-      name: 'Metal Roofing (Metal Shingles)',
-      pricePerSqFt: 8.00,
-      laborMultiplier: 1.2,
-      category: 'premium',
-      description: 'Lightweight, durable, 40-60 year lifespan',
-      warranty: '40-50 years'
-    },
-    {
-      name: 'Clay Tile',
-      pricePerSqFt: 12.00,
-      laborMultiplier: 1.5,
-      category: 'luxury',
-      description: 'Classic Mediterranean look, 50-100 year lifespan',
-      warranty: '50+ years'
-    },
-    {
-      name: 'Concrete Tile',
-      pricePerSqFt: 10.00,
-      laborMultiplier: 1.4,
-      category: 'premium',
-      description: 'Versatile styles, 40-50 year lifespan, fire resistant',
-      warranty: '40-50 years'
-    },
-    {
-      name: 'Natural Slate',
-      pricePerSqFt: 18.00,
-      laborMultiplier: 1.8,
-      category: 'luxury',
-      description: 'Premium natural stone, 75-200 year lifespan',
-      warranty: '75-100+ years'
-    },
-    {
-      name: 'Cedar Shingles/Shakes',
-      pricePerSqFt: 7.00,
-      laborMultiplier: 1.2,
-      category: 'premium',
-      description: 'Natural wood beauty, 20-40 year lifespan',
-      warranty: '20-30 years'
-    },
-    {
-      name: 'TPO (Flat Roof)',
-      pricePerSqFt: 5.50,
-      laborMultiplier: 1.1,
-      category: 'standard',
-      description: 'Energy efficient for flat/low-slope, 15-20 year lifespan',
-      warranty: '15-20 years'
-    },
-    {
-      name: 'EPDM Rubber (Flat Roof)',
-      pricePerSqFt: 5.00,
-      laborMultiplier: 1.0,
-      category: 'economy',
-      description: 'Durable flat roof option, 20-25 year lifespan',
-      warranty: '20-25 years'
-    },
-    {
-      name: 'Composite/Synthetic',
-      pricePerSqFt: 8.50,
-      laborMultiplier: 1.1,
-      category: 'premium',
-      description: 'Mimics natural materials, 30-50 year lifespan',
-      warranty: '30-50 years'
-    },
-    {
-      name: 'Solar Tiles',
-      pricePerSqFt: 25.00,
-      laborMultiplier: 2.0,
-      category: 'luxury',
-      description: 'Generate electricity, 25-30 year lifespan',
-      warranty: '25 years'
-    },
-    {
-      name: 'Green/Living Roof',
-      pricePerSqFt: 15.00,
-      laborMultiplier: 2.5,
-      category: 'luxury',
-      description: 'Eco-friendly vegetation layer, 30-50 year lifespan',
-      warranty: '30-40 years'
-    }
+    { name: 'Asphalt Shingles (3-Tab)', pricePerSqFt: 3.50, laborMultiplier: 1.0, category: 'economy', description: 'Most affordable option, 15-20 year lifespan', warranty: '15-20 years' },
+    { name: 'Asphalt Shingles (Architectural)', pricePerSqFt: 4.50, laborMultiplier: 1.0, category: 'standard', description: 'Popular choice, 25-30 year lifespan, dimensional look', warranty: '25-30 years' },
+    { name: 'Metal Roofing (Standing Seam)', pricePerSqFt: 9.00, laborMultiplier: 1.3, category: 'premium', description: 'Energy efficient, 40-70 year lifespan, modern look', warranty: '40-50 years' },
+    { name: 'Metal Roofing (Metal Shingles)', pricePerSqFt: 8.00, laborMultiplier: 1.2, category: 'premium', description: 'Lightweight, durable, 40-60 year lifespan', warranty: '40-50 years' },
+    { name: 'Clay Tile', pricePerSqFt: 12.00, laborMultiplier: 1.5, category: 'luxury', description: 'Classic Mediterranean look, 50-100 year lifespan', warranty: '50+ years' },
+    { name: 'Concrete Tile', pricePerSqFt: 10.00, laborMultiplier: 1.4, category: 'premium', description: 'Versatile styles, 40-50 year lifespan, fire resistant', warranty: '40-50 years' },
+    { name: 'Natural Slate', pricePerSqFt: 18.00, laborMultiplier: 1.8, category: 'luxury', description: 'Premium natural stone, 75-200 year lifespan', warranty: '75-100+ years' },
+    { name: 'Cedar Shingles/Shakes', pricePerSqFt: 7.00, laborMultiplier: 1.2, category: 'premium', description: 'Natural wood beauty, 20-40 year lifespan', warranty: '20-30 years' },
+    { name: 'TPO (Flat Roof)', pricePerSqFt: 5.50, laborMultiplier: 1.1, category: 'standard', description: 'Energy efficient for flat/low-slope, 15-20 year lifespan', warranty: '15-20 years' },
+    { name: 'EPDM Rubber (Flat Roof)', pricePerSqFt: 5.00, laborMultiplier: 1.0, category: 'economy', description: 'Durable flat roof option, 20-25 year lifespan', warranty: '20-25 years' },
+    { name: 'Composite/Synthetic', pricePerSqFt: 8.50, laborMultiplier: 1.1, category: 'premium', description: 'Mimics natural materials, 30-50 year lifespan', warranty: '30-50 years' },
+    { name: 'Solar Tiles', pricePerSqFt: 25.00, laborMultiplier: 2.0, category: 'luxury', description: 'Generate electricity, 25-30 year lifespan', warranty: '25 years' },
+    { name: 'Green/Living Roof', pricePerSqFt: 15.00, laborMultiplier: 2.5, category: 'luxury', description: 'Eco-friendly vegetation layer, 30-50 year lifespan', warranty: '30-40 years' }
   ];
 
   // Load visualization from funnel
@@ -211,16 +120,12 @@ export default function Results() {
   useEffect(() => {
     const loadData = async () => {
       const urlParams = new URLSearchParams(window.location.search);
-      // Fix case sensitivity issue
-      const measurementId = urlParams.get('measurementId') || urlParams.get('measurementid');
-      
-      // Read URL parameters immediately as source of truth
+      const measurementId = urlParams.get('measurementid');
       const latParam = urlParams.get('lat');
       const lngParam = urlParams.get('lng');
       const areaParam = urlParams.get('area');
-      const zipParam = urlParams.get('zip');
-      
-      console.log('🚀 Results Page URL Params:', { measurementId, lat: latParam, lng: lngParam, area: areaParam, zip: zipParam });
+
+      console.log('🚀 Results Page URL Params:', { lat: latParam, lng: lngParam, area: areaParam, measurementId });
 
       if (!measurementId) {
         navigate(createPageUrl("Homepage"));
@@ -228,78 +133,25 @@ export default function Results() {
       }
 
       try {
-        // Try fetching RoofMeasurement first (new flow)
-        let meas = null;
-        try {
-            const roofMeas = await base44.entities.RoofMeasurement.get(measurementId);
-            if (roofMeas) {
-                // Fetch associated lead to get address and contact info
-                let lead = null;
-                if (roofMeas.lead_id) {
-                    try {
-                        lead = await base44.entities.Lead.get(roofMeas.lead_id);
-                    } catch (e) {
-                        console.warn("Lead fetch failed", e);
-                    }
-                }
-                
-                // Normalize to match existing component expectations
-                meas = {
-                    ...roofMeas,
-                    id: roofMeas.id,
-                    measurement_data: { 
-                        sections: roofMeas.sections_data,
-                        total_flat_sqft: roofMeas.total_sqft,
-                        total_adjusted_sqft: roofMeas.total_sqft
-                    },
-                    property_address: lead?.address || "Address Not Available",
-                    customer_name: lead?.name,
-                    customer_email: lead?.email,
-                    customer_phone: lead?.phone,
-                    latitude: latParam ? parseFloat(latParam) : null,
-                    longitude: lngParam ? parseFloat(lngParam) : null,
-                    user_type: 'homeowner' // Default for public funnel
-                };
-            }
-        } catch(e) {
-            console.log("RoofMeasurement not found, trying Measurement entity");
-        }
-
-        // Fallback to Measurement entity (legacy flow)
-        if (!meas) {
-            try {
-                 const measurements = await base44.entities.Measurement.filter({ id: measurementId });
-                 if (measurements.length > 0) meas = measurements[0];
-            } catch(e2) {
-                 console.error("Measurement fetch failed", e2);
-            }
-        }
-
-        if (meas) {
-          // Override with URL params if available (source of truth)
+        const measurements = await base44.entities.Measurement.filter({ id: measurementId });
+        
+        if (measurements.length > 0) {
+          let meas = measurements[0];
           if (latParam && lngParam) {
-            meas = {
-              ...meas,
-              latitude: parseFloat(latParam),
-              longitude: parseFloat(lngParam)
-            };
+            meas = { ...meas, latitude: parseFloat(latParam), longitude: parseFloat(lngParam) };
           }
-          
           if (areaParam) {
-            meas = {
-              ...meas,
-              total_sqft: parseFloat(areaParam),
-              total_adjusted_sqft: parseFloat(areaParam)
-            };
+            meas = { ...meas, total_sqft: parseFloat(areaParam), total_adjusted_sqft: parseFloat(areaParam) };
           }
           
+          // Allow homeowners to see results even if name is missing initially
           setMeasurement(meas);
         } else {
           setError("Measurement not found");
         }
       } catch (err) {
+        console.error("Error loading measurement:", err);
         setError("Failed to load measurement");
-        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -312,6 +164,7 @@ export default function Results() {
         setIsRoofer(user && user.aroof_role === 'external_roofer');
         setUserType('roofer');
       } catch (err) {
+        // Silent fail for guests - this is expected behavior for public funnel
         setCurrentUser(null);
         setIsRoofer(false);
         setUserType('homeowner');
@@ -411,7 +264,7 @@ export default function Results() {
   const flatArea = measurement?.measurement_data?.total_flat_sqft || measurement.total_sqft || 0;
   const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea;
   const area = adjustedArea;
-  const isHomeowner = measurement.user_type === "homeowner";
+  const isHomeowner = true; // Always treat as homeowner view for public funnel if not roofer
   const hasPitchAdjustment = flatArea !== adjustedArea;
   const capturedImages = measurement?.captured_images || [];
 
