@@ -4,8 +4,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, ArrowLeft, CheckCircle, MapPin, Calendar, Ruler, Download, Phone, FileText, Star, Shield, DollarSign, Zap, Award, Users, Loader2, Crown, ArrowRight, Box, Camera, Palette } from "lucide-react";
+import { CheckCircle, Calendar, Ruler, Download, Phone, FileText, Star, Users, Loader2, Home, ArrowLeft, Box, Camera, Palette, MapPin, Zap, DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import InteractiveMapView from "../components/results/InteractiveMapView";
@@ -16,17 +15,14 @@ import DesignPreview from "../components/results/DesignPreview";
 import RoofDiagram from "../components/results/RoofDiagram";
 import Roof3DView from "../components/results/Roof3DView";
 
-
 export default function Results() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [measurement, setMeasurement] = useState(null);
   const [error, setError] = useState(null);
-  const [materialType, setMaterialType] = useState("asphalt_shingles");
   const [downloadCount, setDownloadCount] = useState(0);
   const [currentUser, setCurrentUser] = useState(null);
   const [isRoofer, setIsRoofer] = useState(false);
-  const [userType, setUserType] = useState(null);
   const [mapScriptLoaded, setMapScriptLoaded] = useState(false);
   const [selectedVisualization, setSelectedVisualization] = useState(null);
   const scriptLoadedRef = useRef(false);
@@ -57,19 +53,13 @@ export default function Results() {
     { name: 'Green/Living Roof', pricePerSqFt: 15.00, laborMultiplier: 2.5, category: 'luxury', description: 'Eco-friendly vegetation layer, 30-50 year lifespan', warranty: '30-40 years' }
   ];
 
-  // Load visualization from funnel
   useEffect(() => {
     const vizJson = sessionStorage.getItem('funnel_selected_visualization');
     if (vizJson) {
-      try {
-        setSelectedVisualization(JSON.parse(vizJson));
-      } catch (err) {
-        console.error('Failed to parse visualization:', err);
-      }
+      try { setSelectedVisualization(JSON.parse(vizJson)); } catch (err) { console.error('Failed to parse visualization:', err); }
     }
   }, []);
 
-  // Load Google Maps script once for entire Results page
   useEffect(() => {
     if (window.google && window.google.maps && window.google.maps.geometry) {
       if (!scriptLoadedRef.current) {
@@ -78,7 +68,6 @@ export default function Results() {
       }
       return;
     }
-
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existingScript) {
       let attempts = 0;
@@ -88,18 +77,14 @@ export default function Results() {
           clearInterval(checkInterval);
           scriptLoadedRef.current = true;
           setMapScriptLoaded(true);
-        } else if (attempts >= 60) {
-          clearInterval(checkInterval);
-        }
+        } else if (attempts >= 60) { clearInterval(checkInterval); }
       }, 200);
       return;
     }
-
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,drawing,places`;
     script.async = true;
     script.defer = true;
-    
     script.onload = () => {
       let attempts = 0;
       const checkInterval = setInterval(() => {
@@ -108,12 +93,9 @@ export default function Results() {
           clearInterval(checkInterval);
           scriptLoadedRef.current = true;
           setMapScriptLoaded(true);
-        } else if (attempts >= 40) {
-          clearInterval(checkInterval);
-        }
+        } else if (attempts >= 40) { clearInterval(checkInterval); }
       }, 100);
     };
-    
     document.head.appendChild(script);
   }, []);
 
@@ -143,8 +125,6 @@ export default function Results() {
           if (areaParam) {
             meas = { ...meas, total_sqft: parseFloat(areaParam), total_adjusted_sqft: parseFloat(areaParam) };
           }
-          
-          // Allow homeowners to see results even if name is missing initially
           setMeasurement(meas);
         } else {
           setError("Measurement not found");
@@ -162,12 +142,9 @@ export default function Results() {
         const user = await base44.auth.me();
         setCurrentUser(user);
         setIsRoofer(user && user.aroof_role === 'external_roofer');
-        setUserType('roofer');
       } catch (err) {
-        // Silent fail for guests - this is expected behavior for public funnel
         setCurrentUser(null);
         setIsRoofer(false);
-        setUserType('homeowner');
       }
     };
 
@@ -185,9 +162,7 @@ export default function Results() {
 
   const handleSendToTop5 = async () => {
     setSendingToTop5(true);
-    
     try {
-      // Get top 5 roofers in service area
       const companies = await base44.entities.Company.list('-created_date', 5);
       const activeCompanies = companies.filter(c => c.is_active);
       const top5 = activeCompanies.slice(0, 5);
@@ -198,7 +173,6 @@ export default function Results() {
         return;
       }
 
-      // Update measurement with shared roofers list
       const sharedWith = top5.map(r => r.id);
       await base44.entities.Measurement.update(measurement.id, {
         lead_status: 'contacted',
@@ -212,7 +186,6 @@ export default function Results() {
       });
 
       setTop5Success(true);
-      
     } catch (err) {
       console.error('Error sending to top 5:', err);
       alert('Failed to send to roofers. Please try again.');
@@ -232,7 +205,26 @@ export default function Results() {
     }
     return null;
   };
+  
+  const calculatePriceWithMaterial = () => {
+    const totalArea = measurement?.total_sqft || measurement?.measurement_data?.total_adjusted_sqft || 0;
+    const materialCost = totalArea * selectedMaterial.pricePerSqFt;
+    const laborCost = totalArea * (3.00 * selectedMaterial.laborMultiplier);
+    const totalCost = materialCost + laborCost;
+    
+    return {
+      materialCost: Math.round(materialCost),
+      laborCost: Math.round(laborCost),
+      totalCost: Math.round(totalCost),
+      lowEstimate: Math.round(totalCost * 0.85),
+      highEstimate: Math.round(totalCost * 1.15)
+    };
+  };
 
+  const handleMaterialChange = (material) => {
+    setSelectedMaterial(material);
+  };
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
@@ -264,288 +256,9 @@ export default function Results() {
   const flatArea = measurement?.measurement_data?.total_flat_sqft || measurement.total_sqft || 0;
   const adjustedArea = measurement?.measurement_data?.total_adjusted_sqft || measurement.total_sqft || flatArea;
   const area = adjustedArea;
-  const isHomeowner = true; // Always treat as homeowner view for public funnel if not roofer
+  const isHomeowner = true; 
   const hasPitchAdjustment = flatArea !== adjustedArea;
   const capturedImages = measurement?.captured_images || [];
-
-  const SECTION_COLORS = [
-    { stroke: '#4A90E2', fill: '#4A90E2', name: 'Blue' },
-    { stroke: '#10b981', fill: '#10b981', name: 'Green' },
-    { stroke: '#f97316', fill: '#f97316', name: 'Orange' },
-    { stroke: '#a855f7', fill: '#a855f7', name: 'Purple' },
-    { stroke: '#ef4444', fill: '#ef4444', name: 'Red' },
-    { stroke: '#06b6d4', fill: '#06b6d4', name: 'Cyan' },
-    { stroke: '#f59e0b', fill: '#f59e0b', name: 'Amber' },
-    { stroke: '#ec4899', fill: '#ec4899', name: 'Pink' },
-    { stroke: '#8b5cf6', fill: '#8b5cf6', name: 'Violet' },
-    { stroke: '#14b8a6', fill: '#14b8a6', name: 'Teal' },
-  ];
-
-  const generateBlueprint = async (saveToMeasurement = false) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 1000;
-    const ctx = canvas.getContext('2d');
-    
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    ctx.fillStyle = '#1e293b';
-    ctx.font = 'bold 32px Arial';
-    ctx.fillText('ROOF MEASUREMENT BLUEPRINT', 50, 50);
-    ctx.font = '16px Arial';
-    ctx.fillStyle = '#475569';
-    ctx.fillText(measurement.property_address, 50, 80);
-    ctx.fillText(`Generated: ${new Date().toLocaleDateString()}`, 50, 105);
-    
-    ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
-    
-    const allSections = sections.map((s, idx) => ({
-      ...s,
-      displayColor: s.color || SECTION_COLORS[idx % SECTION_COLORS.length].stroke
-    }));
-    
-    if (allSections.length === 0) {
-      alert('No sections to display in blueprint');
-      return;
-    }
-    
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
-    
-    allSections.forEach(section => {
-      if (section.coordinates && section.coordinates.length > 0) {
-        section.coordinates.forEach(point => {
-          minLat = Math.min(minLat, point.lat);
-          maxLat = Math.max(maxLat, point.lat);
-          minLng = Math.min(minLng, point.lng);
-          maxLng = Math.max(maxLng, point.lng);
-        });
-      }
-    });
-    
-    const latRange = maxLat - minLat;
-    const lngRange = maxLng - minLng;
-    const padding = Math.max(latRange, lngRange) * 0.1;
-    
-    minLat -= padding;
-    maxLat += padding;
-    minLng -= padding;
-    maxLng += padding;
-    
-    const drawPadding = 80;
-    const drawWidth = canvas.width - drawPadding * 2;
-    const drawHeight = canvas.height - 300;
-    const drawTop = 140;
-    
-    function scalePoint(lat, lng) {
-      const x = drawPadding + ((lng - minLng) / (maxLng - minLng)) * drawWidth;
-      const y = drawTop + ((maxLat - lat) / (maxLat - minLat)) * drawHeight;
-      return { x, y };
-    }
-    
-    allSections.forEach((section, index) => {
-      if (!section.coordinates || section.coordinates.length === 0) return;
-      
-      const color = section.displayColor;
-      
-      ctx.fillStyle = color + '33';
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      
-      ctx.beginPath();
-      section.coordinates.forEach((point, i) => {
-        const scaled = scalePoint(point.lat, point.lng);
-        if (i === 0) ctx.moveTo(scaled.x, scaled.y);
-        else ctx.lineTo(scaled.x, scaled.y);
-      });
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      
-      let centerLat = 0, centerLng = 0;
-      section.coordinates.forEach(p => {
-        centerLat += p.lat;
-        centerLng += p.lng;
-      });
-      centerLat /= section.coordinates.length;
-      centerLng /= section.coordinates.length;
-      
-      const centerScaled = scalePoint(centerLat, centerLng);
-      
-      const labelLines = [
-        section.name || `Section ${index + 1}`,
-        `${Math.round(section.adjusted_area_sqft || section.flat_area_sqft).toLocaleString()} sq ft`,
-        `Pitch: ${section.pitch || 'flat'}`
-      ];
-      
-      const lineHeight = 18;
-      const labelHeight = labelLines.length * lineHeight + 10;
-      const labelWidth = 140;
-      
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.fillRect(centerScaled.x - labelWidth/2, centerScaled.y - labelHeight/2, labelWidth, labelHeight);
-      ctx.strokeRect(centerScaled.x - labelWidth/2, centerScaled.y - labelHeight/2, labelWidth, labelHeight);
-      
-      ctx.fillStyle = '#1e293b';
-      ctx.font = 'bold 14px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      labelLines.forEach((line, i) => {
-        const y = centerScaled.y - labelHeight/2 + 15 + (i * lineHeight);
-        if (i === 0) {
-          ctx.font = 'bold 14px Arial';
-        } else {
-          ctx.font = '12px Arial';
-        }
-        ctx.fillText(line, centerScaled.x, y);
-      });
-    });
-    
-    const legendTop = drawTop + drawHeight + 40;
-    const totalSquares = (area / 100).toFixed(2);
-    
-    ctx.fillStyle = '#f1f5f9';
-    ctx.fillRect(50, legendTop, canvas.width - 100, 150);
-    ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(50, legendTop, canvas.width - 100, 150);
-    
-    ctx.fillStyle = '#1e293b';
-    ctx.font = 'bold 24px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText('MEASUREMENT SUMMARY', 70, legendTop + 35);
-    
-    ctx.font = '18px Arial';
-    ctx.fillStyle = '#475569';
-    ctx.fillText(`Total Sections: ${allSections.length}`, 70, legendTop + 70);
-    ctx.fillText(`Total Area: ${area.toLocaleString()} sq ft`, 70, legendTop + 100);
-    ctx.fillText(`Total Squares: ${totalSquares}`, 70, legendTop + 130);
-    
-    const dataUrl = canvas.toDataURL('image/png');
-    
-    if (saveToMeasurement) {
-      try {
-        await base44.entities.Measurement.update(measurement.id, {
-          measurement_diagram: dataUrl
-        });
-        setMeasurement({ ...measurement, measurement_diagram: dataUrl });
-        alert('Blueprint saved to results page!');
-      } catch (err) {
-        alert('Failed to save blueprint: ' + err.message);
-      }
-    } else {
-      const link = document.createElement('a');
-      link.download = `roof-blueprint-${measurement.property_address.replace(/[^a-z0-9]/gi, '-')}.png`;
-      link.href = dataUrl;
-      link.click();
-    }
-  };
-
-  const calculatePriceWithMaterial = () => {
-    const totalArea = measurement?.total_sqft || measurement?.measurement_data?.total_adjusted_sqft || 0;
-    const materialCost = totalArea * selectedMaterial.pricePerSqFt;
-    const laborCost = totalArea * (3.00 * selectedMaterial.laborMultiplier);
-    const totalCost = materialCost + laborCost;
-    
-    return {
-      materialCost: Math.round(materialCost),
-      laborCost: Math.round(laborCost),
-      totalCost: Math.round(totalCost),
-      lowEstimate: Math.round(totalCost * 0.85),
-      highEstimate: Math.round(totalCost * 1.15)
-    };
-  };
-
-  const saveMaterialSelection = async (material) => {
-    try {
-      await base44.entities.Measurement.update(measurement.id, {
-        selected_material: material.name,
-        material_price_per_sqft: material.pricePerSqFt,
-        material_labor_multiplier: material.laborMultiplier
-      });
-      console.log('✅ Material selection saved');
-    } catch (err) {
-      console.error('⚠️ Failed to save material selection:', err);
-    }
-  };
-
-  const handleMaterialChange = (material) => {
-    setSelectedMaterial(material);
-    saveMaterialSelection(material);
-  };
-
-  const materialMultipliers = {
-    asphalt_shingles: 1.0,
-    architectural_shingles: 1.25,
-    metal_roofing: 1.60,
-    tile_roofing: 2.0
-  };
-
-  const multiplier = materialMultipliers[materialType] || 1.0;
-  const baseMaterialCost = area * 4.00;
-  const materialCost = Math.round(baseMaterialCost * multiplier);
-  const laborCost = Math.round(area * 3.00);
-  const wasteCost = Math.round((materialCost + laborCost) * 0.10);
-  const subtotal = materialCost + laborCost + wasteCost;
-  const lowEstimate = Math.round(subtotal * 0.90);
-  const highEstimate = Math.round(subtotal * 1.10);
-
-  const calculateRoofCenter = () => {
-    if (!sections || sections.length === 0) return null;
-
-    let minLat = Infinity, maxLat = -Infinity;
-    let minLng = Infinity, maxLng = -Infinity;
-
-    sections.forEach(section => {
-      if (section.coordinates && section.coordinates.length > 0) {
-        section.coordinates.forEach(point => {
-          minLat = Math.min(minLat, point.lat);
-          maxLat = Math.max(maxLat, point.lat);
-          minLng = Math.min(minLng, point.lng);
-          maxLng = Math.max(maxLng, point.lng);
-        });
-      }
-    });
-
-    if (minLat === Infinity) return null;
-    return { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
-  };
-
-  const roofCenter = calculateRoofCenter();
-  
-  // Use measurement lat/lng if available, otherwise calculate from sections
-  const mapCenter = (measurement?.latitude && measurement?.longitude) 
-    ? { lat: measurement.latitude, lng: measurement.longitude }
-    : roofCenter;
-
-  const editMeasurementUrl = mapCenter 
-    ? createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&lat=${mapCenter.lat}&lng=${mapCenter.lng}&measurementId=${measurement.id}`)
-    : createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&measurementId=${measurement.id}`);
-
-  const satelliteUrl = mapCenter 
-    ? `https://maps.googleapis.com/maps/api/staticmap?center=${mapCenter.lat},${mapCenter.lng}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`
-    : `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(measurement.property_address)}&zoom=21&size=800x400&maptype=satellite&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
-  
-  const diagramUrl = (() => {
-    if (sections.length === 0 || !mapCenter) return null;
-    const colors = ['0xff0000', '0x00ff00', '0x0000ff', '0xffff00', '0xff00ff', '0x00ffff'];
-    let pathsString = '';
-    sections.forEach((section, index) => {
-      if (section.coordinates && section.coordinates.length > 0) {
-        const color = colors[index % colors.length];
-        const points = section.coordinates.map(p => `${p.lat},${p.lng}`).join('|');
-        const firstPoint = `${section.coordinates[0].lat},${section.coordinates[0].lng}`;
-        pathsString += `&path=color:${color}|weight:3|fillcolor:${color}44|${points}|${firstPoint}`;
-      }
-    });
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${mapCenter.lat},${mapCenter.lng}&zoom=21&size=800x400&maptype=satellite${pathsString}&key=AIzaSyArjjIztBY4AReXdXGm1Mf3afM3ZPE_Tbc`;
-  })();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
@@ -561,7 +274,7 @@ export default function Results() {
                 <p className="text-xs text-blue-600 font-semibold">Your Measurement Results</p>
               </div>
             </Link>
-            <Link to={editMeasurementUrl}>
+            <Link to={createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&measurementId=${measurement.id}`)}>
               <Button variant="outline" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Edit Measurement
@@ -589,29 +302,19 @@ export default function Results() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            {/* AI STUDIO VISUALIZER BUTTON */}
             <Card className="shadow-2xl border-4 border-purple-300 bg-gradient-to-br from-purple-50 via-pink-50 to-purple-50">
               <CardContent className="p-8">
                 <div className="flex items-center gap-6">
                   <div className="w-24 h-24 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-xl flex-shrink-0">
                     <span className="text-5xl">✨</span>
                   </div>
-                  
                   <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                      See Your Home with a New Roof
-                    </h2>
-                    <p className="text-slate-600 mb-4">
-                      Use AI to visualize different materials and colors before you decide
-                    </p>
-                    <Button
-                      size="lg"
-                      className="h-14 px-8 text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold"
-                      onClick={() => {
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">See Your Home with a New Roof</h2>
+                    <p className="text-slate-600 mb-4">Use AI to visualize different materials and colors before you decide</p>
+                    <Button size="lg" className="h-14 px-8 text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold" onClick={() => {
                         const url = createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}&lat=${measurement.latitude}&lng=${measurement.longitude}&measurementId=${measurement.id}`);
                         navigate(url);
-                      }}
-                    >
+                      }}>
                       <Palette className="w-5 h-5 mr-2" />
                       Open AI Design Studio
                     </Button>
@@ -620,201 +323,6 @@ export default function Results() {
               </CardContent>
             </Card>
 
-            {selectedVisualization && (
-              <Card className="shadow-xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-white">
-                <CardHeader className="bg-gradient-to-r from-purple-100 to-white">
-                  <CardTitle className="flex items-center gap-2 text-2xl">
-                    <Home className="w-6 h-6 text-purple-600" />
-                    🏠 Your AI Visualization: {selectedVisualization.style}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <p className="text-slate-600 mb-4">
-                    This is how your home would look with your selected roof style.
-                  </p>
-                  <div className="border-2 border-slate-200 rounded-xl overflow-hidden shadow-lg">
-                    <img 
-                      src={selectedVisualization.url}
-                      alt={selectedVisualization.style}
-                      className="w-full h-auto"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {capturedImages.length > 0 && (
-              <Card className="shadow-xl border-2 border-green-200">
-                <CardHeader className="bg-gradient-to-r from-green-50 to-white">
-                  <CardTitle className="flex items-center gap-2 text-2xl">
-                    <Camera className="w-6 h-6 text-green-600" />
-                    📸 Your Captured Views ({capturedImages.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <p className="text-slate-600 mb-4">
-                    Static views you captured at different zoom levels
-                  </p>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {capturedImages.map((img, idx) => (
-                      <div key={img.id} className="border-2 border-green-300 rounded-xl overflow-hidden shadow-lg">
-                        <img 
-                          src={img.url}
-                          alt={`Captured view ${idx + 1}`}
-                          className="w-full h-auto"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.parentElement.innerHTML = '<div class="p-8 text-center text-slate-500">Failed to load</div>';
-                          }}
-                        />
-                        <div className="bg-green-50 p-3">
-                          <p className="text-sm font-bold text-green-900">Capture #{idx + 1}</p>
-                          <p className="text-xs text-green-700">Zoom level: {img.zoom}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            <Card className="shadow-xl border-2 border-blue-200">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
-                <CardTitle className="flex items-center gap-2 text-2xl">
-                  <MapPin className="w-6 h-6 text-blue-600" />
-                  📍 Satellite View
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <p className="text-slate-600 mb-4">
-                  High-resolution satellite view focused on your roof
-                </p>
-                <div className="border-2 border-slate-200 rounded-xl overflow-hidden shadow-lg">
-                  <img 
-                    src={satelliteUrl}
-                    alt="Satellite view"
-                    className="w-full h-auto"
-                    style={{ maxWidth: '800px', width: '100%' }}
-                    onError={(e) => {
-                      console.error("Satellite image failed to load");
-                      e.target.style.display = 'none';
-                      e.target.parentElement.innerHTML = '<div class="p-12 text-center text-slate-500">Unable to load satellite image</div>';
-                    }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {diagramUrl && (
-              <Card className="shadow-xl border-2 border-green-200">
-                <CardHeader className="bg-gradient-to-r from-green-50 to-white">
-                  <CardTitle className="flex items-center gap-2 text-2xl">
-                    <Ruler className="w-6 h-6 text-green-600" />
-                    📐 Measurement Diagram
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <p className="text-slate-600 mb-4">
-                    Color-coded sections showing measured roof areas
-                  </p>
-                  <div className="border-2 border-slate-200 rounded-xl overflow-hidden shadow-lg">
-                    <img 
-                      src={diagramUrl}
-                      alt="Measurement diagram"
-                      className="w-full h-auto"
-                      style={{ maxWidth: '800px', width: '100%' }}
-                      onError={(e) => {
-                        console.error("Diagram image failed to load");
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                  
-                  <div className="mt-6 bg-slate-50 rounded-lg p-4">
-                    <h4 className="font-bold text-slate-900 mb-3">Section Legend:</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      {sections.map((section, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <div 
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: section.color || '#3b82f6' }}
-                          />
-                          <span className="text-sm font-semibold text-slate-700">
-                            {section.name || `Section ${idx + 1}`}: {Math.round(section.adjusted_area_sqft || section.flat_area_sqft).toLocaleString()} sq ft
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {sections.length > 0 && (
-              <Card className="shadow-xl border-2 border-purple-200">
-                <CardHeader className="bg-gradient-to-r from-purple-50 to-white">
-                  <CardTitle className="flex items-center gap-2 text-2xl">
-                    <Box className="w-6 h-6 text-purple-600" />
-                    📐 Roof Blueprint Diagram
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  {measurement.measurement_diagram ? (
-                    <>
-                      <p className="text-slate-600 mb-4">
-                        Blueprint saved to results page
-                      </p>
-                      <img 
-                        src={measurement.measurement_diagram} 
-                        alt="Roof Blueprint"
-                        className="w-full h-auto border-2 border-slate-200 rounded-lg mb-4"
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => generateBlueprint(false)}
-                          variant="outline"
-                          className="flex-1 h-12 border-2 border-purple-600 text-purple-600"
-                        >
-                          <Download className="w-5 h-5 mr-2" />
-                          Download
-                        </Button>
-                        <Button
-                          onClick={() => generateBlueprint(true)}
-                          className="flex-1 h-12 bg-purple-600 hover:bg-purple-700 text-white"
-                        >
-                          <CheckCircle className="w-5 h-5 mr-2" />
-                          Regenerate
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-slate-600 mb-4">
-                        Scaled blueprint showing all measured sections with labels
-                      </p>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => generateBlueprint(false)}
-                          variant="outline"
-                          className="flex-1 h-16 border-2 border-purple-600 text-purple-600 text-lg"
-                        >
-                          <Download className="w-5 h-5 mr-2" />
-                          Download
-                        </Button>
-                        <Button
-                          onClick={() => generateBlueprint(true)}
-                          className="flex-1 h-16 bg-purple-600 hover:bg-purple-700 text-white text-lg"
-                        >
-                          <CheckCircle className="w-5 h-5 mr-2" />
-                          Add to Results
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
             {sections.length > 0 && (
               <Card className="shadow-xl border-2 border-red-200">
                 <CardHeader className="bg-gradient-to-r from-red-50 to-white">
@@ -822,16 +330,10 @@ export default function Results() {
                     <Box className="w-6 h-6 text-red-600" />
                     🏠 3D Roof View
                   </CardTitle>
-                  <p className="text-sm text-slate-600 mt-1">Interactive 3D satellite view with measurement overlay</p>
                 </CardHeader>
-                <CardContent className="p-6">
+                <CardContent className="p-0 h-[500px] overflow-hidden rounded-b-xl">
                   {!mapScriptLoaded ? (
-                    <div className="h-[500px] flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border-2 border-slate-200">
-                      <div className="text-center">
-                        <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-                        <p className="text-lg font-semibold text-slate-700">Loading Google Maps...</p>
-                      </div>
-                    </div>
+                    <div className="h-full flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-blue-500" /></div>
                   ) : (
                     <Roof3DView measurement={measurement} sections={sections} mapScriptLoaded={mapScriptLoaded} />
                   )}
@@ -845,513 +347,119 @@ export default function Results() {
                   <Ruler className="w-5 h-5 text-green-600" />
                   Interactive Measurement View
                 </CardTitle>
-                <p className="text-sm text-slate-600 mt-1">Interactive map - zoom and pan</p>
               </CardHeader>
-              <CardContent>
-                {!mapScriptLoaded ? (
-                  <div className="h-[500px] flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border-2 border-slate-200">
-                    <div className="text-center">
-                      <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-                      <p className="text-lg font-semibold text-slate-700">Loading Google Maps...</p>
-                    </div>
-                  </div>
-                ) : (
-                  <InteractiveMapView measurement={measurement} sections={sections} mapScriptLoaded={mapScriptLoaded} />
-                )}
+              <CardContent className="h-[500px] p-0 overflow-hidden rounded-b-xl">
+                 {!mapScriptLoaded ? (
+                    <div className="h-full flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-blue-500" /></div>
+                  ) : (
+                    <InteractiveMapView measurement={measurement} sections={sections} mapScriptLoaded={mapScriptLoaded} />
+                  )}
               </CardContent>
             </Card>
 
             <RoofDiagram measurement={measurement} />
-
             <DetailedMeasurements measurement={measurement} />
-
             <PhotoUpload measurement={measurement} onPhotosUpdate={handlePhotosUpdate} />
-
-            {measurement?.user_type === 'homeowner' && !top5Success && (
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg p-8 mb-8 border-2 border-blue-200">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="bg-blue-600 p-3 rounded-lg">
-                    <Users className="w-6 h-6 text-white" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Next Step: Choose Your Roofer</h2>
-                </div>
-
-                <p className="text-gray-700 mb-6">
-                  Connect with top-rated local roofers who can provide accurate quotes based on your measurements.
-                </p>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <Link
-                    to={createPageUrl(`RooferDirectory?measurement=${measurement.id}`)}
-                    className="bg-white rounded-xl p-6 border-2 border-blue-300 hover:border-blue-500 hover:shadow-xl transition-all group"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="bg-blue-100 p-3 rounded-lg group-hover:bg-blue-200 transition-colors">
-                        <MapPin className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-bold text-lg mb-2 group-hover:text-blue-600 transition-colors">
-                          Browse Roofer Directory
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          View profiles, read reviews, compare pricing, and choose your preferred roofer.
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-
-                  <button
-                    onClick={handleSendToTop5}
-                    disabled={sendingToTop5}
-                    className="bg-blue-600 text-white rounded-xl p-6 border-2 border-blue-600 hover:bg-blue-700 hover:shadow-xl transition-all group text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="bg-blue-500 p-3 rounded-lg group-hover:bg-blue-600 transition-colors">
-                        <Zap className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-bold text-lg mb-2">
-                          Send to Top 5 Roofers
-                        </h3>
-                        <p className="text-sm text-blue-100">
-                          Automatically share your measurements with the top-rated roofers in your area. Get multiple quotes fast.
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-
-                {sendingToTop5 && (
-                  <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                    <span className="text-blue-700 font-medium">Sending your information to top roofers...</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {measurement?.user_type === 'homeowner' && top5Success && (
-              <div className="bg-green-50 border-2 border-green-200 rounded-2xl shadow-lg p-8 mb-8">
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h3 className="font-bold text-xl text-green-800 mb-2">Successfully sent to 5 top-rated roofers!</h3>
-                    <p className="text-green-700 mb-4">You'll receive quotes within 24-48 hours via email and phone.</p>
-                    <Link to={createPageUrl(`RooferDirectory?measurement=${measurement.id}`)}>
-                      <Button variant="outline" className="border-green-600 text-green-600 hover:bg-green-50">
-                        <MapPin className="w-4 h-4 mr-2" />
-                        View All Roofers
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <Card className="shadow-lg border-2 border-slate-200">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-3 mb-4">
-                  <FileText className="w-6 h-6 text-slate-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900 mb-2">
-                      📋 Measurement Accuracy Notice
-                    </h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      This satellite-based measurement provides an accurate preliminary estimate (±2-5%). 
-                      However, factors such as tree coverage, image resolution, and roof complexity may 
-                      affect precision. Our licensed roofing professionals will verify all measurements 
-                      during your <strong className="text-blue-600">FREE on-site inspection</strong> before 
-                      providing a final quote.
-                    </p>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handleScheduleClick}
-                  size="lg"
-                  className="w-full bg-blue-600 hover:bg-blue-700 h-14"
-                >
-                  <Calendar className="w-5 h-5 mr-2" />
-                  Schedule Free Inspection
-                </Button>
-              </CardContent>
-            </Card>
-
-            <section className="py-16 bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl shadow-xl">
-              <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-12">
-                  <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-full mb-4">
-                    <FileText className="w-4 h-4" />
-                    <span className="font-semibold">Professional Report Available</span>
-                  </div>
-                  <h2 className="text-4xl font-bold text-slate-900 mb-4">
-                    Download Detailed PDF Report
-                  </h2>
-                  <p className="text-xl text-slate-600">
-                    Get a comprehensive professional report with all measurements
-                  </p>
-                </div>
-
-                <Card className="shadow-2xl border-2 border-purple-200">
-                  <CardContent className="p-8">
-                    <div className="space-y-6">
-                      <div className="bg-gradient-to-r from-purple-100 to-blue-100 border-2 border-purple-300 rounded-xl p-6">
-                        <h3 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                          <FileText className="w-6 h-6 text-purple-600" />
-                          What's Included
-                        </h3>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          {[
-                            'Satellite imagery',
-                            'Measurement diagram',
-                            '3D visualization',
-                            'Section breakdown',
-                            'Line measurements',
-                            'Material estimates',
-                            'Cost estimates',
-                            measurement.photos?.length > 0 ? `${measurement.photos.length} photos` : 'Site photos',
-                            capturedImages.length > 0 ? `${capturedImages.length} captured views` : null,
-                            'Professional formatting'
-                          ].filter(Boolean).map((item, idx) => (
-                            <div key={idx} className="flex items-start gap-2">
-                              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                              <span className="text-slate-700">{item}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <PDFReportGenerator
-                        measurement={measurement}
-                        userBranding={getUserBranding()}
-                        onGenerate={handlePDFDownload}
-                      />
-
-                      {downloadCount > 0 && (
-                        <Alert className="bg-green-50 border-green-200">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <AlertDescription className="text-green-800">
-                            <strong>Report generated {downloadCount} time{downloadCount > 1 ? 's' : ''}!</strong>
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </section>
           </div>
 
           <div className="lg:col-span-1 space-y-8">
-            {/* Design Preview Widget */}
             <DesignPreview />
-
-            {isRoofer && (
-              <Card className="bg-blue-50 border-2 border-blue-200 shadow-xl">
-                <CardHeader className="bg-gradient-to-r from-blue-100 to-blue-50">
-                  <CardTitle className="text-lg">📋 Lead Information</CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 space-y-4">
-                  {measurement.customer_name && (
-                    <div className="bg-white rounded-lg p-4 border space-y-1">
-                      <p className="text-sm font-bold text-slate-900">{measurement.customer_name}</p>
-                      {measurement.customer_phone && (
-                        <p className="text-sm text-slate-600">📱 {measurement.customer_phone}</p>
-                      )}
-                      {measurement.customer_email && (
-                        <p className="text-sm text-slate-600">📧 {measurement.customer_email}</p>
-                      )}
-                      <p className="text-sm text-slate-600">📍 {measurement.property_address}</p>
-                    </div>
-                  )}
-                  
-                  <Button
-                    size="lg"
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    onClick={() => {
-                      alert('📄 PDF download feature coming soon! For now, use browser print.');
-                    }}
-                  >
-                    📄 Download PDF Report
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => navigate(createPageUrl(`LeadManagement?leadId=${measurement.id}`))}
-                  >
-                    View in Lead Management →
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-
+            
             <Card className="border-2 border-blue-200 shadow-xl bg-gradient-to-br from-blue-50 to-white">
               <CardContent className="p-8 text-center">
-                <h2 className="text-xl font-semibold text-slate-700 mb-4">
-                  Total Roof Area {hasPitchAdjustment && <span className="text-sm">(Pitch-Adjusted)</span>}
-                </h2>
-                <div className="text-6xl md:text-7xl font-bold text-blue-600 mb-2">
-                  {area.toLocaleString()}
-                </div>
+                <h2 className="text-xl font-semibold text-slate-700 mb-4">Total Roof Area {hasPitchAdjustment && <span className="text-sm">(Pitch-Adjusted)</span>}</h2>
+                <div className="text-6xl md:text-7xl font-bold text-blue-600 mb-2">{area.toLocaleString()}</div>
                 <p className="text-2xl font-semibold text-slate-600">square feet</p>
-                {hasPitchAdjustment && (
-                  <p className="text-sm text-blue-600 mt-4">
-                    Flat: {flatArea.toLocaleString()} sq ft
-                  </p>
-                )}
-                
-                {measurement.measurement_type === 'quick_estimate' && (
-                  <Alert className="mt-6 bg-orange-50 border-orange-200 text-left">
-                    <AlertDescription className="text-sm">
-                      <div className="font-bold text-orange-900 mb-2">⚡ Quick Estimate</div>
-                      <p className="text-orange-800 mb-3">
-                        This is an approximate calculation based on building size. 
-                        For precise measurements, use our Detailed Measurement tool.
-                      </p>
-                      <Link to={createPageUrl(`MeasurementPage?address=${encodeURIComponent(measurement.property_address)}`)}>
-                        <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700">
-                          Get Detailed Measurement
-                        </Button>
-                      </Link>
-                    </AlertDescription>
-                  </Alert>
-                )}
+                {hasPitchAdjustment && <p className="text-sm text-blue-600 mt-4">Flat: {flatArea.toLocaleString()} sq ft</p>}
               </CardContent>
             </Card>
 
-            {sections.length > 1 && (
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-xl">Section Breakdown</CardTitle>
-                  <p className="text-sm text-slate-600 mt-1">{sections.length} sections</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {sections.map((section, index) => (
-                      <div
-                        key={section.id || index}
-                        className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border-l-4"
-                        style={{ borderColor: section.color || '#4A90E2' }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-5 h-5 rounded-full"
-                            style={{ backgroundColor: section.color || '#4A90E2' }}
-                          />
-                          <span className="font-semibold text-slate-900 text-sm">
-                            {section.name || `Section ${index + 1}`}
-                          </span>
-                        </div>
-                        <span className="font-bold text-slate-900">
-                          {(section.adjusted_area_sqft || section.flat_area_sqft || 0).toLocaleString()} sq ft
-                        </span>
+            <Card className="shadow-lg">
+              <CardHeader><CardTitle className="text-xl">Section Breakdown</CardTitle></CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {sections.map((section, index) => (
+                    <div key={section.id || index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border-l-4" style={{ borderColor: section.color || '#4A90E2' }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full" style={{ backgroundColor: section.color || '#4A90E2' }} />
+                        <span className="font-semibold text-slate-900 text-sm">{section.name || `Section ${index + 1}`}</span>
                       </div>
-                    ))}
-                    
-                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-bold">
-                      <span>Total</span>
-                      <span className="text-xl">{area.toLocaleString()} sq ft</span>
+                      <span className="font-bold text-slate-900">{(section.adjusted_area_sqft || section.flat_area_sqft || 0).toLocaleString()} sq ft</span>
                     </div>
+                  ))}
+                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-bold">
+                    <span>Total</span>
+                    <span className="text-xl">{area.toLocaleString()} sq ft</span>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              </CardContent>
+            </Card>
 
-            {isHomeowner && (
-              <>
-                <Card className="shadow-xl border-2 border-blue-200">
-                  <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
-                    <CardTitle className="text-xl flex items-center gap-2">
-                      <Box className="w-6 h-6 text-blue-600" />
-                      Select Roofing Material
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6">
-                    <p className="text-slate-600 mb-4 text-sm">
-                      Choose your preferred roofing material. Pricing will adjust automatically.
-                    </p>
-
-                    <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-                      {['economy', 'standard', 'premium', 'luxury'].map((category) => (
-                        <button
-                          key={category}
-                          onClick={() => {
-                            const filtered = roofingMaterials.filter(m => m.category === category);
-                            if (filtered.length > 0) {
-                              handleMaterialChange(filtered[0]);
-                            }
-                          }}
-                          className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors text-sm ${
-                            selectedMaterial.category === category
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          {category.charAt(0).toUpperCase() + category.slice(1)}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {roofingMaterials.map((material) => (
-                        <div
-                          key={material.name}
-                          onClick={() => handleMaterialChange(material)}
-                          className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                            selectedMaterial.name === material.name
-                              ? 'border-blue-600 bg-blue-50 shadow-md'
-                              : 'border-gray-200 hover:border-blue-300'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between mb-1">
-                            <h3 className="font-bold text-gray-900 text-sm">{material.name}</h3>
-                            {selectedMaterial.name === material.name && (
-                              <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                            )}
-                          </div>
-                          
-                          <p className="text-xs text-gray-600 mb-2">{material.description}</p>
-                          
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-lg font-bold text-blue-600">
-                              ${material.pricePerSqFt.toFixed(2)}
-                            </span>
-                            <span className="text-xs text-gray-500">per sq ft</span>
-                            <span className="text-xs text-gray-400 ml-auto">
-                              {material.warranty}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="shadow-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white">
-                  <CardHeader>
-                    <CardTitle className="text-xl flex items-center gap-2">
-                      <DollarSign className="w-6 h-6 text-green-600" />
-                      Estimated Project Cost
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {(() => {
-                      const pricing = calculatePriceWithMaterial();
-                      return (
-                        <>
-                          <div className="bg-white rounded-lg p-4 space-y-3">
-                            <div className="flex justify-between items-center pb-3 border-b">
-                              <span className="text-slate-700 font-medium text-sm">Selected Material:</span>
-                              <span className="font-bold text-slate-900 text-sm">{selectedMaterial.name}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-slate-600 text-sm">Materials ({area?.toLocaleString()} sq ft × ${selectedMaterial.pricePerSqFt})</span>
-                              <span className="font-bold text-slate-900">${pricing.materialCost.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-slate-600 text-sm">Labor ({area?.toLocaleString()} sq ft × ${(3.00 * selectedMaterial.laborMultiplier).toFixed(2)})</span>
-                              <span className="font-bold text-slate-900">${pricing.laborCost.toLocaleString()}</span>
-                            </div>
-                          </div>
-
-                          <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl p-4 text-center">
-                            <p className="text-sm font-medium mb-1 opacity-90">Estimated Cost Range</p>
-                            <p className="text-3xl font-bold mb-1">
-                              ${pricing.lowEstimate.toLocaleString()} - ${pricing.highEstimate.toLocaleString()}
-                            </p>
-                            <p className="text-xs opacity-90">Based on {selectedMaterial.name}</p>
-                          </div>
-
-                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                            <p className="text-xs text-amber-800">
-                              <strong>Note:</strong> This is a preliminary estimate based on standard conditions. Contact us for a detailed quote.
-                            </p>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-              </>
-            )}
+            <Card className="shadow-xl border-2 border-blue-200">
+               <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
+                 <CardTitle className="text-xl flex items-center gap-2"><Box className="w-6 h-6 text-blue-600" /> Select Roofing Material</CardTitle>
+               </CardHeader>
+               <CardContent className="p-6">
+                 <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                   {['economy', 'standard', 'premium', 'luxury'].map((category) => (
+                     <button key={category} onClick={() => {
+                       const filtered = roofingMaterials.filter(m => m.category === category);
+                       if (filtered.length > 0) handleMaterialChange(filtered[0]);
+                     }} className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap text-sm ${selectedMaterial.category === category ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                       {category.charAt(0).toUpperCase() + category.slice(1)}
+                     </button>
+                   ))}
+                 </div>
+                 <div className="space-y-2 max-h-96 overflow-y-auto">
+                   {roofingMaterials.map((material) => (
+                     <div key={material.name} onClick={() => handleMaterialChange(material)} className={`p-3 rounded-lg border-2 cursor-pointer ${selectedMaterial.name === material.name ? 'border-blue-600 bg-blue-50' : 'border-gray-200'}`}>
+                       <div className="flex items-start justify-between mb-1">
+                         <h3 className="font-bold text-gray-900 text-sm">{material.name}</h3>
+                         {selectedMaterial.name === material.name && <CheckCircle className="w-5 h-5 text-blue-600" />}
+                       </div>
+                       <p className="text-xs text-gray-600 mb-2">{material.description}</p>
+                       <div className="flex items-baseline gap-2">
+                         <span className="text-lg font-bold text-blue-600">${material.pricePerSqFt.toFixed(2)}</span>
+                         <span className="text-xs text-gray-500">per sq ft</span>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               </CardContent>
+            </Card>
+            
+            <Card className="shadow-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white">
+               <CardHeader><CardTitle className="text-xl flex items-center gap-2"><DollarSign className="w-6 h-6 text-green-600" /> Estimated Project Cost</CardTitle></CardHeader>
+               <CardContent className="space-y-4">
+                 {(() => {
+                   const pricing = calculatePriceWithMaterial();
+                   return (
+                     <>
+                       <div className="bg-white rounded-lg p-4 space-y-3">
+                         <div className="flex justify-between items-center pb-3 border-b"><span className="text-slate-700 font-medium text-sm">Selected:</span><span className="font-bold text-slate-900 text-sm">{selectedMaterial.name}</span></div>
+                         <div className="flex justify-between items-center"><span className="text-slate-600 text-sm">Materials</span><span className="font-bold text-slate-900">${pricing.materialCost.toLocaleString()}</span></div>
+                         <div className="flex justify-between items-center"><span className="text-slate-600 text-sm">Labor</span><span className="font-bold text-slate-900">${pricing.laborCost.toLocaleString()}</span></div>
+                       </div>
+                       <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl p-4 text-center">
+                         <p className="text-sm font-medium mb-1 opacity-90">Estimated Cost Range</p>
+                         <p className="text-3xl font-bold mb-1">${pricing.lowEstimate.toLocaleString()} - ${pricing.highEstimate.toLocaleString()}</p>
+                       </div>
+                     </>
+                   );
+                 })()}
+               </CardContent>
+            </Card>
 
             <Card className="shadow-2xl border-none overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-8">
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold mb-4">Ready for Your New Roof?</h2>
-                  
-                  <Button
-                    size="lg"
-                    className="w-full h-16 text-lg bg-green-600 hover:bg-green-700 mb-4"
-                    onClick={handleScheduleClick}
-                  >
-                    <Calendar className="w-6 h-6 mr-2" />
-                    Schedule Free Inspection
-                  </Button>
-
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="w-full h-14 border-2 border-green-400 text-green-400 hover:bg-green-400 hover:text-white"
-                    asChild
-                  >
-                    <a href="tel:+18502389727" className="flex items-center justify-center gap-2">
-                      <Phone className="w-5 h-5" />
-                      Call: (850) 238-9727
-                    </a>
-                  </Button>
-                </div>
-              </div>
-            </Card>
-
-            {isHomeowner && (
-              <Button
-                size="lg"
-                className="w-full h-14 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-base"
-                onClick={() => navigate(createPageUrl(`LeaveReview?measurementid=${measurement.id}`))}
-              >
-                <Star className="w-5 h-5 mr-2" />
-                Leave a Review
-              </Button>
-            )}
-
-            <Card className="shadow-lg border-l-4 border-l-yellow-400">
-              <CardContent className="p-6">
-                <div className="flex gap-1 mb-3">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-lg text-slate-700 italic mb-4">
-                  "Aroof made getting my roof done so easy! The measurement was accurate."
-                </p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold">S</span>
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-900">Sarah J.</p>
-                    <p className="text-sm text-slate-500">Plano, TX</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-slate-50">
-              <CardContent className="p-6 text-center">
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Questions?</h3>
-                <p className="text-slate-600 mb-4">Our experts are here to help</p>
-                <div className="space-y-2 text-sm">
-                  <a href="tel:+18502389727" className="flex items-center justify-center gap-2 hover:text-blue-600">
-                    <Phone className="w-4 h-4" />
-                    <strong>(850) 238-9727</strong>
-                  </a>
-                  <a href="mailto:support@aroof.build" className="flex items-center justify-center gap-2 hover:text-blue-600">
-                    <strong>support@aroof.build</strong>
-                  </a>
-                </div>
-              </CardContent>
+               <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white p-8 text-center">
+                 <h2 className="text-2xl font-bold mb-4">Ready for Your New Roof?</h2>
+                 <Button size="lg" className="w-full h-16 text-lg bg-green-600 hover:bg-green-700 mb-4" onClick={handleScheduleClick}>
+                   <Calendar className="w-6 h-6 mr-2" /> Schedule Free Inspection
+                 </Button>
+                 <Button size="lg" variant="outline" className="w-full h-14 border-2 border-green-400 text-green-400 hover:bg-green-400 hover:text-white" asChild>
+                   <a href="tel:+18502389727" className="flex items-center justify-center gap-2"><Phone className="w-5 h-5" /> Call: (850) 238-9727</a>
+                 </Button>
+               </div>
             </Card>
           </div>
         </div>
