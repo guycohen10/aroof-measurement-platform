@@ -110,9 +110,18 @@ export default function MeasurementPage() {
                         setLoading(false);
                     } else { setLoading(false); toast.error("Address not found"); }
                 });
-            } catch (e) { console.error(e); }
+            } catch (e) { 
+                console.error(e);
+                setLoading(false);
+                toast.error("Failed to load map libraries");
+            }
         };
         const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || localStorage.getItem('user_provided_maps_key');
+        if (!key) {
+            setLoading(false);
+            toast.error("Missing Google Maps API Key");
+            return;
+        }
         if (!window.google?.maps && key) {
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,drawing,geometry`;
