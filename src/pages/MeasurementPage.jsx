@@ -76,16 +76,24 @@ export default function MeasurementPage() {
                         const manager = new google.maps.drawing.DrawingManager({
                             drawingMode: null,
                             drawingControl: false,
-                            polygonOptions: { strokeWeight: 2, editable: true, fillOpacity: 0.4 }
+                            polygonOptions: { 
+                                strokeWeight: 2, 
+                                editable: true, 
+                                fillOpacity: 0.4,
+                                fillColor: '#10b981', // Green
+                                strokeColor: '#ef4444' // Red
+                            }
                         });
                         manager.setMap(map);
                         setDrawingManager(manager);
                         google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
                             const id = Date.now();
-                            const colorIndex = sections.length % SECTION_COLORS.length;
-                            const color = SECTION_COLORS[colorIndex];
+                            // const colorIndex = sections.length % SECTION_COLORS.length;
+                            // const color = SECTION_COLORS[colorIndex];
+                            const color = '#10b981'; // Fixed Green
 
-                            poly.setOptions({ fillColor: color, strokeColor: color });
+                            // Maintain the specific design: Green Fill, Red Stroke
+                            poly.setOptions({ fillColor: '#10b981', strokeColor: '#ef4444' });
                             const area = google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764;
 
                             const bounds = new google.maps.LatLngBounds();
