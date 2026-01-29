@@ -211,7 +211,8 @@ export default function Results() {
   useEffect(() => {
     const loadData = async () => {
       const urlParams = new URLSearchParams(window.location.search);
-      const measurementId = urlParams.get('measurementid');
+      // Fix case sensitivity issue
+      const measurementId = urlParams.get('measurementId') || urlParams.get('measurementid');
       
       // Read URL parameters immediately as source of truth
       const latParam = urlParams.get('lat');
@@ -219,7 +220,7 @@ export default function Results() {
       const areaParam = urlParams.get('area');
       const zipParam = urlParams.get('zip');
       
-      console.log('🚀 Results Page URL Params:', { lat: latParam, lng: lngParam, area: areaParam, zip: zipParam });
+      console.log('🚀 Results Page URL Params:', { measurementId, lat: latParam, lng: lngParam, area: areaParam, zip: zipParam });
 
       if (!measurementId) {
         navigate(createPageUrl("Homepage"));
@@ -227,11 +228,54 @@ export default function Results() {
       }
 
       try {
-        const measurements = await base44.entities.Measurement.filter({ id: measurementId });
-        
-        if (measurements.length > 0) {
-          let meas = measurements[0];
-          
+        // Try fetching RoofMeasurement first (new flow)
+        let meas = null;
+        try {
+            const roofMeas = await base44.entities.RoofMeasurement.get(measurementId);
+            if (roofMeas) {
+                // Fetch associated lead to get address and contact info
+                let lead = null;
+                if (roofMeas.lead_id) {
+                    try {
+                        lead = await base44.entities.Lead.get(roofMeas.lead_id);
+                    } catch (e) {
+                        console.warn("Lead fetch failed", e);
+                    }
+                }
+                
+                // Normalize to match existing component expectations
+                meas = {
+                    ...roofMeas,
+                    id: roofMeas.id,
+                    measurement_data: { 
+                        sections: roofMeas.sections_data,
+                        total_flat_sqft: roofMeas.total_sqft,
+                        total_adjusted_sqft: roofMeas.total_sqft
+                    },
+                    property_address: lead?.address || "Address Not Available",
+                    customer_name: lead?.name,
+                    customer_email: lead?.email,
+                    customer_phone: lead?.phone,
+                    latitude: latParam ? parseFloat(latParam) : null,
+                    longitude: lngParam ? parseFloat(lngParam) : null,
+                    user_type: 'homeowner' // Default for public funnel
+                };
+            }
+        } catch(e) {
+            console.log("RoofMeasurement not found, trying Measurement entity");
+        }
+
+        // Fallback to Measurement entity (legacy flow)
+        if (!meas) {
+            try {
+                 const measurements = await base44.entities.Measurement.filter({ id: measurementId });
+                 if (measurements.length > 0) meas = measurements[0];
+            } catch(e2) {
+                 console.error("Measurement fetch failed", e2);
+            }
+        }
+
+        if (meas) {
           // Override with URL params if available (source of truth)
           if (latParam && lngParam) {
             meas = {
@@ -239,7 +283,6 @@ export default function Results() {
               latitude: parseFloat(latParam),
               longitude: parseFloat(lngParam)
             };
-            console.log('✅ Using coordinates from URL:', { lat: latParam, lng: lngParam });
           }
           
           if (areaParam) {
@@ -250,20 +293,13 @@ export default function Results() {
             };
           }
           
-          // Check if this is a homeowner measurement without contact info
-          if (meas.user_type === 'homeowner' && !meas.customer_name) {
-            // Redirect to contact info page
-            sessionStorage.setItem('pending_measurement_id', measurementId);
-            navigate(createPageUrl("ContactInfoPage"));
-            return;
-          }
-          
           setMeasurement(meas);
         } else {
           setError("Measurement not found");
         }
       } catch (err) {
         setError("Failed to load measurement");
+        console.error(err);
       } finally {
         setLoading(false);
       }
