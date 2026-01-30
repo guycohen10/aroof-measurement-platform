@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const SECTION_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'];
+const SECTION_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
 const PITCH_FACTORS = { 0: 1.0, 4: 1.054, 5: 1.083, 6: 1.118, 7: 1.158, 8: 1.202, 9: 1.25, 10: 1.302, 12: 1.414 };
 
 export default function MeasurementPage() {
@@ -21,6 +21,9 @@ export default function MeasurementPage() {
     const [mapAddress, setMapAddress] = useState(rawAddress ? decodeURIComponent(rawAddress) : '');
     const [lead, setLead] = useState(null);
     const [sections, setSections] = useState([]);
+    
+    // Ref to access latest sections inside map event listeners
+    const sectionsRef = useRef([]);
 
     const [mapNode, setMapNode] = useState(null);
     const [mapInstance, setMapInstance] = useState(null);
@@ -32,6 +35,11 @@ export default function MeasurementPage() {
 
     const [isContactOpen, setIsContactOpen] = useState(false);
     const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
+
+    // Sync ref
+    useEffect(() => {
+        sectionsRef.current = sections;
+    }, [sections]);
 
     // 1. INIT
     useEffect(() => {
@@ -73,6 +81,7 @@ export default function MeasurementPage() {
                         });
                         setMapInstance(map);
                         new Marker({ position: results[0].geometry.location, map: map });
+                        
                         const manager = new google.maps.drawing.DrawingManager({
                             drawingMode: null,
                             drawingControl: false,
@@ -80,31 +89,56 @@ export default function MeasurementPage() {
                                 strokeWeight: 2, 
                                 editable: true, 
                                 fillOpacity: 0.4,
-                                fillColor: '#10b981', // Green
-                                strokeColor: '#ef4444' // Red
+                                clickable: true
                             }
                         });
                         manager.setMap(map);
                         setDrawingManager(manager);
+
                         google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
                             const id = Date.now();
-                            // const colorIndex = sections.length % SECTION_COLORS.length;
-                            // const color = SECTION_COLORS[colorIndex];
-                            const color = '#10b981'; // Fixed Green
+                            
+                            // FIX #4: Distinct Colors
+                            const currentCount = sectionsRef.current.length;
+                            const colorIndex = currentCount % SECTION_COLORS.length;
+                            const color = SECTION_COLORS[colorIndex];
 
-                            // Maintain the specific design: Green Fill, Red Stroke
-                            poly.setOptions({ fillColor: '#10b981', strokeColor: '#ef4444' });
-                            const area = google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764;
+                            poly.setOptions({ 
+                                fillColor: color, 
+                                strokeColor: color 
+                            });
+
+                            const flatArea = google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764;
+                            const defaultPitch = 6;
+                            const factor = PITCH_FACTORS[defaultPitch] || 1.118;
+                            const adjustedArea = Math.round(flatArea * factor);
 
                             const bounds = new google.maps.LatLngBounds();
                             poly.getPath().forEach(p => bounds.extend(p));
+                            
                             const label = new google.maps.Marker({
                                 position: bounds.getCenter(),
                                 map: map,
                                 icon: { path: google.maps.SymbolPath.CIRCLE, scale: 0 },
-                                label: { text: `${Math.round(area)}`, color: "white", fontWeight: "bold", fontSize: "14px" }
+                                label: { 
+                                    text: `${adjustedArea}`, 
+                                    color: "white", 
+                                    fontWeight: "bold", 
+                                    fontSize: "14px",
+                                    className: 'map-label-text'
+                                }
                             });
-                            setSections(prev => [...prev, { id, area: Math.round(area), pitch: 6, poly, label, color }]);
+                            
+                            // Store flatArea separately for accurate recalculations
+                            setSections(prev => [...prev, { 
+                                id, 
+                                flatArea: Math.round(flatArea),
+                                adjustedArea,
+                                pitch: defaultPitch, 
+                                poly, 
+                                label, 
+                                color 
+                            }]);
                             manager.setDrawingMode(null);
                         });
                         setLoading(false);
@@ -116,12 +150,14 @@ export default function MeasurementPage() {
                 toast.error("Failed to load map libraries");
             }
         };
+
         const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || localStorage.getItem('user_provided_maps_key');
         if (!key) {
             setLoading(false);
             toast.error("Missing Google Maps API Key");
             return;
         }
+        
         if (!window.google?.maps && key) {
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,drawing,geometry`;
@@ -130,14 +166,45 @@ export default function MeasurementPage() {
             document.head.appendChild(script);
         } else if (window.google?.maps) { loadMap(); }
 
-
     }, [mapNode, mapAddress]);
 
-    // 3. MAP ACTIONS
+    // 3. ACTIONS
     const handleZoom = (delta) => { if (mapInstance) { const newZoom = mapInstance.getZoom() + delta; mapInstance.setZoom(newZoom); setZoom(newZoom); } };
     const handleRotate = () => { if (mapInstance) { mapInstance.setHeading((mapInstance.getHeading() || 0) + 90); } };
     const handleTilt = () => { if (mapInstance) { const newTilt = mapInstance.getTilt() === 0 ? 45 : 0; mapInstance.setTilt(newTilt); setTilt(newTilt); } };
-    const deleteSection = (id) => { const target = sections.find(s => s.id === id); if (target) { target.poly.setMap(null); target.label.setMap(null); setSections(prev => prev.filter(s => s.id !== id)); } };
+    
+    const deleteSection = (id) => { 
+        const target = sections.find(s => s.id === id); 
+        if (target) { 
+            target.poly.setMap(null); 
+            target.label.setMap(null); 
+            setSections(prev => prev.filter(s => s.id !== id)); 
+        } 
+    };
+
+    // FIX #3: Recalculate area on pitch change
+    const handlePitchChange = (id, newPitchVal) => {
+        const newPitch = Number(newPitchVal);
+        setSections(prev => prev.map(s => {
+            if (s.id === id) {
+                const factor = PITCH_FACTORS[newPitch] || 1.0;
+                const newAdjusted = Math.round(s.flatArea * factor);
+                
+                // Update map label immediately
+                if (s.label) {
+                    s.label.setLabel({
+                        text: `${newAdjusted}`,
+                        color: "white", 
+                        fontWeight: "bold", 
+                        fontSize: "14px"
+                    });
+                }
+                
+                return { ...s, pitch: newPitch, adjustedArea: newAdjusted };
+            }
+            return s;
+        }));
+    };
 
     // 4. SAVE
     const handleFinalSave = async () => {
@@ -145,7 +212,9 @@ export default function MeasurementPage() {
             toast.error("Name and Phone required");
             return;
         }
-        const total = Math.round(sections.reduce((acc, s) => acc + (s.area * (PITCH_FACTORS[s.pitch] || 1.1)), 0));
+        
+        // Calculate total from adjusted areas
+        const total = Math.round(sections.reduce((acc, s) => acc + s.adjustedArea, 0));
         toast.loading("Finalizing...");
 
         try {
@@ -168,14 +237,17 @@ export default function MeasurementPage() {
                 });
             }
 
-            // 2. Create Measurement (WITH GEOMETRY PATH)
+            // 2. Create Measurement
+            console.log("Saving measurement for Lead:", activeId);
             const m = await base44.entities.RoofMeasurement.create({
                 lead_id: activeId,
                 total_sqft: parseInt(total),
                 status: 'Complete',
                 sections_data: sections.map(s => ({
                     pitch: parseInt(s.pitch),
-                    area: parseInt(s.area),
+                    area: parseInt(s.adjustedArea), // Store adjusted area
+                    flat_area: parseInt(s.flatArea), // Store flat area reference
+                    color: s.color,
                     path: s.poly.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() })),
                     edges: []
                 }))
@@ -183,10 +255,23 @@ export default function MeasurementPage() {
 
             await base44.entities.Lead.update(activeId, { lead_status: 'Contacted' });
 
-            toast.dismiss(); toast.success("Done!");
-            window.location.href = `/results?measurementId=${m.id}`;
+            // FIX #1: Robust Redirect
+            console.log("✅ Measurement created successfully:", m);
+            console.log("✅ Redirecting to results with ID:", m.id);
+            toast.dismiss(); 
+            toast.success("Done!");
+            
+            if (!m || !m.id) throw new Error("Created measurement has no ID");
+
+            // Add delay to ensure DB propagation and avoid race conditions
+            setTimeout(() => {
+                window.location.href = `/results?measurementId=${m.id}`;
+            }, 100);
+
         } catch (e) {
-            console.error(e);
+            console.error("❌ Measurement save failed:", e);
+            console.error("Error details:", e.message);
+            
             if (e.message?.includes("Permission")) {
                 toast.error("Database Locked: Please enable Public Access for 'Lead' entity.");
             } else {
@@ -195,7 +280,7 @@ export default function MeasurementPage() {
         }
     };
 
-    const currentTotal = sections.reduce((acc, s) => acc + (s.area * (PITCH_FACTORS[s.pitch] || 1.0)), 0);
+    const currentTotal = sections.reduce((acc, s) => acc + s.adjustedArea, 0);
 
     return (
         <div className="flex h-screen w-full relative overflow-hidden bg-white">
@@ -239,15 +324,13 @@ export default function MeasurementPage() {
                                 <div className="flex justify-between items-center mb-2">
                                     <span className="font-bold text-sm text-slate-700">Section {i + 1}</span>
                                     <div className="flex items-center gap-2">
-                                        <Badge variant="secondary">{s.area} sqft</Badge>
+                                        <Badge variant="secondary">{s.adjustedArea} sqft</Badge>
                                         <button onClick={() => deleteSection(s.id)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs text-slate-500 font-bold">Pitch:</span>
-                                    <Select value={s.pitch.toString()} onValueChange={v => {
-                                        setSections(prev => prev.map(sec => sec.id === s.id ? { ...sec, pitch: Number(v) } : sec));
-                                    }}>
+                                    <Select value={s.pitch.toString()} onValueChange={v => handlePitchChange(s.id, v)}>
                                         <SelectTrigger className="h-8 text-xs bg-slate-50 w-full"><SelectValue /></SelectTrigger>
                                         <SelectContent>{[0, 4, 5, 6, 7, 8, 9, 10, 12].map(p => <SelectItem key={p} value={p.toString()}>{p}/12</SelectItem>)}</SelectContent>
                                     </Select>
