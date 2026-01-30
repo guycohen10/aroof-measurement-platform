@@ -445,7 +445,6 @@ export default function RooferDashboard() {
                 </div>
               </div>
             </div>
-            </div>
           </div>
           {/* AI Estimator Modal */}
           {showAIEstimator && (
