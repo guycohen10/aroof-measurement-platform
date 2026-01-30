@@ -207,7 +207,6 @@ export default function MeasurementPage() {
   // Helper function to geocode and center map
   const geocodeAndCenterMap = async (address) => {
     if (!window.google?.maps) {
-      console.log('⏳ Google Maps not ready yet, will retry...');
       setTimeout(() => geocodeAndCenterMap(address), 1000);
       return;
     }
@@ -227,10 +226,16 @@ export default function MeasurementPage() {
       const location = result.geometry.location;
       const coords = { lat: location.lat(), lng: location.lng() };
 
-      console.log('📍 Geocoded coordinates:', coords);
-
       setMapCenter(coords);
-      setMapZoom(21);
+      // IMPROVEMENT #1: Auto-Center Roof on Map
+      // Zoom 20 allows seeing the whole roof context usually, 21 can be too close
+      setMapZoom(20); 
+      
+      if(mapInstanceRef.current) {
+          mapInstanceRef.current.setCenter(coords);
+          mapInstanceRef.current.setZoom(20);
+          mapInstanceRef.current.setTilt(0); // Force top-down
+      }
 
     } catch (err) {
       console.error('Geocoding error:', err);
@@ -748,55 +753,78 @@ export default function MeasurementPage() {
           editable: true,
           draggable: false,
           zIndex: 100,
-          map: map // Explicitly set the map here
+          map: map
         });
 
         const sectionId = `section-${Date.now()}`;
 
-        // Listen for path changes to update coordinates
-        window.google.maps.event.addListener(path, 'set_at', () => {
-          console.log("Path updated");
-          const newCoords = [];
-          for (let i = 0; i < path.getLength(); i++) {
-            const point = path.getAt(i);
-            newCoords.push({ lat: point.lat(), lng: point.lng() });
-          }
-          const newArea = window.google.maps.geometry.spherical.computeArea(path);
-          const newAreaSqFt = Math.round((newArea * 10.7639) * 100) / 100;
-          
-          setLiveMapSections(prev => prev.map(section => 
-            section.id === sectionId 
-              ? { 
-                  ...section, 
-                  coordinates: newCoords,
-                  flat_area_sqft: newAreaSqFt,
-                  adjusted_area_sqft: Math.round(newAreaSqFt * section.pitch_multiplier * 100) / 100
-                }
-              : section
-          ));
+        // IMPROVEMENT #2: Create Label Marker
+        const bounds = new window.google.maps.LatLngBounds();
+        path.forEach(p => bounds.extend(p));
+        const center = bounds.getCenter();
+
+        const labelMarker = new window.google.maps.Marker({
+            position: center,
+            map: map,
+            icon: {
+                path: window.google.maps.SymbolPath.CIRCLE,
+                scale: 0 // Invisible marker
+            },
+            label: {
+                text: `${Math.round(areaSqFt).toLocaleString()} sq ft`,
+                color: "white",
+                fontWeight: "bold",
+                fontSize: "14px",
+                className: "map-label-text" // Will likely need stroke via global css or accept basic look
+            },
+            zIndex: 1000
         });
 
-        window.google.maps.event.addListener(path, 'insert_at', () => {
-          console.log("Point inserted");
-          const newCoords = [];
-          for (let i = 0; i < path.getLength(); i++) {
-            const point = path.getAt(i);
-            newCoords.push({ lat: point.lat(), lng: point.lng() });
-          }
-          const newArea = window.google.maps.geometry.spherical.computeArea(path);
-          const newAreaSqFt = Math.round((newArea * 10.7639) * 100) / 100;
-          
-          setLiveMapSections(prev => prev.map(section => 
-            section.id === sectionId 
-              ? { 
-                  ...section, 
-                  coordinates: newCoords,
-                  flat_area_sqft: newAreaSqFt,
-                  adjusted_area_sqft: Math.round(newAreaSqFt * section.pitch_multiplier * 100) / 100
-                }
-              : section
-          ));
-        });
+        // Listen for path changes to update coordinates AND LABEL
+        const updateSectionLogic = () => {
+            console.log("Path updated - updating label and state");
+            const newCoords = [];
+            const newBounds = new window.google.maps.LatLngBounds();
+            
+            for (let i = 0; i < path.getLength(); i++) {
+                const point = path.getAt(i);
+                newCoords.push({ lat: point.lat(), lng: point.lng() });
+                newBounds.extend(point);
+            }
+            
+            const newArea = window.google.maps.geometry.spherical.computeArea(path);
+            const newAreaSqFt = Math.round((newArea * 10.7639) * 100) / 100;
+            
+            // Update Label Position and Text
+            labelMarker.setPosition(newBounds.getCenter());
+            
+            setLiveMapSections(prev => {
+                return prev.map(section => {
+                    if (section.id === sectionId) {
+                        const newAdjusted = Math.round(newAreaSqFt * section.pitch_multiplier * 100) / 100;
+                        
+                        // Update Label Text with Adjusted Area
+                        labelMarker.setLabel({
+                            text: `${Math.round(newAdjusted).toLocaleString()} sq ft`,
+                            color: "white",
+                            fontWeight: "bold",
+                            fontSize: "14px"
+                        });
+                        
+                        return { 
+                            ...section, 
+                            coordinates: newCoords,
+                            flat_area_sqft: newAreaSqFt,
+                            adjusted_area_sqft: newAdjusted
+                        };
+                    }
+                    return section;
+                });
+            });
+        };
+
+        window.google.maps.event.addListener(path, 'set_at', updateSectionLogic);
+        window.google.maps.event.addListener(path, 'insert_at', updateSectionLogic);
 
         const newSection = {
           id: sectionId,
@@ -807,23 +835,16 @@ export default function MeasurementPage() {
           adjusted_area_sqft: Math.round(areaSqFt * 100) / 100,
           color: sectionColor.stroke,
           coordinates: coordinates,
-          polygon: polygon
+          polygon: polygon,
+          labelMarker: labelMarker // Store marker ref
         };
 
-        // Store polygon reference FIRST
         polygonsRef.current.push(polygon);
         
-        // Then update state
-        setLiveMapSections(prev => {
-          console.log("Adding section to state, polygon visible:", polygon.getMap() !== null);
-          return [...prev, newSection];
-        });
+        setLiveMapSections(prev => [...prev, newSection]);
 
-        // Turn off drawing mode
         drawingManager.setDrawingMode(null);
         setIsDrawing(false);
-        
-        console.log("Polygon should now be visible on map");
       });
 
     } catch (err) {
@@ -1052,6 +1073,10 @@ export default function MeasurementPage() {
     if (section.polygon) {
       section.polygon.setMap(null);
     }
+    // Remove label
+    if (section.labelMarker) {
+        section.labelMarker.setMap(null);
+    }
     
     setLiveMapSections(prev => prev.filter(s => s.id !== sectionId));
     polygonsRef.current = polygonsRef.current.filter((_, i) => i !== sectionIndex);
@@ -1062,16 +1087,29 @@ export default function MeasurementPage() {
     const pitchOption = PITCH_OPTIONS.find(p => p.value === pitchValue);
     if (!pitchOption) return;
 
-    setLiveMapSections(prev => prev.map(section => 
-      section.id === sectionId
-        ? {
+    setLiveMapSections(prev => prev.map(section => {
+      if (section.id === sectionId) {
+          const newAdjusted = Math.round(section.flat_area_sqft * pitchOption.multiplier * 100) / 100;
+          
+          // IMPROVEMENT #2: Update Label Text on Pitch Change
+          if (section.labelMarker) {
+              section.labelMarker.setLabel({
+                  text: `${Math.round(newAdjusted).toLocaleString()} sq ft`,
+                  color: "white",
+                  fontWeight: "bold",
+                  fontSize: "14px"
+              });
+          }
+
+          return {
             ...section,
             pitch: pitchValue,
             pitch_multiplier: pitchOption.multiplier,
-            adjusted_area_sqft: Math.round(section.flat_area_sqft * pitchOption.multiplier * 100) / 100
-          }
-        : section
-    ));
+            adjusted_area_sqft: newAdjusted
+          };
+      }
+      return section;
+    }));
   }, []);
 
   const updateLiveMapSectionName = useCallback((sectionId, name) => {
@@ -3229,6 +3267,25 @@ export default function MeasurementPage() {
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-4 py-2 rounded-full text-sm shadow-lg font-semibold animate-pulse">
               👀 Inspection Mode - Drawings Hidden
             </div>
+          )}
+
+          {/* IMPROVEMENT #3: FIXED FLOATING HEADER */}
+          {measurementMode === 'detailed' && !isDrawingMode && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                  <div className="bg-slate-900/90 backdrop-blur-md text-white px-6 py-3 rounded-xl shadow-2xl border border-slate-700 flex items-center gap-4">
+                      <div className="flex flex-col items-center">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Roof Area</span>
+                          <span className="text-2xl font-black text-green-400 tabular-nums">
+                              {totalArea.toLocaleString()} <span className="text-sm font-normal text-slate-400">sq ft</span>
+                          </span>
+                      </div>
+                      <div className="h-8 w-px bg-slate-700 mx-2"></div>
+                      <div className="flex flex-col items-center">
+                           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Sections</span>
+                           <span className="text-xl font-bold text-white">{liveMapSections.length + capturedImages.reduce((sum, img) => sum + (img.sections?.length || 0), 0)}</span>
+                      </div>
+                  </div>
+              </div>
           )}
 
           {/* MAP - ALWAYS RENDERED AS BACKGROUND (z-0) */}
