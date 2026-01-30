@@ -187,7 +187,9 @@ export default function MeasurementPage() {
         const newPitch = Number(newPitchVal);
         setSections(prev => prev.map(s => {
             if (s.id === id) {
+                // Ensure we use the factor correctly
                 const factor = PITCH_FACTORS[newPitch] || 1.0;
+                // Use flatArea from state which should be the base unadjusted area
                 const newAdjusted = Math.round(s.flatArea * factor);
                 
                 // Update map label immediately
@@ -196,7 +198,8 @@ export default function MeasurementPage() {
                         text: `${newAdjusted}`,
                         color: "white", 
                         fontWeight: "bold", 
-                        fontSize: "14px"
+                        fontSize: "14px",
+                        className: 'map-label-text'
                     });
                 }
                 

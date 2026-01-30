@@ -344,7 +344,7 @@ export default function Homepage() {
             <Button
               size="lg"
               className="h-16 px-12 text-xl bg-white text-blue-600 hover:bg-blue-50 shadow-2xl font-bold"
-              onClick={() => navigate(createPageUrl("Start"))}
+              onClick={() => navigate(createPageUrl("AddressMethodSelector"))}
             >
               Start Free Measurement <ArrowRight className="w-6 h-6 ml-2" />
             </Button>
@@ -618,7 +618,7 @@ export default function Homepage() {
                 size="lg"
                 className="h-20 px-12 text-2xl bg-white text-blue-900 hover:bg-blue-50 shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105"
                 aria-label="Measure your roof for free now"
-                onClick={() => navigate(createPageUrl("Start"))}
+                onClick={() => navigate(createPageUrl("AddressMethodSelector"))}
               >
             <Zap className="w-8 h-8 mr-3" aria-hidden="true" />
             Measure My Roof FREE
@@ -640,7 +640,7 @@ export default function Homepage() {
             <div>
               <h4 className="font-bold mb-4 text-lg">For Homeowners</h4>
               <div className="space-y-2 text-sm text-slate-400">
-                <Link to={createPageUrl("Start")} className="block hover:text-white">Measure Your Roof</Link>
+                <Link to={createPageUrl("AddressMethodSelector")} className="block hover:text-white">Measure Your Roof</Link>
                 <Link to={createPageUrl("RooferDirectory")} className="block hover:text-white">Find Roofers</Link>
                 <Link to={createPageUrl("RoofingTypesIndex")} className="block hover:text-white">Roofing Materials</Link>
                 <Link to={createPageUrl("BlogHome")} className="block hover:text-white">Blog & Guides</Link>
