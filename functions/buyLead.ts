@@ -1,4 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import Stripe from 'npm:stripe@^14.14.0';
+
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
+  apiVersion: '2023-10-16',
+});
 
 Deno.serve(async (req) => {
     try {
@@ -27,7 +32,7 @@ Deno.serve(async (req) => {
         }
 
         // 2. Validate Purchase Eligibility
-        if (lead.purchase_count >= 3) {
+        if ((lead.purchase_count || 0) >= 3) {
             return Response.json({ error: 'Lead is no longer available (sold out)' }, { status: 400 });
         }
 
@@ -41,31 +46,53 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'You have already purchased this lead' }, { status: 400 });
         }
 
-        // 3. Process Purchase (In a real app, this would deduct credits/charge card)
-        // For now, we just record the transaction
+        // 3. Process Stripe Payment
+        const company = await base44.entities.Company.get(companyId);
+        if (!company || !company.stripe_customer_id) {
+            return Response.json({ error: 'No payment method found. Please add a payment method in Company Settings.' }, { status: 400 });
+        }
+
+        const purchasePrice = price || 25.00;
+        const amountInCents = Math.round(purchasePrice * 100);
+
+        try {
+            // Attempt to charge the customer's default payment method immediately
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amountInCents,
+                currency: 'usd',
+                customer: company.stripe_customer_id,
+                description: `Lead Purchase: ${lead.address || 'Lead #' + lead_id}`,
+                confirm: true,
+                off_session: true, // Indicates the customer is not on-session (using saved card)
+                automatic_payment_methods: {
+                    enabled: true,
+                    allow_redirects: 'never' // Fail if redirect is required (we want instant buy)
+                }
+            });
+
+            if (paymentIntent.status !== 'succeeded') {
+                return Response.json({ error: `Payment failed with status: ${paymentIntent.status}` }, { status: 400 });
+            }
+
+        } catch (stripeError) {
+            console.error('Stripe Payment Error:', stripeError);
+            return Response.json({ error: `Payment failed: ${stripeError.message}` }, { status: 400 });
+        }
         
-        // 4. Create LeadPurchase Record
+        // 4. Create LeadPurchase Record (Only reached if payment succeeds)
         await base44.entities.LeadPurchase.create({
             lead_id: lead_id,
             company_id: companyId,
             user_id: user.id,
             purchase_date: new Date().toISOString(),
-            price_paid: price || 25.00 // Default price if not provided
+            price_paid: purchasePrice
         });
 
-        // 5. Update Lead Count & Status
+        // 5. Update Lead Count
         const newCount = (lead.purchase_count || 0) + 1;
-        
-        // If this is the first purchase, add company to assigned_company_id (if we want to track primary owner)
-        // But for marketplace, we track via LeadPurchase. 
-        // We can leave assigned_company_id null or use it for the "first" buyer if needed.
-        // The requirement says "My Purchased Leads" checks LeadPurchase table, so we rely on that.
         
         await base44.entities.Lead.update(lead_id, {
             purchase_count: newCount,
-            // If sold out, maybe update status? Or just keep as New/Unpurchased until someone "works" it?
-            // Requirement says: "Once purchase_count reaches 3, lead no longer appears in Hot Leads"
-            // We handle visibility in frontend/query logic.
         });
 
         return Response.json({ success: true, new_count: newCount });

@@ -68,15 +68,23 @@ export default function RooferDashboard() {
         // 2. Load MARKETPLACE Leads (Hot Leads)
         // Criteria: purchase_count < 3 AND status is New/Unpurchased AND NOT purchased by me
         const marketLeads = allLeads.filter(l => {
+            // Strict check for availability
             const isAvailable = (l.purchase_count || 0) < 3;
-            const isNew = ['New', 'Unpurchased'].includes(l.lead_status);
-            const alreadyBought = myPurchasedIds.includes(l.id);
+            
+            // Allow more statuses in case it changed, but generally New/Unpurchased/Active
+            const isValidStatus = ['New', 'Unpurchased', 'Active'].includes(l.lead_status || 'New');
+            
+            // Critical: Check if already purchased
+            // Ensure ID comparison is safe (string vs string)
+            const alreadyBought = myPurchasedIds.some(pid => String(pid) === String(l.id));
+            
+            // Check if assigned (legacy check)
             const isMine = l.assigned_company_id === currentUser.company_id;
             
             // Admin sees everything available
             if (currentUser.role === 'admin') return true;
 
-            return isAvailable && isNew && !alreadyBought && !isMine;
+            return isAvailable && isValidStatus && !alreadyBought && !isMine;
         });
         setAvailableLeads(marketLeads);
         
