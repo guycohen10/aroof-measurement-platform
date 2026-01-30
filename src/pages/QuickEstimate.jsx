@@ -1,22 +1,57 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Loader2, ArrowLeft, Zap, CheckCircle } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { Loader2, ArrowLeft, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function QuickEstimate() {
     const [searchParams] = useSearchParams();
     const address = searchParams.get('address');
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
+    const [solarData, setSolarData] = useState(null);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        // Simulate loading Solar API data
-        const timer = setTimeout(() => {
-            setLoading(false);
-        }, 1500);
-        return () => clearTimeout(timer);
-    }, []);
+        const fetchData = async () => {
+            try {
+                // Try to get coords from session (set by AddressMethodSelector)
+                let lat = sessionStorage.getItem('homeowner_lat');
+                let lng = sessionStorage.getItem('homeowner_lng');
+
+                // If not in session, we would need to geocode (omitted for brevity, assuming flow from Selector)
+                if (!lat || !lng) {
+                    // Fallback: try to geocode or show error
+                    // For now, assume flow works
+                    console.warn("No coordinates found in session");
+                }
+
+                if (lat && lng) {
+                    const { data } = await base44.functions.invoke('getSolarData', { lat, lng });
+                    setSolarData(data);
+                } else {
+                     // Simulate or fail gracefully if no coords
+                     // In a real app, we'd use Geocoding API here too
+                     setError("Could not determine location coordinates.");
+                }
+            } catch (err) {
+                console.error("Solar API Failed:", err);
+                setError("Could not retrieve solar data.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [address]);
+
+    const getRoofArea = () => {
+        if (!solarData || !solarData.solarPotential || !solarData.solarPotential.wholeRoofStats) return null;
+        return Math.round(solarData.solarPotential.wholeRoofStats.areaMeters2 * 10.764); // Convert sq meters to sq ft
+    };
+
+    const roofArea = getRoofArea();
 
     if (loading) {
         return (
@@ -44,8 +79,18 @@ export default function QuickEstimate() {
                 <Card className="border-blue-200 bg-blue-50/50">
                     <CardContent className="p-8 text-center">
                         <p className="text-sm text-blue-600 font-bold uppercase mb-2">Estimated Roof Area</p>
-                        <p className="text-5xl font-black text-slate-900 mb-2">2,450 <span className="text-2xl font-normal text-slate-500">sq ft</span></p>
-                        <p className="text-xs text-slate-400">*Based on satellite footprint approximation</p>
+                        {roofArea ? (
+                            <>
+                                <p className="text-5xl font-black text-slate-900 mb-2">{roofArea.toLocaleString()} <span className="text-2xl font-normal text-slate-500">sq ft</span></p>
+                                <p className="text-xs text-slate-400">*Based on Google Solar API data</p>
+                            </>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center text-amber-600">
+                                <AlertTriangle className="w-8 h-8 mb-2" />
+                                <p className="text-lg font-bold">Data Not Available</p>
+                                <p className="text-sm">Could not retrieve solar data for this location.</p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 

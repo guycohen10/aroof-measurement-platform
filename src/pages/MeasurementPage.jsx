@@ -98,10 +98,8 @@ export default function MeasurementPage() {
                         google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
                             const id = Date.now();
                             
-                            // FIX #4: Distinct Colors
-                            const currentCount = sectionsRef.current.length;
-                            const colorIndex = currentCount % SECTION_COLORS.length;
-                            const color = SECTION_COLORS[colorIndex];
+                            // Set default color
+                            const color = '#3b82f6';
 
                             poly.setOptions({ 
                                 fillColor: color, 
@@ -182,24 +180,22 @@ export default function MeasurementPage() {
         } 
     };
 
-    // FIX #3: Recalculate area on pitch change
+    // Handle pitch change
     const handlePitchChange = (id, newPitchVal) => {
         const newPitch = Number(newPitchVal);
         setSections(prev => prev.map(s => {
             if (s.id === id) {
-                // Ensure we use the factor correctly
+                // Recalculate with new pitch
                 const factor = PITCH_FACTORS[newPitch] || 1.0;
-                // Use flatArea from state which should be the base unadjusted area
                 const newAdjusted = Math.round(s.flatArea * factor);
                 
-                // Update map label immediately
+                // Update label
                 if (s.label) {
                     s.label.setLabel({
                         text: `${newAdjusted}`,
                         color: "white", 
                         fontWeight: "bold", 
-                        fontSize: "14px",
-                        className: 'map-label-text'
+                        fontSize: "14px"
                     });
                 }
                 
@@ -258,15 +254,13 @@ export default function MeasurementPage() {
 
             await base44.entities.Lead.update(activeId, { lead_status: 'Contacted' });
 
-            // FIX #1: Robust Redirect
-            console.log("✅ Measurement created successfully:", m);
+            // Redirect to results
             console.log("✅ Redirecting to results with ID:", m.id);
-            toast.dismiss(); 
             toast.success("Done!");
             
             if (!m || !m.id) throw new Error("Created measurement has no ID");
 
-            // Navigate to results
+            // Direct navigation using router
             navigate(`/Results?measurementId=${m.id}`);
 
         } catch (e) {
