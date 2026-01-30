@@ -151,6 +151,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
+import MeasurementChoice from './pages/MeasurementChoice';
 import __Layout from './Layout.jsx';
 
 
@@ -259,6 +260,7 @@ export const PAGES = {
     "Visualizing": Visualizing,
     "WalletHistory": WalletHistory,
     "Windows": Windows,
+    "MeasurementChoice": MeasurementChoice,
 }
 
 export const pagesConfig = {
