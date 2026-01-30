@@ -87,8 +87,8 @@ export default function AddressMethodSelector() {
     sessionStorage.setItem('homeowner_address', address);
     sessionStorage.setItem('measurement_method', 'manual');
     
-    // Navigate to choice page
-    navigate(`/measurement-choice?address=${encodeURIComponent(address)}&homeowner=true`);
+    // Navigate immediately
+    navigate(`/measurementpage?address=${encodeURIComponent(address)}&homeowner=true`);
   };
 
   return (

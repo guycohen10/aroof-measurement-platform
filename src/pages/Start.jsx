@@ -51,8 +51,8 @@ export default function Start() {
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!address) return;
-        // Navigate to Measurement Choice Page
-        navigate(`/measurement-choice?address=${encodeURIComponent(address)}`);
+        // Navigate to Address Method Selector
+        navigate(`/addressmethodselector?address=${encodeURIComponent(address)}`);
     };
 
     return (
