@@ -152,6 +152,7 @@ import Visualizing from './pages/Visualizing';
 import WalletHistory from './pages/WalletHistory';
 import Windows from './pages/Windows';
 import MeasurementChoice from './pages/MeasurementChoice';
+import QuickEstimate from './pages/QuickEstimate';
 import __Layout from './Layout.jsx';
 
 
@@ -261,6 +262,7 @@ export const PAGES = {
     "WalletHistory": WalletHistory,
     "Windows": Windows,
     "MeasurementChoice": MeasurementChoice,
+    "QuickEstimate": QuickEstimate,
 }
 
 export const pagesConfig = {
