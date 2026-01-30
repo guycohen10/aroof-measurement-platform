@@ -2,12 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Plus, Zap, PenTool, Key, Loader2, Eraser } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Zap, PenTool, Key, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 
 const EDGE_TYPES = { 
     0: { name: 'Unassigned', color: '#94a3b8' }, 
@@ -24,73 +23,41 @@ const PITCH_FACTORS = {
 };
 
 export default function RooferMeasurement() {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
+    const leadId = searchParams.get('leadId')?.replace(/"/g, '');
     const navigate = useNavigate();
-
-    // 1. GET PARAMS
-    const rawAddress = searchParams.get('address');
-    const urlLeadId = searchParams.get('leadId')?.replace(/"/g, '');
 
     const [step, setStep] = useState('choice');
     const [loading, setLoading] = useState(true);
     const [lead, setLead] = useState(null);
-    const [mapAddress, setMapAddress] = useState(rawAddress ? decodeURIComponent(rawAddress) : '');
-
-    // Map State
     const [mapNode, setMapNode] = useState(null);
     const [mapInstance, setMapInstance] = useState(null);
     const [markerInstance, setMarkerInstance] = useState(null);
     const [drawingManager, setDrawingManager] = useState(null);
     const [sections, setSections] = useState([]);
-    const [areaLabels, setAreaLabels] = useState([]); // Store text markers
     
     // API & Fallback
     const [apiKey, setApiKey] = useState('');
     const [showKeyInput, setShowKeyInput] = useState(false);
 
-    // 2. SELF-CORRECTING INITIALIZATION
+    // 1. LOAD DATA
     useEffect(() => {
-        let isMounted = true;
-
-        const initialize = async () => {
-            // A. Handle Lead ID (if present)
-            if (urlLeadId) {
-                try {
-                    const l = await base44.entities.Lead.get(urlLeadId);
-                    if (isMounted) {
-                        setLead(l);
-                        if (l.address) setMapAddress(l.address);
-                        else if (l.property_address) setMapAddress(l.property_address);
-                    }
-                } catch (e) { 
-                    // *** THE FIX: CLEAN THE URL ***
-                    console.warn("Invalid Lead ID. Cleaning URL...");
-                    if (isMounted) {
-                        // Remove the bad ID from the URL bar without reloading
-                        const cleanUrl = new URL(window.location);
-                        cleanUrl.searchParams.delete('leadId');
-                        window.history.replaceState({}, '', cleanUrl);
-                        
-                        toast.error("Invalid Lead Link - Starting Fresh");
-                        // Fallback to address immediately
-                        if (rawAddress) setMapAddress(decodeURIComponent(rawAddress));
-                    }
-                }
-            } 
-            // B. No Lead ID? Just use the Address.
-            else if (rawAddress) {
-               setMapAddress(decodeURIComponent(rawAddress));
+        const load = async () => {
+            if(!leadId) return;
+            try {
+                const l = await base44.entities.Lead.get(leadId);
+                setLead(l);
+            } catch(e) {
+                console.error(e);
+                toast.error("Could not load lead data");
             }
         };
-        
-        initialize();
-        
-        return () => { isMounted = false; };
-    }, [urlLeadId, rawAddress]);
+        load();
+    }, [leadId]);
 
-    // 3. LOAD MAP (Depends on mapAddress)
+    // 2. LOAD MAP (No Auto-Timeout)
     useEffect(() => {
-        if (!mapNode || !mapAddress) return;
+        if (!mapNode || !lead?.address) return;
 
         const initMap = async () => {
             try {
@@ -101,7 +68,7 @@ export default function RooferMeasurement() {
                 await google.maps.importLibrary("geometry");
 
                 const geocoder = new Geocoder();
-                geocoder.geocode({ address: mapAddress }, (results, status) => {
+                geocoder.geocode({ address: lead.address }, (results, status) => {
                     if (status === 'OK' && results[0]) {
                         const map = new Map(mapNode, { 
                             center: results[0].geometry.location, 
@@ -131,28 +98,6 @@ export default function RooferMeasurement() {
 
                         google.maps.event.addListener(manager, 'polygoncomplete', (poly) => {
                             const area = google.maps.geometry.spherical.computeArea(poly.getPath()) * 10.764;
-                            const sectionId = Date.now();
-                            
-                            // --- LABEL (White Text) ---
-                            const bounds = new google.maps.LatLngBounds();
-                            poly.getPath().forEach(p => bounds.extend(p));
-                            
-                            const labelMarker = new google.maps.Marker({
-                                position: bounds.getCenter(),
-                                map: map,
-                                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 0 }, // Invisible icon
-                                label: {
-                                    text: `${Math.round(area).toLocaleString()} sq ft`,
-                                    color: "white",
-                                    fontWeight: "bold",
-                                    fontSize: "14px",
-                                    className: "map-label-shadow"
-                                }
-                            });
-                            
-                            setAreaLabels(prev => [...prev, { id: sectionId, marker: labelMarker }]);
-                            // ----------------------------------
-
                             const newEdges = [];
                             const path = poly.getPath().getArray();
                             
@@ -177,14 +122,13 @@ export default function RooferMeasurement() {
                                 });
                             }
                             
-                            setSections(p => [...p, { id: sectionId, area: Math.round(area), pitch: 6, edges: newEdges, polyInstance: poly }]);
+                            setSections(p => [...p, { id: Date.now(), area: Math.round(area), pitch: 6, edges: newEdges }]);
                             manager.setDrawingMode(null);
                         });
                         
                         setLoading(false); 
                     } else { 
                         setLoading(false);
-                        toast.error("Address not found on map");
                     }
                 });
             } catch(e) { console.error(e); }
@@ -204,9 +148,9 @@ export default function RooferMeasurement() {
         };
 
         loadScript(); 
-    }, [mapNode, mapAddress]);
+    }, [mapNode, lead]);
 
-    // 4. ACTIONS
+    // 3. ACTIONS
     const startQuick = () => {
         if(!mapInstance || !markerInstance) return;
         setStep('quick');
@@ -238,42 +182,28 @@ export default function RooferMeasurement() {
             total = sections.reduce((acc, s) => acc + (s.area * (PITCH_FACTORS[s.pitch]||1.1)), 0);
         }
 
-        toast.loading("Saving...");
+        toast.loading("Saving Result...");
         
+        // FIX: Send List DIRECTLY, not wrapped in object
+        // And ensure integer types for pitch and area
+        const sectionList = isQuick 
+            ? [{ pitch: 4, area: parseInt(total), edges: [] }] 
+            : sections.map(s => ({ pitch: parseInt(s.pitch), area: parseInt(s.area), edges: [] }));
+
         try {
-            // AUTO-CREATE LEAD IF MISSING
-            let activeLeadId = lead?.id;
-            
-            // If we don't have a lead ID (or the one we had was invalid/404), create a new one now
-            if (!activeLeadId) {
-                const newLead = await base44.entities.Lead.create({
-                    address: mapAddress,
-                    name: 'New Website Lead',
-                    email: 'placeholder@email.com', 
-                    phone: '0000000000',
-                    lead_status: 'New'
-                });
-                activeLeadId = newLead.id;
-                setLead(newLead);
-            }
-            
-            const sectionList = isQuick 
-                ? [{ pitch: 4, area: parseInt(total), edges: [] }] 
-                : sections.map(s => ({ pitch: parseInt(s.pitch), area: parseInt(s.area), edges: [] }));
-                
             await base44.entities.RoofMeasurement.create({
-                lead_id: activeLeadId,
+                lead_id: lead.id,
                 total_sqft: parseInt(total),
                 status: 'Complete', 
-                sections_data: sectionList
+                sections_data: sectionList // DIRECT LIST
             });
-            
-            await base44.entities.Lead.update(activeLeadId, { lead_status: 'Contacted' }); 
+            // Updating lead status
+            await base44.entities.Lead.update(lead.id, { lead_status: 'Contacted' }); // Using 'Contacted' as it's a valid enum value, 'Measured' is not.
             
             toast.dismiss();
             toast.success("Success!");
             
-            setTimeout(() => navigate(`/quotebuilder?leadId=${activeLeadId}`), 500);
+            setTimeout(() => navigate(`/quotebuilder?leadId=${lead.id}`), 500);
         } catch(e) { 
             console.error("Save Error:", e);
             toast.dismiss();
@@ -281,7 +211,7 @@ export default function RooferMeasurement() {
         }
     };
 
-    // 5. RENDER
+    // 4. RENDER
     if (showKeyInput) {
         return (
             <div className="flex h-screen items-center justify-center bg-slate-900 p-4">
@@ -309,32 +239,20 @@ export default function RooferMeasurement() {
         );
     }
 
-    // Calculate Total Live
-    const currentTotal = sections.reduce((acc, s) => acc + (s.area * (PITCH_FACTORS[s.pitch]||1.0)), 0);
-
     return (
         <div className="flex flex-col h-screen w-full relative overflow-hidden">
             {/* NAVIGATION BAR */}
             <div className="absolute top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm shadow-sm h-16 flex items-center px-4 justify-between">
                 <Button variant="ghost" onClick={() => navigate('/rooferdashboard')}><ArrowLeft className="w-4 h-4 mr-2"/> Exit</Button>
-                <div className="font-bold text-slate-800">{mapAddress || 'Loading Address...'}</div>
+                <div className="font-bold text-slate-800">{lead?.address || 'Loading Address...'}</div>
                 <Button variant="ghost" size="icon" onClick={() => setShowKeyInput(true)} title="Fix Map Key">
                     <Key className="w-4 h-4 text-slate-400"/>
                 </Button>
             </div>
 
             {/* MAP CONTAINER */}
-            <div className="flex-1 relative pt-16 h-screen w-full">
-                <div ref={setMapNode} className="w-full h-full bg-slate-200" />
-                
-                {/* TOP FLOATING RESULT (HEADS UP DISPLAY) */}
-                {step === 'detailed' && (
-                    <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-10 bg-slate-900 text-white px-6 py-2 rounded-full shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-                        <span className="text-sm font-medium text-slate-400">Total Area:</span>
-                        <span className="text-xl font-bold">{Math.round(currentTotal).toLocaleString()} sq ft</span>
-                        {sections.length > 0 && <Badge variant="secondary" className="bg-green-500 text-white border-0">{sections.length} Sections</Badge>}
-                    </div>
-                )}
+            <div className="flex-1 relative w-full h-full bg-slate-100">
+                <div ref={setMapNode} className="w-full h-full" />
             </div>
 
             {/* LOADING OVERLAY */}
@@ -361,40 +279,28 @@ export default function RooferMeasurement() {
                 </div>
             )}
 
-            {/* SIDEBAR (Detailed Mode) - SIMPLIFIED */}
+            {/* SIDEBAR (Detailed Mode) */}
             {step === 'detailed' && (
-                <div className="w-72 bg-white border-r z-40 shadow-xl absolute left-0 bottom-0 top-16 flex flex-col transition-all">
-                    <div className="p-4 border-b bg-slate-50">
-                        <Button className="w-full bg-blue-600 shadow-blue-200 shadow-lg" onClick={() => drawingManager?.setDrawingMode('polygon')}>
-                            <Plus className="w-4 h-4 mr-2"/> Draw Section
-                        </Button>
+                <div className="w-80 bg-white border-r z-40 shadow-xl absolute left-0 bottom-0 top-16 flex flex-col">
+                    <div className="p-4 border-b bg-blue-50">
+                        <h3 className="font-bold text-blue-900">Measurements</h3>
+                        <p className="text-xs text-blue-600">Total: {Math.round(sections.reduce((a,b)=>a+b.area,0))} sq ft</p>
                     </div>
-                    <div className="flex-1 p-3 space-y-3 overflow-y-auto">
-                        {sections.length === 0 && <div className="text-center text-slate-400 text-sm mt-10 p-4">Draw the roof outline on the map to begin.</div>}
-                        
+                    <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+                        <Button className="w-full bg-blue-600" onClick={() => drawingManager?.setDrawingMode('polygon')}><Plus className="w-4 h-4 mr-2"/> Draw Section</Button>
                         {sections.map((s, i) => (
-                            <Card key={s.id} className="p-3 border-l-4 border-blue-500 shadow-sm">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="font-bold text-sm">Section {i+1}</span>
-                                    <span className="text-xs font-mono bg-slate-100 px-1 rounded">{s.area} sqft</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <label className="text-xs text-slate-500">Pitch:</label>
-                                    <Select value={s.pitch.toString()} onValueChange={v => {
-                                        setSections(prev => prev.map(sec => sec.id === s.id ? {...sec, pitch: Number(v)} : sec));
-                                    }}>
-                                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                        <SelectContent>{[0,4,5,6,7,8,9,10,12].map(p => <SelectItem key={p} value={p.toString()}>{p}/12 Pitch</SelectItem>)}</SelectContent>
-                                    </Select>
-                                </div>
+                            <Card key={s.id} className="p-3 border-l-4 border-blue-500">
+                                <div className="font-bold text-sm mb-2">Section {i+1} ({s.area} sq ft)</div>
+                                <Select value={s.pitch.toString()} onValueChange={v => {
+                                    setSections(prev => prev.map(sec => sec.id === s.id ? {...sec, pitch: Number(v)} : sec));
+                                }}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>{[0,4,5,6,7,8,9,10,12].map(p => <SelectItem key={p} value={p.toString()}>{p}/12 Pitch</SelectItem>)}</SelectContent>
+                                </Select>
                             </Card>
                         ))}
                     </div>
-                    <div className="p-4 border-t bg-white">
-                        <Button className="w-full bg-green-600 h-12 text-lg font-bold shadow-green-200 shadow-lg" onClick={() => saveMeasurement(0, false)}>
-                            <Save className="w-5 h-5 mr-2"/> Finish & Quote
-                        </Button>
-                    </div>
+                    <div className="p-4 border-t"><Button className="w-full bg-green-600" onClick={() => saveMeasurement(0, false)}><Save className="w-4 h-4 mr-2"/> Finish & Save</Button></div>
                 </div>
             )}
         </div>
