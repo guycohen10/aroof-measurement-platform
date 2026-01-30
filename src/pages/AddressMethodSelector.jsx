@@ -96,7 +96,7 @@ export default function AddressMethodSelector() {
     sessionStorage.setItem('homeowner_address', address);
     
     if (type === 'quick') {
-        navigate(`/quick-estimate?address=${encodeURIComponent(address)}`);
+        navigate(`/QuickEstimate?address=${encodeURIComponent(address)}`);
     } else {
         sessionStorage.setItem('measurement_method', 'manual');
         navigate(`/measurementpage?address=${encodeURIComponent(address)}&homeowner=true`);

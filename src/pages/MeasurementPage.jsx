@@ -266,10 +266,8 @@ export default function MeasurementPage() {
             
             if (!m || !m.id) throw new Error("Created measurement has no ID");
 
-            // Add delay to ensure DB propagation and avoid race conditions
-            setTimeout(() => {
-                window.location.href = `/results?measurementId=${m.id}`;
-            }, 100);
+            // Navigate to results
+            navigate(`/Results?measurementId=${m.id}`);
 
         } catch (e) {
             console.error("❌ Measurement save failed:", e);
