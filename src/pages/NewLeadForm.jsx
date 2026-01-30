@@ -67,7 +67,9 @@ export default function NewLeadForm() {
                 email: form.email,
                 phone: form.phone,
                 address: form.address,
-                lead_status: 'New'
+                lead_status: 'New',
+                purchase_count: 0,
+                assigned_company_id: null // Explicitly null for marketplace
             });
             
             // 2. SAVE ID FOR SESSION

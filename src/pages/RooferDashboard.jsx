@@ -18,12 +18,13 @@ export default function RooferDashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [leads, setLeads] = useState([]);
+  const [myLeads, setMyLeads] = useState([]);
+  const [availableLeads, setAvailableLeads] = useState([]);
   const [stats, setStats] = useState({ revenue: 0, activeJobs: 0, winRate: 0 });
   const [statusFilter, setStatusFilter] = useState('all');
   const [appointments, setAppointments] = useState([]);
-  const [hotLeads, setHotLeads] = useState([]);
   const [showAIEstimator, setShowAIEstimator] = useState(false);
+  const [purchasingId, setPurchasingId] = useState(null);
   
   // Onboarding State
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -46,9 +47,38 @@ export default function RooferDashboard() {
 
       // Only load leads if we are the owner
       if (currentUser?.aroof_role === 'external_roofer' || currentUser?.role === 'admin') {
-        const leadData = await base44.entities.Lead.list();
-        const filtered = leadData.filter(l => l.assigned_company_id === currentUser.company_id);
-        setLeads(filtered || []);
+        // 1. Load MY Purchased Leads
+        // Fetch purchase records for this company
+        let myPurchasedIds = [];
+        if (currentUser.company_id) {
+            const purchases = await base44.entities.LeadPurchase.filter({ company_id: currentUser.company_id });
+            myPurchasedIds = purchases.map(p => p.lead_id);
+        }
+
+        // Fetch ALL leads (optimize later with more specific queries if needed)
+        const allLeads = await base44.entities.Lead.list('-created_date', 50);
+
+        // Filter: My Leads (purchased OR assigned directly)
+        const myLeadsList = allLeads.filter(l => 
+            myPurchasedIds.includes(l.id) || 
+            l.assigned_company_id === currentUser.company_id
+        );
+        setMyLeads(myLeadsList);
+
+        // 2. Load MARKETPLACE Leads (Hot Leads)
+        // Criteria: purchase_count < 3 AND status is New/Unpurchased AND NOT purchased by me
+        const marketLeads = allLeads.filter(l => {
+            const isAvailable = (l.purchase_count || 0) < 3;
+            const isNew = ['New', 'Unpurchased'].includes(l.lead_status);
+            const alreadyBought = myPurchasedIds.includes(l.id);
+            const isMine = l.assigned_company_id === currentUser.company_id;
+            
+            // Admin sees everything available
+            if (currentUser.role === 'admin') return true;
+
+            return isAvailable && isNew && !alreadyBought && !isMine;
+        });
+        setAvailableLeads(marketLeads);
         
         // Mock Stats for the dashboard
         setStats({ revenue: 125000, activeJobs: 4, winRate: 35 });
@@ -63,23 +93,37 @@ export default function RooferDashboard() {
         } catch (e) {
           console.log("Appointments not available");
         }
-
-        // Load hot marketplace leads
-        try {
-          const marketplaceLeads = await base44.entities.MarketplaceLead.filter({
-            status: 'available'
-          });
-          // Get 3 random leads
-          const shuffled = marketplaceLeads.sort(() => 0.5 - Math.random()).slice(0, 3);
-          setHotLeads(shuffled);
-        } catch (e) {
-          console.log("Hot leads not available");
-        }
       }
     } catch (err) {
       console.error("Dashboard Load Error:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBuyLead = async (leadId, price) => {
+    if (!user.company_id) {
+        alert("Please complete your company profile first.");
+        return;
+    }
+    
+    if(!window.confirm(`Purchase this lead for $${price}?`)) return;
+
+    setPurchasingId(leadId);
+    try {
+        const res = await base44.functions.invoke('buyLead', { lead_id: leadId, price });
+        
+        if (res.data && res.data.success) {
+            // Refresh data to move lead from Market to My Leads
+            await loadData();
+        } else {
+            alert("Purchase failed: " + (res.data?.error || "Unknown error"));
+        }
+    } catch (err) {
+        console.error("Purchase error:", err);
+        alert("Failed to purchase lead.");
+    } finally {
+        setPurchasingId(null);
     }
   };
 
@@ -249,15 +293,15 @@ export default function RooferDashboard() {
 
               <section>
                 <div className="mb-4">
-                  <h2 className="text-lg font-bold text-gray-700 mb-3">🚀 Leads Pipeline</h2>
+                  <h2 className="text-lg font-bold text-gray-700 mb-3">🚀 My Purchased Leads</h2>
                   {/* Status Filter Bar */}
                   <div className="bg-white rounded shadow p-3 flex gap-2 flex-wrap border-b">
                     {[
-                      { key: 'all', label: 'All', count: leads.length },
-                      { key: 'New', label: 'New', count: leads.filter(l => l.lead_status === 'New').length },
-                      { key: 'Contacted', label: 'Contacted', count: leads.filter(l => l.lead_status === 'Contacted').length },
-                      { key: 'Quoted', label: 'Quoted', count: leads.filter(l => l.lead_status === 'Quoted').length },
-                      { key: 'Sold', label: 'Sold', count: leads.filter(l => l.lead_status === 'Sold').length }
+                      { key: 'all', label: 'All', count: myLeads.length },
+                      { key: 'New', label: 'New', count: myLeads.filter(l => l.lead_status === 'New').length },
+                      { key: 'Contacted', label: 'Contacted', count: myLeads.filter(l => l.lead_status === 'Contacted').length },
+                      { key: 'Quoted', label: 'Quoted', count: myLeads.filter(l => l.lead_status === 'Quoted').length },
+                      { key: 'Sold', label: 'Sold', count: myLeads.filter(l => l.lead_status === 'Sold').length }
                     ].map(status => (
                       <button
                         key={status.key}
@@ -275,8 +319,8 @@ export default function RooferDashboard() {
                 </div>
 
                 <div className="bg-white rounded shadow overflow-hidden">
-                  {leads.length === 0 ? (
-                    <div className="p-10 text-center text-gray-400">No active leads.</div>
+                  {myLeads.length === 0 ? (
+                    <div className="p-10 text-center text-gray-400">You haven't purchased any leads yet.</div>
                   ) : (
                     <table className="w-full text-left">
                       <thead className="bg-gray-50 text-xs uppercase text-gray-500">
@@ -287,7 +331,7 @@ export default function RooferDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {leads
+                        {myLeads
                           .filter(l => statusFilter === 'all' || l.lead_status === statusFilter)
                           .slice(0, 5)
                           .map(lead => (
@@ -303,7 +347,7 @@ export default function RooferDashboard() {
                                   to={createPageUrl(`CustomerDetail?id=${lead.id}`)} 
                                   className="text-blue-600 font-bold text-sm hover:underline"
                                 >
-                                  View
+                                  Manage
                                 </Link>
                               </td>
                             </tr>
@@ -347,37 +391,52 @@ export default function RooferDashboard() {
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Flame className="w-5 h-5 text-orange-500" />
-                  <h2 className="text-lg font-bold text-gray-700">Hot Leads</h2>
+                  <h2 className="text-lg font-bold text-gray-700">Hot Market Leads</h2>
                 </div>
                 <div className="space-y-2">
-                  {hotLeads.length === 0 ? (
+                  {availableLeads.length === 0 ? (
                     <Card>
                       <CardContent className="p-4 text-center text-gray-400 text-sm">
-                        No hot leads available
+                        No new leads available right now.
                       </CardContent>
                     </Card>
                   ) : (
-                    hotLeads.map(lead => (
+                    availableLeads.map(lead => (
                       <Card key={lead.id} className="border-l-4 border-orange-500 hover:shadow-md transition-all">
                         <CardContent className="p-4">
                           <div className="flex justify-between items-start gap-2">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                                <span className="font-bold text-sm text-gray-900">{lead.zip_code}</span>
+                                <span className="font-bold text-sm text-gray-900 truncate">
+                                    {/* Obfuscate address for preview */}
+                                    {lead.address ? lead.address.split(',')[1] || 'Local Area' : 'Local Area'}
+                                </span>
                               </div>
-                              <p className="text-xs text-gray-600 mb-2">{lead.service_needed}</p>
+                              <p className="text-xs text-gray-600 mb-2">New Roof / Repair</p>
                               <div className="flex items-baseline gap-1">
-                                <span className="text-lg font-bold text-green-600">${lead.price.toFixed(2)}</span>
-                                <span className="text-xs text-gray-500">lead</span>
+                                <span className="text-lg font-bold text-green-600">$25.00</span>
+                                <span className="text-xs text-gray-500">/ lead</span>
+                              </div>
+                              <div className="text-[10px] text-red-500 font-bold mt-1">
+                                {3 - (lead.purchase_count || 0)} spots left!
                               </div>
                             </div>
-                            <Link to={createPageUrl('RooferBrowseLeads')}>
-                              <Button size="sm" variant="outline" className="gap-1 flex-shrink-0">
-                                <ExternalLink className="w-3 h-3" />
-                                View
-                              </Button>
-                            </Link>
+                            <Button 
+                                size="sm" 
+                                className="gap-1 flex-shrink-0 bg-green-600 hover:bg-green-700 text-white"
+                                onClick={() => handleBuyLead(lead.id, 25.00)}
+                                disabled={purchasingId === lead.id}
+                            >
+                                {purchasingId === lead.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                    <>
+                                        <DollarSign className="w-3 h-3" />
+                                        Buy
+                                    </>
+                                )}
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
@@ -385,6 +444,7 @@ export default function RooferDashboard() {
                   )}
                 </div>
               </div>
+            </div>
             </div>
           </div>
           {/* AI Estimator Modal */}
